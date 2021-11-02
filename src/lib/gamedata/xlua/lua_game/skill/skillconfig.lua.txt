@@ -1,0 +1,273 @@
+--
+-- author: haosun
+-- date  : 2018-11-11 14:03:26
+-- brief :
+--
+
+Skill = Skill or {}
+
+function Skill:_LoadConfig()
+    -- 外围被动技能表
+    self:__LoadDeskillCfg()
+
+    -- 战斗被动技能表
+    self:__LoadFightDeskillCfg()
+
+    -- 魔女技能
+    self:__LoadHeroSkillCfg()
+
+    --魔女技能升级消耗
+    self:_LoadSkillCostCfg()
+end
+
+--
+-- Brief：加载被动技能表(外围使用)
+--
+function Skill:__LoadDeskillCfg()
+    self._deskills = {}
+    local cfgs = CfgLoader:LoadCfg("skillpass_out")
+    for _, v in pairs(cfgs) do
+        v.desc = Language:GetTxtBuyId(v.desc)
+        self._deskills[tonumber(v.id)] = v
+    end
+end
+
+--
+-- Brief：加载被动技能表(战斗使用)
+--
+function Skill:__LoadFightDeskillCfg()
+    local function OldTableUsed(id)
+        local inSuit = id >= 4000000 and id < 5000000
+        local inNight = id >= 80000000
+        return inSuit or inNight
+    end
+
+    self._fightskills = {}
+    local cfgs = CfgLoader:LoadCfg("fight_effect2")
+    local id = 0
+    for k, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        if(OldTableUsed) then
+            v.desc = Language:GetTxtBuyId(v.desc);
+            self._fightskills[id] = v
+        end
+    end
+end
+
+function Skill:__LoadHeroSkillCfg()
+    self._heroskills = {}
+    local skills    = CfgLoader:LoadCfgTable("witch_skill")
+    local id = 0
+    for _, v in pairs(skills) do
+        id = tonumber(v.ID)
+        self._heroskills[id] = {
+            id          = v.ID,
+            witch_id    = tonumber(v.witch_id),
+            cfgid       = tonumber(v.id),
+            star        = tonumber(v.Skill_star),
+            --name        = Language:GetTxtBuyId(v.skill_name),
+            --desc        = Language:GetTxtBuyId(v.SkillInfo),
+            --icon        = "source_icon/skill/" .. v.skill_icon,
+            playtype    = tonumber(v.playType),
+            show        = v.Show == "1",
+            lvcost      = v.Materials,
+            barrage     = v.Barrage,
+            barragenum  = tonumber(v.barrage_num),
+            playcd      = tonumber(v.skillCD),
+            cd_times    = 0,
+            gf_cost     = tonumber(v.skill_cost), --神火消耗
+            showHurt    = tonumber(v.showRate),
+            showDot     = tonumber(v.DotshowRate or -1),
+            hurtInfo    = -1,
+            orgHurtRate = 1, -- tonumber(v.HurtRate),
+            hurtRate    = 1, -- tonumber(v.HurtRate),
+            -- PlayEffect  = tonumber(v.screenEffect_Play),
+            -- HitEffect   = tonumber(v.HitEffect),
+            -- HitEffectPosition = tonumber(v.HitEffectPosition),
+            -- PlaySound   = v.PlaySound,
+            -- HitSound    = v.HitSound,
+            -- SubSkills = {},
+            -- AttachEffects = {},
+            -- DeSkills = {},
+            maxlevel    = tonumber(v.maxlevel),
+            up_rate     = tonumber(v.UpRaate), --升级系数
+            skillType   = Skill.SKILL_TYPE_NORMAL,
+            isRealHurt  = false,
+        }
+        if v.skill_hurt_num ~= "-1" then
+            local tbl = lua_str_split(v.skill_hurt_num, "|")
+            self._heroskills[id].hurtInfo = {
+                count   = tonumber(tbl[1]),
+                stime   = tonumber(tbl[2]),
+            }
+        end
+        if v.LesrAttackInfo ~= "-1" then
+            local tbl = lua_str_split(v.LesrAttackInfo, "|")
+            self._heroskills[id].lesr_info = {tonumber(tbl[1]), tonumber(tbl[2])}
+        end
+        if  self._heroskills[id].playtype == Skill.TYPE_KILL  then
+            self._heroskills[id].skillType = Skill.SKILL_TYPE_SPECIAL
+        elseif  self._heroskills[id].playtype == Skill.TYPE_XULI  then
+            self._heroskills[id].skillType = Skill.SKILL_TYPE_XULI
+        end
+    end
+
+    self._gHeroSkills = CfgLoader:GenGroupConfig2(self._heroskills,"cfgid","star")
+    self._sortSkill = {}
+
+
+    self._heroSkillShows = {}
+    local skillShows    = CfgLoader:LoadCfgTable("witch_skill_show")
+    for _, v in pairs(skillShows) do
+        id = tonumber(v.ID)
+        self._heroSkillShows[id] = {
+            id          = v.ID,
+            witch_id    = tonumber(v.witch_id),
+            cfgid       = tonumber(v.id),
+            star        = tonumber(v.Skill_star),
+            name        = Language:GetTxtBuyId(v.skill_name),
+            desc        = Language:GetTxtBuyId(v.SkillInfo),
+            icon        = "source_icon/skill/" .. v.skill_icon,
+        }
+    end
+
+    self._gHeroSkillShows = CfgLoader:GenGroupConfig2(self._heroSkillShows,"cfgid","star")
+    self._sortSkillShow = {}
+end
+
+function Skill:GetHeroSkillCfg(cfgid, star)
+    if cfgid == nil then return end
+
+    if star == nil then star = 1 end
+
+    if self._gHeroSkills[cfgid] == nil then
+        CS.Logger.LogError("!!!!!!!!!!!!!!!!!!!!!!![witch_skill]配置表配错了 id: " .. cfgid)
+        return
+    end
+    if self._sortSkill[cfgid] == nil then
+        self._sortSkill[cfgid] = {}
+        for _, v in pairs(self._gHeroSkills[cfgid]) do
+            table.insert(self._sortSkill[cfgid], v)
+        end
+        table.sort(self._sortSkill[cfgid], function (a,b)
+             return a.star > b.star
+        end)
+    end
+    for _, v in pairs(self._sortSkill[cfgid]) do
+        if star >= tonumber(v.star) then
+            return v
+        end
+    end
+end
+
+function Skill:GetHeroSkillCfgAny(cfgid)
+    local idx = _G.next(self._gHeroSkills[cfgid])
+    if(idx == nil) then
+        return nil
+    end
+
+    return self._gHeroSkills[cfgid][idx]
+end
+
+function Skill:GetHeroSkillShowCfg(cfgid, star)
+    if cfgid == nil then return end
+
+    if star == nil then star = 1 end
+
+    if self._gHeroSkillShows[cfgid] == nil then
+        CS.Logger.LogError("!!!!!!!!!!!!!!!!!!!!!!![witch_skill_show]配置表配错了 id: " .. cfgid)
+        return
+    end
+    if self._sortSkillShow[cfgid] == nil then
+        self._sortSkillShow[cfgid] = {}
+        for _, v in pairs(self._gHeroSkillShows[cfgid]) do
+            table.insert(self._sortSkillShow[cfgid], v)
+        end
+        table.sort(self._sortSkillShow[cfgid], function (a,b)
+             return a.star > b.star
+        end)
+    end
+    for _, v in pairs(self._sortSkillShow[cfgid]) do
+        if star >= tonumber(v.star) then
+            return v
+        end
+    end
+end
+
+function Skill:GetDeskillCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._deskills[cfgid] == nil then
+        CS.Logger.LogError("out deskill config error! id: {0}", cfgid)
+    end
+    return self._deskills[cfgid]
+end
+
+function Skill:GetFightDeskillCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._fightskills[cfgid] == nil then
+        CS.Logger.LogError("fight deskill config error! id: {0}", cfgid)
+    end
+    return self._fightskills[cfgid]
+end
+
+function Skill:GetAllDeSkillCfg()
+    return self._fightskills
+end
+
+--
+-- Brief: 获取被动技能
+-- Param: str(type|id)
+--
+function Skill:GetCfgByTypeIdStr(str)
+    local tbl = lua_str_split(str, "|")
+    if tbl[1] == "1" then
+        return self:GetDeskillCfg(tbl[2])
+    else
+        return self:GetFightDeskillCfg(tbl[2])
+    end
+end
+
+function Skill:GetHeroSkills()
+    return self._heroskills
+end
+
+function Skill:_LoadSkillCostCfg()
+    self._skillCostCfg = {}
+    self._skillLimit = {}
+    local cfgs = CfgLoader:LoadCfg("SkillLevel")
+    self._skillCostCfg = CfgLoader:GenGroupConfig(cfgs, "skill_type", "level")
+
+    for k, v in pairs(cfgs) do
+        local type = tonumber(v.skill_type)
+        if not self._skillLimit[type] then
+            self._skillLimit[type] = {}
+        end
+
+        local skillLv = tonumber(v.level)
+        if not self._skillLimit[type][skillLv] then
+            self._skillLimit[type][skillLv] = tonumber(v.Hero_level) -- 技能升到skilllv, 需要满足魔女达到v.Hero_level
+        end
+    end
+end
+
+function Skill:GetSKillCost(skillType, level)
+    skillType = tonumber(skillType)
+    if self._skillCostCfg[skillType] == nil then
+        CS.Logger.LogError(" skillcost config error! skillType: {0}", skillType)
+        return
+    end
+    if self._skillCostCfg[skillType][level] == nil then
+        CS.Logger.LogError(" skillcost config error! level: {0}", level)
+        return
+    end
+    return self._skillCostCfg[skillType][level]
+end
+
+function Skill:GetHeroChangeSkillIcon(skillid)
+    local grp = self._gHeroSkillShows[skillid]
+    if grp == nil or grp[1] == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!!!![witch_skill_show]配置表出错.skillid = " .. skillid)
+        return -1
+    end
+    return grp[1].icon .. "c"
+end

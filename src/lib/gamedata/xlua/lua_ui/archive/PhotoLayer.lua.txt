@@ -1,0 +1,195 @@
+---
+--- @Author:Administrator SetNativeSize();
+--- @Create Time:2020-08-04 16:02:53
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PhotoLayer = class("PhotoLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+
+local oneLoadNum = 1;
+
+--构造函数
+function PhotoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_PhotoLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._bgData = {
+        showEffect  = true,
+        bgType      = BackBgPath.DEF,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function PhotoLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function PhotoLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--退出按钮事件
+function PhotoLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function PhotoLayer:Init()
+    self._curAtkType = nil;
+    self._haveColor = CS.UnityEngine.Color(1,1,1,0);
+    self._unHaveColor = CS.UnityEngine.Color(54/255,54/255,54/255,0);
+    self._photoItems = {};
+    self:InitUI();
+end
+
+--初始化UI
+function PhotoLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transPhotoBg = self.layer:Get("container/trans_photo_bg");
+    self._transTogBg = self.layer:Get("container/tog_bg");
+	--@TransformEnd
+
+	self._objPhotoItem = self.layer:Get("container/item_hide/obj_photo_item").gameObject;
+    self._objTogItem = self.layer:Get("container/item_hide/item_tog").gameObject;
+    --@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._togItems = {};
+    for i, v in ipairs(Hero.PhotoAtk) do
+        self._togItems[v] = self:NewTogItem(CS.UnityEngine.GameObject.Instantiate(self._objTogItem,self._transTogBg));
+        Hero:SetHeroAtkType(self._togItems[v].imgIcon,v);
+        self._togItems[v].atkType = v;
+    end
+end
+
+--显示UI
+function PhotoLayer:show(callback)
+    self:showLayer();
+    self.callback = callback;
+end
+
+function PhotoLayer:showLayer()
+    self._togItems[1].tog.isOn = true;
+    CBaseLayer.showLayer(self);
+end
+
+function PhotoLayer:onUpdate(dt)
+    if(self._curShowIndex == nil or self._curLoadNum <= 0 or self._curShowIndex >= self._maxShowNum)then
+        return;
+    end
+    for i = 1, self._curLoadNum do
+        self._curShowIndex = self._curShowIndex + 1;
+        self:SetItemUI(self._curShowIndex);
+    end
+    self:UpdatePhotos();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function PhotoLayer:OnTogClick(isOn,atkType)
+    if(isOn)then
+        if(self._curAtkType == atkType)then
+            return;
+        end
+        self._curAtkType = atkType;
+        self:UpdateData();
+    end
+end
+
+--@MToggleFunctionEnd
+
+--释放
+function PhotoLayer:onExit()
+
+	self._objPhotoItem = nil;
+	self._transPhotoBg = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function PhotoLayer:UpdateData()
+    self._curShowIndex = 0;
+    self._ids = Archive:GetPhotoIdsByAtkType(self._curAtkType);
+    self:UpdatePhotos();
+end
+
+function PhotoLayer:UpdatePhotos()
+    self._maxShowNum = 0;
+    if(#self._photoItems > #self._ids)then
+        self._maxShowNum = #self._photoItems;
+    else
+        self._maxShowNum = #self._ids;
+    end
+    local tempNum = self._maxShowNum - self._curShowIndex;
+    if(tempNum >= oneLoadNum)then
+        self._curLoadNum = oneLoadNum;
+    else
+        self._curLoadNum = tempNum;
+    end
+end
+
+function PhotoLayer:SetItemUI(index)
+    if(self._photoItems[index] == nil)then
+        self._photoItems[index] = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objPhotoItem,self._transPhotoBg));
+        self._photoItems[index].img = self._photoItems[index].transform:GetComponent("Image");
+        self._photoItems[index].rect =self._photoItems[index]:GetComponent("RectTransform");
+    end
+    self._photoItems[index].obj:SetVisible(self._ids[index] ~= nil);
+    if(self._ids[index] ~= nil)then
+        local hero = Hero:GetHero(self._ids[index].id);
+        Archive:SetPhotoImage(self._photoItems[index].img,self._ids[index].id);
+        self._photoItems[index].img:SetNativeSize();
+        Archive:SetPhotoPos(self._photoItems[index].transform, Hero.BOOK_HANDBOOK ,self._ids[index].id)
+        if(hero.owner)then
+            self._photoItems[index].img.color = self._haveColor;
+        else
+            self._photoItems[index].img.color = self._unHaveColor;
+        end
+        local ScaleNum = Hero.BOOK_INFO[hero.id][1].scale
+        self._photoItems[index].transform:SetScale(ScaleNum * 1.5,ScaleNum * 1.5,ScaleNum * 1.5);
+        self._photoItems[index].transform:DOScale(ScaleNum,0.2);
+        self._photoItems[index].img:DOFade(1, 0.5);
+    end
+end
+
+function PhotoLayer:NewTogItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.tog = cls.transform:GetComponent("MToggle");
+    cls.tog.onValueChanged:AddListener(function (isOn)
+        self:OnTogClick(isOn,cls.atkType);
+    end);
+    return cls;
+end
+
+return PhotoLayer;

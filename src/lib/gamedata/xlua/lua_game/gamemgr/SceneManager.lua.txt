@@ -1,0 +1,56 @@
+--
+-- author: haosun
+-- date  : 2020-10-09 14:53:34
+-- brief : 
+--
+SceneManager = SceneManager or {}
+
+local _instance = nil
+
+function SceneManager:Ctor()
+    _instance = CS.SceneMgr.Instance
+end
+
+function SceneManager:LoadSceneSingle(sceneBuildIndex)
+    AppMgr:LogInfo("LUA内存回收前:"..collectgarbage("count"))
+    collectgarbage("collect")
+    AppMgr:LogInfo("LUA内存回收后:"..collectgarbage("count"))
+    _instance:LoadSceneSingle(sceneBuildIndex)
+end
+
+function SceneManager:LoadSceneAdditive(sceneBuildIndex, act)
+    _instance:LoadSceneAdditive(sceneBuildIndex, act)
+end
+
+function SceneManager:LoadSceneAsyncSingle(sceneBuildIndex, act)
+    _instance:LoadSceneAsyncSingle(sceneBuildIndex, act)
+end
+
+function SceneManager:LoadSceneAsyncAdditive(sceneBuildIndex, act)
+    _instance:LoadSceneAsyncAdditive(sceneBuildIndex, act)
+end
+
+function SceneManager:UnloadScene(sceneBuildIndex, act)
+    _instance:UnloadScene(sceneBuildIndex, act)
+end
+
+local _lottery_id       = 7
+
+function SceneManager:LoadLotteryScene()
+    self:LoadSceneAsyncAdditive(_lottery_id)
+end
+
+function SceneManager:UnLoadLotteryScene()
+    self:UnloadScene(_lottery_id)
+end
+
+function SceneManager:CreateChild(resPath)
+    return _instance:CreateChild(resPath)
+end
+
+function SceneManager:AddChild(gameObject)
+    return _instance:AddChild(gameObject)
+end
+
+SceneManager:Ctor()
+

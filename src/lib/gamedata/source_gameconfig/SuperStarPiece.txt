@@ -1,0 +1,4 @@
+对应Item表id,最低品质,最高品质,优先级
+id,Quality_min,Quality_max,Senior
+number,number,number,number
+3000000,1,4,1

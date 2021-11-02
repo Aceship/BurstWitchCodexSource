@@ -1,0 +1,1222 @@
+--
+-- author: haosun
+-- date  : 2019-03-16 20:06:36
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LotteryLayer = class("LotteryLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    rule        = "content/rt_info/button_rule",
+    one         = "content/lottery_1/button_click",
+    ten         = "content/lottery_2/button_click",
+    tenNew      = "content/lottery_new/button_click",
+    btnRight    = "content/btn_right",
+    btnLeft     = "content/btn_left",
+    notice      = "content/img_notice",
+    rule1        = "content/button_rule_",
+}
+
+local QltySpine = {
+    [Bag.QLTY_UTR] = { name = "spine_ur", prefab = "prefab_item_spine/spine_qlty_ur"},
+    [Bag.QLTY_SSR] = { name = "spine_ssr", prefab = "prefab_item_spine/spine_qlty_ssr"},
+    [Bag.QLTY_SR] = { name = "spine_sr", prefab = "prefab_item_spine/spine_qlty_sr"},
+}
+
+local MoonText = {
+    [1] = "January",
+    [2] = "February",
+    [3] = "March",
+    [4] = "April",
+    [5] = "May",
+    [6] = "June",
+    [7] = "July",
+    [8] = "August",
+    [9] = "September",
+    [10] = "October",
+    [11] = "November",
+    [12] = "December",
+}
+
+local ItemMaxNum = 5;
+
+local bigBGPos = 1000
+local MoonPosX = {
+    630,
+    393,
+    274,
+    100,
+    10,
+}
+
+local MoonSprite = {
+    [6] = "source_sys/lottery/img_zhaohuan_bg_yuliang_01",
+    [7] = "source_sys/lottery/img_zhaohuan_bg_yuliang_01",
+    [8] = "source_sys/lottery/img_zhaohuan_bg_yuliang_02",
+    [9] = "source_sys/lottery/img_zhaohuan_bg_yuliang_01",
+    [1] = "source_sys/lottery/img_zhaohuan_bg_yuliang_03",
+}
+
+local BannerPath = {
+    "rt_item_l",
+    "rt_item_1",
+    "rt_item_r",
+    "rt_item_2",
+}
+
+function LotteryLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_LotteryLayer",
+    }
+    self._index = 1
+    self._onUpdate = false
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_LOTTERY,
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.TYPE_HERO,
+    }
+    self:onEnter()
+
+end
+
+function LotteryLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+
+    self.imgBlack       = self.layer:GetImageComponent("img_black");
+    self.leftBtn        = self.layer:Get(BUTTON_TYPE.btnLeft);
+    self.rightBtn       = self.layer:Get(BUTTON_TYPE.btnRight);
+    
+    self.obj_notice     = self.layer:Get("content/img_notice")
+    self.txt_notice     = self.layer:GetTextComponent("content/img_notice/txt_notice")
+    self.trans_notice   = self.layer:Get("content/img_notice/txt_notice")
+    self.rect_notice    = self.layer:GetRectTransformComponent("content/img_notice/txt_notice")
+
+    self.txt_call       = self.layer:GetTextComponent("content/rt_info/button_rule/txt_call")
+    self.txt_call_       = self.layer:GetTextComponent("content/button_rule_/txt_call")
+    self.objRule        = self.layer:Get("content/rt_info/button_rule")
+    self.objRule_        = self.layer:Get("content/button_rule_")
+    self.objContent     = self.layer:Get("content")
+
+    self.objUp          = self.objContent:Get("rt_info/rt_up")
+    self.objInfo        = self.objContent:Get("rt_info")
+    self.objTime        = self.objContent:Get("rt_info/trans_hero_info/rt_time")
+    self.txt_qiangxing  = self.objInfo:GetTextComponent("trans_hero_info/txt_qiangxing")
+    self.img_qiangxing  = self.objInfo:GetImageComponent("trans_hero_info/img_qiangxing")
+    self.txtStartTime      = self.objTime:GetTextComponent("txt_start_time")
+    self.txtEndTime       = self.objTime:GetTextComponent("txt_end_time")
+    self.txtM1          = self.objTime:GetTextComponent("txt_m_1")
+    self._orientTask = Lottery:InitOrientTaskItem(self.objContent:Get("rt_info/trans_orient_task"));
+    self.txtM2          = self.objTime:GetTextComponent("txt_m_2")
+    self.objQlty        = self.objInfo:Get("rt_qtly")
+    self.txtHeroName    = self.objInfo:GetTextComponent("txt_name")
+    self._imgAttr       = self.objInfo:GetImageComponent("img_attr");
+    self.img_qlty       = self.objInfo:GetImageComponent("img_qlty")
+    self.objBgBig       = self.layer:Get("img_bg_big")
+    self.objMoon        = self.layer:Get("img_moon")
+    self.imgMoon        = self.layer:GetImageComponent("img_moon")
+    self.objBgBigY = self.objBgBig:GetPositionY(true)
+    self.MoonPosY = self.objMoon:GetPositionY(true)
+    self.objBgBig:SetPosition(bigBGPos * 2, self.objBgBigY, 0, true)
+    self.objMoon:SetPosition(MoonPosX[1], self.MoonPosY, 0, true)
+
+    self.noticing       = nil
+    self.noticeList     = {}
+
+    self.showBIndex     = 2
+    self.objBanner      = self.objContent:Get("rt_banner")
+    self.banList        = {}
+    self._upHeroId  = {}
+    self._lotteryids = Lottery:GetShowLottery()
+    for i, v in ipairs(self._lotteryids) do
+        local lotteryCfg = Lottery:GetLotteryTypeCfg(v.id);
+        if(lotteryCfg.heroId > 0)then
+            self._upHeroId[v.id] = lotteryCfg.heroId;
+        end
+    end
+    for i = 1, 4 do
+        local _E = {}
+        _E.obj = self.objBanner:Get(BannerPath[i])
+        _E.objLigth = _E.obj:Get("img_light")
+        _E.objTxtName = _E.obj:Get("text_name")
+        _E.imgMask = _E.obj:Get("img_mask")
+        _E.imgName = _E.obj:GetImageComponent("img_name")
+        _E.imgIcon = _E.obj:GetImageComponent("img_icon")
+        _E.txtName = _E.obj:GetTextComponent("text_name")
+        _E.refresh = function(index)
+            local show = self._lotteryids[index] or false
+            _E.obj:SetVisible(show)
+            if not show then return end
+
+            local id = self._lotteryids[index].id
+            if not id then return end
+
+            local mid = index == self._index
+            local size = mid and 1 or 0.6
+            _E.obj:SetScale(size, size, size)
+            _E.objLigth:SetVisible(mid)
+            _E.imgMask:SetVisible(not mid)
+
+            local lotteryCfg = Lottery:GetLotteryTypeCfg(id);
+            _E.imgIcon:LoadSprite("source_common/Lottery/"..lotteryCfg.LotteryBanner[1])
+            _E.imgName:LoadSprite("source_common/ImageText/"..lotteryCfg.LotteryBanner[2])
+
+            local heroid = self._upHeroId[id]
+            _E.objTxtName:SetVisible(heroid)
+            if(heroid ~= nil) then
+                _E.txtName:SetText(heroid and string.format("%s%s", Hero:GetCfg(heroid).Name, LanguageMgr:GetTextByID(30039)) or "")
+            end
+        end
+        _E.setPosX = function (posX)
+            if posX then
+                _E.obj:SetPositionX(posX, true)
+            end
+        end
+        self.banList[i] = _E
+    end
+
+    self.layer:GetButtonComponent("content/button_pool"):AddButtonListener(function()
+        core.require("xlua/lua_UI/UILottery/LotteryPreviewLayer.txt"):new():show((self._lotteryids[self._index].id))
+    end)
+
+    self.layer:GetButtonComponent("content/btn_banner/btn_left"):AddButtonListener(function()
+
+        if self.moving then return end
+
+        if self._index <= 1 then
+            return
+        end
+
+        self.moving = true
+        self:onScroll(false)
+    end)
+
+    self.layer:GetButtonComponent("content/btn_banner/btn_right"):AddButtonListener(function()
+
+        if self.moving then return end
+
+        if self._index >= #self._lotteryids then
+            return
+        end
+
+        self.moving = true
+        self:onScroll(true)
+    end)
+
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+            function()
+                self._orientTask:UpdateOrientTaskUI(self._lotteryids[self._index].id);
+            end)
+
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:refreshLotteryData()
+        self:refreshLotteryCost()
+    end)
+
+    self.resultCallback = function ()
+        if not self.LotteryOverLayer then
+            return
+        end
+
+        self.LotteryOverLayer:hide();
+        local poolData = Lottery:GetLotteryPoolDataById(self._lotteryids[self._index].id);
+        local count = poolData and poolData.count or 0
+        local lotteryCfg = Lottery:GetLotteryTypeCfg(self._lotteryids[self._index].id);
+        
+        if(lotteryCfg.lifeCycle > 0 and count >= lotteryCfg.lifeCycle)then
+            self.LotteryOverLayer:SetTenAgainBtnStart(false);
+            self.removeItem = self:onGetLotteryObj(self._index)
+        else
+            self.LotteryOverLayer:SetTenAgainBtnStart(true);
+        end
+        self.LotteryOverLayer:refreshAgainCost(self._lotteryids[self._index].id, self._lastLotteryTimes);
+    end
+
+    self:addEventListener(EVENT_TYPE.NOTICE_SYSTEM_TASK, self.__cname, function(drops)
+        self:UpdateNoticeData();
+        if drops.talktype == Talk.TYPE_SYSTEM_CFG then
+            if self.LotteryOverLayer then
+                self.LotteryOverLayer:showNotice(drops)
+            end
+        end
+    end)
+
+    self:addEventListener(EVENT_TYPE.LOTTERY_FIRST_RESULT, self.__cname, function()
+        -- 首充返回需要删除 6 是新手卡池
+        if self.layer.transform:Find("prefab_lottery/prefab_lottery_6") then
+            self:OnOkBtnClick();
+            Groble_UIMgr:BackLayerShow()
+
+            self:initLotterys()
+            self._index = 1
+            self:doUpdateUi()
+            self.firstPrefab:SetVisible(false)
+            self:refreshBanner(1)
+        end
+    end)
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LOTTERY_BUY_RESULT, 
+        function(lotteryId)
+            self:handleLotteryBuyResult(lotteryId)
+        end)
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/img_odds_bg"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/txt_odds"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/img_notice_bg"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/img_notice"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/button_pool"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("content/rt_info"))
+
+    self:initDrag()
+end
+
+function LotteryLayer:onExit()
+    if self.noticeTween then
+        self.noticeTween:Kill(false)
+    end
+    if self.LotteryOverLayer ~= nil then
+        self.LotteryOverLayer:onBackClick()
+    end
+    self.LotteryOverLayer = nil
+    self.imgBlack       = nil
+    self.leftBtn        = nil
+    self.rightBtn       = nil
+    self.obj_notice     = nil
+    self.txt_notice     = nil
+    self.trans_notice   = nil
+    self.rect_notice    = nil
+    self.txt_call       = nil
+    self.objRule        = nil
+    self.txt_call_       = nil
+    self.objRule_        = nil
+    self.objContent     = nil
+    self.objUp          = nil
+    self.objInfo        = nil
+    self.objTime        = nil
+    self.txt_qiangxing  = nil
+    self.img_qiangxing  = nil
+    self.txtStartTime      = nil
+    self.txtEndTime       = nil
+    self.txtM1          = nil
+    self.txtM2          = nil
+    self.objQlty        = nil
+    self.txtHeroName    = nil
+    self._imgAttr       = nil;
+    self.img_qlty       = nil
+    self.objBgBig       = nil
+    self.objMoon        = nil
+    self.imgMoon        = nil
+    self.objBanner      = nil
+
+    self.noticing       = nil
+    self.noticeList     = nil
+    self._orientTask:Close();
+    self._orientTask = nil;
+    CBaseLayer.onExit(self)
+end
+
+function LotteryLayer:show()
+    CameraController:HideUICameraBg()
+    self._fading = false
+    self._lotterynum = 0
+    self.showBIndex = 2
+    self.moving = false
+
+    self:initLotterys()
+    local jumpid = Lottery:GetJumpLotteryId()
+    if jumpid ~= 0 then
+        for i = 1, #self._lotteryids do
+            if self._lotteryids[i].id == jumpid then
+                self._index = i
+                break
+            end
+        end
+        Lottery:SetJumpLotteryId(0)
+        else
+            if false == Guide:IsLotteryGuideEnd() then
+                for i = 1, #self._lotteryids do
+                    if self._lotteryids[i].id == 1 then
+                        self._index = i
+                        break
+                    end
+                end
+            end
+    end
+
+    self:doUpdateUi()
+    self:showLayer(true)
+    if(self.LotteryOverLayer ~= nil)then
+        self.LotteryOverLayer:hide()
+    end
+
+    -- self.obj_notice:SetVisible(false)
+    self.txt_notice:SetText("")
+
+    self:refreshBanner()
+
+end
+
+function LotteryLayer:showLayer(result)
+    CBaseLayer.showLayer(self)
+    if not result then
+        if self.LotteryOverLayer then
+            self.LotteryOverLayer:onReshow()
+        end
+    else
+        self:UpdateNoticeData();
+    end
+end
+
+function LotteryLayer:UpdateNoticeData()
+    --抽卡跑马灯设置
+    if(Talk:GetLotteryResMsg() ~= nil)then
+        local data = Talk:GetLotteryResMsg();
+        if data.talktype == Talk.TYPE_SYSTEM_CFG then
+            if not self.noticeList then
+                self.noticeList = {}
+            end
+            if #self.noticeList < 50 then
+                table.insert(self.noticeList, data)
+            end
+            self:showNotice()
+            Talk:CloseLotteryResMsg();
+        end
+    end
+end
+
+function LotteryLayer:_refreshAppointPool(i, item,cfg)
+    local temp
+    local hero = Hero:GetCfg(self._upHeroId[self._lotteryids[i].id])
+
+    local lotteryPool = Lottery:GetLotteryPoolDataById(self._lotteryids[i].id);
+    local lotteryGift = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift[1];
+    if lotteryPool == nil then
+        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),lotteryGift,hero.Name));
+    else
+        local missnum = lotteryGift - lotteryPool.missnum
+        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),missnum,hero.Name));
+    end
+    temp = item:GetImageComponent("titles/img_title");
+    temp:LoadSprite("source_common/ImageText/"..cfg.LotteryTitle[1])
+    temp:SetAnchoredPosition(cfg.LotteryTitle[2],cfg.LotteryTitle[3])
+
+    if cfg.LotteryStand == nil then return end
+    
+    local imgPrefab = item:Get("item_hide/image_hero").gameObject
+    local transImgParent = item:Get("heroes")
+    for _, v in ipairs(cfg.LotteryStand) do
+        temp = transImgParent:AddChild(imgPrefab).transform:GetComponent("Image")
+        temp:LoadSprite("source_sys/lottery/"..v[1])
+        temp:ResetSize()
+        temp = temp.transform:GetComponent("RectTransform")
+        temp.transform:SetScale(tonumber(v[4]),tonumber(v[4]))
+        temp:SetAnchorMax(tonumber(v[5]), tonumber(v[6]))
+        temp:SetAnchorMin(tonumber(v[5]), tonumber(v[6]))
+        temp:SetAnchoredPosition(tonumber(v[2]), tonumber(v[3]))
+        temp:SetPivot(tonumber(v[5]), tonumber(v[6]))
+        temp.gameObject.name = "image_hero".._
+    end
+end
+
+function LotteryLayer:_refreshUpPool(i, item)
+    local hero = Hero:GetCfg(self._upHeroId[self._lotteryids[i].id])
+    local lotteryPool = Lottery:GetLotteryPoolDataById(self._lotteryids[i].id)
+    local lotteryGift = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift[1]
+    if lotteryPool == nil then
+        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),lotteryGift,hero.Name))
+    else
+        local missnum = lotteryGift - lotteryPool.missnum
+        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),missnum,hero.Name))
+    end
+end
+
+local count = 1
+function LotteryLayer:initLotterys()
+    self._lotteryids = Lottery:GetShowLottery()
+    self._lotterynum = #self._lotteryids
+
+    self:SetArrowsBtn()
+    local obj = self.layer:Get("prefab_lottery")
+    for i = 1, self._lotterynum do
+        local item = self:onGetLotteryObj(i)
+        if item == nil then
+            local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id)
+            item = obj:CreateChild(cfg.prefab)
+            if cfg.tagId == Lottery.ORIENT_ACTIVITY then
+                --定向卡池&UP池
+                self:_refreshAppointPool(i, item,cfg)
+
+                self:_refreshUpPool(i, item)
+
+            elseif cfg.tagId == Lottery.ORIENT then--定向卡池
+                self:_refreshAppointPool(i, item,cfg)
+            elseif cfg.tagId == Lottery.UP then
+                self:_refreshUpPool(i, item)
+            else
+                if cfg.txtShowTime ~= "-1" then
+                    local txt = item:Get("titles/img_name_title/txt_time_title");
+                    if(txt ~= nil)then
+                        txt:GetComponent("Text").text = cfg.txtShowTime;
+                    end
+                end
+            end
+            item.name = "prefab_lottery_" .. cfg.id
+        end
+        item:SetPosition(1500, 0, 0, true)
+    end
+    local obj = self.layer:Get("content/lottery_toggles")
+    local buttonObj = self.layer:Get("content/lottery_button")
+    if(self.togLayoutGroup == nil)then
+        self.togLayoutGroup = obj:GetComponent("HorizontalLayoutGroup")
+    end
+    set_com_enabled(self.togLayoutGroup,false);
+    local count = obj.transform.childCount - 1
+    count = math.max(count, self._lotterynum)
+    local _clone = obj:Get("toggle_clone").gameObject
+    for i = 1, count, 1 do
+        local toggle = obj:Get("toggle_" .. i)
+        if toggle == nil then
+            toggle = obj:AddChild(_clone)
+            toggle.name = "toggle_" .. i
+            toggle:GetButtonComponent("button_click"):AddButtonListener(function()
+                self._index = i
+                self:doUpdateUi()
+                self:refreshBanner(i)
+            end)
+        end
+        toggle:SetVisible(i <= self._lotterynum)
+        toggle:GetComponent("Toggle").isOn = false
+
+        local button = buttonObj:Get("button_"..i)
+        if button == nil then
+            button = Groble_ResMgr:Instantiate(buttonObj:Get("button_clone"), buttonObj)
+            button:SetVisible(true)
+            button.name = string.format("button_%d", i)
+            button:AddButtonListener(function()
+                if i == self._index then return end
+                self._index = i
+                self:doUpdateUi()
+            end)
+        end
+
+        button:SetVisible(i <= self._lotterynum)
+        if i <= self._lotterynum then
+            local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id)
+            button:GetTextComponent("txt_name"):SetText(cfg.name)
+            -- local txt_hero = button:GetTextComponent("txt_hero")
+            -- txt_hero:SetText(heroid and Hero:GetCfg(heroid).Name or "")
+        end
+    end
+    set_com_enabled(self.togLayoutGroup,true);
+end
+
+function LotteryLayer:initDrag()
+    InitEventTriggerEx(self.layer.transform:Find("content/graphic_drag"),
+        function(arg)
+            self._beginPos = arg
+        end,
+        function(arg)
+            self:onDrag(arg)
+        end,
+        function(arg)
+            self:onEndDrag(arg)
+        end)
+end
+
+function LotteryLayer:onDrag(position)
+    local disx = position.x - self._beginPos.x
+    disx = lua_math_in_range(disx,-1080,1080)
+    local rate = disx/15
+    local rates = {
+        1.2, 1.6, 2, 3, 4, 5
+    }
+    local colorrate = 0.0008
+    local obj = self:onGetLotteryObj(self._index)
+    for i = 1, #self._initPos.heroes, 1 do
+        local posx = self._initPos.heroes[i].x + rate * rates[i]
+        local posy = self._initPos.heroes[i].y
+        local color = CS.UnityEngine.Color(1, 1, 1, 1 - math.abs(disx)*colorrate + rates[i] * 0.08)
+        local spineHero = obj.transform:Find("heroes/spine_hero" .. i);
+        if(spineHero ~= nil)then
+            spineHero.localPosition = CS.UnityEngine.Vector3(posx, posy, 0)
+        end
+        local imgHero = obj.transform:Find("heroes/image_hero" .. i);
+        if(imgHero ~= nil)then
+            imgHero.localPosition = CS.UnityEngine.Vector3(posx, posy, 0)
+        end
+        if obj.transform:Find("heroes/image_hero" .. i .. "/image_title") ~= nil then
+            obj.transform:Find("heroes/image_hero" .. i .. "/image_title"):GetComponent("Image").color = color
+        end
+    end
+    local titleRates = {
+        2.5, 2.5, 2, 1.5, 1.7, 1.7
+    }
+    local titles =  obj.transform:Find("titles");
+    for i = 1, #self._initPos.titles, 1 do
+        local posx = self._initPos.titles[i].x + rate * titleRates[i]
+        local posy = self._initPos.titles[i].y
+        titles:GetChild(i - 1).localPosition = CS.UnityEngine.Vector3(posx, posy, 0);
+    end
+    if self._initPos.image_l ~= nil then
+        local posx = self._initPos.image_l.x + rate * 0.8
+        local posy = self._initPos.image_l.y
+        obj.transform:Find("image_l"):GetComponent("RectTransform").localPosition = CS.UnityEngine.Vector3(posx, posy, 0)
+    end
+    if self._initPos.image_r ~= nil then
+        local posx = self._initPos.image_r.x + rate * 0.8
+        local posy = self._initPos.image_r.y
+        obj.transform:Find("image_r"):GetComponent("RectTransform").localPosition = CS.UnityEngine.Vector3(posx, posy, 0)
+    end
+    if self.objBgBig then
+        self.objBgBig:SetPosition(self._initPos.bigBG + rate * 0.8, self.objBgBigY, 0, true)
+    end
+    if self.objMoon then
+        self.objMoon:SetPosition(self._initPos.moon + rate * 0.8, self.MoonPosY, 0, true)
+    end
+end
+
+function LotteryLayer:onEndDrag(position)
+    if self._beginPos ~= nil then
+        local disx = position.x - self._beginPos.x
+        if math.abs(disx) < 10 then
+            self:recoverUi()
+        else
+            self:onScroll(disx < 0)
+        end
+    end
+end
+
+function LotteryLayer:onScroll(bnext)
+    self:recoverUi()
+    local lastindex = self._index
+    if bnext then
+        self._index = self._index + 1
+    else
+        self._index = self._index - 1
+    end
+    self._index = math.max(self._index, 1)
+    self._index = math.min(self._index, self._lotterynum)
+    self:SetArrowsBtn();
+    local lastObj = self:onGetLotteryObj(lastindex)
+    if lastindex < self._index then
+        lastObj.transform:DOLocalMoveX(-1500, 0.4):OnComplete(
+            function()
+                self:refreshLottery()
+            end)
+        local obj = self:onGetLotteryObj(self._index)
+        obj:SetPositionX(1500, true)
+        obj.transform:DOLocalMoveX(0, 0.4)
+    elseif lastindex > self._index then
+        lastObj.transform:DOLocalMoveX(1500, 0.4):OnComplete(
+            function()
+                self:refreshLottery()
+            end)
+        local obj = self:onGetLotteryObj(self._index)
+        obj:SetPositionX(-1500, true)
+        obj.transform:DOLocalMoveX(0, 0.4)
+    end
+    self:initPos()
+    self:refreshLotteryData()
+    self:refreshLotteryCost()
+
+    self:refreshInfo()
+
+    if lastindex ~= self._index then
+        self:scrollBanner(bnext)
+    end
+end
+
+function LotteryLayer:onUpdateCurrency()
+    self:refreshLotteryData()
+    self:refreshLotteryCost()
+end
+
+function LotteryLayer:showNotice()
+    -- self.obj_notice:SetVisible(true)
+    if #self.noticeList == 0 then
+        self.noticing = nil
+        return
+    end
+    if self.noticing then
+        return
+    end
+
+    self.noticing = 0
+    local msg = self.noticeList[1]
+    table.remove(self.noticeList, 1)
+
+    self.txt_notice:SetText(msg.msgstr or "")
+    self.rect_notice:SetAnchoredPosition(700, 0)
+    self.noticeTween = self.trans_notice:DOLocalMoveX(-700, 15):SetEase(CS.DG.Tweening.Ease.Linear):OnComplete(function()
+        -- self.obj_notice:SetVisible(false)
+        self.txt_notice:SetText("")
+    end)
+end
+
+function LotteryLayer:doUpdateUi()
+
+    self:initPos()
+    self:refreshLottery()
+    self:refreshLotteryData()
+    self:refreshLotteryCost()
+
+    self:refreshInfo()
+end
+
+function LotteryLayer:onGetLotteryObj(index)
+    local obj = self.layer:Get("prefab_lottery/prefab_lottery_" .. self._lotteryids[index].id)
+    if self._lotteryids[index].id == Lottery.LotteryType.FirstTime then
+        self.firstPrefab = obj
+    end
+    return obj
+end
+
+function LotteryLayer:recoverUi()
+    local color = CS.UnityEngine.Color(1, 1, 1, 1)
+    local obj = self:onGetLotteryObj(self._index)
+    for i = 1, #self._initPos.heroes, 1 do
+        local spineHero = obj.transform:Find("heroes/spine_hero" .. i);
+        if(spineHero ~= nil)then
+            spineHero.localPosition = self._initPos.heroes[i]
+            local skeletonAni = spineHero:GetComponent("SkeletonAnimation")
+            skeletonAni.Skeleton.A = 1
+        end
+        local imgHero = obj.transform:Find("heroes/image_hero" .. i);
+        if(imgHero ~= nil)then
+            imgHero.localPosition = self._initPos.heroes[i]
+        end
+        if obj.transform:Find("heroes/image_hero" .. i .. "/image_title") ~= nil then
+            obj.transform:Find("heroes/image_hero" .. i .. "/image_title"):GetComponent("Image").color = color
+        end
+    end
+    if self._initPos.image_l ~= nil then
+        obj.transform:Find("image_l"):GetComponent("RectTransform").localPosition = self._initPos.image_l
+    end
+    if self._initPos.image_r ~= nil then
+        obj.transform:Find("image_r"):GetComponent("RectTransform").localPosition = self._initPos.image_r
+    end
+    local titles =  obj.transform:Find("titles");
+    for i = 1, titles.childCount, 1 do
+        titles:GetChild(i - 1).localPosition = self._initPos.titles[i];
+    end
+    if self.objBgBig then
+        self.objBgBig:SetPosition(2000 - (ItemMaxNum - self._lotterynum + self._index - 1) * 1000, self.objBgBigY, 0, true)
+    end
+end
+
+function LotteryLayer:initPos()
+    self._initPos = {
+        heroes = {},
+        titles = {},
+        bigBG = 2000,
+        moon = MoonPosX[1],
+    }
+    local obj = self:onGetLotteryObj(self._index)
+    for i = 1, obj:Get("heroes").transform.childCount, 1 do
+        local spineHero = obj:Get("heroes/spine_hero" .. i);
+        local imgHero = obj:Get("heroes/image_hero" .. i);
+        if(spineHero ~= nil)then
+            self._initPos.heroes[i] = spineHero.localPosition
+        end
+        if(imgHero ~= nil)then
+            self._initPos.heroes[i] = imgHero.localPosition
+        end
+    end
+    local txtTimeTitle = obj:Get("titles/txt_time_title");
+    if(txtTimeTitle ~= nil)then
+
+    end
+    local titles =  obj:Get("titles");
+    for i = 1, titles.childCount, 1 do
+        self._initPos.titles[i] = titles:GetChild(i - 1).localPosition;
+    end
+    if obj:Get("image_l") ~= nil then
+        self._initPos.image_l = obj:Get("image_l"):GetComponent("RectTransform").localPosition
+    end
+    if obj:Get("image_r") ~= nil then
+        self._initPos.image_r = obj:Get("image_r"):GetComponent("RectTransform").localPosition
+    end
+    if self.objBgBig then
+        self._initPos.bigBG = 2000 - (ItemMaxNum - self._lotterynum + self._index - 1) * 1000
+        self.objBgBig:DOLocalMoveX(self._initPos.bigBG, 0.4)
+    end
+    if self.objMoon then
+        self._initPos.moon = MoonPosX[self._index]
+        self.objMoon:DOLocalMoveX(self._initPos.moon, 0.4)
+        local id = self._lotteryids[self._index].id
+        self.imgMoon.sprite = AssetLoader:LoadSprite(MoonSprite[id] or MoonSprite[6])
+    end
+
+    self:SetoddsUI()
+end
+local maxNumn = 50;
+
+function LotteryLayer:SetoddsUI()
+    local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[self._index].id)
+    if(self.txtOdds == nil)then
+        self.txtOdds = self.layer.transform:Find("content/txt_odds"):GetComponent("Text");
+        self.imgOddsBg = self.layer.transform:Find("content/img_odds_bg");
+    end
+    set_obj_active(self.imgOddsBg, false);
+    set_com_enabled(self.txtOdds, false);
+    self.objRule:SetVisible(cfg.ctype > 0 and cfg.tagId ~= Lottery.ORIENT);
+    self.objRule_:SetVisible(cfg.ctype > 0 and cfg.tagId == Lottery.BASICE);
+    if cfg.tagId == Lottery.ORIENT or cfg.tagId == Lottery.ORIENT_ACTIVITY then
+        self._orientTask:UpdateOrientTaskUI(self._lotteryids[self._index].id);
+    end
+    if(cfg.ctype > 0)then
+        local allNum = Player:GetCardPoolDataByCardId(cfg.ctype).num;
+        local outNum = Lottery:GetLotteryPoolClassesById(cfg.ctype);
+        self.txt_call:SetText(string.format("%d/%d", outNum, allNum + 1))
+        self.txt_call_:SetText(string.format("%d/%d", outNum, allNum + 1))
+        -- set_obj_active(self.imgOddsBg,true);
+        -- set_com_enabled(self.txtOdds,true);
+        -- self.txtOdds.text = string.format(LanguageMgr:GetTextByID(30002),allNum - outNum + 1);--默认次数为59
+    else
+        self.txt_call:SetText("")
+        self.txt_call_:SetText("")
+        -- set_obj_active(self.imgOddsBg,false);
+        -- set_com_enabled(self.txtOdds,false);
+    end
+end
+
+function LotteryLayer:onButtonClick(itype)
+    self._isTenNew = false
+    if itype == BUTTON_TYPE.one  then
+        self:onLotteryClick(1)   
+    elseif itype == BUTTON_TYPE.ten then
+        self:onLotteryClick(2)
+    elseif itype == BUTTON_TYPE.rule or itype==BUTTON_TYPE.rule1 then
+        -- local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[self._index].id)
+        -- Groble_UIMgr:ShowRuleTipsLayer(cfg.ruleid)
+        core.require("xlua/lua_UI/UILottery/LotteryInfoLayer.txt"):new():show(self._lotteryids[self._index].id)
+    elseif(itype == BUTTON_TYPE.tenNew) then
+        self._isTenNew = true
+        self:onLotteryClick(1)
+    elseif(itype == BUTTON_TYPE.btnLeft)then
+        self:onScroll(false);
+    elseif(itype == BUTTON_TYPE.btnRight)then
+        self:onScroll(true);
+    elseif(itype == BUTTON_TYPE.notice)then
+        Talk:OpenTalkLayer(4)
+    end
+end
+
+-- closeID 停留在抽卡结算界面时， 活动结束， 卡池需要刷新
+function LotteryLayer:OnOkBtnClick(closeID)
+    if(self.removeItem ~= nil)then
+        CS.UnityEngine.GameObject.Destroy(self.removeItem.gameObject);
+        self:show();
+        self.removeItem = nil;
+    end
+    if(self.LotteryOverLayer ~= nil)then
+        self.LotteryOverLayer:hide()
+    end
+    if closeID then
+        local obj = self.layer.transform:Find("prefab_lottery/prefab_lottery_"..closeID)
+        if obj then
+            CS.UnityEngine.GameObject.Destroy(obj.gameObject);
+            obj = nil
+        end
+        self:show();
+    else
+        self:showLayer();
+    end
+end
+
+function LotteryLayer:SetArrowsBtn()
+    self.rightBtn:SetVisible(self._index ~= self._lotterynum)
+    self.leftBtn:SetVisible(self._index ~= 1)
+end
+function LotteryLayer:refreshLotteryData()
+    for i = 1, self._lotterynum, 1 do
+        local obj = self:onGetLotteryObj(i)
+        if Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift ~= nil then
+            local hero = Hero:GetCfg(self._upHeroId[self._lotteryids[i].id]);
+            local lotteryPool = Lottery:GetLotteryPoolDataById(self._lotteryids[i].id);
+            local lotteryGift = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift[1];
+            if lotteryPool == nil then
+                obj:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),lotteryGift,hero.Name));
+            else
+                local missnum = lotteryGift - lotteryPool.missnum
+                obj:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),missnum,hero.Name));
+            end
+        end
+    end
+end
+function LotteryLayer:refreshLottery()
+    local localPos = CS.UnityEngine.Vector3(0, 0, 0)
+    local hidePos = CS.UnityEngine.Vector3(-7000, 0, 0)
+    for i = 1, self._lotterynum, 1 do
+        local obj = self:onGetLotteryObj(i)
+        --obj.gameObject:SetActive(self._index == i)
+        if self._index == i then
+            obj:GetComponent("RectTransform").localPosition = localPos
+        else
+            obj:GetComponent("RectTransform").localPosition = hidePos
+        end
+
+        local toggle = self.layer.transform:Find("content/lottery_toggles/toggle_" .. i)
+        toggle.gameObject:SetActive(true)
+        toggle:GetComponent("Toggle").isOn = self._index == i
+    end
+    self:onUpdateTagId()
+    self:SetArrowsBtn();
+end
+
+function LotteryLayer:onUpdateTagId()
+    local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[self._index].id)
+    local tagId = tonumber(cfg.tagId)
+    if tagId ~= -1 then
+        Lottery:SetLotteryType(tagId)
+    end
+end
+
+function LotteryLayer:refreshLotteryCost()
+    local cfg = Lottery:GetLotteryTypeCfg(self._lotteryids[self._index].id)
+    if(#cfg.poolcfg > 1) then
+        for i = 1, 2, 1 do
+            set_obj_active(self.layer.transform:Find("content/lottery_new"), false);
+            local obj = self.layer.transform:Find("content/lottery_" .. i)
+            set_obj_active(obj, true);
+            self:setCostUi(obj.transform:Find("image_icon"), obj.transform:Find("text_cost"), cfg.poolcfg[i])
+        end
+    else
+        local newObj = self.layer.transform:Find("content/lottery_new");
+        self:setCostUi(newObj.transform:Find("image_icon"), newObj.transform:Find("text_cost"), cfg.poolcfg[1])
+        set_obj_active(newObj, true);
+        for i = 1, 2, 1 do
+            local obj = self.layer.transform:Find("content/lottery_" .. i)
+            set_obj_active(obj, false);
+        end
+    end
+end
+
+function LotteryLayer:setCostUi(imgicon, uitext, cost)
+    Item:SetItemIcon(imgicon, cost.cost_cfgid)
+    local showstr = ""
+    local _count = Item:GetCount(cost.cost_cfgid)
+    if _count >= cost.cost_count then
+        showstr = string.format(COLOR_STR.LotteryNor, cost.cost_count)
+    else
+        showstr = string.format(COLOR_STR.LotteryRed, cost.cost_count)
+    end
+    uitext:GetComponent("Text").text = showstr
+end
+
+function LotteryLayer:onLotteryClick(i)
+    self:CloseAnimLayer();
+
+    local cfgid = self._lotteryids[self._index].id
+
+    if not Lottery:IsLotteryOpen(cfgid) then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032)) -- 活动已结束
+        return
+    end
+
+    local cfg = Lottery:GetLotteryTypeCfg(cfgid)
+    if(cfg.poolcfg[i] == nil)then
+        i = 1;
+    end
+
+
+    self._lastLotteryTimes = i
+
+    if(self.LotteryOverLayer ~= nil)then
+        self.LotteryOverLayer:hide()
+        Groble_UIMgr:BackLayerShow()
+    end
+
+    if(self.LotteryOverLayer == nil)then
+        self.LotteryOverLayer = core.require("xlua/lua_UI/UILottery/LotteryResultLayer.txt"):new(self)
+        self.LotteryOverLayer:hide();
+    end
+
+    if self._isTenNew then
+        self.LotteryOverLayer:showBtnColor(true)
+    else
+        self.LotteryOverLayer:showBtnColor(false)
+    end
+
+    if Item:GetCount(cfg.poolcfg[i].cost_cfgid) >= cfg.poolcfg[i].cost_count then
+        self.imgBlack:SetColorA(0)
+        self.imgBlack:SetVisible(true)
+        self._fading = false
+        self.imgBlack:DOFade(1, 0.25):OnComplete(
+            function()
+                Groble_UIMgr:BackLayerHide()
+                self:showLotteryEffect(cfg.poolcfg[i]);
+            end);
+    else
+        local info = {
+            cfgid = cfg.poolcfg[i].cost_cfgid,
+            count = cfg.poolcfg[i].cost_count,
+            show = false,
+            c_param = cfg.poolcfg[i].poolid,
+        }
+        self._tempData = {
+            cfgid = cfgid,
+            index = i,
+        }
+        Groble_UIMgr:ShowCommonBuyLayer(info, true);
+    end
+end
+
+function LotteryLayer:HideOtherUI(isHide)
+    if not isHide then
+        self:hideLayer()
+    else
+        self:showLayer()
+    end
+end
+
+function LotteryLayer:onLotteryRep(drops)
+    self:refreshLotteryData()
+    self:refreshLotteryCost()
+    self._showindex = 0
+    self._drops = drops
+    -- fixed drops: remove repeated new hero
+    local tmp = {}
+    for i, v in ipairs(self._drops) do
+        if v.u_type == Bag.TYPE_HERO then
+            if v.bnew then
+                if tmp[v.id] then
+                    self._drops[i].bnew = not Hero:GetHero(v.id).owner
+                else
+                    tmp[v.id] = true
+                end
+            end
+        end
+    end
+    self:SetoddsUI();
+    -- TODO
+    self.resultCallback()
+end
+
+function LotteryLayer:showLotteryItem()
+
+    self._showindex = self._showindex + 1
+
+    Groble_UIMgr:ShowBackLayer();
+    local function show()
+        self._aniLayer:show(self._drops[self._showindex], function(skip)
+            if skip then
+                self:showLotteryItems()
+            else
+                self:showLotteryItem()
+            end
+        end)
+    end
+
+    if self._lotteryids[self._index].id == Lottery.LotteryType.FirstTime then
+        while(self._showindex <= #self._drops) do
+            if Lottery:GetFirstHeroShow(self._drops[self._showindex].id) then
+                show()
+                return
+            end
+            self._showindex = self._showindex + 1
+        end
+        self:showLotteryItems()
+    else
+        if self._showindex <= #self._drops then
+            show()
+        else
+            self:showLotteryItems()
+        end
+    end
+end
+
+function LotteryLayer:showLotteryItems()
+    if(#self._drops > 1)then
+        self:CloseAnimLayer();
+    else
+        self._aniLayer:PlayerOneAnim();
+    end
+    self:HideOtherUI(true)
+    if(self.LotteryOverLayer ~= nil)then
+        self.LotteryOverLayer:show(self._drops, true);
+    end
+end
+
+function LotteryLayer:CloseAnimLayer()
+    if(self._aniLayer ~= nil)then
+        self._aniLayer:onExit()
+        self._aniLayer = nil
+    else
+        self:showLayer(true);
+    end
+end
+
+function LotteryLayer:handleLotteryBuyResult()
+    if self._tempData ~= nil then
+        local cfg = Lottery:GetLotteryTypeCfg(self._tempData.cfgid)
+        local data = cfg.poolcfg[self._tempData.index]
+        if data == nil then
+            data = cfg.poolcfg[1]
+        end
+        self:showLotteryEffect(data)
+    end
+end
+
+function LotteryLayer:showLotteryEffect(data)
+    core.require("xlua/lua_UI/HomeScene/LotteryEffect.txt"):new():show(data,
+        function ()
+            self:HideOtherUI(false);
+            self.imgBlack:SetVisible(false);
+        end,
+        function (drops)
+            self:onLotteryRep(drops)
+            if self._aniLayer == nil then
+                Groble_UIMgr:ShowBackLayer();
+                self._aniLayer = core.require("xlua/lua_UI/HomeScene/LotteryEffectLayer.txt"):new()
+                self._aniLayer:hide();
+            end
+            self:showLotteryItem()
+            self.resultCallback() -- TODO 为解决点击再抽一次时, 闪一下抽卡主界面的问题
+        end,
+        function ()
+            self:CloseAnimLayer();
+        end);
+end
+
+function LotteryLayer:KeyFrameCall(keyTag)
+    if 99 == keyTag then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+function LotteryLayer:onBackClick()
+    self:onPopLayer();
+end
+
+function LotteryLayer:refreshInfo()
+
+    local poolid = self._lotteryids[self._index].id
+    local heroid = self._upHeroId[poolid]
+    local poolDB = Lottery:GetLotteryTypeCfg(poolid)
+
+    self.objInfo:SetVisible(heroid or poolDB.tagId == Lottery.ORIENT or poolDB.tagId == Lottery.ORIENT_ACTIVITY)
+    self.objUp:SetVisible(poolDB and (poolDB.tagId == Lottery.ACTIVITY or poolDB.tagId == Lottery.ORIENT_ACTIVITY))
+    self._orientTask:SetVisible(poolDB and (poolDB.tagId == Lottery.ORIENT or poolDB.tagId == Lottery.ORIENT_ACTIVITY));
+    if not heroid and poolDB.tagId ~= Lottery.ORIENT then
+        return
+    end
+
+    if poolDB.tagId == Lottery.ORIENT or poolDB.tagId ==Lottery.ORIENT_ACTIVITY then
+        self._orientTask:UpdateOrientTaskUI(self._lotteryids[self._index].id);
+    end
+
+    local timeid = Lottery:GetTimeById(poolid)
+    local showTime = timeid and timeid ~= 0 and CTime:GetCfg(timeid)
+    self.objTime:SetVisible(showTime)
+    if showTime then
+        local data = CTime:GetCfg(timeid)
+        local startTime = lua_str_split(os.date("%m-%d", data.startTime), "-")
+        local endTime = lua_str_split(os.date("%m-%d", data.etime), "-")
+        self.txtStartTime:SetText(string.format("%s.%s", tonumber(startTime[1]),startTime[2]) or "")
+        self.txtEndTime:SetText(string.format("%s.%s",tonumber(endTime[1]),endTime[2]) or "")
+        self.txtM1:SetText(MoonText[tonumber(startTime[1])] or "")
+        self.txtM2:SetText(MoonText[tonumber(endTime[1])] or "")
+    end
+
+    local heroCfg = Hero:GetCfg(heroid)
+    local qlty = tonumber(heroCfg.Quality)
+
+    self.txtHeroName:SetText(heroCfg.Name or "")
+    self._imgAttr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(heroCfg.attri_type)])
+    self.txt_qiangxing:SetText(heroCfg.Name_UP) --枪型文字
+    Hero:SetHeroAtkType(self.img_qiangxing,tonumber(heroCfg.AtkType)) --枪型图标
+
+    if self.qltySpine ~= nil then
+        self.qltySpine:Release()
+        self.qltySpine = nil
+    end
+
+    if QltySpine[qlty] ~= nil then
+        self.qltySpine = self.objQlty:CreateChild(QltySpine[qlty].prefab)
+        self.qltySpine.name = QltySpine[qlty].name
+        self.qltySpine:SetVisible(true)
+        self.img_qlty:SetVisible(false)
+    else
+        self.img_qlty:SetVisible(true)
+        self.img_qlty.sprite = AtlasMgr:LoadHeroQlty(qlty)
+        self.img_qlty:ResetSize()
+    end
+end
+
+-- 强制刷新banner
+function LotteryLayer:refreshBanner(index)
+    -- if index then
+    --     self._index = index
+    -- end
+
+    -- local _index = self._index
+    local _index = index or self._index
+    self.banList[4].obj:SetVisible(false)
+    local index = {_index - 1, _index, _index + 1}
+    local posX = {-220, 0, 220}
+    for i = 1, 4 do
+        self.banList[i].refresh(index[i])
+        self.banList[i].setPosX(posX[i])
+    end
+    -- self.banList[2].obj:SetAsLastSibling()
+end
+
+-- banner滚动
+function LotteryLayer:scrollBanner(isLeft)
+    local _time = 0.3
+    local showItem, hideItem = self:getBannerItem()
+    showItem.obj:DOLocalMoveX(isLeft and -220 or 220, _time)
+    showItem.obj:DOScale(0.6, _time):OnComplete(function()
+        showItem.obj:SetVisible(true)
+        self.banList[1].refresh(self._index - 1)
+        self.banList[3].refresh(self._index + 1)
+        self.moving = false
+    end)
+
+    if isLeft then
+        self.banList[3].refresh(self._index + 1)
+    else
+        self.banList[1].refresh(self._index - 1)
+    end
+
+    hideItem.refresh(self._index)
+    hideItem.obj:SetVisible(true)
+    hideItem.obj:SetPosition(isLeft and 220 or -220, -34, 0, true)
+    hideItem.obj:SetScale(0.6, 0.6, 0.6)
+    hideItem.obj:DOLocalMoveX(0, _time)
+    hideItem.obj:DOScale(1, _time)
+
+    hideItem.obj:SetAsLastSibling()
+end
+
+-- return 当前 show, hide
+function LotteryLayer:getBannerItem()
+
+    local item = self.banList[self.showBIndex]
+    self.showBIndex = 6 - self.showBIndex
+    local item2 = self.banList[self.showBIndex]
+    return item, item2
+end
+
+function LotteryLayer:onPerSecondUpdate()
+
+    if not self.noticing then return end
+
+    if self.noticing then
+        self.noticing = self.noticing + 1
+        if self.noticing > 16 then
+            self.noticing = nil
+            self:showNotice()
+        end
+    end
+end
+return LotteryLayer

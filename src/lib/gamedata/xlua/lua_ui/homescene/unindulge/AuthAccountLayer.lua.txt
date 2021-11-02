@@ -1,0 +1,107 @@
+--
+-- author: liangxt
+-- date  : 2020年3月19日16:53:34
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local AuthAccountLayer = class("AuthAccountLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    active       = "container/button_gift",
+    exit         = "container/button_exit",
+    ok           = "container/button_ok",
+}
+
+function AuthAccountLayer:ctor(super)
+    CBaseLayer.ctor(self)
+
+    self._prefab = {
+        path = "prefab_unIndulge/UI_AuthAccountLayer",
+    }
+    self._uitype = 2
+    self:onEnter()
+end
+
+function AuthAccountLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.RECV_AUTH_GIFT,
+        function ()
+            self:onBackClick()
+        end)
+end
+
+function AuthAccountLayer:show(atype,ptime,accType,callback)
+    UnIndulge:SetState(true)
+    if callback ~= nil then
+        self._callback = callback
+    end
+    if accType == nil then
+        accType = UnIndulge:GetCurrentType()
+    end
+   
+    local data = UnIndulge:GetUnIndulgeByType(atype)
+    data.desc = string.gsub(data.desc,"n","\n")
+    self.layer.transform:Find("container/text_title"):GetComponent("Text").text = string.format(data.desc,ptime )
+
+    if accType == UnIndulge.Account_Type.tourist then
+        local state = atype == UnIndulge.CurrentType.type101
+        set_obj_active(self.layer.transform:Find("container/button_ok"), state)
+        set_obj_active(self.layer.transform:Find("container/button_exit"),not state)
+    elseif accType == UnIndulge.Account_Type.unRealNamed then
+        set_obj_active( self.layer.transform:Find("container/mail_items"),true)
+        self:setScrollView()
+        local state = atype == UnIndulge.CurrentType.type202
+        set_obj_active(self.layer.transform:Find("container/button_ok"), not state)
+        set_obj_active(self.layer.transform:Find("container/button_gift"), not state)
+        set_obj_active(self.layer.transform:Find("container/button_exit"), state)
+    elseif accType == UnIndulge.Account_Type.children then
+        local state = atype < UnIndulge.CurrentType.type303
+        set_obj_active(self.layer.transform:Find("container/button_ok"), state)
+        set_obj_active(self.layer.transform:Find("container/button_exit"),not state)
+    end
+    self:showLayer()
+end
+
+function AuthAccountLayer:setScrollView()
+    local scrollview = self.layer.transform:Find("container/mail_items/scrollview")
+    self._dropItems =  Bag:SetScrollGoods(self._dropItems ,scrollview, Player:GetIDAuthAward(), 5, 700, 160, 0.55)
+    set_obj_active( self.layer.transform:Find("container/button_gift"), true)
+    self.layer.transform:Find("container/button_ok"):GetComponent("RectTransform").localPosition = CS.UnityEngine.Vector3(-195,-438,0)
+
+end
+
+
+
+function AuthAccountLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.active then
+        local accType = UnIndulge:GetCurrentType()
+        if accType <= UnIndulge.Account_Type.unRealNamed then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(33009))
+            return
+        end
+        if not UnIndulge:RewardRedTip() then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(33010))
+            return
+        end
+        UnIndulge:GiftReq()
+    elseif itype == BUTTON_TYPE.exit then
+       -- GameSdkMgr:Exit()
+        CS.UnityEngine.Application.Quit()
+    elseif itype == BUTTON_TYPE.ok then
+        self:onBackClick()
+    end
+end
+
+function AuthAccountLayer:onBackClick()
+    UnIndulge:SetState(false)
+    if self._callback ~= nil then
+        self._callback()
+        self._callback = nil
+    end
+    self:onPopLayer()
+end
+
+
+return AuthAccountLayer
+

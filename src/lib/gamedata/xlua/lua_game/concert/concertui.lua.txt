@@ -1,0 +1,548 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+Concert = Concert or {}
+
+-- 主界面--------------------------------------------------------------
+function Concert:EnterConcertHall()
+    core.require("xlua/lua_UI/Concert/Hall/ConcertBookLayer.txt"):new():show()
+end
+
+-----------------------------场景操作--------------------------------------------------------------------
+function Concert:EnterConcertScene(concertHallId,isFirst)
+    self._resController:EnterConcert(concertHallId,isFirst);
+end
+function Concert:ExitConcert()
+    self._resController:ExitConcert();
+end
+
+function Concert:SetRtBg(rawImage)
+    return self._resController:SetRtBg(rawImage);
+end
+
+function Concert:PrepareSceneState()
+    self._resController:EnterConcert(Concert.defaultConcertId);
+    local curConcertHall = self:GetConcertById(Concert.defaultConcertId);
+end
+
+function Concert:SetActorByIndex(index,skinId,instrument,state)
+    self._resController:SetActorByIndex(index,skinId,instrument,state);
+end
+
+function Concert:ClearActorByIndex(index)
+    self._resController:ClearActorByIndex(index);
+end
+function Concert:SetEmptyActor(skinId,instrumentId)
+    self._resController:SetEmptyActor(skinId,instrumentId);
+end
+
+
+function Concert:ClearAllActor()
+    self._resController:ClearActorByIndex(0);
+    self._resController:ClearActorByIndex(1);
+    self._resController:ClearActorByIndex(2);
+    self._resController:ClearActorByIndex(3);
+    self._resController:ClearActorByIndex(4);
+end
+
+function Concert:ChangeInstrumentTrack(heroId,instrumentId)
+    if instrumentId == Concert.InstrumentType.Sing then
+        local hero = Hero:GetHero(heroId)
+        self._resController:ChangeInstrumentTrack(instrumentId,hero.singTrack);
+    else
+        local eventName = Concert.InstrumentDefaultFmodPath[instrumentId];
+        self._resController:ChangeInstrumentTrack(instrumentId,eventName);
+    end
+end
+function Concert:StopCurInstrumentIdTrack()
+    self._resController:StopCurInstrumentIdTrack();
+end
+
+function Concert:PlayEmojiEffect(index,effectPath,isMainPos)
+    self._resController:PlayEmojiEffect(index,effectPath,isMainPos);
+end
+
+function Concert:EnterHeroSelect()
+    self._resController:EnterHeroSelect();
+end 
+
+function Concert:ExitHeroSelect()
+
+    self._resController:ExitHeroSelect();
+    --GEvent:fireEvent(EVENT_TYPE.DAY_UPDATE);
+    --Concert:ClearAllActor();
+
+end
+
+function Concert:LookAtIndex(index)
+    self._resController:LookAtIndex(index);
+end
+
+function Concert:CancelLookAt()
+    self._resController:CancelLookAt();
+end
+
+function Concert:PlayMainTrack()
+    self._resController:PlayMainTrack();
+end
+
+function Concert:StopMainTrack()
+    self._resController:StopMainTrack();
+end
+
+function Concert:PlaySpMainTrack(eventName)
+    self._resController:PlaySpMainTrack(eventName);
+end
+
+function Concert:SetMainTrackPausedState(v)
+    self._resController:SetMainTrackPausedState(v);
+end
+
+function Concert:PlayCameraAni(cameraName)
+    self._resController:PlayCameraAni(cameraName);
+end
+
+--private
+------------------------------------
+
+function Concert:SetHallHeroShow(heroData,pos,hallId)
+    local res = self:getActorState(heroData,pos,hallId);
+    if(res == nil) then
+        return ;
+    end
+    Concert:SetActorByIndex(pos,heroData.skinid,res.instrument,res.state);
+end
+
+function Concert:FlushHallActorState(hallId)
+    Concert:ClearAllActor();
+
+    local tmpData = nil;
+    local tmpStateRes = nil;
+    local tmpArray = {};
+    local randomArray = {};
+    for i = 1, 4 do
+        tmpData = Concert:GetHeroDataByHallAndPos(hallId,i);
+        tmpStateRes = self:getActorState(tmpData,i,hallId);
+        if(tmpStateRes ~=nil) then
+            tmpArray[i] = tmpStateRes;
+            if(tmpStateRes.state == Concert.EConcertPlayState.IdleWithBackUpPlay) then
+                table.insert(randomArray, tmpStateRes) ;
+            end
+        end
+    end
+    local randomCount = lua_table_len(randomArray);
+    if(randomCount == 1) then
+        --randomArray[1].state = Concert.EConcertPlayState.IdleWithBackUpPlay;
+        randomArray[1].emojiType = Concert.EEmojiEffectType.Kaixin;
+    elseif(randomCount>1 ) then
+        local randomRes = math.random(randomCount);
+        for i = 1, randomCount do
+            if(randomRes ~= i) then
+                randomArray[i].state = Concert.EConcertPlayState.Idle;
+                randomArray[i].emojiType = Concert.EEmojiEffectType.Beishang;
+            else
+                randomArray[i].emojiType = Concert.EEmojiEffectType.Kaixin;
+            end
+        end
+    end
+
+    local tmpPath = nil;
+    for i = 1, 4 do
+        tmpStateRes = tmpArray[i];
+        if(tmpStateRes ~= nil) then
+            Concert:SetActorByIndex(tmpStateRes.pos,tmpStateRes.skinid,tmpStateRes.instrument,tmpStateRes.state);
+            if(tmpStateRes.emojiType >0) then
+                 
+                tmpPath = Concert.emojiEffectPathArray[tmpStateRes.emojiType];
+                Concert:PlayEmojiEffect(tmpStateRes.pos,tmpPath,false);
+            end
+        end
+    end
+    return tmpArray;
+end
+
+function Concert:getActorState(heroData,pos,hallId)
+    if(heroData == nil) then
+        return nil;
+    end
+    local instrument = Concert:GetInstrumentIdByHallAndPos(hallId,pos);
+
+    local isMatch = Concert:IsMatchMusicalAndHero(heroData,instrument);
+
+    local state;
+    if instrument == 0 then
+        state = Concert.EConcertPlayState.Idle;
+    elseif isMatch == 1 then
+        state = Concert.EConcertPlayState.MainPosPlay;
+    else 
+        state = Concert.EConcertPlayState.IdleWithBackUpPlay;
+    end
+    local res = {};
+    res.state = state;
+    res.instrument = instrument;
+    res.pos = pos;
+    res.skinid = heroData.skinid;
+    res.emojiType = 0;
+    return res;
+end
+
+--------------------------------------------------
+
+
+---------------------------------------------------------
+function Concert:CtorBookCObj(obj, scale)
+    local cls       = clsbase:new(obj)
+    cls.bookPrefab  = obj:Get("prefab_book")
+    cls.bookIcon    = obj:GetRawImageComponent("prefab_book/cd/ani_cdIconParent/tex_cdIcon")
+    cls.cdAnim      = obj:GetAnimationComponent("prefab_book/cd/ani_cdIconParent");
+    cls.objSelect   = obj:Get("prefab_book/img_check")
+    cls.objLock     = obj:Get("prefab_book/img_dark")
+    cls.btnItem     = obj:GetUIButtonComponent("prefab_book")
+    cls.bookId      = 0
+    cls.scale       = scale
+    return cls
+end
+
+--乐谱图鉴
+function Concert:CtorMusicBookObj(obj)
+    local cls       = clsbase:new(obj)
+
+    cls.icon        = obj:GetRawImageComponent("cd/ani_cdIconParent/tex_cdIcon");
+    cls.name        = obj:GetTextComponent("book_name/name");
+    cls.bookDes     = obj:GetTextComponent("txt_item_des");
+    cls.playTime    = obj:GetTextComponent("grid_musicals/txt_palytime");
+    cls.playBtnImg  = obj:GetImageComponent("cd/uibtn_play");
+    cls.cdAnim      = obj:GetAnimationComponent("cd/ani_cdIconParent")
+    cls.objGet      = obj:Get("obj_get");
+    cls.objGunZi    = obj:Get("cd/obj_gunzi");
+    cls.objRedTips  = obj:Get("uibtn_study/obj_red_tips");
+    cls.objCostPar  = obj:Get("grid_costs");
+    cls.objReward   = obj:Get("grid_rewards/reward_tags");
+
+    cls.musicTags   = {}
+    for j =1, 4 do
+        cls.musicTags[j] = Hero:CtorHeroMusicTags(cls.transform:Find("grid_musicals/music_tags/tag"..j))
+    end
+
+    cls.objCost     = obj:Get("grid_costs/cost_bg")
+    if cls._uicostctrl == nil then
+        cls._uicostctrl = UICostCtrl:new(cls.objCost, 5)
+    end
+
+    cls.baseRewardItems = {}
+
+    cls.btnPlay     = obj:GetUIButtonComponent("cd/uibtn_play")
+    cls.btnStudy    = obj:GetUIButtonComponent("uibtn_study")
+    return cls
+end
+
+function Concert:CtorHeroMusicTags(obj)
+    local cls = clsbase:new(obj)
+    cls.icon = obj:GetImageComponent("img_icon")
+    cls.objFrame = obj:Get("img_frame")
+    cls.txtDes  = obj:GetTextComponent("txt_title")
+    cls.objMask = obj:Get("img_mask")
+    cls.uiBtn = obj:GetComponent("UIButton")
+
+    cls.apprId = -1
+    return cls
+end
+
+--乐器，特性
+function Concert:SetHeroMusicState(tag,musicType,addItemId,heroId)
+    local data = tag.data
+    tag.objFrame:SetVisible(data ~= nil)
+    set_com_enabled(tag.icon,data ~= nil)
+
+    if data == nil then
+        return
+    end
+
+    local tagType = data.tagType
+    local value = data.value
+    tag.objFrame:SetVisible(tagType == Hero.TAG_MUSICAL)
+    tag.objMask:SetVisible(tagType == Hero.TAG_RACE)
+    local iconPath
+    if tagType == Hero.TAG_MUSICAL then
+        tag.objFrame:SetVisible(musicType == value)
+        iconPath = Concert:GetMusicalByType(value).itemPath
+        tag.icon:LoadSprite(iconPath);
+        --print("乐器标签  ：  "..iconPath)
+    elseif tagType == Hero.TAG_RACE then
+        if addItemId <= 0 then
+            local path = Concert:GetAddTagByCfgId(value).tagPath
+            tag.icon:LoadSprite(path);
+            tag.objMask:SetVisible(true)
+        else
+
+            iconPath = Concert:GetAddTagByCfgId(value).tagPath
+            tag.icon:LoadSprite(iconPath);
+
+            local addItem = Concert:GetItemAddByCfgId(addItemId)
+            local appearance = addItem.Appearance
+            for i, v in pairs(appearance) do
+                if(tagType == Hero.TAG_RACE and v == value) then
+                    tag.objMask:SetVisible(false);
+                    break;
+                end
+            end
+        end
+
+    end
+end
+
+
+function Concert:SetAddItemIcons(tags,addItemId)
+    local addItem = Concert:GetItemAddByCfgId(addItemId)
+    local apprs = addItem.Appearance
+    local tag
+    local appId
+    local iconPath
+    for i = 1, Concert.MUSIC_TAG_NUM do
+        tag = tags[i]
+        appId = apprs[i]
+        set_com_enabled(tag.icon,appId ~= nil)
+        if  appId ~= nil then
+            iconPath = Concert:GetAddTagByCfgId(appId).tagPath
+            tag.icon:LoadSprite(iconPath);
+        end
+    end
+end
+
+--
+function Concert:SetHeroBorder()
+
+end
+
+function Concert:CtorItemCObj(obj,callback)
+    local cls       = clsbase:new(obj)
+    cls.click       = obj:GetComponent("Button")
+    cls.bgCom       = cls:GetImageComponent("img_bg")
+    cls.borderCom   = cls:GetImageComponent("img_border")
+    cls.iconImg     = cls:GetImageComponent("img_icon")
+    cls.numCom      = cls:GetTextComponent("txt_num")
+    cls.dropSign    = cls:GetImageComponent("obj_dropType")
+    cls.dropDes     = cls:GetTextComponent("obj_dropType/drop_des")
+    cls.objUp       = cls:Find("obj_up")
+    cls.objDrop     = cls:Find("obj_dropType")
+
+    if cls.click ~= nil then
+        cls.clickCall = callback or function()
+            SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data[1], cls.data[2],cls.isUid,nil,nil,false);
+        end
+        cls.click.onClick:AddListener(
+                function()
+                    cls.clickCall(cls,cls.data[2])
+                end)
+    end
+    cls.data        = {0,0,0,0}  -- 背包类型,配置ID,数量,掉落类型
+    return cls
+end
+
+function Concert:CompareConcertHeroList(data1,data2) 
+    if(data1 == nil or data2 == nil) then
+        return false;
+    end
+    local len1 = lua_table_len(data1);
+    local len2 = lua_table_len(data2);
+    if(len1 ~= len2) then
+        return ;
+    end
+    local tmpData = nil;
+    for i, v in pairs(data1) do
+        tmpData = data2[i];
+        if(not Concert:CompareConcertHero(v,tmpData)) then
+            return false;
+        end
+    end
+    return true;
+end
+
+function Concert:CompareConcertHero(hero1,hero2)
+    if(hero1 == nil and hero2 == nil) then
+        return true;
+    end
+    if(hero1 == nil or hero2 == nil) then
+        return false;
+    end
+    local same = true;
+    if(hero1.pos~=hero2.pos) then
+        same = false;
+    end
+    if(hero1.heroId~=hero2.heroId) then
+        same = false;
+    end
+    if(hero1.musical~=hero2.musical) then
+        same = false;
+    end
+    return same;
+end
+
+--function Bag:SetComSimpleGoodsUi(cls, bagtype, cfgid, count, iscfg, isMayDrop, showMay,isDark)
+function Concert:SetItemView(cls, data)
+    local cfg
+    local hero
+    local addItemId = data.addItemId
+
+    -- cls.data        = {0,0,0,0}  -- 背包类型,配置ID,数量,掉落类型
+    cls.data[1] = data.bagtype
+    cls.data[2] = data.cfgid
+    cls.data[3] = data.count
+    cls.data[4] = data.dropType
+
+    if data.bagtype == Bag.TYPE_ITEM then
+        cfg = Item:GetCfg(data.cfgid)
+        Item:SetItemIcon(cls.iconImg.transform, data.cfgid)
+    elseif data.bagtype == Bag.TYPE_EQUIP then
+        cfg = Equip:GetCfg(data.cfgid)
+        Equip:SetIconUi(cls.iconImg.transform, cfg.FSicon)
+    elseif data.bagtype == Bag.TYPE_HERO then
+        local transform = cls.iconImg.transform
+        for i = 1, transform.childCount do
+            transform:GetChild(i - 1):SetVisible(false)
+        end
+        cls.iconImg.enabled = true
+        cfg = Hero:GetCfg(data.cfgid)
+        hero = Hero:GetHero(data.cfgid)
+        Hero:SetHeroHeadSprite(cls.iconImg, data.cfgid,false,true, cls.isMain)
+    else
+        return false
+    end
+    if cfg == nil then
+        return
+    end
+
+    if cls.numCom ~= nil then
+        cls.numCom:SetVisible(data.count ~= nil and data.count > 0);
+        if data.count ~= nil and data.count > 0 then
+            cls.numCom.text = data.count
+        end
+    end
+
+    local qlty = tonumber(cfg.Quality)
+    --魔女品质可升
+    if  data.bagtype == Bag.TYPE_HERO  then
+        qlty = hero.qlty
+    end
+
+
+    if cls.objDrop ~= nil then
+        cls.objDrop:SetVisible(data.dropType ~= Bag.TYPE_NORMAL)
+    end
+    if cls.objUp ~= nil then
+        cls.objUp:SetVisible(Concert:IsAddItemToSingle(addItemId,data.cfgid))
+    end
+
+    if cls.qlty == qlty then
+        return
+    end
+    cls.qlty = qlty
+    if(cls.borderCom ~= nil)then
+        Bag:SetGoodsBorderByQlty(cls ,qlty)
+    end
+
+    if data.dropType == Bag.TYPE_MAYDROP then  --可能掉落
+        cls.dropSign:LoadAtlasSprite("source_atlas/concert","yyt_daoju_di")
+        cls.dropDes.text = LanguageMgr:GetTextByID(809015)
+    elseif data.dropType == Bag.TYPE_EXDROP then --额外掉落
+        cls.dropSign:LoadAtlasSprite("source_atlas/concert","yyt_jiacheng_di")
+        cls.dropDes.text = LanguageMgr:GetTextByID(809014)
+    elseif data.dropType == Bag.TYPE_SETTLEDROP then --结算掉落
+        cls.dropSign:LoadAtlasSprite("source_atlas/concert","yyt_daoju_di")
+        cls.dropDes.text = LanguageMgr:GetTextByID(809013)
+    end
+end
+
+function Concert:InitMusicTags(tagItems)
+    for i, v in pairs(tagItems) do
+        v.objFrame:SetVisible(false)
+        set_com_enabled(v.icon,false)
+        v.objMask:SetVisible(false)
+        set_com_enabled(v.txtDes,false)
+        v.apprId = 0
+    end
+end
+
+--匹配点亮处理
+function Concert:SetMusicTags(heros,tagItems,itemId)
+    if itemId <= 0 then
+        self:InitMusicTags(tagItems)
+    else
+        local item = Concert:GetItemAddByCfgId(itemId)
+        local appr = item.Appearance;
+        for i = 1, Concert.MUSIC_TAG_NUM do
+            self:SetTagItem(heros,tagItems[i],appr[i],item)
+        end
+    end
+end
+
+
+function Concert:SetTagItem(heros,cls,apprId,addItem)
+    set_com_enabled(cls.icon,apprId ~= nil)
+    set_com_enabled(cls.txtDes,apprId ~= nil)
+
+    cls.objFrame:SetVisible(false)
+    cls.apprId = apprId
+    if apprId ~= nil then
+        local tagCfg = Concert:GetAddTagByCfgId(apprId)
+        cls.icon:LoadSprite(tagCfg.tagPath);
+        local tagNum = Concert:GetTagNumByApprId(heros,apprId);
+        if(tagNum>0) then
+            tagNum = 1;
+        end
+        local isfit = tagNum <= 0
+        cls.objMask:SetVisible(isfit)
+
+        local addType = addItem.AppearanceGift[1] --加成类型 1 道具加成比，2 额外掉落
+        if addType == Concert.AddType.Rate then
+            --cls.txtDes.text = addItem.NeedItems[3] + tagNum * addItem.AppearanceGift[2].."%";
+            cls.txtDes.text = tagNum * addItem.AppearanceGift[2].."%"; --隐藏基础加成
+        else
+            --cls.txtDes.text = "+1"  --目前额外掉落最多满足一个条件，以后扩展
+            cls.txtDes.text = "";       -- 隐藏+1数字
+        end
+    end
+end
+
+function Concert:SetHeroTags(tags,musicTagDatas)
+
+end
+
+function Concert:OpenWitchesLayer(teams,selectIndex,itemId,callBack)
+    local params = {
+        index = selectIndex,
+        tags = {},
+        fightids = {},
+        itemId = itemId,
+        callback = callBack
+    }
+
+    for i, v in pairs(teams) do
+        params.fightids[i] = v
+    end
+
+    core.require("xlua/lua_UI/Concert/Hall/ConcertWitchSelectLayer.txt"):new():show(params)
+end
+
+
+
+function Concert:ShowConcertItemSelectLayer(heros,dropItems,callback)
+    core.require("xlua/lua_UI/Concert/Hall/ConcertItemSelectLayer.txt"):new():show(heros,dropItems,callback)
+end
+
+function Concert:ShowConcertWinLayer(params)
+    core.require("xlua/lua_UI/Concert/Hall/ConcertWinLayer.txt"):new():show(params)
+end
+
+function Concert:ShowConcertHeroPreview()
+    core.require("xlua/lua_UI/Concert/HeroPreview/ConcertHeroPreview.txt"):new():show();
+end
+
+function Concert:ShowConcertBookSelectLayer(bookId,callback)
+    core.require("xlua/lua_UI/Concert/Hall/ConcertBookSelectLayer.txt"):new():show(bookId,callback)
+end
+
+function Concert:ShowConcertRewardLayer(bookId)
+    core.require("xlua/lua_UI/Concert/Hall/ConcertRewardLayer.txt"):new():show(bookId)
+end

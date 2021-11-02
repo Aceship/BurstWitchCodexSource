@@ -1,0 +1,249 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief : 
+--
+
+MidNight = MidNight or {}
+
+function MidNight:EnterRankLayer()
+
+    if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+        Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+        return;
+    end
+    if(not MidNight:GetIsGetTrophyState())then
+        if MidNight:ExistLastRanking() then--日奖励
+            MidNight:DayAwardGetReq();
+            return;
+        end
+        if(self._lastRankList == nil)then--上赛季排名
+            MidNight:GetLastRankReq();
+            return;
+        end
+        if(not MidNight:GetIsGetTrophyState())then--赛季结算
+            MidNight:GetSmallStageAwardReq();
+            return;
+        end
+    end
+    UpLoadVideo:SetCurVideoType(UpLoadVideo.VideoType.ShenYe);
+    if self._serverData == nil or self._serverData.value <= 0  then
+        -- 本赛季未打过
+        MidNight:ShowMidNightNewLayer()
+    else
+        -- 本赛季已打过
+        MidNight:GetRankListReq();
+    end
+end
+
+function MidNight:OpenMidNightLayer()
+    if(MidNight:GetSelectLayerType() == MidNight.LayerTypeMain)then--深夜主界面
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            MidNight:ShowMidNightMainLayer();
+        end)
+    else
+
+    end
+end
+
+function MidNight:ShowMidNightNewLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightNewLayer.txt"):new():show()
+end
+
+function MidNight:ShowMidNightMainLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightMainLayer.txt"):new():show()
+end
+
+function MidNight:ShowMidNightRuleTipsLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightRuleTipsLayer.txt"):new():show()
+end
+function MidNight:ShowMidNightRankAwardRuleLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightRankAwardRuleLayer.txt"):new():show()
+end
+function MidNight:ShowMidNightRankAwardLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightRankAwardLayer.txt"):new():show()
+end
+function MidNight:ShowMidNightRankTaskLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightRankTaskLayer.txt"):new():show()
+end
+
+function MidNight:ShowRankFightLayer(callback)
+    core.require("xlua/lua_UI/HomeScene/rankfight/RankFightLayer.txt"):new():show(callback)
+end
+
+function MidNight:CheckFightResultLayer(data)
+    self:ShowMidNightSettleLayer(data)
+end
+
+function MidNight:ShowMidNightSettleLayer(data)
+    core.require("xlua/lua_ui/homescene/midnight/midnightsettlelayer.txt"):new():show(data)
+end
+
+function MidNight:ShowMidNightFriendLayer()
+    if os.time() - self._midnightFriendLastReqTime > Rank.REQ_MINUTE  then
+        Rank:RankFriendListReq(Rank.TYPE_NIGHT)
+    else
+        self:EnterMidNightFriendLayer()
+    end
+end
+
+function MidNight:EnterMidNightFriendLayer()
+    core.require("xlua/lua_UI/HomeScene/rankfight/RankFriendLayer.txt"):new():show()
+end
+
+function MidNight:OpenMidNightLastRankTipsLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightLastRankTipsLayer.txt"):new():show()
+end
+
+function MidNight:OpenMidNightTrophySettleTipsLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightTrophySettleTipsLayer.txt"):new():show()
+end
+
+function MidNight:OpenMidNightHonorTrophyLayer()
+    core.require("xlua/lua_UI/HomeScene/MidNight/MidNightHonorTrophyLayer.txt"):new():show()
+end
+
+function MidNight:ShowSettleGetTipsLayer(data,callback,isNight)
+    local drops = {};
+    drops[Bag.TYPE_ITEM] = {};
+    for i, itemData in pairs(data) do
+        for _, v in ipairs(itemData.items) do
+            if(drops[Bag.TYPE_ITEM][v.id] == nil)then
+                drops[Bag.TYPE_ITEM][v.id] = 0;
+            end
+            drops[Bag.TYPE_ITEM][v.id] = drops[Bag.TYPE_ITEM][v.id] + v.num;
+        end
+    end
+    local award = Bag:TableDrops2Array(drops)
+    SingletonMgr:ShowGetTipsLayer(award,callback,0,isNight);
+end
+
+function MidNight:ShowMidNightShopLayer()
+    core.require("xlua/lua_ui/homescene/midnight/midnightshoplayer.txt"):new():show();
+end
+
+function MidNight:ShowMidNightRankupLayer()
+    local data = {
+        oldranking = self._serverData.lastRanking,
+        newranking = self._serverData.ranking,
+        selfrank = {
+            id      = Player:GetId(),
+            name    = Player:GetName(),
+            score   = self._serverData.value,
+            iconid  = Player:GetHeadIcon(),
+            frameid = Player:GetHeadBorder(),
+        },
+        list = {}
+    }
+    local pdata
+    for i = data.newranking+1, data.oldranking do
+        pdata = self._serverData.list[i]
+        table.insert(data.list, {
+            id      = pdata.id,
+            name    = pdata.name,
+            score   = pdata.score,
+            iconid  = pdata.iconid,
+            frameid = pdata.frameid,
+            rank    = pdata.rank,
+        })
+    end
+    core.require("xlua/lua_ui/homescene/midnight/midnightrankuplayer.txt"):new():show(data)
+end
+
+function MidNight:SetRankIcon(img,path)
+    img:LoadSprite(string.format("source_icon/midNight/%s",path));
+end
+
+function MidNight:NewRankCell(cell)
+    local cls = clsbase:new(cell);
+    cls.player = Player:CtorPlayerIconBorder(cls:Find("prefab_player"));
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.imgOrder = cls:GetImageComponent("img_order");
+    cls.txtOrder = cls:GetTextComponent("text_order");
+    cls.txtName = cls:GetTextComponent("text_name");
+    cls.txtScore = cls:GetTextComponent("text_score");
+    cls.imgSelf = cls:GetImageComponent("img_self");
+    cls.btnGet = cls:GetButtonComponent("btn_get");
+    if(cls.btnGet ~= nil)then
+        cls.btnGet.onClick:AddListener(function ()
+            self:GetRankAwardBtnClick(cls.data);
+        end);
+    end
+    return cls;
+end
+function MidNight:NewRankCell(cell, callback)
+    local cls = clsbase:new(cell)
+    cls.player = Player:CtorPlayerIconBorder(cls:Find("prefab_player"))
+    cls.imgBg = cls:GetImageComponent("img_bg")
+    cls.imgOrder = cls:GetImageComponent("img_order")
+    cls.txtOrder = cls:GetTextComponent("text_order")
+    cls.txtName = cls:GetTextComponent("text_name")
+    cls.txtScore = cls:GetTextComponent("text_score")
+    cls.imgSelf = cls:GetImageComponent("img_self")
+    cls.btnGet = cls:GetButtonComponent("btn_get")
+    if (cls.btnGet ~= nil) then
+        cls.btnGet.onClick:AddListener(
+            function()
+                if (callback ~= nil) then
+                    callback(cls.data)
+                end
+            end
+        )
+    end
+    return cls
+end
+
+local RankImgShowNum = 3;
+function MidNight:SetRankCell(cls,data)
+    cls.data = data;
+    cls.txtName:SetText(data.name);
+    cls.txtScore:SetText(tostring(data.score));
+    --排名
+    cls.imgOrder:SetEnabled(data.rank <= RankImgShowNum);
+    cls.txtOrder:SetEnabled(data.rank > RankImgShowNum);
+    if(data.rank <= RankImgShowNum)then
+        cls.imgOrder:LoadAtlasSprite(AtlasMgr.MID_NIGHT,"icon_rank_"..data.rank);
+    else
+        cls.txtOrder:SetText(data.rank);
+    end
+    cls.imgSelf:SetEnabled(Player:GetId() == data.id);
+    if(Player:GetId() == data.id)then
+        Player:SetPlayerIconBorderObj(cls.player, Player:GetHeadIcon(), Player:GetHeadBorder(), -1);
+    else
+        Player:SetPlayerIconBorderObj(cls.player, data.iconid, data.frameid, data.id,true);
+    end
+end
+
+function MidNight:NewDanGradingUI(trans)
+    local cls = clsbase:new(trans);
+    cls.imgDanGrading = cls:GetImageComponent("img_dan_grading");
+    cls.imgDanNameBg = cls:GetImageComponent("img_dan_name_bg");
+    cls.txtDanName = cls:GetTextComponent("txt_dan_name");
+    cls.txtTrophyNum = cls:GetTextComponent("txt_trophy_num");
+    return cls;
+end
+
+function MidNight:SetDanGradingUI(cls,danId,trophyNum)
+    local bgPath = "";
+    local danCfg = MidNight:GetDanGradingCfgById(danId);
+    if(danCfg.groupId == 1)then
+        bgPath = "Img_shengye_duanwei_wenzi_bg_01";
+    elseif(danCfg.groupId == 2)then
+        bgPath = "Img_shengye_duanwei_wenzi_bg_02";
+    else
+        bgPath = "Img_shengye_duanwei_wenzi_bg_03";
+    end
+    MidNight:SetRankIcon(cls.imgDanGrading,danCfg.iconPath);
+    cls.txtDanName:SetText(danCfg.name);
+    cls.imgDanNameBg:LoadAtlasSprite(AtlasMgr.MID_NIGHT,bgPath);
+    if(cls.txtTrophyNum ~= nil)then
+        cls.txtTrophyNum:SetText(trophyNum);
+    end
+end
+
+function MidNight:SetMidNightIconName(trans)
+    local danCfg = MidNight:GetDanGradingCfgById(self:GetDanId())
+    trans:GetImageComponent("img_levelicon"):LoadSprite(MidNight.LEVEL_ICON_PATHS[danCfg.groupId])
+    trans:GetTextComponent("txt_levelname"):SetText(danCfg.name)
+end
+

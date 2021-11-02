@@ -1,0 +1,147 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-21 17:46:56
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PrivilegeGiftPagLayer = class("PrivilegeGiftPagLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBuy = "trans_container/btn_buy",
+    BtnReturn = "trans_container/img_bg",
+	--@ButtonEnd
+}
+--构造函数
+function PrivilegeGiftPagLayer:ctor(super,cfgId)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_PrivilegeGiftPagLayer",
+    }
+    self._cfgId = cfgId;
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function PrivilegeGiftPagLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function PrivilegeGiftPagLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBuy)then
+        self:OnBtnBuyClick();
+    elseif(itype == BTNS.BtnReturn)then
+        self:onBackClick();
+        else--@ButtonCallBackEnd
+        end--RemoveEnd
+end
+
+--初始化
+function PrivilegeGiftPagLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function PrivilegeGiftPagLayer:InitUI()
+
+	self._imgPriceIcon = self.layer:GetImageComponent("trans_container/btn_buy/img_price_icon");
+	--@ImageEnd
+
+    self._txtPrice = self.layer:GetTextComponent("trans_container/btn_buy/txt_price");
+	self._txtTitle = self.layer:GetTextComponent("trans_container/next_get/txt_title");
+	--@TextEnd
+
+	self._transCurGetItemBg = self.layer:Get("trans_container/cur_get/trans_cur_get_item_bg");
+	self._transNextGetItemBg = self.layer:Get("trans_container/next_get/trans_next_get_item_bg");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._data = Recharge:GetData(self._cfgId);
+    if(self._data.goOngoods ~= -1)then
+        self._giftCfg = Operation:GetMonthDataById(tonumber(self._cfgId));
+    end
+    self._curItems = {};
+    for i, v in ipairs(self._data.goods) do
+        if(self._curItems[i] == nil)then
+            local cls = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItem, self._transCurGetItemBg));
+            self._curItems[i] = cls;
+        end
+        Bag:SetComSimpleGoodsUi(self._curItems[i],v[1],v[2],v[3]);
+    end
+
+    self._nextItems = {};
+    for i, v in ipairs(self._data.goOngoods) do
+        if(self._nextItems[i] == nil)then
+            local cls = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItem, self._transNextGetItemBg));
+            self._nextItems[i] = cls;
+        end
+        Bag:SetComSimpleGoodsUi(self._nextItems[i],v[1],v[2],v[3]);
+    end
+    self._txtTitle.text = string.format(LanguageMgr:GetTextByID(90174),self._giftCfg.sustainDay);
+    self._imgPriceIcon.sprite = Item:LoadSprite(Player.ITEM_VALUE_WITCH_COIN);
+    self._txtPrice.text = math.ceil(self._data.price * self._data.discount);
+end
+
+--显示UI
+function PrivilegeGiftPagLayer:show(callBack)
+    self._callBack = callBack;
+    self:playAni("BuildTipsLayerAnim")
+    self:showLayer();
+end
+
+--退出按钮事件
+function PrivilegeGiftPagLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function PrivilegeGiftPagLayer:onExit()
+
+    self._objItem = nil;
+	self._transCurGetItemBg = nil;
+	self._txtTitle = nil;
+	self._transNextGetItemBg = nil;
+	self._imgPriceIcon = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function PrivilegeGiftPagLayer:OnBtnBuyClick()
+    if(self._callBack ~= nil)then
+        self._callBack();
+    else
+        Operation:SendMessage(Operation.ActivityID.WeekCard,{id = self._cfgId});
+    end
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function PrivilegeGiftPagLayer:RegisterHandler()
+
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return PrivilegeGiftPagLayer;

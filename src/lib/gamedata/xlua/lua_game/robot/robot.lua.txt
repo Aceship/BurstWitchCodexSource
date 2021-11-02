@@ -1,0 +1,318 @@
+--
+-- author: lvqiang
+-- date  : 2021-09-06 11:48:49
+-- brief : 
+--
+Robot = Robot or {}
+
+function Robot:Ctor()
+    self._robotBaseList = {};
+    self._robotData = {};
+    self._curRobotGroupId = 0;
+end
+
+function Robot:SetCurRobotGroupId(curRobotGroupId)
+    self._curRobotGroupId = curRobotGroupId or 0;
+end
+
+function Robot:GetCurRobotGroupId()
+    return self._curRobotGroupId;
+end
+
+function Robot:GetRobotDataById(robotId)
+    if(self._robotData[robotId] ~= nil)then
+        return self._robotData[robotId];
+    end
+    math.randomseed(robotId);
+    local robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    local heroIds = Robot:GetRobotHeroIds(robotGroup);
+    local syhero = Robot:CreateHeroData(heroIds,robotGroup);
+    local rankData = Robot:GetRobotBaseDataById(robotId);
+    if(rankData == nil)then
+        rankData = Robot:InitRobotBaseData(nil,robotId);
+    end
+    local retData = {
+        id = robotId,
+        name = rankData.name,
+        iconid = rankData.iconid,
+        frameid = rankData.frameid,
+        level = rankData.level;
+        sy_score = rankData.score,
+        sy_ranking = rankData.rank,
+        glory = rankData.glory,
+        trophy = rankData.trophy,
+        autograph = "",
+        heroes     = {0, 0, 0},
+    };
+    for i, v in pairs(syhero.heros or {}) do
+        retData.heroes[i] = Hero:OtherPlayerHero(v.hero, syhero.equips, v.attrs, syhero.builds );
+    end
+    self._robotData[robotId] = retData;
+    return self._robotData[robotId];
+end
+
+--获取机器人名称
+function Robot:GetRobotName(robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人名称错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return "";
+    end
+    local nameArr = {};
+    for _, v in ipairs(robotGroup.nameSection) do
+        table.insert(nameArr,Language:GetTxtBuyId(math.random(v[1],v[2])));
+    end
+    return string.format("%s·%s·%s",table.unpack(nameArr));
+end
+
+--获取机器人等级
+function Robot:GetRobotLv(robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人等级错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return 0;
+    end
+    local retData = math.random(robotGroup.robotLvSection[1],robotGroup.robotLvSection[2]) or 0;
+    return retData;
+end
+
+--获取机器人分数
+function Robot:GetRobotScore(robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人分数错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return 0;
+    end
+    local retData = math.random(robotGroup.robotScoreSection[1],robotGroup.robotScoreSection[2]) or 0;
+    return retData;
+end
+
+--获取机器人魔女ID
+function Robot:GetRobotHeroIds(robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人魔女错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return;
+    end
+    local retData,heroIds,index = {},{},0;
+    for _, v in ipairs(robotGroup.heroSection) do
+        table.insert(heroIds,v);
+    end
+    for i = 1, Robot.HeroMaxNum do
+        index = math.random(1,#heroIds);
+        table.insert(retData,heroIds[index]);
+        table.remove(heroIds,index);
+    end
+    return retData;
+end
+
+--获取机器人魔女属性
+function Robot:GetRobotHeroAttr(heroIds,robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人属性错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return;
+    end
+    local retData = {};
+    local heroData;
+    local heroCfg;
+    local skillLv = Robot:GetRobotSkillLv(robotGroup);
+    for i, v in ipairs(heroIds) do
+        if(v > 0)then
+            heroCfg = Hero:GetCfg(v);
+            heroData = {
+                attrs = {},
+            }
+            for _, attr in ipairs(robotGroup.heroAttrSection) do
+                table.insert(heroData.attrs,{id = attr[1],num = math.random(attr[2],attr[3])});
+            end
+            heroData.hero = {
+                equipids = {i * 1,i * 2,i * 3,i * 4,i * 5,i * 6},
+                exp = 1,
+                id = v,
+                level = Robot:GetRobotLv(robotGroup),
+                skills = {
+                    {level = skillLv,slot = 1},
+                    {level = skillLv,slot = 2},
+                    {level = skillLv,slot = 3}
+                },
+                skinid = lua_str_split(heroCfg.Skin, "&", true)[1],
+                star = tonumber(heroCfg.Star),
+                star_mark = 1,
+                step = 1,
+            };
+            table.insert(retData,heroData);
+        end
+    end
+    return retData;
+end
+
+--获取机器人技能等级
+function Robot:GetRobotSkillLv(robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人技能等级错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return 0;
+    end
+    return robotGroup.skillLv;
+end
+
+--获取机器人构筑等级
+function Robot:GetRobotBuilds(heroIds,robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人构筑等级错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return {};
+    end
+    if(robotGroup.builds == -1)then
+        return {};
+    end
+    local retData = {};
+    local heroCfg,atkType,buildData;
+    local tempData = {};
+    retData.builds = {};
+    for _, v in ipairs(heroIds) do
+        heroCfg = Hero:GetCfg(v);
+        atkType = tonumber(heroCfg.AtkType);
+        if(tempData[atkType] == nil)then
+            buildData = {
+                b_type = atkType,
+                b_builds = {},
+            }
+            for dotId, vv in pairs(robotGroup.builds[atkType]) do
+                table.insert(buildData.b_builds,{b_id = dotId,b_lv = math.random(vv[1],vv[2])});
+            end
+            tempData[atkType] = buildData;
+        else
+            buildData = tempData[atkType];
+        end
+        table.insert(retData.builds,buildData);
+    end
+    return retData.builds;
+end
+
+--获取机器人装备
+function Robot:GetRobotEquips(heroIds,robotGroup)
+    if(robotGroup == nil)then
+        robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    end
+    if(robotGroup == nil)then
+        AppMgr:LogError("随机机器人装备错误！！！robotGroup = "..Robot:GetCurRobotGroupId());
+        return;
+    end
+    if(robotGroup.equips == -1)then
+        return {};
+    end
+    local retData = {};
+    local equip,cfg,cfgId;
+    local num = 0;
+    if(robotGroup.equips ~= -1)then
+        for _, heroId in ipairs(heroIds) do
+            if(heroId > 0)then
+                for i = 1, #robotGroup.equips do
+                    num = #robotGroup.equips[i];
+                    cfgId = robotGroup.equips[i][math.random(1,num)];
+                    cfg = Equip:GetCfg(cfgId);
+                    equip = {
+                        configid = cfgId,
+                        heroid = heroId,
+                        id = _ * i,
+                        level = math.random(robotGroup.equipLvs[i][1],robotGroup.equipLvs[i][2]),
+                        star = tonumber(cfg.Star),
+                    };
+                    if(robotGroup.equipMainAttr ~= -1)then
+                        equip.m_attr = {
+                            id = robotGroup.equipMainAttr[i][1],
+                            pri_val = math.random(robotGroup.equipMainAttr[i][2],robotGroup.equipMainAttr[i][3]),
+                        };
+                    end
+                    if(robotGroup.equipSubAttr ~= -1)then
+                        equip.ex_attr = {};
+                        for ii, vv in ipairs(robotGroup.equipSubAttr[i]) do
+                            table.insert(equip.ex_attr,{id = vv[1],all_val = math.random(vv[2],vv[3])});
+                        end
+                    end
+                    table.insert(retData,equip);
+                end
+            end
+        end
+    end
+    return retData;
+end
+
+--创建机器人数据
+function Robot:CreateHeroData(heroIds,robotGroup)
+    local retData = {};
+    retData.builds = Robot:GetRobotBuilds(heroIds,robotGroup);
+    retData.heros = Robot:GetRobotHeroAttr(heroIds,robotGroup);
+    retData.equips = Robot:GetRobotEquips(heroIds,robotGroup);
+    return retData;
+end
+
+--根据ID判断是否为机器人
+function Robot:IsRobot(pId)
+    return pId < Robot.RobotIdMaxNum;
+end
+
+--根据ID获取机器人数据
+function Robot:GetRobotBaseDataById(id)
+    if(self._robotBaseList[id] == nil)then
+        --AppMgr:LogError("self._robotBaseList[id] is nil !!!  **path = MidNight:GetRobotBaseDataById(id)  **   id = "..id);
+        return;
+    end
+    return self._robotBaseList[id];
+end
+
+function Robot:InitRobotBaseData(data,robotId)
+    if(data == nil)then
+        data = {
+            id = robotId,
+            rank = 0,
+            score = 0,
+        }
+    end
+    math.randomseed(data.id);
+    local robotGroup = Robot:GetRobotCfgById(Robot:GetCurRobotGroupId());
+    local heroIds = Robot:GetRobotHeroIds(robotGroup);
+    local selId = heroIds[math.random(1,#heroIds)];
+    local heroCfg = Hero:GetCfg(selId);
+    local danCfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId());
+    local trophy = math.random(danCfg.trophySection[1],danCfg.trophySection[2]);
+    local glory = 0;
+    local retData = {
+        id = data.id,
+        frameid = tonumber(heroCfg.Quality),
+        iconid = lua_str_split(heroCfg.Skin, "&", true)[1],
+        level = Robot:GetRobotLv(robotGroup),
+        name = Robot:GetRobotName(robotGroup),
+        rank = data.rank,
+        score = data.score,
+        trophy = trophy,
+        glory = glory,
+    };
+    self._robotBaseList[data.id] = retData;
+    return retData;
+end
+
+function Robot:UpdateBaseData(data)
+    if(self._robotBaseList[data.id] == nil)then
+        Robot:InitRobotBaseData(data,data.id);
+        return;
+    end
+    self._robotBaseList[data.id].rank = data.rank;
+    self._robotBaseList[data.id].score = data.score;
+end

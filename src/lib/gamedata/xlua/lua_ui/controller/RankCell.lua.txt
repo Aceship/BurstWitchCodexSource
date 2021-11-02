@@ -1,0 +1,128 @@
+--
+-- author: haosun
+-- date  : 2019-09-21 12:28:01
+-- brief : 
+--
+local RankCell = class("RankCell")
+
+function RankCell:ctor(super, obj, celltype)
+    self._bgImgObj          = obj.transform:Find("img_bg")
+    self._orderImgObj       = obj.transform:Find("img_order")
+    self._orderImgComObj    = self._orderImgObj:GetComponent("Image")
+    self._orderTxtObj       = obj.transform:Find("text_order")
+    self._orderTxtComObj    = self._orderTxtObj:GetComponent("Text")
+    if obj.transform:Find("prefab_player") ~= nil then
+        self._palyerObj         = Player:CtorPlayerIconBorder(obj.transform:Find("prefab_player"))
+    end
+    if obj.transform:Find("text_name") ~= nil then
+        self._nameTxtComObj = obj.transform:Find("text_name"):GetComponent("Text")
+    end
+    self._scoreTxtObj = obj.transform:Find("text_score")
+    self._scoreTxtComObj = self._scoreTxtObj:GetComponent("Text")
+    self._coinTxtComObj = obj.transform:Find("text_coin"):GetComponent("Text")
+    if obj.transform:Find("text_rankname") then
+        self._rankNameTxtComObj = obj.transform:Find("text_rankname"):GetComponent("Text")
+    end
+    if celltype == Rank.CELL_RULE then
+        self._coinImgCom    = obj.transform:Find("img_coin"):GetComponent("Image")
+        self._scoinImgCom   = obj.transform:Find("img_scoin"):GetComponent("Image")
+        self._scoreImgCom   = obj.transform:Find("img_score"):GetComponent("Image")
+    else
+    end
+end
+
+function RankCell:clear()
+    self._bgImgObj          = nil
+    self._orderImgObj       = nil
+    self._orderImgComObj    = nil
+    self._orderTxtObj       = nil
+    self._orderTxtComObj    = nil
+    self._nameTxtComObj     = nil
+    self._scoreTxtComObj    = nil
+    self._scoreImgCom       = nil
+    self._coinImgCom        = nil
+    self._scoinImgCom       = nil
+end
+
+function RankCell:_setRanking(ranking)
+    set_obj_active(self._orderImgObj, ranking <= 3)
+    set_obj_active(self._orderTxtObj, ranking > 3)
+    if ranking <= 3 then
+        self._orderImgComObj.sprite = AtlasMgr:LoadAtlasSprite(Rank.ATLAS_PATH, "Img_ShenYe_PaiHangBangMingCi_" .. ranking)
+    else
+        self._orderTxtComObj.text = ranking
+    end
+end
+
+--
+-- brief：
+-- param：row(第n行), name(玩家名称), iconid(玩家头像), frameid(玩家边框), score(得分), coin(奖杯), ranklvname(段位名)
+-- 
+
+function RankCell:refreshCell(row, name, iconid, frameid, score, coin, ranklvname)
+    self:_setRanking(row)
+    if self._palyerObj ~= nil then
+        Player:SetPlayerIconBorderObj(self._palyerObj, iconid, frameid)
+    end
+    self._nameTxtComObj.text = name
+    self._scoreTxtComObj.text = score
+    if coin ~= nil then
+        self._coinTxtComObj.text = "+" .. coin
+    end
+    if ranklvname ~= nil then
+        self._rankNameTxtComObj.text = ranklvname
+    end
+end
+
+function RankCell:refreshCellByData(row, rankdata, addcoin)
+    local isself = rankdata[Player.ATTR_PLAYERID] == Player:GetId()
+    if isself then
+        self:refreshCell(row, rankdata[Player.ATTR_NAME], Player:GetHeadIcon(), Player:GetHeadBorder(), rankdata[Player.ATTR_RANK_VALUE], addcoin)
+    else
+        self:refreshCell(row, rankdata[Player.ATTR_NAME], rankdata[Player.ATTR_ICONID], rankdata[Player.ATTR_FRAMID], rankdata[Player.ATTR_RANK_VALUE], addcoin)
+    end
+    set_obj_active(self._bgImgObj, isself)
+    self:refreshCellColor(isself)
+end
+
+function RankCell:refreshCellByRuleAward(row, award, isself)
+    self:_setRanking(row)
+    set_obj_active(self._bgImgObj, isself)
+    self:refreshCellColor(isself)
+    set_com_enabled(self._coinImgCom, true)
+    set_com_enabled(self._scoinImgCom, true)
+    set_com_enabled(self._scoreImgCom, false)
+    set_obj_active(self._scoreTxtObj, true)
+    self._scoreTxtComObj.text = "+" .. award.coin
+    self._coinTxtComObj.text =  "+" .. award.reward[1][3]
+    self._coinImgCom.sprite  = Item:LoadSpriteByCfgid(award.reward[1][2])
+    self._scoinImgCom.sprite = Item:LoadSpriteByCfgid(Player.ITEM_VALUE_SY_COIN)
+end
+
+function RankCell:refreshCellByRuleCoin(row, coin, isself)
+    self:_setRanking(row)
+    set_obj_active(self._bgImgObj, isself)
+    self:refreshCellColor(isself)
+    set_com_enabled(self._coinImgCom, false)
+    set_com_enabled(self._scoinImgCom, false)
+    set_com_enabled(self._scoreImgCom, true)
+    set_obj_active(self._scoreTxtObj, false)
+    self._coinTxtComObj.text =  "+" .. coin
+end
+
+function RankCell:refreshCellColor(isself)
+    local color
+    if isself then
+        color = COLOR_TYPE.Black
+    else
+        color = COLOR_TYPE.White
+    end
+    if self._nameTxtComObj ~= nil then
+        self._nameTxtComObj.color = color
+    end
+    self._coinTxtComObj.color = color
+    self._scoreTxtComObj.color = color
+    self._orderTxtComObj.color = color
+end
+
+return RankCell

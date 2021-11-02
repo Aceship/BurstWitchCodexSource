@@ -1,0 +1,166 @@
+FightScreenEffect = class("FightScreenEffect")
+
+local ShadowType = {
+	Shadow_Hue 	 = 1,
+	Shadow_Color 	 = 2,
+}
+
+function FightScreenEffect:ctor(super)
+	self.ShadowMgr  = {};
+	self.screenCfg  = FightModule:GetScreenEffect()
+	self.screenInfo = {};
+	self.screenInfo.shake = {};
+	self.screenInfo.land_shake = {};
+	self.screenInfo.witch_shake = {};
+	self.screenInfo.barrage_shake = {};
+	self.screenInfo.camera_shake = {};
+	self.screenInfo.shadow = {};
+	local tempList  = {};
+	for k,v in pairs(self.screenCfg) do
+		tempList[v.id] = v;		
+		if v.Land_Shake ~= "-1" then
+			local shakeInfo = GameTools.GetCsvValueList(v.Land_Shake)
+			self.screenInfo.land_shake[v.id] = shakeInfo;
+		end
+		if v.Witch_Shake ~= "-1" then
+			local shakeInfo = GameTools.GetCsvValueList(v.Witch_Shake)
+			self.screenInfo.witch_shake[v.id] = shakeInfo;
+		end
+		if v.Barrage_Shake ~= "-1" then
+			local shakeInfo = GameTools.GetCsvValueList(v.Barrage_Shake)
+			self.screenInfo.barrage_shake[v.id] = shakeInfo;
+		end
+		if v.shakeLevel ~= "-1" and v.shakeTime ~= "-1" then
+			self.screenInfo.camera_shake[v.id] = { shakeLevel = v.shakeLevel, shakeTime = v.shakeTime }
+		end
+		if v.ShadowInfo ~= "-1" then
+			local shadowInfo = GameTools.GetCsvValueList(v.ShadowInfo)
+			self.screenInfo.shadow[v.id] = shadowInfo;
+		end
+	end
+	self.screenCfg = tempList;
+end
+
+function FightScreenEffect:onResetLua()
+	self.ShadowMgr  = nil;
+	self.screenCfg  = nil;
+	self.screenInfo = nil;
+end
+
+function FightScreenEffect:Update(dt)
+	self:HueEffectUpdate(dt);
+	self:ChangeColorUpdate(dt);
+	
+end
+---HUE效果
+function FightScreenEffect:HueEffectUpdate(dt)
+	if self.ShadowMgr[ShadowType.Shadow_Hue] == nil then
+		return;
+	end
+	if self.ShadowMgr[ShadowType.Shadow_Hue].show == true then
+		self.ShadowMgr[ShadowType.Shadow_Hue].active = not self.ShadowMgr[ShadowType.Shadow_Hue].active;
+		if self.ShadowMgr[ShadowType.Shadow_Hue].active then
+			local hue = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.hue1;
+			local sat = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.sat1;
+			local vau = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.vau1;
+			CameraController:SetHueActive(hue, sat, vau)
+		else
+			local hue = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.hue2;
+			local sat = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.sat2;
+			local vau = self.ShadowMgr[ShadowType.Shadow_Hue].otherInfo.vau2;
+			CameraController:SetHueActive(hue, sat, vau)
+		end
+		self.ShadowMgr[ShadowType.Shadow_Hue].curTime = self.ShadowMgr[ShadowType.Shadow_Hue].curTime + dt;
+		if self.ShadowMgr[ShadowType.Shadow_Hue].curTime >= 0.3 then
+			self.ShadowMgr[ShadowType.Shadow_Hue].active = false
+			self.ShadowMgr[ShadowType.Shadow_Hue].curTime = 0;
+			CameraController:SetHueActive(0,0,0)
+			self.ShadowMgr[ShadowType.Shadow_Hue].show = false;
+		end
+	end
+end
+---变色效果
+function FightScreenEffect:ChangeColorUpdate(dt)
+	local tempMgr = self.ShadowMgr[ShadowType.Shadow_Color];
+	if tempMgr == nil then
+		return;
+	end
+	if tempMgr.state == 1 then
+		tempMgr.curTime = tempMgr.curTime + dt;
+		tempMgr.otherInfo.amount = tempMgr.otherInfo.maxAmount * (tempMgr.curTime/tempMgr.otherInfo.beginTime)
+		if tempMgr.otherInfo.amount >= tempMgr.otherInfo.maxAmount then
+			tempMgr.otherInfo.amount = tempMgr.otherInfo.maxAmount
+			tempMgr.state = 2;
+			tempMgr.curTime = 0;
+		end
+		CameraController:SetShadowsAmount(tempMgr.otherInfo.amount,tempMgr.otherInfo.r,tempMgr.otherInfo.g,tempMgr.otherInfo.b,1)
+	elseif tempMgr.state == 2 then
+		tempMgr.curTime = tempMgr.curTime + dt;
+		if tempMgr.curTime >= tempMgr.otherInfo.midTime then
+			tempMgr.state = 3
+			tempMgr.curTime = 0;
+		end
+	elseif tempMgr.state == 3 then
+		tempMgr.curTime = tempMgr.curTime + dt;
+		tempMgr.otherInfo.amount = tempMgr.otherInfo.maxAmount * (1 - (tempMgr.curTime/tempMgr.otherInfo.endTime))
+		if tempMgr.otherInfo.amount <= 0 then
+			tempMgr.otherInfo.amount = 0;
+			tempMgr.curTime = 0;
+			tempMgr.state = 0;
+		end
+		CameraController:SetShadowsAmount(tempMgr.otherInfo.amount,tempMgr.otherInfo.r,tempMgr.otherInfo.g,tempMgr.otherInfo.b,1)
+	end
+end
+function FightScreenEffect:ScreenEffectEnter(screenID)
+	
+	--print("screendID:"..screenID)
+	if type(screenID) == "number" then
+		screenID = screenID.."";
+	end
+	if screenID == "-1" then
+		return
+	end
+	if self.screenInfo.land_shake[screenID] ~= nil then
+		local shakeInfo = self.screenInfo.land_shake[screenID]
+		LandController:LandShake(tonumber(shakeInfo[2]), tonumber(shakeInfo[1]))
+	end
+	-- if self.screenInfo.witch_shake[screenID] ~= nil then
+	-- 	local shakeInfo = self.screenInfo.witch_shake[screenID]
+	-- 	HeroController:PlayerShake(tonumber(shakeInfo[2]), tonumber(shakeInfo[1]))
+	-- end
+	-- if self.screenInfo.barrage_shake[screenID] ~= nil then
+	-- 	local shakeInfo = self.screenInfo.barrage_shake[screenID]
+	-- 	BulletController:BarrageShake(tonumber(shakeInfo[2]), tonumber(shakeInfo[1]))
+	-- end
+	if self.screenInfo.camera_shake[screenID] ~= nil then
+		local shakeInfo = self.screenInfo.camera_shake[screenID]
+		CameraController:ShakeSet(tonumber(shakeInfo.shakeLevel), tonumber(shakeInfo.shakeTime))
+	end
+	--ShadowType
+	if self.screenInfo.shadow[screenID] ~= nil then
+		local csvShaow   = self.screenInfo.shadow[screenID]
+		local shadow = tonumber(csvShaow[1]);
+		if self.ShadowMgr[shadow] == nil then
+			self.ShadowMgr[shadow] = {};
+			self.ShadowMgr[shadow].state = 0;--0未开始 1 开始 2 持续 3 结束
+			self.ShadowMgr[shadow].curTime = 0;
+			self.ShadowMgr[shadow].otherInfo = {};
+		end
+		if shadow == ShadowType.Shadow_Color then
+			local tempMgr = self.ShadowMgr[ShadowType.Shadow_Color];
+			if tempMgr.state == 0 then
+				tempMgr.state = 1;
+				tempMgr.curTime = 0;
+				tempMgr.otherInfo.amount = 0;
+				tempMgr.otherInfo.beginTime = tonumber(csvShaow[2]);--形成时间
+				tempMgr.otherInfo.midTime = tonumber(csvShaow[3]);--持续时间
+				tempMgr.otherInfo.endTime = tonumber(csvShaow[4]);--结束时间
+				tempMgr.otherInfo.maxAmount = tonumber(csvShaow[5]);--浓度 0 -1
+				tempMgr.otherInfo.r = tonumber(csvShaow[6]);
+				tempMgr.otherInfo.g = tonumber(csvShaow[7]);
+				tempMgr.otherInfo.b = tonumber(csvShaow[8]);
+				CameraController:SetShadowsAmount(tempMgr.otherInfo.amount, tempMgr.otherInfo.r, tempMgr.otherInfo.g, tempMgr.otherInfo.b, 1)
+			end
+		end
+	end	
+end

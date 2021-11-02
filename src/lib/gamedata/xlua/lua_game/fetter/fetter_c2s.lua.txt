@@ -1,0 +1,24 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+--
+Fetter = Fetter or {}
+
+function Fetter:SyncData(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    CS.Logger.LogInfo("----------同步羁绊数据----------")
+    
+end
+
+function Fetter:AddBatchNotify(data)
+    
+end
+
+
+
+
+----------------------------------------注册回调----------------------------------------
+--c2s[c2s.FETTER_DATA_SYNC]             = {Fetter, Fetter.SyncData}
+--c2s[c2s.FETTER_BATCH_ADD_NTF]         = {Fetter, Fetter.AddBatchNotify}

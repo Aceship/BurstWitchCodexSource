@@ -1,0 +1,65 @@
+--
+-- author: haosun
+-- date  : 2020-08-13 17:51:34
+-- brief : 
+--
+
+FightResController = FightResController or {}  
+
+local _instance
+
+function FightResController:InitFightResController()
+    self._cache = {}
+    _instance   = CS.FightResMgr.Instance
+    _instance:LuaBading(self, "LuaOnApplicationQuitFightResController")
+end
+
+function FightResController:SetLevelID(levelid)
+    _instance.levelID = levelid
+end
+
+function FightResController:UnInitFightResController(sceneid)
+    self._cache = nil
+    _instance:OnClear(function()
+        SceneManager:LoadSceneSingle(sceneid)
+    end, 10)
+    _instance = nil
+end
+
+function FightResController:LuaOnApplicationQuitFightResController()
+    FightController:UnInitFightController()
+end
+
+function FightResController:Preload(resPath)
+    if _instance == nil then
+        _instance = CS.FightResMgr.Instance
+    end
+    local gameObject = _instance:TryLoadGameObject(resPath)
+    if gameObject ~= nil then
+        self._cache[resPath] = gameObject
+        gameObject:SetVisible(false)
+    end
+end
+
+function FightResController:TryGetCacheGameObject(resPath)
+    if self._cache[resPath] == nil then
+        self:Preload(resPath)
+    end
+    return self._cache[resPath]
+end
+
+function  FightResController:ClearCacheByKey(resPath)
+    self._cache[resPath] = nil
+end
+
+function FightResController:AddChildToGameObject(gameObject, resPath)
+    gameObject:AddChild(self:TryGetCacheGameObject(resPath))
+end
+
+function FightResController:MoveToTransform(transform, resPath)
+    local gameObject = self:TryGetCacheGameObject(resPath)
+    gameObject.transform:SetParent(transform)
+    self._cache[resPath] = nil
+    return gameObject
+end
+

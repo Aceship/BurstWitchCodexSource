@@ -1,0 +1,114 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-24 15:33:06
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelVideoLayer = class("ActivityLevelVideoLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnSkip = "btn_skip",
+	--@ButtonEnd
+}
+--构造函数
+function ActivityLevelVideoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelVideoLayer",
+    }
+    self._topData = {
+        showBtnBack     = false,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+    };
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActivityLevelVideoLayer:onEnter()
+    Activity:SetActivityLevelIsFirstOpen();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ActivityLevelVideoLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnSkip)then
+        self:OnBtnSkipClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+--初始化
+function ActivityLevelVideoLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function ActivityLevelVideoLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId();
+    self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity.ActivityLevelType_Video);
+end
+
+--初始化UI
+function ActivityLevelVideoLayer:InitUI()
+    --@ImageEnd
+
+    --@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    local videoPlayer = self.layer:Get("obj_video_player"):GetComponent("CriVideoHelperEx");
+    videoPlayer:SetVideoClip("CriVideo/" .. self._layerCfg.videoPath);
+    videoPlayer:LuaBanding(self)
+    Groble_SoundMgr:PlayBgm(self._layerCfg.soundPath);
+end
+
+--显示UI
+function ActivityLevelVideoLayer:show()
+    self:showLayer();
+end
+
+--释放
+function ActivityLevelVideoLayer:onExit()
+
+    self._layerCfg = nil;
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ActivityLevelVideoLayer:OnBtnSkipClick()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        self:onPopLayer();
+        if(not Activity:OpenActivityLevelMainLayer())then
+            uimgr:showHomeLayer()
+        end
+    end);
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ActivityLevelVideoLayer:luaVideoEndCall(flag)
+    self:OnBtnSkipClick();
+end
+return ActivityLevelVideoLayer;

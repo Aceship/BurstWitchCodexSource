@@ -1,0 +1,5 @@
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Talk/talk.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Talk/talk_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Talk/talkui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Talk/talkdef.txt")
+Talk:Ctor()

@@ -1,0 +1,15 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:00:54
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equip.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equip_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equipattr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equipcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equipdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equipintensify.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Equip/equipui.txt")
+
+Equip:Ctor()
+Equip:_LoadCfg()

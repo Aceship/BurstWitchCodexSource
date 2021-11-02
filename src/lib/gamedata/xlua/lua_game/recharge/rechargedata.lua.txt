@@ -1,0 +1,21 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-15 17:08:11
+---
+
+Recharge = Recharge or {};
+function Recharge:InitData()
+    self._curSelectGiftPagId = 0;
+end
+
+function Recharge:SetCurSelectGiftPagId(id)
+    if(id == nil)then
+        return;
+    end
+    id = tonumber(id);
+    self._curSelectGiftPagId = id;
+end
+
+function Recharge:GetCurSelectGiftPagId()
+    return self._curSelectGiftPagId;
+end

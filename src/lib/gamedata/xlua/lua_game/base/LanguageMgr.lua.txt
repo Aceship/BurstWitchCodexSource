@@ -1,0 +1,25 @@
+LanguageMgr = LanguageMgr or {};
+
+local instance = CS.LanguageMgr.Instance;
+
+function LanguageMgr:GetTextByID(id)
+    if id == nil or id == "" or id == 0 then
+        return;
+    end
+    return instance:GetTextByID(id);
+end
+
+function LanguageMgr:GetTextByIdParam(id, ...)
+    if id == nil or id == "" or id == 0 then
+        return;
+    end
+    return string.format(instance:GetTextByID(id), table.unpack({...}));
+end
+
+function LanguageMgr:GetLanguageCode()
+    return instance:GetLanguageCode() or Language.LANGUAGE_CHS;
+end
+
+function LanguageMgr:SetLanguageCode(code)
+    instance:SetLanguageCode(code)
+end

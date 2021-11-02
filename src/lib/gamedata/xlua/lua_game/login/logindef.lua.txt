@@ -1,0 +1,17 @@
+--
+-- author: haosun
+-- date  : 2019-10-12 12:40:41
+-- brief : 
+--
+Login = Login or {}
+
+-- 游戏服务器状态
+Login.ZONE_STATE = {
+    STATE_NONE     = 0,     -- 空区
+    STATE_MAINTAIN = 1,     -- 维护
+    STATE_OPEN     = 2,     -- 即将开启
+    STATE_EASY     = 3,     -- 流畅
+    STATE_BUSY     = 4,     -- 忙碌
+    STATE_HOT      = 5,     -- 爆满
+    STATE_ERR      = 6,
+}

@@ -1,0 +1,15 @@
+--
+-- author: haosun
+-- date  : 2019-01-07 11:49:25
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rank.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rank_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rankcache.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rankdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rankcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rankmedal.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Rank/rankui.txt")
+
+Rank:RankCtor()

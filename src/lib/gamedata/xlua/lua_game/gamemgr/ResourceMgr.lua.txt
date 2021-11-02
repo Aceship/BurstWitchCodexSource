@@ -1,0 +1,88 @@
+ResourceMgr = class("ResourceMgr")
+
+function ResourceMgr:ctor()
+    self.preLoadResList = {};
+    self.gameModule     = {};
+    self.preLoadIndex     = 0;
+    self._preloadStackMgr = {};
+    self._curLoadABState  = 0;
+end
+
+function ResourceMgr:Instantiate(fileName,trans,isInstance)
+    return AssetLoader:Instantiate(fileName,trans)
+end
+
+function ResourceMgr:InitPreLoadFight()
+    self.fightBarrageList = {};
+    self.gameModule     = {};
+    self.preLoadResList = {};
+    self.preLoadIndex     = 0;
+    self.sumLen = #self.preLoadResList
+end
+
+function ResourceMgr:InitStaticRes()
+    --初始化LUA脚本
+    self.gameModule = AssetLoader:GetLuaScript()
+    
+    --初始化静态资源
+    self.preLoadResList = {}
+
+    --[[table.insert(self.preLoadResList,"prefab_scene/FightScenePrefab/Scene2");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/HurtInfo");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/NormalHurtInfo");
+    table.insert(self.preLoadResList,"prefab_uiHome/ui_home/UI_MainLayer");
+    table.insert(self.preLoadResList,"prefab_uiHome/ui_fight/UI_PlotLayer");
+    table.insert(self.preLoadResList,"prefab_rank/UI_RankFightLayer");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/ChangePlayerInfo");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/BossHpInfo");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/FightStaticInfo");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/UI_EnemeyFightInfo");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/UI_TalkPrefab");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/UI_ScreenFade");
+    table.insert(self.preLoadResList,"prefab_uiFight/ui_FightInfo/TitlePrefab");
+    table.insert(self.preLoadResList,"prefab_comframeWork/UI_Loading");
+    table.insert(self.preLoadResList,"prefab_comframeWork/fight_preload/FightInfo");
+    table.insert(self.preLoadResList,"prefab_comframeWork/login_preload/LoginInfo");
+    table.insert(self.preLoadResList,"prefab_comframeWork/main_preload/GameMainInfo");]]--
+
+    self.preLoadIndex     = 0;
+    self.sumLen = #self.preLoadResList + #self.gameModule;
+end
+
+local __rate = 0
+
+function ResourceMgr:GamePreLoad(dt, preload)
+    self.preLoadIndex = self.preLoadIndex + 1 ;
+    if self.preLoadIndex > self.sumLen then
+        self.preLoadIndex = self.sumLen
+        __rate = 0
+        return 100, true
+    end
+
+    local preLoadFile = self.preLoadResList[self.preLoadIndex];
+    if preLoadFile ~= nil then
+        --print(tostring(preLoadFile))
+        if preload then
+            FightResController:Preload(preLoadFile)
+        else
+            AssetLoader:LoadAsset(preLoadFile)
+        end
+
+    else
+        if preload then
+            -- 战斗加载aifile
+            --todo 
+        else
+            local preloadModule = self.gameModule[self.preLoadIndex - #self.preLoadResList];
+            if preloadModule ~= nil then
+                AssetLoader:LoadLuaAsset(preloadModule);
+                --AppMgr:LogInfo("加载游戏模块-----------:"..preloadModule.." rate:"..__rate);
+            else
+                --AssetLoader:LoadShaderVariants("shaderVariants/gameShaderVariants")
+                -- AppMgr:LogInfo("加载Shader--------------:".."shaderVariants/gameShaderVariants".." rate:"..rate);
+            end
+        end
+    end
+    __rate = self.preLoadIndex / self.sumLen * 100
+    return __rate, false
+end

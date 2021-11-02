@@ -1,0 +1,60 @@
+--
+-- author: haosun
+-- date  : 2020-07-18 13:18:13
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/FightOnlyDialog.txt")
+
+TalkController = TalkController or {}
+
+function TalkController:InitTalkController()
+    self._autonext = false
+    self._layer = UI_FightTalk:new()
+    UI_FightOnlyDialog:FightOnlyDialogCreator()
+    AppMgr:LogInfo("==========TalkController:InitTalkController()==========")
+end
+
+function TalkController:UnInitTalkController()
+    if self._layer ~= nil then
+        self._layer:FightTalkDestructor()
+    end
+    self._layer  = nil
+    UI_FightOnlyDialog:FightOnlyDialogDestructor()
+    AppMgr:LogInfo("==========TalkController:UnInitTalkController()==========")
+end
+
+function TalkController:BeginTalk(talkid, isBegin)
+    if self._layer ~= nil then
+        self._layer:EnterFightTalk(talkid, isBegin);
+    end
+end
+
+function TalkController:ClearLayer()
+    if self._layer == nil then
+        return true
+    end
+    self._layer:CleanFightTalk()
+    return false
+end
+
+function TalkController:OpenAutoNext()
+    if self._autonext then
+        self._autonext = false
+    else
+        self._autonext = true
+    end
+end
+
+function TalkController:IsAutoNext()
+    return self._autonext
+end
+
+function TalkController:ShowOnlyDialog(dialogid)
+    UI_FightOnlyDialog:EnterFightOnlyDialog(dialogid)
+end
+
+function TalkController:OnlyDialogEnd()    
+    CS.LuaLogicStaticCall.DialogEnd()
+    UIController:ShowByTalk()
+end

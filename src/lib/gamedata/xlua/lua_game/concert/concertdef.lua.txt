@@ -1,0 +1,155 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+Concert = Concert or {}
+
+Concert.defaultConcertId = 1;
+Concert.DefaultBookId = 6001001;
+Concert.MUSIC_TAG_NUM = 5;
+Concert.RewardLastTime = 300; --最后5分钟，秒
+
+
+Concert.AllInstrumentTextId = 808010; --全部乐器
+Concert.AllMusicTextId   = 808011;
+
+Concert.InstrumentType =
+{
+     Harp = 1,                --竖琴
+     Piano = 2,               --钢琴
+     Violin = 3,              --小提琴
+     Cello = 4,               --大提琴
+     Trombone = 5,            --长号
+     Horn = 6,                --圆号
+     Clarinet = 7,            --黑管
+     Flute = 8,               --长笛
+     Sing = 101,              --演唱
+     Organ = 102,             --管风琴
+     Amp = 103,               --电吉他
+     Keyboard = 104,          --键盘
+     Timpani = 105,           --定音鼓
+}
+
+Concert.instrummentFilterList = 
+{
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     101,
+     102,
+     103,
+     104,
+     105
+}
+
+
+-- /// <summary>
+-- /// 1 演奏 2 有备胎 待机 3 无备胎待机 4 主位待机
+-- /// </summary>
+Concert.EConcertPlayState =
+{
+    MainPosPlay = 1,
+    IdleWithBackUpPlay =2,
+    Idle =3,
+    IdleInMainPos =4,
+}
+
+Concert.InstrumentDefaultFmodPath = {};
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Harp] = "event:/GameBgm/musicdefMusicInstrumentType-Harp-1" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Piano] = "event:/GameBgm/musicdefMusicInstrumentType-Piano-2" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Violin] = "event:/GameBgm/musicdefMusicInstrumentType-Violin-3" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Cello] = "event:/GameBgm/musicdefMusicInstrumentType-Cello-4" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Trombone] = "event:/GameBgm/musicdefMusicInstrumentType-Trombone-5" ;  --占位符
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Horn] = "event:/GameBgm/musicdefMusicInstrumentType-Horn-6" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Clarinet] = "event:/GameBgm/musicdefMusicInstrumentType-Clarinet-7" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Flute] = "event:/GameBgm/musicdefMusicInstrumentType-Flute-8" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Sing] = "event:/GameBgm/musicdefMusicInstrumentType-Sing-101" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Organ] = "event:/GameBgm/musicdefMusicInstrumentType-Organ-102" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Amp] = "event:/GameBgm/musicdefMusicInstrumentType-Amp-103" ;
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Keyboard] = "event:/GameBgm/musicdefMusicInstrumentType-Keyboard-104" ; 
+Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Timpani] = "event:/GameBgm/musicdefMusicInstrumentType-Timpani-105" ;
+
+Concert.emojiEffectPathArray = 
+{
+     "prefab_uiEffect/uiEffect/UI_biaoqing_beishang";
+     "prefab_uiEffect/uiEffect/UI_biaoqing_kaixin";
+     "prefab_uiEffect/uiEffect/UI_biaoqing_hunluan",
+};
+
+Concert.EEmojiEffectType = 
+{
+     Beishang = 1,
+     Kaixin = 2,
+     Hunluan = 3,
+};
+
+Concert.ALL = 0;
+Concert.EXTRO = 1; --额外
+Concert.DEVELOP = 2; --养成
+Concert.Exp = 3; --经验
+Concert.BUILD = 4; -- 构筑
+
+--加成道具分类
+Concert.SHOW_SUB_TYPE = {
+     [1] = Concert.ALL,
+     [2] = Concert.EXTRO,
+     [3] = Concert.DEVELOP,
+     --[4] = Concert.Exp,
+     [4] = Concert.BUILD,
+}
+
+Concert.SelectType = {
+     Book = 1,
+     Hero = 2,
+}
+
+--[[--魔女外貌
+--Hero.APPR_WHITE    = 1; --白发
+--Hero.APPR_RED      = 2; --红发
+--Hero.APPR_WING     = 3; --翅膀
+--Hero.APPR_GOLD     = 4; --金发
+
+
+Hero.RACE_PEOPLE   = 1; --人类
+Hero.RACE_UNKNOW   = 2; --未知
+Hero.RACE_MONSTER  = 3; --恶魔
+Hero.RACE_OLDGOD   = 4; --古神
+Hero.RACE_DEVIL    = 5; --魔鬼
+Hero.RACE_AVATAR   = 6; --神使
+Hero.RACE_SOUL     = 7; --亡灵
+Hero.RACE_PROFHET  = 8; --先知
+Hero.RACE_BLOOD    = 9; --血族
+]]--
+Concert.SelectTags = {
+     [1] = Hero.RACE_PEOPLE,
+     [2] = Hero.RACE_UNKNOW,
+     [3] = Hero.RACE_MONSTER,
+     [4] = Hero.RACE_OLDGOD,
+     [5] = Hero.RACE_DEVIL,
+     [6] = Hero.RACE_AVATAR,
+     [7] = Hero.RACE_SOUL,
+     [8] = Hero.RACE_PROFHET,
+     [9] = Hero.RACE_BLOOD,
+}
+
+Concert.AddType = {
+     Rate = 1,   --对指定道具类型加成比率
+     DropItem = 2,--额外掉落道具
+}
+
+Concert.ConcertAtlas = "source_atlas/concert"
+Concert.LevelIcon = {
+     [1] = "text_yyt_c",
+     [2] = "text_yyt_b",
+     [3] = "text_yyt_a",
+     [4] = "text_yyt_s",
+}
+Concert.MAX_HERO = 4
+Concert.MIN_HERO_SCALE    = 0.7
+Concert.MAX_HERO_SCALE    = 0.8

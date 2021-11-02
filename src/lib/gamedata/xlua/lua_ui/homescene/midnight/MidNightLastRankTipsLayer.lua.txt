@@ -1,0 +1,203 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-31 15:03:39
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightLastRankTipsLayer = class("MidNightLastRankTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function MidNightLastRankTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightLastRankTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function MidNightLastRankTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function MidNightLastRankTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function MidNightLastRankTipsLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function MidNightLastRankTipsLayer:InitData()
+    self._serverData = MidNight:GetLastServerData();
+    self._rankList = MidNight:GetLastRankList();
+end
+
+--初始化UI
+function MidNightLastRankTipsLayer:InitUI()
+
+	self._imgDanGrading = self.layer:GetImageComponent("trans_container/img_dan_grading");
+	--@ImageEnd
+
+	self._txtDanName = self.layer:GetTextComponent("trans_container/txt_dan_name");
+	self._txtLastRank = self.layer:GetTextComponent("trans_container/txt_last_rank");
+	--@TextEnd
+
+	self._transRankTableViewController = self.layer:Get("trans_container/trans_rank_table_view_controller");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self:SetRankTableView();
+    self:SetUI();
+end
+
+--显示UI
+function MidNightLastRankTipsLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function MidNightLastRankTipsLayer:onBackClick()
+    self:onPopLayer();
+    GEvent:fireEvent(EVENT_TYPE.MID_NIGHT_SETTLE_STEP);
+end
+
+--释放
+function MidNightLastRankTipsLayer:onExit()
+    
+    self._txtDanName = nil;
+	self._imgDanGrading = nil;
+    self._serverData = nil;
+    self._rankList = nil;
+	self._transRankTableViewController = nil;
+    if self._rankTableViewCtl ~= nil then
+        self._rankTableViewCtl:Clear()
+        self._rankTableViewCtl = nil
+    end
+	self._txtLastRank = nil;
+	--@CloseEnd
+    if(self._rankCells ~= nil)then
+        for _, cell in pairs(self._rankCells) do
+            cell:clear();
+        end
+        self._rankCells = nil;
+    end
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightLastRankTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightLastRankTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function MidNightLastRankTipsLayer:SetUI()
+    local danCfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId());
+    MidNight:SetRankIcon(self._imgDanGrading,danCfg.iconPath);
+    self._txtDanName:SetText(danCfg.name);
+    self._txtLastRank:SetText(string.format(LanguageMgr:GetTextByID(120053),self._serverData.ranking or 0));
+end
+
+function MidNightLastRankTipsLayer:SetRankTableView()
+    local rows = # self._rankList;
+    if(self._rankTableViewCtl == nil)then
+        self._rankCells = {};
+        self._rankTableViewCtl = UIController:CtorTableView(self._transRankTableViewController);
+        if(rows > 0)then
+            self._rankTableViewCtl:InitCustomRowWidth(0,163);
+        end
+        if(rows > 1)then
+            self._rankTableViewCtl:InitCustomRowWidth(1,138);
+        end
+        self._rankTableViewCtl:Init(rows, false,
+                function(cell, row)
+                    self:SetRankCell(cell,row);
+                end);
+    else
+        self._rankTableViewCtl:Reload(rows);
+    end
+    local index = self._serverData.ranking - 2;
+    if(index > rows)then
+        index = rows - 1;
+    end
+    if(index < 0)then
+        index = 0;
+    end
+    self._rankTableViewCtl:ScrollToRow(index);
+end
+
+function MidNightLastRankTipsLayer:SetRankCell(cell, row)
+    local cls = self._rankCells[cell];
+    if(cls == nil)then
+        cls = MidNight:NewRankCell(cell);
+        self._rankCells[cell] = cls;
+    end
+    self:SetRankCellData(cls,row);
+end
+
+local RankImgShowNum = 3;
+function MidNightLastRankTipsLayer:SetRankCellData(cls, row)
+    row = row + 1;
+    local data = self._rankList[row];
+    MidNight:SetRankCell(cls,data);
+    cls.imgBg:SetEnabled(row % 2 ~= 0);
+    if(row == 1)then
+        cls.player.transform:SetScale(0.4,0.4,0.4);
+    elseif(row == 2)then
+        cls.player.transform:SetScale(0.33,0.33,0.33);
+    else
+        cls.player.transform:SetScale(0.28,0.28,0.28);
+    end
+    if(Player:GetId() == data.id)then
+        if(data.rank > RankImgShowNum)then
+            cls.txtOrder:SetTextColor(0,0,0,1);
+        end
+        cls.txtName:SetTextColor(0,0,0,1);
+        cls.txtScore:SetTextColor(0,0,0,1);
+    else
+        if(data.rank > RankImgShowNum)then
+            cls.txtOrder:SetTextColor(197/255,197/255,197/255,1);
+        end
+        cls.txtName:SetTextColor(190/255,190/255,190/255,1);
+        cls.txtScore:SetTextColor(235/255,235/255,235/255,1);
+    end
+end
+
+return MidNightLastRankTipsLayer;

@@ -1,0 +1,37 @@
+UI_EffectLayer = UI_EffectLayer or {}
+
+function UI_EffectLayer:Creator()
+    self._hasDestroyed  = false
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_EffectLayer")
+    self.prefab:AddAnimationBehaviour(self)
+    --self.prefab:SetVisible(false)
+    self._uiEffectPath = nil
+end
+
+function UI_EffectLayer:Destructor()
+    if self._hasDestroyed then return end
+
+    self._hasDestroyed      = true
+
+    self.prefab:ClearChildren()
+    self._uiEffectPath = nil
+end
+
+function UI_EffectLayer:AddWaveUIEffect(path)
+    if(self._uiEffectPath == path) then
+        return
+    end
+
+    self.prefab:ClearChildren()
+
+    if(path ~= nil
+        and path ~= "") then
+        local uiEffect = self.prefab:CreateChild(path)
+        uiEffect:AddComponent(typeof(CS.UnityEngine.Rendering.SortingGroup))
+        local sortingGroup = uiEffect:GetComponent("SortingGroup")
+        sortingGroup.sortingOrder = 5000
+        self._uiEffectPath = path
+    end
+end
+
+

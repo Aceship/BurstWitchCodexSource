@@ -1,0 +1,221 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief : 
+--
+
+MidNight = MidNight or {}
+
+function MidNight:Ctor()
+    MidNight:InitData();
+    MidNight:InitLastServerData();
+    self._danId = 0;
+    self._midnightFriendList = {}
+    self._midnightFriendLastReqTime = 0
+    self._serverData = nil;
+    self._rankIsAmend = false;--数据是否修正
+    self._honorTrophyState   = false;--荣耀奖杯获取状态
+    if self._lotteryMidNight == nil then
+        self._lotteryMidNight = {
+            lotterynum = 0
+        }
+    end
+    self._lotteryMidNight.lotterynum = 0
+
+    self._new_maxscore = false
+end
+
+function MidNight:Clear()
+    self:Ctor()
+end
+
+function MidNight:CalcCurSeasonId()
+    self._seasonId = -1
+    self._showSeasonIds = {}
+    local utc = CTime:GetServerTime()
+    local tmp = 0
+    for id, cfg in pairs(self._seasonCfg) do
+        tmp = Lib:Str2Time(cfg.start_time)
+        if utc >= tmp and utc <= Lib:Str2Time(cfg.end_time) then
+            self._seasonId = id
+        end
+        if utc >= tmp then
+            table.insert(self._showSeasonIds, id)
+        end
+    end
+end
+
+function MidNight:GetShowSeasonIds()
+    return self._showSeasonIds
+end
+
+function MidNight:GetDaySettleCountDown()
+    --local retTime = Player:GetOffsetDay() * CTime.DAY_SEC + MidNight:GetRankDaySettleTimeById(Rank.TYPE_NIGHT) * CTime.HOUR_SEC - CTime:GetServerTime();
+    local retTime = Rank:GetRankDaySettleTimeById(Rank.TYPE_NIGHT) * CTime.HOUR_SEC - Lib:GetDayPassTime(CTime:GetServerTime());
+    if(retTime < 0)then
+        retTime = CTime.DAY_SEC + retTime;
+    end
+    return retTime;
+end
+
+function MidNight:SetMidnightFriendList(list)
+    self._midnightFriendList = list
+    self._midnightFriendLastReqTime = os.time()
+    self:EnterMidNightFriendLayer()
+end
+
+function MidNight:GetMidnightFriendList()
+    return self._midnightFriendList
+end
+
+function MidNight:SetMidNightLottery(data)
+    if data ~= nil then
+        self._lotteryMidNight.count = data.leftnum or 0
+        self._lotteryMidNight.recved = data.bitmark or 0
+    else
+        self._lotteryMidNight.count = 0
+        self._lotteryMidNight.recved = 0
+    end
+    if self._lotteryMidNight.boxNumber == nil then
+        local arr = lua_parse_cfg(Player:GetMidNightLotteryBoxNumber(), true)
+        self._lotteryMidNight.boxNumber = {}
+        self._lotteryMidNight.boxMaxNumber = 0
+        local _cnt = 0
+        for i, v in ipairs(arr) do
+            _cnt = _cnt + v[1]
+            self._lotteryMidNight.boxNumber[i] = _cnt
+            self._lotteryMidNight.boxMaxNumber = self._lotteryMidNight.boxMaxNumber + v[1]
+        end
+    end
+end
+
+function MidNight:GetMidNightLottery()
+    return self._lotteryMidNight
+end
+
+function MidNight:GetMidNightShopRedTip()
+    -- 许愿商店是否有宝箱可以领取
+    for i = 1, MidNight.LotteryBoxNumber, 1 do
+        local recved = (MidNight.LOTTERY_BOX_STATE[i] & self._lotteryMidNight.recved) == MidNight.LOTTERY_BOX_STATE[i]
+        if (not recved) and self._lotteryMidNight.count >= self._lotteryMidNight.boxNumber[i] then
+            return true
+        end
+    end
+
+    -- 许愿商店是否有5抽
+    local cfg = self:GetDanGradingCfgById(self:GetDanId())
+    if cfg == nil then return false end
+
+    local lotterycfg = Lottery:GetLotteryTypeCfg(cfg.gashaponId)
+    if Item:CheckCount(lotterycfg.poolcfg[2].cost_cfgid, lotterycfg.poolcfg[2].cost_count) then
+        return true
+    end
+
+    return false
+end
+
+function MidNight:MidNightIsRankUp()
+    if self._serverData == nil then return false end
+
+    if self._serverData.lastRanking == nil then return false end
+
+    return self._serverData.ranking < self._serverData.lastRanking
+end
+
+function MidNight:GetMidNightRanking()
+    if self._serverData == nil or self._serverData.value <= 0 then return 0 end
+
+    return self._serverData.ranking or 0
+end
+
+--更新上次排名
+function MidNight:UpdateLastRanking()
+    if(self._serverData == nil or self._serverData.ranking == nil or self._serverData.lastRanking == nil)then
+        return;
+    end
+    if(self._serverData.ranking < self._serverData.lastRanking)then
+        self._serverData.lastRanking = self._serverData.ranking;
+    end
+end
+
+function MidNight:IsNewMaxScore()
+    return self._new_maxscore
+end
+
+function MidNight:UpdateIsNewMaxScore()
+    if(self._new_maxscore)then
+        self._new_maxscore = false;
+    end
+end
+
+function MidNight:MidNightIsRegister()
+    return self._serverData ~= nil;
+end
+
+function MidNight:GetSettleCountDown()
+    local cfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId());
+    local sySettleDay = cfg.weekSettleDay;
+    local servertime = CTime:GetServerTime()
+    local weekday = Lib:GetWeekNum(servertime)
+    local daypass = Lib:GetDayPassTime(servertime)
+    local offset_day, exist = 0, false
+    for _, day in ipairs(sySettleDay) do
+        if (day == weekday and daypass < CTime.OFFSET_SEC) or day > weekday then
+            offset_day = day - weekday
+            exist = true
+            break
+        end
+    end
+    if false == exist then
+        -- 跨周需要偏移处理
+        offset_day = 7 + sySettleDay[1] - weekday
+    end
+    local remain = offset_day * CTime.DAY_SEC + CTime.OFFSET_SEC - daypass
+    return remain
+end
+
+function MidNight:RankFightCheck()
+    if MidNight:GetSettleCountDown() > Rank.FIGHT_REMAIN then
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(77000067))
+            return false
+        else
+            return true
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(77000104))
+        return false
+    end
+end
+
+--深夜红点总入口
+function MidNight:GetNightRed()
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_night) then
+        return false
+    end
+
+    if(not MidNight:GetIsGetTrophyState())then--赛季结算,显示红点
+        return true;
+    end
+
+    if(not MidNight:MidNightIsRegister())then--未注册,屏蔽红点
+        return false;
+    end
+
+    if(not MidNight:GetDayAwardIsGet())then--日奖励未领取
+        return true;
+    end
+
+    if(Task:GetRankTaskRed())then--任务
+        return true;
+    end
+
+    if(Task:IsBetterOper(Task.TYPE_RANK, Task.RANK_TASK_GROW))then--成长任务
+        return true;
+    end
+
+    if(MidNight:GetMidNightShopRedTip())then--深夜抽奖
+        return true;
+    end
+    return false;
+end

@@ -1,0 +1,258 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Ether = Ether or {}
+
+function Ether:InitData()
+    self._curSelectChapter = nil;
+    self._startGame = false;
+    self._curAffixs = {};
+    self._curHeroIds = {0,0,0};
+end
+
+function Ether:SetCurChapter(chapter)
+    if(chapter == nil)then
+        CS.Logger.LogError("chapter is nil");
+        return false;
+    end
+    self._curSelectChapter = chapter;
+    local affixs = chapter.affixs;
+    for cfgid, data in pairs(affixs) do
+        self._curAffixs[cfgid] = self:NewAffix(data);
+        self:SetCurAffixLv(cfgid, data.curIndex)
+    end
+
+    for i, v in ipairs(self._curSelectChapter.lastHeroIds) do
+        self._curHeroIds[i] = v;
+    end
+    -- 刷新数据    
+    return true;
+end
+
+function Ether:GetCurChapter()
+    if(self._curSelectChapter == nil)then
+        return nil;
+    end
+    return self._curSelectChapter;
+end
+
+function Ether:GetAllCurAffixs()
+    return self._curAffixs;
+end
+
+function Ether:GetCurAffixDataByType(aType,isSelect)
+    local retArr = {};
+    for id, v in pairs(self._curAffixs) do
+        local cfg = Ether:GetAffixCfgById(id);
+        if(cfg.targetType == aType)then
+            if(isSelect)then
+                if(v.curIndex ~= 0)then
+                    table.insert(retArr,v);
+                end
+            else
+                table.insert(retArr,v);
+            end
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a.index < b.index;
+    end);
+    return retArr;
+end
+
+function Ether:NewAffix(data)
+    local retData = {
+        id = data.id,
+        index = data.index,
+        curIndex = data.curIndex,
+        maxIndex = data.maxIndex,
+        maxLv = data.maxLv,
+        curLv = data.curLv,
+        buffid  = 0,
+    };
+    return retData;
+end
+
+function Ether:CloseAffixLv(datas)
+    for _, v in pairs(datas) do
+        v.curIndex = 0;
+        v.curLv = 0;
+    end
+end
+
+function Ether:SetCurAffixLv(id,index)
+    local data = self._curAffixs[id];
+    if(data == nil)then
+        CS.Logger.LogError("affixData is nil  id = "..id);
+        return false;
+    end
+    local cfg = self:GetAffixCfgById(id);
+    if(index == 0)then
+        data.curIndex = 0;
+        data.curLv = 0;
+        data.buffid = 0
+    else
+        data.curIndex = index;
+        data.curLv = tonumber(cfg.affixLvs[index]);
+        data.buffid = cfg.effect_id[index]
+    end
+end
+
+function Ether:SetStartGameState(isStart)
+    self._startGame = isStart;
+end
+
+function Ether:CloseAffixData()
+    if(self._startGame)then
+        return;
+    end
+    self._curAffixs = {};
+end
+
+function Ether:GetCurHeroIds()
+    return self._curHeroIds;
+end
+
+function Ether:CloseCurHeroIdByIndex(index)
+   self._curHeroIds[index] = 0;
+end
+
+function Ether:SetCurHeroId(heroId)
+    for i, v in ipairs(self._curHeroIds) do
+        if(v == 0)then
+            self._curHeroIds[i] = heroId;
+            return true;
+        end
+    end
+    return false;
+end
+
+function Ether:SetHeroIds(ids)
+    self._curHeroIds = ids or {0,0,0};
+end
+
+function Ether:GetCurHeroIndex(heroId)
+    for i, v in ipairs(self._curHeroIds) do
+        if(v == heroId)then
+            return i;
+        end
+    end
+    return 0;
+end
+
+function Ether:GetHeroLockState(heroId)
+    if(heroId == 0)then
+        return false;
+    end
+    for _, data in pairs(self._levelData) do
+        if(data.id ~= self._curSelectChapter.id)then
+            for i, v in ipairs(data.heroIds) do
+                if(v == heroId)then
+                    return true
+                end
+            end
+        end
+    end
+    return false;
+end
+
+function Ether:GetHeroSelectState(heroId)
+    if(heroId == 0)then
+        return false;
+    end
+    for i, v in ipairs(self._curHeroIds) do
+        if(v == heroId)then
+            return true
+        end
+    end
+    return false;
+end
+
+function Ether:GetSupportPointNum()
+    local retNum = 0;
+    local supportConditions = Ether:GetSupportByChapterId(self._curSelectChapter.id) or {};
+    for i, v in ipairs(supportConditions) do
+        if(Ether:GetSupportPointState(v.id))then
+            retNum = v.supPoint + retNum;
+        end
+    end
+    return retNum;
+end
+
+function Ether:SetCurAffixType(curStepType)
+    self.curAffixType = curStepType;
+end
+
+function Ether:GetCurAffixType()
+    return self.curAffixType;
+end
+
+function Ether:GetLvNumByType(eType)
+    local lvNum = 0;
+    local affixData = self:GetCurAffixDataByType(eType);
+    if(eType == Ether.Affix_Strategy)then
+        for i, v in ipairs(affixData) do
+            lvNum = lvNum + v.curLv;
+        end
+    else
+        lvNum = Ether:GetSupportPointNum();
+        for i, v in ipairs(affixData) do
+            lvNum = lvNum - v.curLv;
+        end
+    end
+    return lvNum;
+end
+
+function Ether:GetCurMaxLvNum()
+    return self._curSelectChapter.maxLv or 0;
+end
+
+function Ether:SaveChapterData()
+    for i, v in ipairs(self._curHeroIds) do
+        self._curSelectChapter.lastHeroIds[i] = v;
+    end
+    local curMaxNum = 0;
+    for i, v in pairs(self._curAffixs) do
+        self._curSelectChapter.affixs[i] = self:NewAffix(v);
+        if(self._curSelectChapter.affixs[i].curLv >= self._curSelectChapter.affixs[i].maxLv)then
+            self._curSelectChapter.affixs[i].maxLv = self._curSelectChapter.affixs[i].curLv;
+            self._curSelectChapter.affixs[i].maxIndex = self._curSelectChapter.affixs[i].curIndex;
+            for i, v in ipairs(self._curSelectChapter.lastHeroIds) do
+                self._curSelectChapter.heroIds[i] = v;
+            end
+        end
+        local affixCfg = self:GetAffixCfgById(v.id);
+        if(affixCfg.targetType == Ether.Affix_Strategy)then
+            curMaxNum = curMaxNum + self._curSelectChapter.affixs[i].curLv;
+        end
+    end
+    if(self._curSelectChapter.maxLv < curMaxNum)then
+        self._curSelectChapter.maxLv = curMaxNum;
+    end
+    if(curMaxNum > self._curSelectChapter.curStrategyLv)then
+        self._curSelectChapter.curStrategyLv = curMaxNum;
+    end
+end
+
+function Ether:GetAwardIsGet()
+    return self._awardIsGet or false;
+end
+
+function Ether:GetCurGetLv()
+    return self._curGetLv or 0;
+end
+
+function Ether:CloseCurGetLv()
+    self._curGetLv = 0;
+end
+
+function Ether:OnUpdateDay()
+    local data = Ether:GetAllLevelData();
+    self._curGetLv = 0;
+    self._awardIsGet = false;
+    for _, v in pairs(data) do
+        self._curGetLv = self._curGetLv + v.curStrategyLv;
+    end
+    GEvent:fireEvent(EVENT_TYPE.DAY_UPDATE);
+end

@@ -1,0 +1,277 @@
+--
+-- author: liangxt
+-- date  : 2019年11月5日16:15:30
+-- brief :
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FriendTableViewCtrl = class("FriendTableViewCtrl", CBaseLayer)
+
+local SHOW_TYPE = {
+    List        = 1,
+    Blacklist   = 3,
+}
+
+local BUTTON_TYPE = {
+    RecvAll     = "container_friends/button_recv",
+    SendAll     = "container_friends/button_send",
+}
+
+function FriendTableViewCtrl:ctor(super, layer, spine)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_FriendTableViewCtrlLayer",
+        trans = layer.layer,
+        obj = true,
+    }
+    self._fading = false
+    self._spine = spine
+    self._openBlack = false
+    self._cellObj = {}
+    self:onEnter()
+end
+
+function FriendTableViewCtrl:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+end
+
+function FriendTableViewCtrl:onExit()
+    if self._sortController ~= nil then
+        self._sortController:Clear()
+        self._sortController = nil
+    end
+    CBaseLayer.onExit(self)
+end
+
+--[[
+-- brief:
+-- params:{
+
+    }
+]]--
+function FriendTableViewCtrl:onInit(params)
+    self._friends = Friend:GetFriends()
+    self._blacklist = Friend:GetBlacklist()
+    self._showtype =  params.showtype
+    self._maxcfg = Friend:GetCfg()
+    Friend:OrderFriends()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND,
+                function(playerids)
+                    if  self._openBlack then
+                        return
+                    end
+                    self:onListClick(SHOW_TYPE.List)
+
+                end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_UNFRIEND,
+                function()
+                    --打开界面不拦截 刷新界面时拦截
+                    if not self._openBlack then
+                        return
+                    end
+                    self:showTableview(true)
+                    self:onListClick(SHOW_TYPE.Blacklist)
+
+                end)
+
+
+    self:initTableViewController()
+end
+
+function FriendTableViewCtrl:ctorCell(obj)
+    local cls  = Friend:CtorComFriendUi(obj)
+    cls.coinObj     = cls:Find("button_coin")
+    cls.talkObj     = cls:Find("button_talk")
+    cls.addObj      = cls:Find("button_add")
+    cls.applyObj    = cls:Find("label_apply")
+    cls.applyCom    = cls:GetComponent("label_apply","Text")
+    cls.refuseObj   = cls:Find("button_refuse")
+    cls.agreeObj    = cls:Find("button_agree")
+    cls.removeObj   = cls:Find("button_remove")
+
+    cls.coinCom.onClick:AddListener(function()
+                self:onGift(cls.index)
+            end)
+    cls.coinRecv.onClick:AddListener(function()
+                self:onGift(cls.index)
+            end)
+    cls.talkCom.onClick:AddListener(function()
+                Talk:OpenSelfTalkUi(cls.data)
+            end)
+    cls.removeCom.onClick:AddListener(function()
+                Friend:DelUnFriendReq(cls.id)
+            end)
+    return cls
+end
+
+function FriendTableViewCtrl:SetSiblingIndex(index)
+    self.layer.transform:SetSiblingIndex(index)
+end
+
+
+function FriendTableViewCtrl:initTableViewController()
+    self._tvController:Init(#self._friends, false,
+            function(cell, row, play)
+                self:refreshItems(cell, row+1)
+            end, 0.3, 0.1)
+    self._tvController:ScrollRectVertical(true)
+    self._aniPanelFadeInEndCallback = function()
+        self._tvController:ScrollRectVertical(true)
+    end
+end
+
+function FriendTableViewCtrl:refreshItems(cell, row)
+    local _cellObj = self._cellObj[cell.name]
+    if _cellObj == nil then
+        _cellObj = self:ctorCell(cell)
+        self._cellObj[cell.name] = _cellObj
+    end
+    if self._showtype == SHOW_TYPE.List then
+        self:refreshCell_freind(_cellObj, self._friends[row],row)
+    elseif self._showtype == SHOW_TYPE.Blacklist then
+        self:refreshCell_black(_cellObj, self._blacklist[row])
+    end
+end
+
+function FriendTableViewCtrl:initObj()
+    self._Obj  = self.layer.transform:Find("container_friends")
+    self._tvController  = UIController:CtorTableView(self.layer:Get("container_friends/TableViewController"))
+    self._btnSendObj = self.layer:Get("container_friends/button_send")
+    self._btnRecvObj = self.layer:Get("container_friends/button_recv")
+    self._recvRedObj = self.layer:Get("container_friends/button_recv/img_read")
+    self._imgSendObj = self.layer:Get("container_friends/lock_send")
+    self._imgRecvObj = self.layer:Get("container_friends/lock_recv")
+    self._imgEmptyObj = self.layer:Get("container_friends/image_empty")
+    self._imgEmptyCom = self.layer:GetTextComponent("container_friends/image_empty/label_empty")
+    self._tipsCom   = self.layer:GetTextComponent("container_friends/text_friendtips")
+    self._numCom    = self.layer:GetTextComponent("container_friends/text_friendnum")
+    self.layer:GetTextComponent("container_friends/image_empty/label_empty"):SetTextById(1600030)
+end
+
+function FriendTableViewCtrl:onListClick(showtype)
+    --未激活不刷新
+    if self._Obj.gameObject.activeSelf == false then
+        return
+    end
+    local state = self._showtype
+    self._showtype = showtype
+
+    if showtype == SHOW_TYPE.List then
+        self._friends = Friend:GetFriends()
+        local number = #self._friends
+        self._spine:SetVisible(number > 0)
+        set_obj_active(self._btnSendObj, false)
+        set_obj_active(self._btnRecvObj, false)
+        set_obj_active(self._imgSendObj, false)
+        set_obj_active(self._imgRecvObj, false)
+        set_obj_active(self._recvRedObj,Friend:IsExistRecvGifts())
+        -- 不知道这里放两个黑块干啥的,这逻辑也没明白,沈
+        -- set_obj_active(self._imgSendObj, number == 0)
+        -- set_obj_active(self._imgRecvObj, number == 0)
+        set_obj_active(self._imgEmptyObj, number == 0)
+        if number == 0 then
+            self._imgEmptyCom:SetTextById(1600030)
+        end
+        if showtype == state then
+            self._tvController:Reload(#self._friends, false)
+        else
+            self._tvController:Reload(#self._friends, true)
+            self._tvController:ScrollToTop()
+        end
+    elseif showtype == SHOW_TYPE.Blacklist then
+        self._blacklist = Friend:GetBlacklist()
+        local number = #self._blacklist
+        self._spine:SetVisible(number > 0)
+        set_obj_active(self._btnSendObj, false)
+        set_obj_active(self._btnRecvObj, false)
+        set_obj_active(self._imgSendObj, false)
+        set_obj_active(self._imgRecvObj, false)
+        set_obj_active(self._imgEmptyObj, number == 0)
+        if number == 0 then
+            self._imgEmptyCom:SetTextById(1600095)
+        end
+        if showtype == state then
+            self._tvController:Reload(#self._blacklist, false)
+        else
+            self._tvController:Reload(#self._blacklist, true)
+            self._tvController:ScrollToTop()
+        end
+    end
+    self._showtype = showtype
+    self:refreshFriendsNumber()
+end
+
+--刷好友
+function FriendTableViewCtrl:refreshCell_freind(cls, data,index)
+    cls.index = index
+    cls.data = data
+    Friend:SetFriendInfoUi(cls, data, Friend.SHOW_FRIENDS)
+end
+--刷黑名单
+function FriendTableViewCtrl:refreshCell_black(cls, data)
+    cls.id = data.id
+    Friend:SetFriendInfoUi(cls, data, Friend.SHOW_BLACKLIST)
+end
+
+function FriendTableViewCtrl:showTableview(show)
+    set_obj_active(self._Obj, show)
+end
+
+function FriendTableViewCtrl:setOpenBlack(show)
+    self._openBlack = show
+end
+
+--刷人数
+function FriendTableViewCtrl:refreshFriendsNumber()
+    local minc, maxc, tipsstr = 0, 0
+    if self._showtype ~= SHOW_TYPE.Blacklist then
+        minc, maxc = Friend:GetFriendNumber(), self._maxcfg.max_friends
+        tipsstr = LanguageMgr:GetTextByID(1600024)
+    else
+        minc, maxc = Friend:GetBlacklistNumber(), self._maxcfg.max_black
+        tipsstr = LanguageMgr:GetTextByID(1600025)
+    end
+    local showstr = string.format(LanguageMgr:GetTextByID(99000001), minc, maxc)
+    self._tipsCom.text = tipsstr
+    self._numCom.text = showstr
+end
+
+function FriendTableViewCtrl:onGift(index)
+    local data = self._friends[index]
+    if data ~= nil then
+        if data.recv_state == Friend.COIN_STATE_RECV then
+            Friend:RecvCoinReq(Friend.RECV_COIN_ONE, data.id)
+        else
+            if data.send_state == Friend.COIN_STATE_NULL then
+                Friend:SendCoinReq(Friend.SEND_COIN_ONE, data.id)
+            end
+        end
+    end
+end
+--刷新一个
+function FriendTableViewCtrl:refreshOne(playerid)
+    for i, v in ipairs(self._friends) do
+        if v.id == playerid then
+            local item = self._tvController:GetCellAtRow(i-1)
+            Friend:SetFriendInfoUi(self._cellObj[item.name], v, Friend.SHOW_FRIENDS)
+            return
+        end
+    end
+end
+
+function FriendTableViewCtrl:onButtonClick(itype)
+    if itype == BUTTON_TYPE.SendAll then
+        if #self._friends > 0 then
+            Friend:SendCoinReq(Friend.SEND_COIN_ALL)
+        end
+    elseif itype == BUTTON_TYPE.RecvAll then
+        if #self._friends > 0 then
+            Friend:RecvCoinReq(Friend.RECV_COIN_ALL)
+        end
+    end
+end
+
+return FriendTableViewCtrl
+

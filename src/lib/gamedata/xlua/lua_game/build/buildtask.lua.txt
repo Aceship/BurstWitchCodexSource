@@ -1,0 +1,82 @@
+--
+-- author: haosun
+-- date  : 2021-05-21 11:53:03
+-- brief : 
+--
+Build = Build or {}
+--
+-- brief: 任意构筑最大等级
+-- 
+function Build:GetBuildMaxLevel()
+    local _max = 0
+    for _, v in ipairs(Hero.BuildAtk) do
+        local build = Build:GetBuildServerDataByAtkType(v)
+        if build.lv >= _max then
+            _max = build.lv
+        end
+    end
+    return _max
+end
+
+--
+-- brief: 指定构筑等级值
+-- 
+function Build:GetBuildTypeLevel(buildtype)
+    local build = Build:GetBuildServerDataByAtkType(buildtype)
+    if build ~= nil then
+        return build.lv
+    end
+    return 0
+end
+
+--
+-- brief: 任意构筑点等级值
+-- 
+function Build:GetBuildDotMaxPoint()
+    local _max = 0
+    for _, v in ipairs(Hero.BuildAtk) do
+        local value = self:GetBuildTypeDotMaxPoint(v)
+        if value >= _max then
+            _max = value
+        end
+    end
+    return _max
+end
+
+--
+-- brief: X类型的构筑点最大等级值
+-- 
+function Build:GetBuildTypeDotMaxPoint(buildtype)
+    local _max, _level = 0, 0
+    local dotIds = Build:GetBuildDotIdsByAtkType(buildtype)
+    for _, id in pairs(dotIds) do
+        if self._dotAddLvData[id] ~= nil then 
+            _level = (self._dotAddLvData[id].addLv or 0) + (self._dotAddLvData[id].heroAddLv or 0)
+            if _level > _max then
+                _max = _level
+            end
+        end
+    end
+    return _max
+end
+
+--
+-- brief: 上阵A稀有度魔女N个
+-- 
+function Build:GetBuildTypeMaxHeroQlty(qlty)
+    local _max, _cnt = 0, 0
+    for _, v in ipairs(Hero.BuildAtk) do
+        _cnt = 0
+        local build = Build:GetBuildServerDataByAtkType(v)
+        for _, hid in pairs(build.heroIds) do
+            if hid ~= nil and hid ~= 0 then
+                local hero = Hero:GetHero(hid)
+                if hero.qlty == qlty then
+                    _cnt = _cnt + 1
+                end
+            end
+        end
+        _max = math.max(_max, _cnt)        
+    end    
+    return _max
+end

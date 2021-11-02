@@ -1,0 +1,11 @@
+id,界面类型,活动UID,是否显示进行了几天,背景图片,视频路径,背景音乐,AD广告字,spine位置,特殊关卡图片,特效,关卡进入UI,bg路径,图片路径,界面描述,是否显示英雄加成,规则说明,入口,入口（夜莺语）,标题BG,BOSS立绘显示,顶部货币栏
+id,layerType,activityUID,isShowDay,BackgroundImg,videoPath,Sound,ADmessage,spinePos,specialLevelImgpath,effects,enterPath,bgPath,ImgPath,layerDes,isShowHeroAdd,ruleId,entrance,entranceY,titleBg,BossStandImg,topInfo
+number ,number,number,number,string,string,string,array_&,array_&,array_&,string,array_&,string,array_&,number,number,number,number,number,array_&,array_&_|,array_&
+1,1,50002,1,-1,-1,event:/GameBgm/MusicBook-Seaday3,-1,10440003&199&-583&115&115,btn_diliufengyin_boss,prefab_uiEffect/uiEffect/UI100_mengyan_loop,1&spine_activity_50002&-10&-82,img_diliufengying_bg_1,-1,-1,-1,6005,31001,31002,-1,-1,-1
+2,2,50002,1,-1,-1,-1,text_diliufengyin_shangcb&-338&-564&0.5&1,10440003&199&-583&115&115,-1,-1,-1,img_diliufengying_bg_2,-1,-1,-1,6006,31001,31002,-1,-1,1010001
+3,3,50002,1,-1,-1,-1,-1,10440003&199&-583&115&115,-1,-1,-1,img_diliufengying_bg_2,-1,-1,-1,6007,31001,31002,-1,-1,-1
+4,4,50002,1,-1,-1,-1,text_diliufengyin_sdi&-359&-527&0.5&1,10440003&199&-583&115&115,-1,-1,-1,img_diliufengying_bg_2,-1,-1,-1,6008,31001,31002,-1,-1,-1
+5,5,50002,-1,-1,-1,-1,-1,1044&117&-809&100&100,-1,-1,-1,Img_fengying_bg_2,-1,90386,-1,801,31001,31002,-1,-1,8999999&1010001
+6,6,50002,-1,-1,-1,-1,-1,10440003&200&-627&110&110,-1,-1,-1,img_diliufengying_bg,-1,-1,1,802,31001,31002,-1,-1,8999999&1010001
+7,7,50002,-1,-1,-1,-1,-1,-1,-1,-1,-1,img_diliufengying_bg,-1,-1,-1,803,31001,31002,Img_fengying_boss_ui&0&-442,source_avatar/enemy/body_10101008&163&173&0.68&0.5&0.5|source_avatar/enemy/body_60015020&-24&274&0.7&0.5&0.5|source_avatar/enemy/body_60016010&-11&176&0.68&0.5&0.5,-1
+8,8,50002,-1,-1,source_video/whitenight.usm,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1

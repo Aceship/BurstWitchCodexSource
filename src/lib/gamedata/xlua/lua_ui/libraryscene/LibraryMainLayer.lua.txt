@@ -1,0 +1,103 @@
+--
+-- author: liangxt
+-- date  : 2019年10月10日14:14:19
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LibraryMainLayer = class("LibraryMainLayer",CBaseLayer)
+
+function LibraryMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_LibraryMainLayer",
+    }
+  
+    self:onEnter()
+end
+
+function LibraryMainLayer:onEnter()
+    self:createPnl()
+    self._fading = true
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._playing = false
+    self._spine = self.layer:Get("SpinePanel")
+    self._lvmax_pc =  self.layer:GetParticleComponent("UIG43_MAX/p_bj/Particle_G3")
+    self._lvmax =  self.layer:Get("UIG43_MAX/p_bj/Particle_G3")
+end
+
+function LibraryMainLayer:onBackClick()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        Fetter:CallFavorCallback()
+        if(self._fetterlayer ~= nil)then
+            self._fetterlayer:onBackClick();
+        end
+        self._fetterlayer = nil;
+        self:onPopLayer();
+    end)
+end
+
+function LibraryMainLayer:onExit()
+    self._spine = nil
+    self._lvmax = nil
+    self._lvmax_pc = nil
+    if self._fetterlayer ~= nil then
+        self._fetterlayer:onPopLayer()
+    end
+    self._fetterlayer = nil
+
+    Fetter:ClearLibraryLayer()
+
+    CBaseLayer.onExit(self)
+end
+
+function LibraryMainLayer:show()
+    self._fetterlayer = core.require("xlua/lua_UI/LibraryScene/FetterLayer.txt"):new(self.layer:Get("trans_ui_parent"))
+    self._fetterlayer:show()
+
+    self:showSpine(true)
+    self:showLayer()
+end
+
+function LibraryMainLayer:hideLayer()
+    self:showSpine(false)
+    CBaseLayer.hideLayer(self)
+end
+
+function LibraryMainLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    self:showSpine(true)
+    if self._fetterlayer ~= nil then
+        self._fetterlayer:ActivateFetterLayer()
+    end
+end
+
+function LibraryMainLayer:showSpine(show)
+    self._spine:SetVisible(show)
+end
+
+--满好感特效
+function LibraryMainLayer:showMaxEffect(show)
+    if show then
+        if self._playing then return end
+        self._lvmax:SetVisible(true)
+        self._lvmax_pc:Play()
+        self._playing = true
+    else
+        if not self._playing then return end
+        self._lvmax_pc:Stop()
+        self._lvmax:SetVisible(false)
+        self._playing = false
+    end
+end
+
+return LibraryMainLayer
+

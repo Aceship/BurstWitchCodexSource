@@ -1,0 +1,457 @@
+--
+-- author: haosun
+-- date  : 2020-07-15 10:15:09
+-- brief :
+--
+
+CameraController = CameraController or {}
+
+local cameraEffectSpeed = 5
+local _instance = nil
+local _main = nil
+
+function CameraController:InitCameraController()
+    if self._inited then return end
+    _instance = CS.CameraBehaviour.Instance
+    self._prefab    = _instance:Creator("prefab_comframeWork/fight_preload/FightInfo")
+    self._cameraObj = self._prefab:Get("Camera").gameObject
+    CS.BehaviourMgr.AddAnimatorKeyFrameCall(self._cameraObj, self)
+    self._prefab:SetVisible(false)
+    self._inited = true
+    self._camTransData = {};
+    self._curCamPosType = nil;
+    self:SaveCamTransformData(CamPosType.Normal);
+end
+
+function CameraController:ChangeSceneResetCamera()
+    _instance:ResetCameraRt();
+end
+
+function CameraController:HideUICameraBg()
+    _instance:HideUICameraBg();
+end
+
+function CameraController:SetCameraForFight(enabled)
+    if self._cameraObj ~= nil then
+        local anim =  self._cameraObj:GetComponent("Animation");
+        anim:Stop();
+    end
+    _instance:ResetCameraParentTrans()
+    _instance:ResetCameraToDefault()
+
+    _instance:SetCameraForFight()
+    _instance:SetCloud3DEnabled(enabled)
+    self._prefab:SetVisible(true)
+    self._vector3 = CS.UnityEngine.Vector3(0,0,0)
+    self._fightBC  =  CS.UnityEngine.GameObject.Find("Canvas/fight_background")
+    if self._fightBC ~= nil then
+        self._fightBC:SetVisible(true);
+        self._fightBC_img  =  self._fightBC:GetComponent("Image")
+    end
+    self:SetCamTransformData(CamPosType.Normal);
+    self._viewinfo      = nil
+    self._vieweffect    = nil
+    _main = CS.UnityEngine.Camera.main
+end
+
+--
+-- brief: 战斗开场黑屏效果
+--
+function CameraController:StartFightBcEffect()
+    if self._fightBC ~= nil then
+        local function onFinish()
+            self._fightBC:SetVisible(false)
+        end
+        self._fightBC:SetVisible(true);
+        self._fightBC_img:SetImageColor(0, 0, 0, 1)
+        self._fightBC_img:DOFade(0, 2):OnComplete(onFinish)
+    end
+end
+
+--
+-- brief: 黑屏效果
+--
+function CameraController:SetBlackMask()
+    if self._fightBC_img ~= nil then
+        self._fightBC_img:SetVisible(true)
+        self._fightBC_img:SetImageColor(0, 0, 0, 1)
+    end
+end
+
+--
+-- brief: 关闭黑屏效果
+--
+function CameraController:CloseBlackMask()
+    if self._fightBC_img ~= nil then
+        self._fightBC_img:SetVisible(false)
+    end
+end
+--------------------------------------------------------------------------------------------------------
+
+function CameraController:SetCameraSetting(flag)
+    self._prefab:SetVisible(true)
+    _instance:SetCameraSetting(flag)
+end
+
+function CameraController:UnInitCameraController()
+    self:SetGaussianBlurAmount(0)
+    self:RecoveryCamera()
+    self._viewinfo      = nil
+    if self._vieweffect~=nil then
+        CS.UnityEngine.GameObject.Destroy(self._vieweffect)
+    end
+
+    self._vieweffect    = nil
+    self.beginTimeScale = nil
+    if self._cameraObj ~= nil then
+        local came =   self._cameraObj:GetComponent("Animation");
+        came:Stop();
+        came.enabled = false;
+    end
+    if self._prefab ~= nil then
+        self._prefab.gameObject:SetVisible(false)
+    end
+end
+
+function CameraController:CameraInit()
+    self._cameraObj:SetActive(true)
+    self._cameraObj:AnimationPlay("CameraDefault")
+end
+
+function CameraController:CameraInitEnd()
+    -- call controller
+end
+
+function CameraController:CameraBossPlay()
+    self._cameraObj:AnimationPlay("BossPowerEffect")
+end
+
+function CameraController:CameraBuildPlay()
+    if(self._cameraObj == nil)then
+        self._cameraObj     = self._prefab.transform:Find("Camera").gameObject
+        CS.BehaviourMgr.AddAnimatorKeyFrameCall(self._cameraObj, self)
+    end
+    if(Build:IsFirstOpen())then
+        self._cameraObj:AnimationPlay("BuildCamAnim1")
+    else
+        self._cameraObj:AnimationPlay("BuildCamAnim")
+    end
+end
+
+function CameraController:LuaAnimatorKeyFrameCall(keyenum)
+    if keyenum == 0 then
+    elseif keyenum == 1 then
+    end
+end
+
+-- 相机效果 --------------------------------------------
+function CameraController:SetShadowsAmount(amount, r, g, b, a)
+    _instance:SetShadowsHeighLights(amount, r, g, b, a)
+end
+
+function CameraController:SetRGBAmount(amount)
+    _instance:SetRGBAmount(amount)
+end
+
+function CameraController:SetHueActive(hue, satur, value)
+    _instance:SetHueActive(hue, satur, value)
+end
+
+function CameraController:UpdateFastDark(dark)
+    _instance:UpdateFastDark(dark)
+end
+
+function CameraController:SetGaussianBlurAmount(amount)
+    _instance:SetGaussianBlurAmount(amount)
+end
+------------------------------------------------------------
+
+function CameraController:FightEndCameraEffect()
+    self.beginTimeScale = {
+    times       = 0,
+    maxTimes    = 3.5,
+    timeAtLastFrame     = Groble_SceneMgr:GetRealTime(),
+    stren               = _instance:GetRadialBlurStren(),
+    strenMax            = 0.12,
+    darss               = _instance:GetRadialBlurDarss(),
+    darssMax            = 80,
+    rgb                 = 0,
+    rgbMax              = 90,
+    }
+    Groble_SceneMgr:SetGameTimeScale(0.1)
+end
+
+function CameraController:FightEndCameraEffectUpdate(dt)
+    if self.beginTimeScale == nil then return end
+    local curframe = Groble_SceneMgr:GetRealTime()
+    local dealyTime = curframe - self.beginTimeScale.timeAtLastFrame
+    self.beginTimeScale.timeAtLastFrame = curframe
+    self.beginTimeScale.times = self.beginTimeScale.times + dealyTime
+    local rate = self.beginTimeScale.times/self.beginTimeScale.maxTimes
+    Groble_SceneMgr:SetGameTimeScale(rate)
+    local effectRate = 0
+    local rgbRate    = 0
+    if rate <= 0.2 then
+        effectRate = rate/0.2
+    else
+        effectRate = 1 - (rate/0.2 - 1)
+    end
+    if rate <= 0.5 then
+        rgbRate = rate/0.4
+    else
+        rgbRate = 1 - (rate/0.4 - 1)
+    end
+    local org = self.beginTimeScale.stren
+    local add = (self.beginTimeScale.strenMax - self.beginTimeScale.stren) * effectRate
+
+    local org2 = self.beginTimeScale.darss
+    local add2 = (self.beginTimeScale.darssMax - self.beginTimeScale.darss) * effectRate
+
+    local org3 = self.beginTimeScale.rgb
+    local add3 = (self.beginTimeScale.rgbMax - self.beginTimeScale.rgb) * rgbRate
+
+    _instance:SetRadialBlur(org + add, org2 + add2)
+    if add3 >= 0 then
+        self:SetRGBAmount(org3 + add3)
+    end
+    if self.beginTimeScale.times >= self.beginTimeScale.maxTimes then
+        _instance:SetRadialBlur(self.beginTimeScale.stren, self.beginTimeScale.darss)
+        _instance:CloseRadialBlur()
+        self:SetRGBAmount(self.beginTimeScale.rgb)
+        self.beginTimeScale = nil
+        Groble_SceneMgr:SetGameTimeScale(1)
+    end
+end
+
+----------------------------------------------------------------------------------------
+local _shadows_min  = 0
+local _shadows_max  = 0.75
+
+function CameraController:HitCameraEffectActive()
+    self.cameraEffectBegin      = true
+    self.cameraEffectEnd        = false
+    self.cameraShadowsAmount    = 0
+end
+
+function CameraController:HitCameraEffectUpdate(dt)
+    if self.cameraEffectBegin then
+        self.cameraShadowsAmount    = math.min(_shadows_max, self.cameraShadowsAmount + _shadows_max * dt * cameraEffectSpeed)
+
+        if self.cameraShadowsAmount >= _shadows_max then
+            self.cameraEffectBegin = false
+            self.cameraEffectEnd = true
+        end
+        self:SetShadowsAmount(self.cameraShadowsAmount, 1, 0, 0, 0.5)
+    end
+    if self.cameraEffectEnd == true then
+        self.cameraShadowsAmount    = math.max(_shadows_min, self.cameraShadowsAmount - _shadows_max * dt * cameraEffectSpeed)
+
+        if self.cameraShadowsAmount <= _shadows_min then
+            self.cameraEffectEnd = false
+        end
+        self:SetShadowsAmount(self.cameraShadowsAmount, 1, 0, 0, 0.5)
+    end
+end
+
+function CameraController:RecoveryCamera()
+    self.cameraEffectBegin  = false
+    self.cameraEffectEnd    = false
+    self.cameraShadowsAmount    = 0
+    self:SetShadowsAmount(_shadows_min, 1, 0, 0, 0.5)
+    self:SetRGBAmount(0)
+    self:SetGaussianBlurAmount(0)
+    _instance:StopCameraShake()
+    self:OffVignetteV3()
+end
+
+----------------------------------------------------------------------------------------
+function CameraController:WorldToScreenPointX(transform)
+    return _instance:WorldToScreenPointX(transform)
+end
+
+function CameraController:WorldToScreenPointY(transform)
+    return _instance:WorldToScreenPointY(transform)
+end
+
+function CameraController:ScreenPointToLocalPointInRectangle(transform)
+    return self:Vector2ToRectPos(self:WorldToScreenPointX(transform), self:WorldToScreenPointY(transform))
+end
+
+function CameraController:Vector2ToRectPos(x, y)
+    return _instance:ScreenPointToLocalPointInRectangle(x, y, true), _instance:ScreenPointToLocalPointInRectangle(x, y, false)
+end
+
+function CameraController:ShakeSet(_shakeLevel, _shakeTime)
+    _instance:BeginCameraShake(_shakeLevel, _shakeTime)
+end
+
+function CameraController:IsInViewport(x, y, z)
+    self._vector3.x = x
+    self._vector3.y = y
+    self._vector3.z = z
+    local viewPos = _main:WorldToViewportPoint(self._vector3)
+    return viewPos.z > 0 and viewPos.x > 0 and viewPos.x < 1 and viewPos.y > 0 and viewPos.y < 1
+end
+
+function CameraController:CheckVignetteV3(viewid)
+    if viewid ~= nil and viewid ~= 0 then
+        local cfg = FightModule:GetViewCfg(viewid)
+        if cfg ~= nil then
+            if self._vieweffect == nil then
+                self._vieweffect = _instance.MainCameraTrans:CreateChild("prefab_fightEffect/FightEffect/view_effect_new");
+            end
+            self:InitVignetteV3(cfg.color, cfg.center_from, cfg.center_to, cfg.is_move,
+        cfg.radius_from, cfg.radius_to, cfg.smooth_from, cfg.smooth_to, cfg.duration, cfg.nextid)
+        else
+            self:OffVignetteV3()
+        end
+    end
+end
+
+--
+-- 关闭视野效果
+--
+function CameraController:OffVignetteV3()
+    if self._vieweffect ~= nil then
+        self._vieweffect:SetVisible(false)
+    end
+end
+
+--
+-- 开启视野效果
+--
+function CameraController:InitVignetteV3(color, center_from, center_to, is_move, radius_from, radius_to,
+smooth_from, smooth_to, duration, nextid)
+    self:SetViewRadius(radius_from)
+    if is_move then
+        self:SetViewCenter(center_from[1], center_from[2])
+    end
+    if self._viewinfo == nil then
+        self._viewinfo = {dt = 0, duration = duration, nextid = nextid, update = true,
+    center_from = center_from, center_to = center_to, is_move = is_move,
+    radius_from = radius_from, radius_to = radius_to, isradius = false,
+    smooth_from = smooth_from, smooth_to = smooth_to, issmooth = false}
+    else
+        self._viewinfo.dt = 0
+        self._viewinfo.update       = true
+        self._viewinfo.duration     = duration
+        self._viewinfo.nextid       = nextid
+        self._viewinfo.center_from  = center_from
+        self._viewinfo.center_to    = center_to
+        self._viewinfo.is_move      = is_move
+        self._viewinfo.radius_from  = radius_from
+        self._viewinfo.radius_to    = radius_to
+        self._viewinfo.isradius     = false
+        self._viewinfo.smooth_from  = smooth_from
+        self._viewinfo.smooth_to    = smooth_to
+        self._viewinfo.issmooth     = false
+    end
+    self._viewinfo.isradius = radius_from ~= radius_to
+    self._viewinfo.issmooth = smooth_from ~= smooth_to
+end
+
+function CameraController:UpdateVignetteRadius(dt)
+    if self._viewinfo == nil or false == self._viewinfo.update then return end
+
+    self._viewinfo.dt = self._viewinfo.dt + dt
+    local t = self._viewinfo.dt / self._viewinfo.duration
+    if self._viewinfo.dt >= self._viewinfo.duration then
+        t = 1
+        self._viewinfo.dt = 0
+        self._viewinfo.update = false
+        if self._viewinfo.is_move then
+            self:SetViewCenter(self._viewinfo.center_to[1], self._viewinfo.center_to[2])
+        end
+        if self._viewinfo.isradius then
+            self:SetViewRadius(self._viewinfo.radius_to)
+        end
+
+        self:CheckVignetteV3(self._viewinfo.nextid)
+    else
+        if self._viewinfo.is_move then
+            local cx = math.interp(self._viewinfo.center_from[1], self._viewinfo.center_to[1], t)
+            local cy = math.interp(self._viewinfo.center_from[2], self._viewinfo.center_to[2], t)
+            self:SetViewCenter(cx, cy)
+        end
+        if self._viewinfo.isradius then
+            local radius = math.interp(self._viewinfo.radius_from, self._viewinfo.radius_to, t)
+            self:SetViewRadius(radius)
+        end
+    end
+end
+
+function CameraController:SetViewCenter(cx, cy)
+    if self._vieweffect ~= nil then
+        self._vector3.x = (cx-0.5)*2.6
+        self._vector3.y = (cy-0.5)*4.6
+        self._vector3.z = 2
+        --local worldPos = CameraMgr:ViewportToWorldPoint(self._vector3)
+        -- print("------------", cx, cy, worldPos.x, worldPos.y, worldPos.z)
+
+        --worldPos.z = 0
+        self._vieweffect.transform.localPosition = self._vector3
+    end
+end
+
+function CameraController:SetViewRadius(radius)
+    if self._vieweffect ~= nil then
+        local _scale = 1/ radius*2
+        self._vieweffect:SetScale(_scale, _scale, _scale)
+    end
+end
+
+function CameraController:WorldToViewportPoint(world)
+    return _main:WorldToViewportPoint(world)
+end
+
+function CameraController:ViewportToWorldPoint(viewPos)
+    return _main:ViewportToWorldPoint(viewPos)
+end
+
+function CameraController:WorldToScreenPoint(worldPosx, worldPosy, worldPosz)
+    self._vector3.x = worldPosx
+    self._vector3.y = worldPosy
+    self._vector3.z = worldPosz
+    return _instance:WorldToScreenPointEx(self._vector3)
+end
+--------------------------------------相机位置相关--------------------------------
+function CameraController:SaveCamTransformData(camType,isReSet)
+    if(camType == nil)then
+        return;
+    end
+    local data = {};
+    data.localPos = {
+    x = self._cameraObj:GetPositionX(true),
+    y = self._cameraObj:GetPositionY(true),
+    z = self._cameraObj:GetPositionZ(true),
+    }
+
+    data.localScale = {
+    x = self._cameraObj.transform:GetScaleX(true),
+    y = self._cameraObj.transform:GetScaleY(true),
+    z = self._cameraObj.transform:GetScaleZ(true),
+    }
+
+    data.localRota = {
+    x = self._cameraObj:GetRotationX(true),
+    y = self._cameraObj:GetRotationY(true),
+    z = self._cameraObj:GetRotationZ(true),
+    }
+    self._camTransData[camType] = data;
+    self._curCamPosType = nil;
+end
+
+function CameraController:SetCamTransformData(camType)
+    if(self._camTransData[camType] == nil)then
+        AppMgr:LogError("_camTransData is nil camType = ",camType);
+        return;
+    end
+    self._curCamPosType = camType;
+    local data = self._camTransData[camType];
+
+    self._cameraObj:SetPosition(data.localPos.x,data.localPos.y,data.localPos.z,true);
+    self._cameraObj:SetScale(data.localScale.x,data.localScale.y,data.localScale.z,true);
+    self._cameraObj:SetRotation(data.localRota.x,data.localRota.y,data.localRota.z,true);
+end
+
+

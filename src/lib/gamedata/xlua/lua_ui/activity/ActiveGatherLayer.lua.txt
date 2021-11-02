@@ -1,0 +1,241 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-26 19:44:37
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActiveGatherLayer = class("ActiveGatherLayer", CBaseLayer)
+
+--构造函数
+function ActiveGatherLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ActiveGatherLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        topInfo        = {};
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActiveGatherLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:Init();
+end
+
+--初始化
+function ActiveGatherLayer:Init()
+
+    self._leftItems = {};
+    self._rightItems = {};
+    self:InitUI();
+end
+
+function ActiveGatherLayer:UpdateData()
+    self._gatherCfg = Activity:GetAllActiveGatherCfg();
+end
+
+--初始化UI
+function ActiveGatherLayer:InitUI()
+
+    --@ImageEnd
+
+    --@TextEnd
+
+    self._transLeftBg = self.layer:Get("trans_scroll_rect/trans_content/trans_left_bg");
+    self._transRightBg = self.layer:Get("trans_scroll_rect/trans_content/trans_right_bg");
+    --@TransformEnd
+
+    self._rectContent = self.layer:GetRectTransformComponent("trans_scroll_rect/trans_content");
+	--@RectTransformEnd
+
+    self._objItem = self.layer:Get("item_hide/obj_item").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function ActiveGatherLayer:show()
+    self:showLayer();
+end
+
+function ActiveGatherLayer:showLayer()
+    self:UpdateData();
+    self:SetUI();
+    self:UpdateRed();
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function ActiveGatherLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function ActiveGatherLayer:onExit()
+    self._gatherCfg = nil;
+    self._transLeftBg = nil;
+    self._transRightBg = nil;
+    self._objItem = nil;
+    self._leftItems = nil;
+    self._rightItems = nil;
+    self._rectContent = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ActiveGatherLayer:OnBtnItemClick(cfg)
+    if(cfg.itype == Activity.JobType.JobActivity)then
+        Activity:SetCurSelectUid(cfg.uid);
+        if(cfg.uid == Operation.ActivityID.DailyCheckIn)then-- 每日签到
+            core.require("xlua/lua_UI/Activity/DaySignInLayer.txt"):new():show();
+        elseif(cfg.uid == Operation.ActivityID.NewWelfare)then--萌新福利
+            core.require("xlua/lua_UI/Activity/RookieAwardLayer.txt"):new():show();
+        elseif(cfg.uid == Operation.ActivityID.GradeAward)then--等级奖励
+            core.require("xlua/lua_UI/Activity/LevelAwardLayer.txt"):new():show();
+        elseif(cfg.uid == Operation.ActivityID.ChessBoard)then--夜莺巡查
+            Activity:OpenChessBoardMainLayer();
+        elseif(cfg.uid == Operation.ActivityID.Dial)then  --转盘
+            core.require("xlua/lua_UI/Activity/DialLayer.txt"):new():show();
+        end
+    elseif(cfg.itype == Activity.JobType.JobOperation)then
+        if(cfg.uid == Operation.ActivityID.BloodCycle)then
+            Operation:OpenBloodCycleLayer()
+        end
+    elseif(cfg.itype == Activity.JobType.JobNewerTask)then
+        if(Task:NewerTaskRemainTime() <= 0)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID());
+            return;
+        end
+        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW)
+    elseif(cfg.itype == Activity.JobType.JobChapter)then
+        
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActiveGatherLayer:RegisterHandler()
+    self:addEventListener(EVENT_NAME.UI_REFRESH_REDTIP,self.__cname,function()
+        self:UpdateRed();
+    end);
+    self:addEventListener(EVENT_NAME.UPDATE_OPER_TOG_STATE,self.__cname,function()
+        self:UpdateRed();
+    end);
+    self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+        self:UpdateData();
+        self:SetUI();
+        self:UpdateRed();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ActiveGatherLayer:SetCommonUI(items, trans, cfgs)
+    local num = math.max(#items, #cfgs)
+    local _height = 0
+    for i = 1, num do
+        local cls = items[i];
+        if(cls == nil)then
+            cls = self:NewItemUI(trans);
+            items[i] = cls;
+        end
+        --cls.imgBg.transform:SetScaleY(0);
+        self:SetItemUI(cls, cfgs[i]);
+        _height = _height + cls.height
+        --cls.imgBg.transform:DOScaleY(1, 0.12):SetDelay(0.08 * i);
+    end
+    trans:SetSizeY(_height)
+
+    local posY = 0
+    for i = 1, num do
+        items[i].go:SetPosition(0, posY, 0, true)
+        posY = posY - items[i].height 
+    end
+    return _height
+end
+
+function ActiveGatherLayer:SetUI()
+    --左侧
+    local _l_height = self:SetCommonUI(self._leftItems, self._transLeftBg, self._gatherCfg[1])
+    --右侧
+    local _r_height = self:SetCommonUI(self._rightItems, self._transRightBg, self._gatherCfg[2])
+   
+    self._rectContent:SetSizeY(math.max(_l_height, _r_height))
+end
+
+local MaxItemNum = 3;
+function ActiveGatherLayer:NewItemUI(parent)
+    local go = parent:AddChild(self._objItem)
+
+    local cls = {
+        go      = go,
+        imgBg   = go:GetImageComponent("img_bg"),
+        objRed  = go:Get("img_bg/img_red"),
+        items   = {}
+    }
+    for i = 1, MaxItemNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(go:Get("img_bg/item_"..i));
+    end
+    go:GetButtonComponent("img_bg"):AddButtonListener(function ()
+        self:OnBtnItemClick(cls.cfg);
+    end);
+    return cls;
+end
+
+function ActiveGatherLayer:SetItemUI(cls,cfg)
+    cls.go:SetVisible(cfg ~= nil);
+    if(cfg == nil)then
+        return;
+    end
+    cls.cfg = cfg;
+    cls.imgBg:LoadSprite(cfg.imgPath);
+    cls.imgBg:ResetSize();
+    cls.height = cls.imgBg:GetSizeDeltaY()
+    cls.go:SetSize(cls.imgBg:GetSizeDeltaX(), cls.height);
+    for i = 1, MaxItemNum do
+        Bag:SetComSimpleGoodsUi(cls.items[i],cfg.goods[i][1],cfg.goods[i][2],0);
+    end
+    if cls.effect ~= nil then
+        cls.effect:Release()
+        cls.effect = nil
+    end
+    if next(cfg.Effectcoordinate) ~= nil then
+        cls.effect = cls.imgBg.transform:CreateChild(cfg.Effectcoordinate[1])
+        if cls.effect ~= nil then
+            cls.effect:SetPosition(tonumber(cfg.Effectcoordinate[2]), tonumber(cfg.Effectcoordinate[3]), 0, true)
+            CS.UnityHelper.SetParticleMask(cls.effect.transform)
+        end
+    end
+end
+
+function ActiveGatherLayer:UpdateRed()
+    for _, cls in pairs(self._rightItems) do
+        cls.objRed:SetVisible(Activity:GetRedStateByGatherId(cls.cfg.id));
+    end
+    for _, cls in pairs(self._leftItems) do
+        cls.objRed:SetVisible(Activity:GetRedStateByGatherId(cls.cfg.id));
+    end
+end
+
+return ActiveGatherLayer;

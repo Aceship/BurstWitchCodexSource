@@ -1,0 +1,30 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:44
+-- brief : 
+--
+UpLoadVideo = UpLoadVideo or {}
+
+UpLoadVideo.UploadVideoReq = "UploadVideoReq";
+UpLoadVideo.VideoAddCountReq = "VideoAddCountReq";--增加vedio次数请求
+UpLoadVideo.WatchVideoCountReq = "WatchVideoCountReq";--查询视频播放次数请求
+UpLoadVideo.WatchVideoCountRep = "WatchVideoCountRep";--查询视频播放次数返回
+UpLoadVideo.GetVideoReq = "GetVideoReq";--获取视频路径
+UpLoadVideo.GetVideoRep = "GetVideoRep";--获取视频路径返回
+
+UpLoadVideo.VideoType = {
+    WorldBoss = 1,--圣光
+    ShenYe = 2,--深夜永久
+    JuQing = 3,--剧情
+}
+
+UpLoadVideo.Ip = "192.168.24.210";
+UpLoadVideo.Port = 10060;
+
+function UpLoadVideo:SetIpPort(ip,port)
+    if(ip == nil or port == nil)then
+        return;
+    end
+    UpLoadVideo.Ip = ip;
+    UpLoadVideo.Port = port;
+end

@@ -1,0 +1,102 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-01 15:57:11
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FetterStoryTipsLayer = class("FetterStoryTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function FetterStoryTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_FetterStoryTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function FetterStoryTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function FetterStoryTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:onBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function FetterStoryTipsLayer:onBackClick()
+    self:onPopLayer()
+end
+
+--初始化
+function FetterStoryTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function FetterStoryTipsLayer:InitUI()
+
+	--@ImageEnd
+
+
+	self._txtDes = self.layer:GetTextComponent("trans_container/scroll/txt_des");
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function FetterStoryTipsLayer:show(des)
+    self._txtDes.text = lua_str_line_feed(des);
+    self:showLayer();
+    self:playAni("TipsLayerAnim");
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function FetterStoryTipsLayer:OnBtnReturnClick()
+    Groble_UIMgr:ClickOnReturnBtn();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function FetterStoryTipsLayer:onExit()
+    self._txtTitle = nil;
+	self._txtDes = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+function FetterStoryTipsLayer:KeyFrameCall()
+    self.layer:GetScrollRectComponent("trans_container/scroll").vertical = true;
+end
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return FetterStoryTipsLayer;

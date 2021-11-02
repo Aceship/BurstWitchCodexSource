@@ -1,0 +1,169 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EquipHeroLayer = class("EquipHeroLayer", CBaseLayer)
+
+local ROW_CELL_NUM  = 3
+
+function EquipHeroLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path  = "prefab_uiEquip/UI_EquipHeroLayer",
+    }
+    self._fading = false;
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+
+    }
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+
+    self._showids        = {}
+    self:onEnter()
+end
+
+function EquipHeroLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function EquipHeroLayer:initObj()
+    self._cellObj       = self.layer:Get("TableViewController/prefab_cell")
+    self._objBtnOk      = self.layer:Get("button_ok");
+    self._templateObj   = self.layer:Get("template")
+end
+
+function EquipHeroLayer:onEnter()
+    self:createPnl()
+    -- CS.UnityHelper.NotchfitY(self.layer:Get("txt_tips"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_top_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("TableViewController"), 0, true)
+    self:initObj()
+    self.layer:GetButtonComponent("button_ok").onClick:AddListener(function ()
+        self:onBackClick()
+    end);
+end
+
+function EquipHeroLayer:onExit()
+    self._showids       = nil
+    self._callback      = nil
+    self._heorid        = nil
+    self._cellObj       = nil
+    self._objBtnOk      = nil
+    self._templateObj   = nil
+    CBaseLayer.onExit(self)
+end
+
+function EquipHeroLayer:show(heroid, callback)
+    self._heorid    = heroid
+    self._callback  = callback
+    self:onClickCheckButton()
+    self:showLayer()
+end
+
+function EquipHeroLayer:onClickCheckButton(itype)
+    self._showids = Hero:GetHasHeroIds()
+    self._checkType = itype
+    self:SetTableView();
+end
+
+--设置TableView
+function EquipHeroLayer:SetTableView()
+    local row = math.ceil(#self._showids / ROW_CELL_NUM);
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self.layer.transform:Find("TableViewController"));
+        self._tvController:Init(row, true,
+            function(cell, row, play)
+                self:SetCellInfo(cell, row + 1);
+            end, 0.3, 0.1)
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(row, false);
+    end
+end
+
+--设置tableView   item信息
+function EquipHeroLayer:SetCellInfo(cell, row)
+    if(self.cellClass == nil)then
+        self.cellClass = {};
+    end
+    local clscell = self.cellClass[cell]
+    if clscell == nil then
+        clscell = {clsArr = {}}
+        self.cellClass[cell] = clscell
+        for i = 1, 3 do
+            local obj = Groble_ResMgr:Instantiate(self._templateObj, cell.transform)
+            obj.name = "item" .. i
+            local cls = clsbase:new(obj)
+            cls.clshero = Hero:HalfItemClassNew(obj, function (heroid) self:OnItemClassBtnClick(heroid, cls) end,
+            function(heroid)
+                -- uimgr:showMainWitchLayerWithHid(heroid)
+            end, Hero.PRESS_DELAY )
+            clscell.clsArr[i] = cls
+            clscell.clsArr[i].equips = {}
+            for j = 1, 6 do
+                clscell.clsArr[i].equips[j] = {}
+                clscell.clsArr[i].equips[j].gameObject  = obj:Get(string.format("obj_equip/item_%d", j))
+                clscell.clsArr[i].equips[j].imgBg       = clscell.clsArr[i].equips[j].gameObject:GetImageComponent("")
+                clscell.clsArr[i].equips[j].icon        = clscell.clsArr[i].equips[j].gameObject:GetImageComponent("img_icon")
+            end
+        end
+    end
+    local index = -1
+    for i = 1, 3, 1 do
+        index = (row - 1) * ROW_CELL_NUM + i
+        if self._showids[index] ~= nil then
+            clscell.clsArr[i]:Visible(true)
+            Hero:SetHalfItemClassData(clscell.clsArr[i].clshero, self._showids[index], nil, true);--更新数据
+            self:refreshEquipPos(index, clscell.clsArr[i].equips)
+        else
+            clscell.clsArr[i]:Visible(false)
+        end
+    end
+end
+
+
+--点击回调
+function EquipHeroLayer:OnItemClassBtnClick(id, cls)
+    if id == nil or id == 0 then
+        return
+    end
+    if self._plotids and self._plotids[id] then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(20038))
+        return
+    end
+
+    if self._callback ~= nil then
+        self._callback(id)
+    end
+    self:onPopLayer()
+end
+
+
+function EquipHeroLayer:refreshEquipPos(index, equipObjs)
+
+    local heroid = self._showids[index]
+    local hero = Hero:GetHero(heroid)
+    for i = 1, 6 do
+        local equip = Equip:GetEquip(hero.equipids[i])
+        local empty = equip == nil
+        equipObjs[i].imgBg.color = empty and COLOR_TYPE.White_a_60 or COLOR_TYPE.White
+        equipObjs[i].icon:SetVisible(not empty)
+        if not empty then
+            local cfg = Equip:GetCfg(equip.cfgid)
+            Equip:SetIconUi(equipObjs[i].icon, cfg.FSicon)
+        end
+    end
+end
+
+
+function EquipHeroLayer:onLayerFadeInEndCall()
+    -- Guide:ContinueGuideEvent(self.__cname)
+end
+
+return EquipHeroLayer
+

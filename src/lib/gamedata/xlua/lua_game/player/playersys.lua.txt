@@ -1,0 +1,245 @@
+--
+-- author: haosun
+-- date  : 2018-11-12 17:20:11
+-- brief : 
+--
+
+Player = Player or {}
+
+Player.UnlockType = {
+    fight    = 1, --关卡解锁
+    level    = 2, --等级解锁
+    unlock   = 3, --暂不开放
+}
+
+Player.SYS_FUNC = {
+    fight_plot      = 101,     -- 战斗-剧情关卡
+    plot_n          = 10101,   -- 剧情普通
+    plot_d          = 10102,   -- 剧情困难
+    plot_s          = 10103,   -- 剧情深渊
+    fight_blood     = 10104,   -- 血之轮回
+    fight_daily     = 102,     -- 战斗-日常挑战
+    fight_daily1    = 10201,   -- 海地祭祀阵（魂晶）
+    fight_daily2    = 10202,   -- 旧版本，当前未使用
+    fight_daily3    = 10203,   -- 天狱之上（经验）
+    fight_daily4    = 10204,   -- 塞壬的游戏（技能书）
+    fight_daily5    = 10205,   -- 符文法典（符石）
+    fight_activity  = 103,     -- 战斗-活动
+    fight_lob       = 10301,   -- 魔导研究所
+    fight_night     = 10302,   -- 深夜永久
+    fight_tower     = 10303,   -- 爬塔  new
+    fight_mystery   = 10304,   -- 幽暗秘境
+    sys_skill       = 201,     -- 魔女-技能
+    sys_equip       = 202,     -- 魔女-符石
+    sys_equip_up    = 20201,   -- 装备-强化
+    sys_equip_top   = 20202,   -- 装备-突破
+    sys_lackey      = 203,     -- 魔女-爪牙
+    sys_star        = 204,     -- 星盘 new
+    sys_favour      = 205,     -- 好感 new
+    sys_top         = 206,     -- 突破
+    sys_fetter      = 207,     -- 羁绊
+    sys_step        = 208,     -- 进阶
+    sys_secret      = 301,     -- 秘所
+    sys_call        = 401,     -- 召唤
+    fetter_diary    = 501,     -- 回忆日记 new
+    fetter_emblem   = 502,     -- 纹章 new
+    sys_benefits    = 1001,    -- 活动
+    sys_newer_task  = 1002,    -- 暮光礼赞
+    sys_task        = 1003,    -- 任务
+    sys_bag         = 1004,    -- 背包
+    sys_shop        = 1005,    -- 商城
+    sys_mail        = 1006,    -- 邮箱
+    sys_friend      = 1007,    -- 好友 new
+    sys_chat        = 1008,    -- 聊天 new 
+    --sys_odeum       = 1009,    -- 音乐厅 new
+    sys_library     = 1010,    -- 图书馆
+    sys_auto        = 1011,    -- 自动战斗 new
+    sys_bulid       = 1012,    -- 构筑
+    sys_archive     = 1013,    -- 图鉴 new
+    sys_skin        = 1014,    -- 皮肤 new
+    fight_ether     = 1015,    -- 以太边界 new
+    fight_wolrd     = 1016,    -- 世界BOSS new
+    sys_active      = 1017,    -- 活动 new
+    sys_look        = 1018,    -- 夜莺巡查 new
+    build_lv_up     = 1019,    -- 构筑升级
+    build_dot       = 1020,    --构筑点
+    sys_autoskill   = 1021,    -- 自动必杀
+    sys_herolevel   = 1022,    -- 自动必杀
+    sys_lottery10   = 1023,    -- 新手十连抽
+    sys_concert     = 1024,    -- 音乐厅
+
+    syc_activity_level    = 50002,   -- 活动关卡
+    
+    chapter3        = 888003,  --第3章
+    chapter4        = 888004,
+    chapter5        = 888005,
+    chapter6        = 888006,
+    chapter7        = 888007,
+    chapter8        = 888008,
+    chapter9        = 888009,
+    chapter10       = 888010,
+    chapter11       = 888011,
+    chapter12       = 888012,
+    chapter13       = 888013,
+    chapter14       = 888014,
+    chapter15       = 888015,
+    chapter16       = 888016,
+    chapter17       = 888017,
+    chapter18       = 888018,
+    chapter19       = 888019,
+    chapter20       = 888020,
+    equip_fs        = 999001,
+    equip_weapon    = 999002,
+}
+
+function Player:InitSysFunc()
+    self._func = {}
+    for _, v in pairs(Player.SYS_FUNC) do
+        local func = {
+            name    = v,
+            open    = false,
+            openLv  = 1,
+            openType = 2, --默认解锁配置 即1级开放
+            guide_gid   = 0,     -- 引导ID
+        }
+        self._func[v] = func
+    end
+    local stype
+    for _, v in pairs(self._syscfg) do
+        if self._func[v.sysid] ~= nil then
+            --  -1默认直接解锁
+            if v.type ~= "-1" then
+                stype = lua_str_split(v.type , "&")
+                self._func[v.sysid].openType    = tonumber(stype[1])
+                self._func[v.sysid].openLv      = tonumber(stype[2])
+                self._func[v.sysid].guide_gid   = tonumber(v.guide_id)
+            end
+            self._func[v.sysid].cfg = v
+          --  self._func[v.sysid].name = v.name
+        end
+    end   
+end
+
+function Player:GetSysFunc(funcname)
+    if self._func[funcname] ~= nil then
+        return self._func[funcname]
+    end
+    return nil
+end
+
+function Player:SysFuncOpenLv(sysname)
+    local sys = self:GetSysFunc(sysname)
+    if sys ~= nil then
+        return sys.openLv,sys.openType
+    end
+    return 1, Player.UnlockType.level 
+end
+
+--1为通关解锁 2为等级解锁
+function Player:IsSysFuncOpen(sysname)
+    if sysname == -1 then return true end
+
+    local level, stype = self:SysFuncOpenLv(sysname)
+    if stype == Player.UnlockType.fight  then
+        return Chapter:GetLevel(level).open
+    elseif stype == Player.UnlockType.level then
+        return self:GetLevel() >= level
+    elseif stype == Player.UnlockType.unlock then
+        return false
+    end
+end
+
+function Player:UpdateSysFunc()
+    for _, v in pairs(self._func) do
+        v.open = self:IsSysFuncOpen(v.name)
+    end
+    GEvent:fireEvent(EVENT_TYPE.OPEN_FUNC)
+end
+
+--设置集合
+function Player:SetUnlockSys(stype,levelid)
+    local sysyids
+  
+    if stype == Player.UnlockType.fight then
+        sysyids  = self._levelids[tonumber(levelid)]
+    elseif stype == Player.UnlockType.level then
+        sysyids  = self._playerLevels[tonumber(levelid)]
+    end
+    if sysyids == nil then
+        return false
+    end
+    for _,sysid in pairs(sysyids) do
+        if self._func[sysid] ~= nil then
+            table.insert(self._unlockids, sysid)
+            --羁绊在解锁后 才计算属性
+            if sysid == Player.SYS_FUNC.sys_fetter then
+                Hero:CalAllHeroAttr()
+            end
+        end
+    end
+    return true
+end
+
+--清除集合
+function Player:RemoveUnlockByTypeAndLv(opentype,level)
+    if opentype == Player.UnlockType.fight then
+        self._levelids[level] = nil
+    elseif opentype == Player.UnlockType.level then
+        self._playerLevels[level] = nil
+    end    
+end
+
+function Player:GetUnlockSys()
+    return self._unlockids
+end
+
+function Player:ClearUnlockSys()
+    self._unlockids = {}
+end
+
+--初始化未解锁的功能集合
+function Player:InitUnlockSys()
+    self:UpdateSysFunc()
+    self._levelids = {}
+    self._playerLevels = {}
+    for _,v in pairs(self._func) do
+        if not v.open and v.cfg.show then 
+            --关卡wi
+            if v.openType == Player.UnlockType.fight then
+                if self._levelids[v.openLv] == nil then
+                    self._levelids[v.openLv] = {}
+                end
+                table.insert(self._levelids[v.openLv] , v.name)
+            elseif  v.openType == Player.UnlockType.level then
+                if self._playerLevels[v.openLv] == nil then
+                    self._playerLevels[v.openLv] = {}
+                end
+                table.insert(self._playerLevels[v.openLv] , v.name)
+            end
+        end
+    end
+end
+
+function Player:GetUnlockDesc(sysid)
+    local levelid, stype = self:SysFuncOpenLv(sysid)
+    if stype == Player.UnlockType.fight then
+        local level = Chapter:GetLevel(levelid)
+        return string.format( LanguageMgr:GetTextByID(76000046) , level.name_simple)
+    elseif stype == Player.UnlockType.level then
+        return string.format( LanguageMgr:GetTextByID(20031) , levelid)
+    elseif stype == Player.UnlockType.unlock then
+        return LanguageMgr:GetTextByID(76000085)
+    end
+    return LanguageMgr:GetTextByID(76000086)
+end
+
+function Player:GetGuideIdByLevelid(levelid)
+    for sysid, v in pairs(self._syscfg) do
+        if v.guide == Guide.GUIDE_TYPE_MAP and v.guide_no == levelid then
+            if v.guide_id ~= 0 then
+                return v.guide_id
+            end
+        end
+    end
+    return 0
+end

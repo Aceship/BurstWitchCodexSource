@@ -1,0 +1,676 @@
+--
+-- author: haosun
+-- date  : 2019-07-19 20:56:41
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyLevelFightLayer = class("DailyLevelFightLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Rule        = "button_rule",
+    Fight       = "button_fight",
+    Item1       = "button_fight/info_cost_2/button_item",
+    Power1      = "button_fight/info_cost_1/button_power",
+    Power2      = "button_fight/info_cost_2/button_power",
+    Attr        = "info_monster/kezhi",
+    Wipe        = "wipe/button_wipe",
+    Auto        = "button_auto",
+    Buff        = "button_buff",
+    BtnHighAward = "info_score/btn_high_award"
+}
+
+function DailyLevelFightLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_DailyLevelFightLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_MAIN,--货币类型
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._update = false
+    self:onEnter()
+end
+
+function DailyLevelFightLayer:initObj()
+    self._levelTitle    = self.layer:GetTextComponent("info_self/info/fight_info/title/ch")
+    self._levelFight    = self.layer:GetTextComponent("info_self/info/fight_info/levelFight")
+    self._curFight      = self.layer:GetTextComponent("info_self/info/fight_info/curFight")
+    self._levelCndt     = self.layer:GetTextComponent("info_self/info/add_attr_info/condition")
+    self._addValue      = self.layer:GetTextComponent("info_self/info/add_attr_info/addValue")
+    self._kezhi_level   = self.layer:GetTextComponent("info_monster/kezhi/kezhi_level")
+    self._kezhi_addvalue     = self.layer:GetTextComponent("info_monster/kezhi/add_value")
+    self._objAddLevel   = self.layer:Get("info_self/info/add_attr_info")
+    self._objFight      = self.layer:Get("info_self/info/fight_info")
+
+    self._scoreLevel    = self.layer:GetImageComponent("info_score/img_level")
+    self._scoreTitle    = self.layer:GetTextComponent("info_score/txt_title")--:SetTextById(3002014)
+    self._scoreNum      = self.layer:GetTextComponent("info_score/txt_score")
+    self._scoreTime      = self.layer:GetTextComponent("info_score/img_bg/txt_score1")
+
+    self._panel_remain = self.layer:Get("button_fight/remain")
+    self._txt_remain = self.layer:GetTextComponent("button_fight/remain/text_remain")
+end
+
+function DailyLevelFightLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            self:onLevelBeginRep(levelid)
+        end)
+    self:addEventListener(EVENT_TYPE.UI_ACTION, EVENT_NAME.ON_FIGHT_CLOSE,
+        function(chapterid)
+            self._levellayer:refreshShow(chapterid)
+            self:onBackClick()
+        end)
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:_onUpdateCurrency()
+    end)
+end
+
+function DailyLevelFightLayer:onExit()
+    self._level     = nil
+    self._teams     = nil
+    self._scoreNum  = nil
+    self._scoreTime =nil
+    self._levelTitle    = nil
+    self._levelFight    = nil
+    self._curFight      = nil
+    self._levelCndt     = nil
+    self._addValue      = nil
+    self._kezhi_level   = nil
+    self._kezhi_addvalue     = nil
+    self._objAddLevel   = nil
+    self._objFight      = nil
+
+    self._scoreLevel    = nil
+    self._scoreTitle    = nil
+    self._scoreNum      = nil
+
+    self._panel_remain = nil
+    self._txt_remain = nil
+
+    self._heroSelectCtrl:OnDestroy();
+    CBaseLayer.onExit(self)
+end
+
+function DailyLevelFightLayer:onUpdateCurrency()
+    self:setFightCost()
+    if self._topData ~= nil then
+        Groble_UIMgr:SetTopData(self._topData);
+    end
+end
+
+function DailyLevelFightLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+end
+
+function DailyLevelFightLayer:show(levelid, callback, levellayer)
+    self._level     = Chapter:GetLevel(levelid)
+    self._isPlot    = Chapter:LevelIsPlot(levelid)
+    self._teams     = Chapter:GenFightTeam(levelid)
+    self._levellayer = levellayer
+    self._buffStrId = 76000050;
+    self._callback  = callback
+    if(self._heroSelectCtrl == nil)then
+        self:InitHeroSelectController();
+    end
+    self._chapter = Chapter:GetChapter(self._level.chapterid)
+
+    self.layer:GetImageComponent("image_bg"):LoadSprite(self._chapter.imgbg)
+    self:setTitle()
+
+    --奖励掉落
+    self:SetDropsUi()
+    self:setRemain()
+    self:setFightCost()
+    self:setEnemy()
+
+    --设置克制关系，战力信息
+    self:SetForbear()
+    self:showLayer()
+    self:playAni("DailyLevelFightLayerAni")
+    self._fading = false
+    self.layer:Get("button_buff"):SetVisible(self._level.battlebuff ~= -1 and (self._level.open or self._level.pass_count > 0))
+    self:setFightRemain()
+end
+
+function DailyLevelFightLayer:setFightRemain()
+    if(self._chapter.fight_count == 0) then
+        self._panel_remain:SetVisible(false)
+    else
+        self._panel_remain:SetVisible(true)
+
+        local remain = self._chapter.fight_count - self._chapter.pass_count
+        local total = self._chapter.fight_count
+
+        local str = LanguageMgr:GetTextByID(881017)
+        if remain > 0 then
+            str = str .. remain .. "/" .. total
+        else
+            str = str .. string.format(LanguageMgr:GetTextByID(99000046), 0, total)
+        end
+        self._txt_remain.text = str
+
+        if(remain <= 0) then
+            self.layer:Get("wipe"):SetVisible(false)
+            self.layer:Get("button_auto"):SetVisible(false)
+        end
+
+    end
+end
+
+function DailyLevelFightLayer:setScore()
+    local level = 1
+    local preNum = 0
+    local nextNum = 0
+    local path = ""
+    local titleContent = ""
+    local score = 0
+    local color = COLOR_TYPE.White
+    if self._level.rewards == nil
+        or self._level.rewards[2] == nil then
+        return
+    end
+
+    if(self._level ~= nil) then
+        score = self._level.max_score
+    end
+    local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
+    local type = 1
+    if(levelList ~= nil) then
+        type = levelList[1].type
+    end
+    if(type == 1) then
+    elseif(type == 2) then
+        if(self._level ~= nil and self._level.p_rate ~= nil
+            and self._level.p_rate[2] ~= nil) then
+            score = self._level.p_rate[2]
+        end
+    elseif(type == 3) then
+        if(self._level ~= nil and self._level.p_rate ~= nil
+            and self._level.p_rate[3] ~= nil) then
+            score = self._level.p_rate[3]
+        end
+    elseif(type == 4) then
+        if(self._level ~= nil and self._level.p_rate ~= nil
+            and self._level.p_rate[4] ~= nil) then
+            score = self._level.p_rate[4]
+        end
+    end
+ 
+    --set_obj_active(self._scoreLevel,  self._chapter.sub_type ~= Chapter.Chapter.MODE_EQUIP_CID)
+    if self:IsFirstInLevel() then
+        level = 4
+        local undefined = 9999999999
+        if(type == 3) then
+            undefined = 1
+        end
+        level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],undefined)
+        titleContent = LanguageMgr:GetTextByID(20089)--"最高评级"
+        path = "text_rchang_tanchuang_S"
+        score = preNum
+        color = COLOR_TYPE.Gray
+    else
+        level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],score)
+        titleContent = LanguageMgr:GetTextByID(20090)--"历史最高成绩"
+        path = Chapter.levelIconT[level]
+        --score = allScore--self._level.max_score
+        color = COLOR_TYPE.White
+    end
+    self._scoreTitle.text = titleContent
+    self._scoreLevel:LoadAtlasSprite("source_atlas/atlas_rank_task_layer", path);
+    if(self:IsFirstInLevel()) then
+        self._scoreNum.transform:SetPositionX(-151,true)
+        if(type == 1) then
+         
+            self._scoreNum.text = math.mTally(score)
+        else
+            local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
+            local desc2 = levelList[level].desc2
+            self._scoreNum.text = Language:GetTxtBuyId(desc2)
+        end
+    else
+        if(type == 1) then
+            self._scoreNum.text = math.mTally(score)
+        elseif(type == 2) then
+            self._scoreNum.text = string.format(LanguageMgr:GetTextByID(20098), math.mTally(score))
+        elseif(type == 3) then
+            self._scoreNum.text = string.format(LanguageMgr:GetTextByID(20097), math.mTally(score))
+        elseif(type == 4) then
+            self._scoreNum.text = string.format(LanguageMgr:GetTextByID(20099), math.mTally(score))
+        end
+    end
+    self._scoreNum.color = color
+    self._scoreLevel.color = color
+end
+
+
+function DailyLevelFightLayer:setTitle()
+    if  self._chapter.sub_type ~= Chapter.MODE_EQUIP then
+        self._update = false
+        self:setScore()
+        self.layer:Get("info_suggest"):SetVisible(false)
+    else
+        self._update = true
+        self.layer:GetTextComponent("info_score/txt_title"):SetTextById(3002026)
+        self.layer:GetTextComponent("info_score/txt_title_E"):SetTextById(3002027)
+        self.layer:Get("info_suggest"):SetVisible(self._chapter.atkTypes ~= nil)
+        if(self._chapter.atkTypes ~= nil) then
+            for i , atk in pairs(self._chapter.atkTypes) do
+                local btn = self.layer:GetButtonComponent("info_suggest/img_atk_type"..i.."/btn_click")
+                btn.onClick:AddListener(
+                        function()
+                            self:onAtkTypeClick(btn.transform,atk)
+                         end)
+                Hero:SetHeroAtkType( self.layer:GetImageComponent("info_suggest/img_atk_type"..i) ,atk);
+            end
+        end
+        self._remain = CTime:GetRemainTime(self._level.timeid)
+      
+        self._scoreTime.text = "<size=90>" .. CTime:Time2Str( self._remain) .. "</size>"
+        set_obj_active(self._scoreLevel,self._chapter.sub_type ~= Chapter.MODE_EQUIP)
+    end
+    if self._level.open then
+        self.layer:Get("button_auto"):SetVisible(self._level.Is_Auto == Chapter.AUTO_FIGHT_DEPOSIT)
+    else
+        self.layer:Get("button_auto"):SetVisible(false)
+    end
+    self.layer:Get("wipe"):SetVisible(self._level.Is_Auto == Chapter.AUTO_FIGHT_AWEEP and self._level.open)
+
+    --掉落相关标题
+    self.layer:Get(BUTTON_TYPE.BtnHighAward):SetVisible(self._level.rewards[1] == Chapter.DROP_SCORE);
+    --self:setScore()
+    if(self._level.rewards[1] == Chapter.DROP_SCORE)then
+        --self.layer:GetTextComponent("info_score/txt_title"):SetTextById(3002030)
+        --self.layer:GetTextComponent("info_score/txt_title_E"):SetTextById(3002031)
+    else
+        --self.layer:GetTextComponent("info_score/txt_title"):SetTextById(3002039)
+        --self.layer:GetTextComponent("info_score/txt_title_E"):SetTextById(3002040)
+    end
+end
+
+function DailyLevelFightLayer:SetDropsUi()
+    local basicDropId = self._level.rewards[2]
+    local extraDropId = self._level.fight_rewards[2]
+    if self._level.rewards[1] == Chapter.DROP_SCORE then
+        local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
+        local type = levelList[1].type
+        local score = self._level.max_score
+        if(type == 1) then
+        elseif(type == 2) then
+            if(self._level.p_rate ~= nil
+                and self._level.p_rate[2] ~= nil) then
+                score = self._level.p_rate[2]
+            end
+        elseif(type == 3) then
+            if(self._level.p_rate ~= nil
+                and self._level.p_rate[3] ~= nil) then
+                score = self._level.p_rate[3]
+            end
+        elseif(type == 4) then
+            if(self._level.p_rate ~= nil
+                and self._level.p_rate[4] ~= nil) then
+                score = self._level.p_rate[4]
+            end
+        end
+
+        basicDropId = Chapter:GetScoreDrop(self._level.rewards[2], score)
+        extraDropId = Chapter:GetScoreDrop(self._level.fight_rewards[2], score)
+    end
+    local basicsItems = Item:GetDrops(basicDropId)
+    local extraItems = Item:GetDrops(extraDropId)
+
+    -- 基础奖励
+    local _transBasicsItemBg = self.layer:Get("info_drop/scroll_basics/viewport/content");
+    _transBasicsItemBg:SetVisible(#basicsItems > 0);
+    self.layer:Get("info_drop/text_empty_basics"):SetVisible(#basicsItems <= 0);
+    if(#basicsItems > 0)then
+        for _, v in ipairs(basicsItems) do
+            local pitem = _transBasicsItemBg:CreateChild("prefab_comframeWork/prefab_item")
+            pitem:SetScale(0.46, 0.46, 0.46)
+            local cls = Bag:CtorComSimpleGoodsUi(pitem)
+            Bag:SetComSimpleGoodsUi(cls,v[1],v[2],v[3],true);
+        end
+    end
+    -- 额外奖励
+    local _transExtraItemBg = self.layer:Get("info_drop/scroll_extra/viewport/content");
+    _transExtraItemBg:SetVisible(#extraItems > 0);
+    self.layer:Get("info_drop/text_empty_extra"):SetVisible(#extraItems <= 0);
+    if(#extraItems > 0)then
+        for _, v in ipairs(extraItems) do
+            local pitem = _transExtraItemBg:CreateChild("prefab_comframeWork/prefab_item")
+            pitem:SetScale(0.46, 0.46, 0.46)
+            local cls = Bag:CtorComSimpleGoodsUi(pitem)
+            Bag:SetComSimpleGoodsUi(cls,v[1],v[2],v[3],true);
+        end
+    end
+end
+
+
+function DailyLevelFightLayer:onAtkTypeClick(trans,atktype)
+    local atkcfg = Build:GetAtkTypeCfgById( atktype)
+    UIMgr:ShowDescTipsLayer(trans, atkcfg.name, atkcfg.desc)
+end
+
+function DailyLevelFightLayer:InitHeroSelectController()
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(self.layer:Get("info_self"));
+
+    local btnClick = function(index)
+        self:onHeroClick(index);
+    end;
+
+    local onEndDrag = function (heroIsNull,heroIds)
+        for i, v in pairs(heroIds) do
+            if not self._teams[i].plot then
+                if(v == 0)then
+                    self._teams[i].hero = nil;
+                else
+                    self._teams[i].hero = Hero:GetHero(v);
+                end
+            end
+        end
+    end;
+
+    local bosscfg = FightModule:GetElementCfg(tonumber(self._level.enemyids));
+
+    self._heroSelectCtrl:SetPlotData(self._teams);
+    self._heroSelectCtrl:SetMonsterType(bosscfg.attri_type,tonumber(self._level.Restraint_level[1]) >= 2)
+    self._heroSelectCtrl:Init(self:GetCurHeroIds(), btnClick, nil, onEndDrag);
+    self._heroSelectCtrl:SetNameType(HeroTxtType.Fight)
+    self._heroSelectCtrl:UpdateHeroItem();
+end
+
+function DailyLevelFightLayer:GetCurHeroIds()
+    local retArr = {0,0,0};
+    for i, v in ipairs(self._teams) do
+        if(v.hero ~= nil)then
+            retArr[i] = v.hero.id;
+        end
+    end
+    return retArr;
+end
+
+
+--是否第一次进入关卡
+function DailyLevelFightLayer:IsFirstInLevel()
+    return self._level.max_score <= 0
+end
+
+function DailyLevelFightLayer:onBackClick()
+    Chapter:ClearJumpChapterLevel()
+    GTemp:SetSweepTmpData(nil)
+    self:onPopLayer()
+end
+
+function DailyLevelFightLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.Fight then
+        play_button_fight()
+        self:onFightClick()
+    else
+        if itype == BUTTON_TYPE.Achieve then
+            Chapter:ShowAchieveLayer(self._level.id, Chapter.TYPE_ACHIEVE_PREVIEW)
+        elseif itype == BUTTON_TYPE.Rule then
+            Groble_UIMgr:ShowRuleTipsLayer(self._chapter.sub_type)
+        elseif itype == BUTTON_TYPE.Attr then
+            Groble_UIMgr:ShowAttrRuleTipsLayer(self._level.id)
+        elseif itype == BUTTON_TYPE.Item1 then
+        elseif itype == BUTTON_TYPE.Power1 or itype == BUTTON_TYPE.Power2 then
+        elseif itype == BUTTON_TYPE.Auto then
+            self:showAutoLayer()
+        elseif itype == BUTTON_TYPE.Buff then
+            if self._buffStrId ~= nil then
+                Groble_UIMgr:ShowBuffTipsLayer(LanguageMgr:GetTextByID(self._buffStrId),self.layer.transform:Find(BUTTON_TYPE.Buff))
+            end
+        elseif itype == BUTTON_TYPE.Wipe then
+            self:onSweep()
+        elseif(itype == BUTTON_TYPE.BtnHighAward)then
+            core.require("xlua/lua_UI/HomeScene/DailyLevelAwardTipsLayer.txt"):new(self._level.id):show();
+        end
+    end
+end
+
+function DailyLevelFightLayer:onHeroClick(i)
+    if self._teams[i].plot or self._teams[i].locked then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(20086))
+        return
+    end
+
+    local temp = lua_deep_copy(self._teams);
+    if(temp[i].hero ~= nil)then
+        temp[i].hero = nil;
+    end
+    Chapter:OpenWitchesLayer(temp, function(ids)
+        for idx, info in pairs(self._teams) do
+            if  not self._teams[idx].plot then
+                self._teams[idx].hero = nil
+            end
+        end
+        for id, v in pairs(ids) do
+            if not self._teams[v].plot then
+                self._teams[v].hero = Hero:GetHero(id)
+            end
+        end
+        self:onLayerFadeInEndCall()
+        self._heroSelectCtrl:UpdateHeroItem(self:GetCurHeroIds())
+
+        self:SetForbear()
+    end)
+
+end
+
+function DailyLevelFightLayer:setFightCost()
+    local bcost = self._level.cost_items ~= "-1"
+    set_obj_active(self.layer.transform:Find("button_fight/info_cost_1"), not bcost)
+    set_obj_active(self.layer.transform:Find("button_fight/info_cost_2"), bcost)
+    local uipower
+    if bcost then
+        uipower = self.layer.transform:Find("button_fight/info_cost_2/text_power")
+
+        local tbl = lua_str_split(self._level.cost_items, "&")
+        Item:SetItemIcon(self.layer.transform:Find("button_fight/info_cost_2/image_item_icon"), tbl[1])
+        local uiitem = self.layer.transform:Find("button_fight/info_cost_2/text_item")
+        set_cost_color(uiitem, tbl[1], tonumber(tbl[2]))
+        uiitem:GetComponent("Text").text = tbl[2]
+    else
+        uipower = self.layer.transform:Find("button_fight/info_cost_1/text_power")
+    end
+    local has = Item:GetCount(Player.ITEM_VALUE_POWER);
+    local lack = has < self._level.cost_power
+    uipower = uipower:GetComponent("Text");
+    if lack then
+        uipower.color = COLOR_TYPE.PaleRed
+    else
+        uipower.color = COLOR_TYPE.Color_Btn_Black
+    end
+    uipower.text =  self._level.cost_power
+
+    -- if self._level.has_star == Chapter.LEVEL_STAR_NUM then
+    --     set_cost_color(self.layer.transform:Find("button_sweep/text_cost"), Player.ITEM_VALUE_POWER, self._level.cost_power)
+    --     self.layer.transform:Find("button_sweep/text_cost"):GetComponent("Text").text =  self._level.cost_power
+    -- end
+end
+
+function DailyLevelFightLayer:setRemain()
+    local chapter = Chapter:GetChapter(self._level.chapterid)
+    local remain = math.max(0, chapter.count - chapter.pass_count)
+    self.layer:GetTextComponent("info_drop/extr_drops/txt_title").text = string.format(LanguageMgr:GetTextByID(20091),remain,chapter.count) -- remain .. "/" .. chapter.count
+end
+
+function DailyLevelFightLayer:onFightClick()
+    if self._chapter.fight_count > 0 then
+        local remain = self._chapter.fight_count - self._chapter.pass_count
+        if remain <= 0 then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(31221))
+            return
+        end
+    end
+
+    self._heroids = Chapter:OnCheckFightTeam(self._teams)
+    if self._heroids == nil or #self._heroids == 0 then
+        return
+    end
+    local curPower = Hero:GetCurHerosPower(self._teams)
+    local isFight = true
+    if self._level.needFight[1] ~= -1 then
+        isFight = Chapter:IsTargetFight(curPower,self._level.needFight[2])
+    end
+    local isplay = GTemp:GetGoFightTmpData()
+    if not isFight and (isplay == nil or isplay == false) then
+        UIMgr:showMsgBy2CallPer(LanguageMgr:GetTextByID(20084),
+                function()
+                    --print("取消")
+                end,
+                function()
+                    if self._heroids ~= nil then
+                        Chapter:ChapterLevelBeginReq(self._level.id, self._heroids,nil, nil, self._feelWallId)
+                    end
+                end)
+        return
+    end
+
+    if self._heroids ~= nil then
+        Chapter:ChapterLevelBeginReq(self._level.id, self._heroids)
+    end
+end
+
+function DailyLevelFightLayer:onLevelBeginRep(levelid)
+    Chapter:GoFight(self._heroids, levelid)
+end
+
+function DailyLevelFightLayer:onSweep()
+    if self._level.max_score <= 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(3002025))
+        return
+    end
+    self._oldLv = Player:GetLevel()
+    core.require("xlua/lua_UI/HomeScene/DailySweepLayer.txt"):new():show(self._level.id,function () 
+        self:setRemain()
+        self:setFightRemain()
+        Player:IgnoreLevelUp(false)
+        if Player:GetLevel() > self._oldLv then
+            Player:ShowLevelUpLayer()
+        end
+    end)
+end
+
+function DailyLevelFightLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function DailyLevelFightLayer:setEnemy()
+    local bosscfg = FightModule:GetElementCfg(tonumber(self._level.enemyids));
+    if bosscfg ~= nil then
+        Chapter:SetEnemyAttri(self.layer:Get("info_monster"), bosscfg)
+    end
+end
+
+function DailyLevelFightLayer:SetForbear()
+    local curPower = Hero:GetCurHerosPower(self._teams)
+    local str = ""
+    local str1 = ""
+    local title = ""
+    local color = "<size=34><color=#e1503c>%d%s</color></size>"
+
+    if self._level.needFight[1] ~= -1 then
+        if self._level.needFight[1] == Chapter.GoFightLevel then --等级
+            str = LanguageMgr:GetTextByID(20076)
+            str1 = string.format(LanguageMgr:GetTextByID(20077),Hero:GetCurHeorLvDes(self._teams))
+            title = LanguageMgr:GetTextByID(20075)
+            self._curFight.text = str1
+        elseif self._level.needFight[1] == Chapter.GoFightPower then --战力
+            str = LanguageMgr:GetTextByID(20066)
+            str1 = LanguageMgr:GetTextByID(20070)
+            title = LanguageMgr:GetTextByID(20073)
+            local des = Chapter:GetLevelDes(curPower,self._level.needFight[2])
+            if des == nil then
+                color = "<size=34><color=#91b6fa>%d%s</color></size>"
+                des = ""
+            end
+            local fightStr = string.format(color,math.ceil(curPower),des)
+            self._curFight.text = str1..self:GetFightStr(curPower)
+        end
+        self._levelFight.text = string.format(str,tostring(self._level.needFight[2]))
+        self._levelTitle.text = title
+    end
+    self._levelCndt.text = LanguageMgr:GetTextByID(20067)..Language:GetTxtBuyId(self._level.levelAddDes)
+    self._addValue.text = LanguageMgr:GetTextByID(20068)..Language:GetTxtBuyId(self._level.addEffDes)
+    self._kezhi_level.text = string.format(LanguageMgr:GetTextByID(20065),self._level.Restraint_level[1])
+    self._kezhi_addvalue.text = string.format(LanguageMgr:GetTextByID(20069),self._level.Restraint_level[3])
+
+    self._objAddLevel:SetVisible(self._level.levelAddDes ~= nil and self._level.levelAddDes ~= -1)
+    self._objFight:SetVisible(self._level.needFight[1] ~= -1)
+end
+
+function DailyLevelFightLayer:GetFightStr(power)
+    local fightStr = ""
+    local color = "<size=34><color=#e1503c>%d%s</color></size>"
+    local des = Chapter:GetLevelDes(power,self._level.needFight[2])
+    if des == nil then
+        color = "<size=34><color=#91b6fa>%d%s</color></size>"
+        des = ""
+    end
+    fightStr = string.format(color,math.ceil(power),des)
+    return fightStr
+end
+
+
+function DailyLevelFightLayer:onPerSecondUpdate()
+    if not self._update then return end
+
+    if self._remain > 0 then
+        self._remain = self._remain -1
+        self._scoreTime.text = "<size=90>" .. CTime:Time2Str(self._remain) .. "</size>"
+    else
+        self._update = false
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(3002029),
+            function()
+                self:ReturnToPlot()
+            end, false, true)
+    end
+end
+
+function DailyLevelFightLayer:ReturnToPlot()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    Groble_UIMgr:ClickOnReturnBtn()
+end
+
+function DailyLevelFightLayer:showAutoLayer()
+    local remain = -1
+    GTemp:SetSweepTmpData(nil)
+    core.require("xlua/lua_UI/UIFight/LevelAutoLayer.txt"):new():show(remain,
+        function(clayer)
+            self._heroids = Chapter:OnCheckFightTeam(self._teams)
+            if self._heroids ~= nil then
+                Chapter:SetFightHeroIds(self._level.id, self._heroids)
+                if not Chapter:AutoFightContinue(self._level.id) then
+                    if Player:GetValue(Player.VALUE_POWER) < self._level.cost_power then
+                        Groble_UIMgr:ShowBuyPowerLayer()
+                    end
+                end
+            end
+        end,self._level.cost_power, self._isPlot, self._level.id)
+end
+
+function DailyLevelFightLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+return DailyLevelFightLayer
+

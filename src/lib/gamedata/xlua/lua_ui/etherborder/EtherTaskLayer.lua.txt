@@ -1,0 +1,214 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-16 19:38:46
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherTaskLayer = class("EtherTaskLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnGet = "trans_container/btn_get",
+	--@ButtonEnd
+}
+--构造函数
+function EtherTaskLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherTaskLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_BABEL,
+        bgColor = {210/255,210/255,210/255,1},
+    }
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherTaskLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherTaskLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnGet)then 
+	   self:OnBtnGetClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function EtherTaskLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function EtherTaskLayer:Init()
+    self._selectType = nil;
+    self._taskids = {};
+    self:InitUI();
+end
+
+--初始化UI
+function EtherTaskLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	self._mTogDaily = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_daily");
+	self._mTogWeek = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_week");
+	self._mTogRotate = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_rotate");
+	--@MToggleEnd
+
+    self._imgReds = {
+        [Task.EtherTask_Daily]      = self._mTogDaily.transform:Get("img_red"),
+        [Task.EtherTask_Week]       = self._mTogWeek.transform:Get("img_red"),
+        [Task.EtherTask_Achieve]    = self._mTogRotate.transform:Get("img_red"),
+    }
+
+	self._mTogDaily.onValueChanged:AddListener(function (isOn)
+        if isOn then self:OnTogTaskClick(Task.EtherTask_Daily) end
+   end);
+    self._mTogWeek.onValueChanged:AddListener(function (isOn)
+        if isOn then self:OnTogTaskClick(Task.EtherTask_Week) end
+   end);
+    self._mTogRotate.onValueChanged:AddListener(function (isOn)
+        if isOn then self:OnTogTaskClick(Task.EtherTask_Achieve) end
+   end);
+	--@MToggleCallBackEnd
+
+    self._mTogWeek.isOn = true;
+end
+
+--显示UI
+function EtherTaskLayer:show()
+    self:showLayer();
+    -- 红点数据
+    for tasktype, obj in pairs(self._imgReds) do
+        obj:SetVisible(Ether:GetTaskRedBySubType(tasktype))
+    end
+    self:playAni("EtherTaskLayerAnim");
+end
+
+--释放
+function EtherTaskLayer:onExit()
+
+    self._mTogDaily = nil;
+	self._mTogWeek = nil;
+	self._mTogRotate = nil;
+	self._transTableviewcontroller = nil;
+	self._imgDailyRed = nil;
+	self._imgWeekRed = nil;
+	self._imgRotateRed = nil;
+	--@CloseEnd
+
+    self._taskids   = nil
+    self._imgReds   = nil
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherTaskLayer:OnBtnGetClick()
+    local recvs =  self:CheckCanRecv()
+    if #recvs > 0 then
+        Task:GetRewardReq(recvs);
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(60011));
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function EtherTaskLayer:OnTogTaskClick(subtype)
+    if self._selectType ~= subtype then
+        self._selectType = subtype
+        self:CutTaskType()
+        self:SetTableView()
+    end
+ end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherTaskLayer:RegisterHandler()
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:CutTaskType();
+            self:SetTableView();
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY,
+        function()
+            self:CutTaskType();
+            self:SetTableView();
+        end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherTaskLayer:SetTableView()
+    local row = #self._taskids;
+    if(self._tvController == nil)then
+        self._tasksCell = {};
+        self._tvController = UIController:CtorTableView(self._transTableviewcontroller)
+        self._tvController:Init(row, true,
+            function(cell, row)
+                self:SetTaskCell(cell, row + 1);
+            end, 0.15, 0.07)
+    else
+        self._tvController:Reload(row)
+        self._tvController:ScrollToTop();
+    end
+end
+
+function EtherTaskLayer:SetTaskCell(cell, row)
+    local cls = self._tasksCell[cell];
+    if(cls == nil)then
+        cls = Task:InitTaskCell(cell.transform, 2);
+        self._tasksCell[cell] = cls;
+    end
+    Task:SetTaskCell(cls, self._taskids[row])
+end
+
+function EtherTaskLayer:CutTaskType()
+    self._taskids = Task:SortTaskIds(Task:GetSubTasks(self._selectType));
+    self:SetRed();
+end
+
+function EtherTaskLayer:CheckCanRecv()
+    local tbl = {}
+    for _,v in pairs(self._taskids) do
+        local data = Task:GetTask(v)
+        if data.state == Task.STATE_HAS_DONE then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+
+function EtherTaskLayer:SetRed()
+    self._imgReds[self._selectType]:SetVisible(Ether:GetTaskRedBySubType(self._selectType));
+end
+
+return EtherTaskLayer;

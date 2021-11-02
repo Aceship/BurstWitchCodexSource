@@ -1,0 +1,54 @@
+--- 时间事件,通过注册事件ID,发送事件
+--- @Author:Administrator
+--- @Create Time:2020-08-31 13:36:06
+---
+CTime = CTime or {}
+
+function CTime:InitEvent()
+    self._timeEvents        = {};--时间事件
+end
+
+function CTime:RegisterHandler(timeId,callback)
+    if(self._timeEvents[timeId] == nil)then
+        self._timeEvents[timeId] = {};
+    end
+    table.insert(self._timeEvents[timeId],callback);
+end
+
+
+function CTime:RemoveHandler(timeId,callback)
+    if(self._timeEvents[timeId] == nil)then
+        CS.Logger.LogError("Time callback is nil  timeId = "..timeId);
+        return;
+    end
+    for _, v in pairs(self._timeEvents[timeId]) do
+        if(v == callback)then
+            callback = nil;
+        end
+    end
+    if(not next(self._timeEvents[timeId]))then
+        self._timeEvents[timeId] = nil;
+    end
+end
+
+function CTime:RemoveAllHandlerById(timeId)
+    if(self._timeEvents[timeId] == nil)then
+        CS.Logger.LogError("Time callback is nil  timeId = "..timeId);
+        return;
+    end
+    self._timeEvents[timeId] = nil;
+end
+
+function CTime:CloseAllHandler()
+    self:InitEvent();
+end
+
+function CTime:SendMessage(timeData)
+    if(self._timeEvents[timeData.id] == nil)then
+        --CS.Logger.LogError("Time callback is nil  timeId = "..timeData.id);
+        return;
+    end
+    for _, v in pairs(self._timeEvents[timeData.id]) do
+        v(timeData);
+    end
+end

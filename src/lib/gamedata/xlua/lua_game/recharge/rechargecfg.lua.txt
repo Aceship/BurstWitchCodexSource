@@ -1,0 +1,231 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 14:29:38
+-- brief : 
+--
+
+Recharge = Recharge or {}
+
+function Recharge:_LoadCfg()
+    self._datas = {}
+    local cfgs = CfgLoader:LoadCfg("Charge")
+    local cfgid
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id)
+        local goOngoods = -1;
+        if(v.Continuousaccess ~= "-1")then
+            goOngoods = lua_parse_cfg(v.Continuousaccess,true);
+        end
+        local openData = -1;
+        if(v.UnlockData ~= "-1")then
+            openData = lua_parse_cfg(v.UnlockData,true);
+        end
+        local lockData = -1;
+        if(v.LockData ~= "-1")then
+            lockData = lua_str_split(v.LockData,"&",true);
+        end
+        local monthFirst = -1;
+        if(v.FirstGive ~= "-1")then
+            monthFirst = lua_parse_cfg(v.FirstGive,true);
+        end
+        local extra = -1;
+        if(v.price_back ~= "-1")then
+           extra = lua_parse_cfg(v.price_back,true);
+        end
+        local priceData = lua_str_split(v.price,"&");
+        local data = {
+            cfgid   = cfgid,
+            itype   = tonumber(v.Type),
+            shelfType = tonumber(v.GoodsShelves),
+            discount= tonumber(v.discount) / 100;
+            name    = Language:GetTxtBuyId(v.Name),
+            name_E  = v.EnglishName,
+            rebateRatio = tonumber(v.RebateRatio),
+            desc    = Language:GetTxtBuyId(v.itemInfo),
+            price   = tonumber(priceData[2]),
+            priceId = tonumber(priceData[1]),
+            rate    = tonumber(v.price_rate),
+            timeId  = tonumber(v.time_id),
+            endTime = v.EndTime,
+            buytype = tonumber(v.Buytype),
+            stock   = tonumber(v.Buytimes),
+            count   = 0,
+            tag     = tonumber(v.Tag),
+            goods   = lua_parse_cfg(v.packet_item, true),
+            icon    = v.itemPath,
+            qlty    = tonumber(v.quality);
+            limitTimeBagBGPath = tonumber(v.limitTimeBagBG),
+            goOngoods = goOngoods,
+            openData = openData,
+            lockData = lockData,
+            index = tonumber(v.Order),
+            soldOut = tonumber(v.BTimeOut);
+            oneBuyNum = tonumber(v.BuyMore),
+            monthFirst = monthFirst,
+            chargeMoneyId = tonumber(v.ChargeMoney_id),
+            extras = extra,
+        }
+        if(data.bgPath == "-1")then
+            data.bgPath = -1;
+        else
+            data.bgPath = lua_str_split(v.bgPath,"&");
+        end
+        self._datas[cfgid] = data
+    end
+    self:_LoadMoneyCfg()
+    Recharge:LoadChargeContinueCfg();
+    self._rTypeIds = {}
+end
+
+function Recharge:_LoadMoneyCfg()
+    self._moneycfgs = {}
+    local cfgs = CfgLoader:LoadCfg("ChargeMoney")
+    local cfgid
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id)
+        local data = {
+            cfgid   = cfgid,
+            name    = Language:GetTxtBuyId(v.Name),
+            name_E  = v.EnglishName,
+            desc    = Language:GetTxtBuyId(v.itemInfo),
+            price   = tonumber(v.price_rmb),
+            icon    = v.itemPath,
+            buytype = 0,
+            stock   = 0,
+            discount = 1,
+            rebate  = 10,
+            price_usd   = tonumber(v.price_usd),
+            price_hkd   = tonumber(v.price_hkd),
+            price_twd   = tonumber(v.price_twd),
+        }
+        if v.packet_item ~= "-1" then
+            data.goods = lua_parse_cfg(v.packet_item, true)[1]
+        else
+            data.goods = {}
+        end
+        self._moneycfgs[cfgid] = data
+    end
+end
+
+function Recharge:GetDataIdsByType(chargetype)
+    local ret = {}
+    for _, v in pairs(self._datas) do
+        if v.shelfType == chargetype then
+            if(v.soldOut < 0)then
+                table.insert(ret, v.cfgid)
+            end
+        end
+    end
+    table.sort(ret, function(a, b)
+            return a < b
+        end)
+    return ret
+end
+
+function Recharge:GetRechargeMoneyCfg(cfgid)
+    if self._moneycfgs[cfgid] == nil then
+        CS.Logger.LogError("ChargeMoney is nil !!! cfgid = {0}", cfgid)
+        return nil
+    end
+    return self._moneycfgs[cfgid]
+end
+
+function Recharge:GetData(cfgid)
+    cfgid = tonumber(cfgid);
+    local data = self._datas[cfgid]
+    if(data == nil)then
+        CS.Logger.LogError("chargeData is nil !!!  id = {0}", cfgid);
+        return nil;
+    end
+    return data;
+end
+
+--获取所有该类型的数据
+function Recharge:GetAllDataByType(itype)
+    itype = tonumber(itype);
+    local retArr = {};
+    for k, v in pairs(self._datas) do
+        if(itype == v.itype)then
+            if(CTime:Str2Time(v.endTime) <= 0)then
+                table.insert(retArr,v);
+            else
+                if(CTime:GetServerTime() < CTime:Str2Time(v.endTime))then
+                    table.insert(retArr,v);
+                end
+            end
+        end
+    end
+    table.sort(retArr, function(a,b)
+        return a.cfgid<b.cfgid;
+    end)
+    return retArr;
+end
+
+--获取所有该类型的数据(忽略时间)
+function Recharge:GetAllDataByType_NotTimer(itype)
+    itype = tonumber(itype);
+    local retArr = {};
+    for k, v in pairs(self._datas) do
+        if(itype == v.itype)then
+            table.insert(retArr,v);
+        end
+    end
+    table.sort(retArr, function(a,b)
+        return a.cfgid<b.cfgid;
+    end)
+    return retArr;
+end
+
+function Recharge:GetRechargeIdsByType(rType)
+    if self._rTypeIds[rType] == nil then
+        self._rTypeIds[rType] = {}
+        for _, data in pairs(self._datas) do
+            if rType == data.itype then
+                table.insert(self._rTypeIds[rType], data.cfgid)
+            end
+        end
+        table.sort(self._rTypeIds[rType], function(a, b) return a < b end)
+    end
+    return self._rTypeIds[rType]
+end
+
+--获取首充配置
+function Recharge:GetFirstBuyCfg()
+    if(self._firstCfg == nil)then
+        local cfgId = Recharge:GetDataIdsByType(Recharge.FirstBuy)[1];
+        if(cfgId == nil or cfgId <= 0)then
+            AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!配表错误,   无法获取有效的首充礼包Id   ");
+            return;
+        end
+        self._firstCfg = Recharge:GetData(cfgId);
+    end
+    return self._firstCfg;
+end
+
+--加载重复礼包配置
+function Recharge:LoadChargeContinueCfg()
+    self._continueCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("Charge_continue");
+    local cfgid;
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id);
+        local data = {
+            id   = cfgid,
+            getType = tonumber(v.Collection),
+            dropIds = lua_str_split(v.Dropid,"&",true),
+        }
+        self._continueCfgs[cfgid] = data;
+    end
+end
+
+function Recharge:GetChargeContinueCfgById(cfgId)
+    local retCfg = self._continueCfgs[cfgId];
+    if(retCfg == nil)then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!配表错误,   无法获取有效的重复礼包!!!!!  Id = "..cfgId);
+    end
+    return retCfg;
+end
+
+function Recharge:GetRecharges()
+    return self._moneycfgs
+end

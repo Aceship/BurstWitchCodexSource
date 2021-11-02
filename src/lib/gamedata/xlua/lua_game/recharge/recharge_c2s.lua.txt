@@ -1,0 +1,80 @@
+--
+-- author: haosun
+-- date  : 2019-11-07 19:54:52
+-- brief : 
+--
+Recharge = Recharge or {}
+
+function Recharge:CreateOrderReq(data, payurl)
+    Recharge:CreateOrderRep(data[1],data[2], data[3], data[4], data[5])
+end
+
+function Recharge:CreateOrderRep(code, order, sign, ext_info, payurl)
+    local cfg = self._moneycfgs[code]
+    if cfg == nil then
+        return
+    end
+    local data = {
+        code        = code,
+        game_order  = order.."",
+        sign        = sign,
+        money       = cfg.price * 100,
+        game_money  = cfg.price * Recharge.RECHARGE_RATIO,
+        name        = cfg.name,
+        desc        = cfg.desc,
+        notify_url  = payurl,
+        serverid    = Login:GetLoginServerId(),
+        servername  = Login:GetLoginServerName(),
+        roleid      = Player:GetId(),
+        rolename    = Player:GetName(),
+        rolelevel   = Player:GetLevel(),
+        ext_info    = ext_info,
+    }
+    if next(cfg.goods) == nil then
+        data["game_money"] = 0
+    end
+    data["productid"] = GameSdkMgr:SdkProdutid(code)
+    if GameSdkMgr:IsIssueJuren() then
+        local _currency = GameSdkMgr:GetCurrency()
+        if _currency == "CNY" then
+            data["money"] = cfg.price*100
+        elseif _currency == "TWD" then
+            data["money"] = cfg.price_twd
+        elseif _currency == "HKD" then
+            data["money"] = cfg.price_hkd
+        elseif _currency == "USD" then
+            data["money"] = cfg.price_usd
+        else
+            data["money"] = cfg.price_twd
+        end
+    end
+    GZSDKHelper:operationalActivityWithPlayerInfo(code, code, "充值行为", "充值类", "开始")
+    Network:ShowWait()
+    GameSdkMgr:Pay(data)
+    self._orderData = data
+    ThinkingMgr:SendTrack("order_init", {
+        order_id        = order,
+        recharge_amount = tonumber(data["money"]) / 100,
+        pay_id          = data["productid"]
+    })
+end
+
+function Recharge:CancelOrderReq(order)
+    self._orderData = nil
+    Network:CallServerScript({c2s.CHARGE_CANCEL_ORDER_REQ, tonumber(order)})
+end
+
+function Recharge:CancelOrderRes(order)
+end
+
+function Recharge:ChargeNotify(cfgid, success, witchCoin, addMoney)
+    if success then
+        Player:PlayerChargeMoney()
+        Bag:ShowDrops({[Bag.TYPE_ITEM] = {[Player.ITEM_VALUE_WITCH_COIN] = witchCoin}})
+    end
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.CHARGE_MONEY_RES]               = {Recharge, Recharge.CreateOrderRep}
+c2s[c2s.CHARGE_CANCEL_ORDER_RES]        = {Recharge, Recharge.CancelOrderRes}
+c2s[c2s.CHARGE_MONEY_NTF]               = {Recharge, Recharge.ChargeNotify}

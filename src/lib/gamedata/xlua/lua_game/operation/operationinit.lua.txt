@@ -1,0 +1,12 @@
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operation.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationdata.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operation_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationRepeat.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationsix.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Operation/operationtriggerpackage.txt")
+
+Operation:Ctor()
+Operation:_LoadCfg()

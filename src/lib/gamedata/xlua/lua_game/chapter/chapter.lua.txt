@@ -1,0 +1,1141 @@
+--
+-- author: haosun
+-- date  : 2018-11-08 14:15:16
+-- brief : 
+--
+
+Chapter = Chapter or {}
+
+function Chapter:CtorChapter()
+    self._lastInFightType = -1
+    self._whiteNightIsOpen = false;
+    self._last_heroids      = {}
+    self._inFightLevelId    = 0
+    self._tmpdata           = {}
+    self._chapterMode = nil;
+    self._curSelectChapterId = 0;
+    -- 进入战斗自动跳转数据
+    self._jumpdata      = {}
+    self._sweepback     = nil
+
+    self._tmphids       = {}
+
+    self._autoFightParam = {
+        auto            = false,    -- 自动战斗
+        autoUse         = false,    -- 使用道具
+        autoUseNumber   = 0,        -- 使用道具次数
+        autoBuy         = false,    -- 购买
+        autoBuyNumber   = 0,        -- 购买次数
+        autoCount       = false,    -- 自动战斗
+        autoCountNumber = 0,        -- 自动战斗次数
+        autoFailOn      = false,    -- 失败继续
+        autoFailNumber  = 0,
+        autoSuccNumber  = 0,
+        autoItems       = {}
+    }
+    self._isInCoinChapter = false --是否正处于金币本
+    self._isInDaily = false
+    self._curPlotLevel = {chapterId = 0,levelId = 0};
+
+    self._triggerLevelId = 0
+    if self._subtypePassNumber == nil then
+        self._subtypePassNumber = {}
+    end
+end
+
+function Chapter:ChapterClear()
+    self:CtorChapter()
+    -- 重置关卡
+    for _, v in pairs(self._levels) do
+        v.open          = false
+        v.pass_star     = 0
+        v.receive       = 0
+        v.pass_count    = 0
+        v.remain        = v.fight_count
+        v.has_star      = 0
+        v.sweep         = false
+        v.max_score     = 0
+    end
+    -- 重置章节
+    for _, v in pairs(self._chapters) do
+        v.open          = false
+        v.levelid       = 0
+        v.has_star      = 0
+        v.pass_count    = 0
+        v.pass          = false
+        v.fight_buy     = 0
+        for _, r in pairs(v.rewards) do
+            r.state = Chapter.REWARD_STATE_NOT
+        end
+        if #v.levelids > 0 then
+            v.levelid = v.levelids[1]
+        end
+    end
+end
+
+function Chapter:GetChapters()
+    return self._chapters
+end
+
+function Chapter:GetAllLevels()
+    return self._levels
+end
+
+function Chapter:checkChapterIsOpen(chapter)
+    if true == chapter.open then
+        return
+    end
+    local open = true
+    for _, tbl in pairs(chapter.prev_ids) do
+        local chapter = self:GetChapter(tbl[1])
+        open = open and chapter.pass
+    end
+    chapter.open = open
+end
+
+function Chapter:refreshOpenChapters()
+    for _, v in pairs(self._chapters) do
+        if v.open == false then
+            self:checkChapterIsOpen(v)
+        end
+    end
+end
+
+function Chapter:CalcNewPlotChapterLevel()
+    local chapter 
+    local chapterId, levelId = 1001, 100001
+    for _, v in ipairs(self._plotChapters[Chapter.MODE_PLOT_N] or {}) do
+        chapter = self:GetChapter(v.cid)
+        if chapter.open then
+            chapterId = v.cid
+            levelId = chapter.levelid
+        end
+    end
+
+    if levelId == 0 then
+        chapter = self:GetChapter(chapterId)
+        self._curPlotLevel.chapterId = chapter.next_id
+        -- 下一章节第一关
+        if chapter.next_id ~= 0 then
+            chapter = self:GetChapter(chapter.next_id)
+            self._curPlotLevel.levelId = chapter.levelids[1]
+        end
+    else
+        self._curPlotLevel.chapterId = chapterId
+        self._curPlotLevel.levelId = levelId
+    end
+end
+
+function Chapter:GetCurPlotLevelData()
+    return self._curPlotLevel;
+end
+
+function Chapter:GenSortId(mode)
+    local sortid = tonumber(mode.cfg.ListID)
+    if mode.ids[1] ~= nil then
+        local chapter = self:GetChapter(mode.ids[1])
+        if mode.cfg.Show_type == "1" then
+            if not chapter.open then
+                sortid = sortid + 100
+            end
+        else
+            if chapter.timeid ~= 0 and not CTime:IsOpen(chapter.timeid) then
+                sortid = sortid + 100
+            end
+        end
+    end
+    return sortid
+end
+
+function Chapter:_OnCheckChapter(showtype, chapter, mode)
+    if tonumber(mode.cfg.Show_time) ~= -1 then
+        if CTime:IsOpen(tonumber(mode.cfg.Show_time)) then
+            return true
+        end
+    else
+        if chapter.timeid == 0 then
+            return true
+        else
+            if CTime:IsOpen(chapter.timeid) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function Chapter:GetChapterMode(showtype)
+    local ret = {}
+    for i, v in ipairs(self._modes[showtype]) do
+        if #v.ids > 0 then
+            local chapter = self:GetChapter(v.ids[1])
+            if chapter.sub_type == Chapter.MODE_NIGHT then
+                if chapter.id == self._shenyeChapterId then
+                    table.insert(ret, v)
+                end
+            else
+                if self:_OnCheckChapter(showtype, chapter, v) then
+                    table.insert(ret, v)
+                end
+            end
+        end
+    end
+    if showtype == Chapter.SHOW_TYPE_PLOT then
+        table.sort(ret, function(a, b) return a.sortid < b.sortid end)
+    else
+        table.sort(ret, function(a, b) return self:GenSortId(a) < self:GenSortId(b) end)
+    end
+    return ret
+end
+
+function Chapter:GetChapter(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._chapters[cfgid] == nil then
+        AppMgr:LogError("[DungeonMap]配置表出错。找不到ID = " .. cfgid)
+    end
+    return self._chapters[cfgid]
+end
+
+function Chapter:GetLevel(levelid)
+    levelid = tonumber(levelid)
+    if self._levels[levelid] == nil then
+        AppMgr:LogError("[MapLevel]配置表出错。找不到ID = " .. levelid)
+        return nil
+    end
+    return self._levels[levelid]
+end
+
+--是否为首次剧情魔女
+function Chapter:IsPlotHero(levelid)
+    local result = false
+    local level = self:GetLevel(levelid)
+    if level ~= nil and level.char_hero ~= "-1" and level.has_star <= 0 and not level.open then
+        result = true
+    end
+    return result
+end
+
+function Chapter:GetChapterByLevelId(levelid)
+    levelid = tonumber(levelid)
+    local level = self:GetLevel(levelid)
+    return self:GetChapter(level.chapterid)
+end
+
+function Chapter:_GetStarNumber(star)
+    local c = 0
+    for i = 1, 3 do
+        if self:_CheckCompleteStar(i, star) then
+            c = c + 1
+        end
+    end
+    return c
+end
+
+function Chapter:_CheckCompleteStar(index, star)
+    return Chapter.LEVEL_STAR[index] == (Chapter.LEVEL_STAR[index] & star)
+end
+
+function Chapter:IsCompleteStar(levelid, index)
+    local level = self:GetLevel(levelid)
+    if level == nil then
+        return false
+    end
+
+    return self:_CheckCompleteStar(index, level.pass_star)
+end
+
+function Chapter:GetNextLevel(levelid)
+    if not self:LevelIsPlot(levelid) then
+        return 0
+    end
+    local chapter = self:GetChapterByLevelId(levelid)
+    local idx = 1
+    for i, v in ipairs(chapter.levelids) do
+        if tonumber(levelid) == v then
+            idx = i
+            break
+        end
+    end
+    idx = idx + 1
+    if idx > #chapter.levelids then
+        return 0
+    else
+        return chapter.levelids[idx]
+    end
+    return 0
+end
+
+function Chapter:IsPlotHero()
+    return self._plotHero
+end
+
+function Chapter:GenFightTeam(levelid)
+    local teams = {
+        [1] = {plot = false, hero = nil,locked = false},
+        [2] = {plot = false, hero = nil,locked = false},
+        [3] = {plot = false, hero = nil,locked = false},
+    }
+    self._plotHero = false
+    local str
+    local cheroes, cheroids = Chapter:GetChapterHero(levelid)
+    local count = 0
+    if cheroes ~= nil then
+        for  k, heroinfo in pairs(cheroes) do
+            teams[k].hero = heroinfo
+            teams[k].plot = true
+            teams[k].locked = true
+            count = count + 1
+            self._plotHero = true
+        end
+    end
+
+    str = Groble_SceneMgr:PrefsGetString("normal_team_"..Player:GetId())
+    local ids = lua_parse_cfg(str,true)[1]
+    if  not lua_str_empty(str) then
+        for idx, hid in ipairs(ids) do
+            if count < 3 then
+                if hid ~= 0 and not lua_value_in_tbl(hid, cheroids)  then
+                    count = count +1
+                    teams[count].hero = Hero:GetHero(hid)
+                end
+            end
+        end
+    end
+    if not Guide:ForceGuideIsEnd() then
+        if teams[1].hero == nil then
+            teams[1].hero = Hero:GetHero(Hero.DEFAULT_HEROID)
+        end
+    end
+    return teams
+end
+
+function Chapter:SetFightHeroIds(levelid, ids)
+    local str = Chapter:GetTeamStr(ids)
+    --储存阵容
+    if Chapter:LevelIsMemory(levelid) then
+        Groble_SceneMgr:PrefsSetString("memory_team_"..Player:GetId(), str)
+        --储存上次的heroid
+        Groble_SceneMgr:PrefsSetString("last_hero_"..Player:GetId(),   Chapter:GetLevel(levelid).memory_heroid)
+    elseif Chapter:LevelIsTower(levelid) then
+        Groble_SceneMgr:PrefsSetString("tower_team_"..Player:GetId(), str)
+    elseif Chapter:LevelIsEther(levelid) then
+
+    else
+        Groble_SceneMgr:PrefsSetString("normal_team_"..Player:GetId(), str)
+    end
+end
+
+function Chapter:ClearLocalTeamCache()
+    local pid = Player:GetId()
+    Groble_SceneMgr:PrefsSetString("memory_team_"..pid, "")
+    Groble_SceneMgr:PrefsSetString("last_hero_"..pid, "")
+    Groble_SceneMgr:PrefsSetString("tower_team_"..pid, "")
+    Groble_SceneMgr:PrefsSetString("normal_team_"..pid, "")
+end
+
+
+function Chapter:GetFightHeroIds(levelid)
+    local team = self:GenFightTeam(levelid)
+    local tbl ={}
+    local tb = {0, 0, 0}
+    for k,v in pairs(team) do
+        if v.hero ~= nil and v.plot == false then
+            tbl[k] = v.hero.id
+        else
+            tbl[k] = 0
+        end
+    end
+    return tbl
+end
+
+function Chapter:GetFightHeroIdsWithPlot(levelid)
+    local team = self:GenFightTeam(levelid)
+    local tbl ={}
+    local tb = {0, 0, 0}
+    for k,v in pairs(team) do
+        if v.hero ~= nil  then
+            tbl[k] = v.hero.id
+        else
+            tbl[k] = 0
+        end
+    end
+    return tbl
+end
+
+
+function Chapter:GetCurPlotIndex(itype, gid)
+    local index = 1
+    for i, v in ipairs(self._plotChapters[itype]) do
+        local chapter = self:GetChapter(v.cid)
+        if false == chapter.open then
+            break
+        end
+        if chapter.open_level > Player:GetLevel() then
+            break
+        end
+        if chapter.gid == gid then
+            index = chapter.nindex
+        end
+    end
+    return index
+end
+
+function Chapter:CalcChapterStars(chapterid)
+    local chapter = self:GetChapter(chapterid)
+    if chapter ~= nil then
+        local c = 0
+        for _, v in pairs(chapter.levelids) do
+            local level = self:GetLevel(v)
+            if level ~= nil then
+                c = c + level.has_star
+            end
+        end
+        chapter.has_star = c
+    end
+end
+
+-- 
+-- brief: 所有剧情本星数
+-- 
+function Chapter:GetPlotLevelStarNumber()
+    local _number = 0
+    for _, chapter in pairs(self._chapters) do
+        if chapter.main_type == Chapter.FIGHT_TYPE_PLOT then
+            _number = _number + chapter.has_star
+        end
+    end
+    return _number
+end
+
+function Chapter:IsConformBattleCondition(levelid)
+    local chapter = self:GetChapterByLevelId(levelid)
+    -- 检测是否开放
+    if chapter.timeid ~= 0 and not CTime:IsOpen(chapter.timeid) then
+        Groble_UIMgr:ShowGameWordTipsLayer(881015)
+        return false
+    end
+    -- check player level
+    local level = self:GetLevel(levelid)
+    if Player:GetLevel() < level.open_level then
+        Groble_UIMgr:ShowGameWordTipsLayer(21004)
+        return false
+    end
+    -- check chapter times
+    if chapter.fight_count > 0 and chapter.fight_count + chapter.fight_buy - chapter.pass_count <= 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        self:StopAutoFight(Chapter.AUTO_STOP_NO_CNT)        
+        return false
+    end
+    local _multipleValue = 1
+    if self:IsAutoFight() then
+        _multipleValue = self._autoFightParam.multipleValue
+    end
+    -- check level times
+    if level.fight_count > 0 and level.remain < _multipleValue then
+        Groble_UIMgr:ShowGameWordTipsLayer(21005)
+        self:StopAutoFight(Chapter.AUTO_STOP_NO_CNT)
+        return false
+    end
+    -- check player power 
+    if Player:GetValue(Player.VALUE_POWER) < level.cost_power * _multipleValue then
+        if self:IsAutoFight() then
+            if self:AutoFightPower() then
+                return true
+            else
+                self:StopAutoFight(Chapter.AUTO_STOP_NO_POWER)
+                return false
+            end
+        else
+            Groble_UIMgr:ShowBuyPowerLayer()
+            return false
+        end
+    end
+    -- check level cost item
+    if level.cost_items ~= "-1" then
+        local cost = lua_str_split(level.cost_items, "&")
+        if Item:GetCount(cost[1]) < tonumber(cost[2]) then
+            Groble_UIMgr:ShowLackCurrencyTips(cost[1])
+            if self:IsAutoFight() then
+                self:StopAutoFight(Chapter.AUTO_STOP_NO_ITEM)
+            end
+            return false
+        end
+    end
+    return true
+end
+
+--isShow:是否是显示掉落
+function Chapter:GetLevelDrops(levelid,isShow)
+    local level = self:GetLevel(levelid)
+    if lua_table_len(level.rewards) > 0 then
+        if level.rewards[1] == Chapter.DROP_SCORE then
+            local dropid = self:GetScoreDrop(level.rewards[2], level.max_score)
+            return Item:GetDrops(dropid,isShow)
+        else
+            return Item:GetDrops(level.rewards[2],isShow)
+        end
+    end
+    if lua_table_len(level.fight_rewards) > 0 then
+        if level.fight_rewards[1] == Chapter.DROP_SCORE then
+            local dropid = self:GetScoreDrop(level.fight_rewards[2], level.max_score)
+            return Item:GetDrops(dropid,isShow)
+        else
+            return Item:GetDrops(level.fight_rewards[2],isShow)
+        end
+    end
+    return {}
+end
+
+function Chapter:SetCurFightLevelId(levelid)
+    self._inFightLevelId = levelid
+end
+
+function Chapter:GetCurFightLevelId()
+    return self._inFightLevelId
+end
+
+function Chapter:CurFightModeIsShenYe()
+    if self._inFightLevelId == 0 then
+        return false
+    end
+    return self:LevelIsNight(self._inFightLevelId)
+end
+
+function Chapter:CurFightModeIsWorldBoss()
+    if self._inFightLevelId == 0 then
+        return false
+    end
+    return self:LevelIsWorldBoss(self._inFightLevelId)
+end
+
+function Chapter:CurFightModeIsTower()
+    if self._inFightLevelId == 0 then
+        return false
+    end
+    return self:LevelIsTower(self._inFightLevelId)
+end
+
+function Chapter:CurFightModeIsMystery()
+    if self._inFightLevelId == 0 then
+        return false
+    end
+    return self:LevelIsMystery(self._inFightLevelId)
+end
+
+--触发关卡(爽关)
+function Chapter:CurFightModeIsTrigger()
+    if self._inFightLevelId == 0 then
+        return false
+    end
+    return self:LevelIsTrigger(self._inFightLevelId)
+end
+
+function Chapter:LevelIsPlot(levelid)
+    return Chapter.FIGHT_TYPE_PLOT == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsDaily(levelid)
+    return Chapter.FIGHT_TYPE_DAILY == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsTest(levelid)
+    return Chapter.FIGHT_TYPE_TEST == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsNight(levelid)
+    return Chapter.FIGHT_TYPE_NIGHT == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsTower(levelid)
+    return Chapter.FIGHT_TYPE_TOWER == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsMemory(levelid)
+    return Chapter.FIGHT_TYPE_MEMORY == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsMystery(levelid)
+    return Chapter.FIGHT_TYPE_MYSTERY == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsActivity(levelid)
+    return Chapter.FIGHT_TYPE_ACTIVITY == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsEther(levelid)
+    return Chapter.FIGHT_TYPE_ETHER == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsWorldBoss(levelid)
+    return Chapter.FIGHT_TYPE_WORLD_BOSS == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:LevelIsTrigger(levelid)
+    return Chapter.FIGHT_TYPE_TRIGGER == self:GetFightTypeByLevelId(tonumber(levelid))
+end
+
+function Chapter:GetFightTypeByLevelId(levelid)
+    local chapter = self:GetChapterByLevelId(levelid)
+    if chapter ~= nil then
+        return chapter.main_type
+    end
+    return nil
+end
+
+function Chapter:GetLastInFightType()
+    return self._lastInFightType
+end
+
+function Chapter:SetLastInFightType(lasttype)
+    self._lastInFightType = lasttype
+end
+
+function Chapter:_GetChapterShowMode(chapter)
+    if self._showmode == nil then
+        self._showmode = {}
+    end
+    if self._showmode[chapter.sub_type] == nil then
+        for mode, info in pairs(self._modes) do
+            for _, v in ipairs(info) do
+                if -1 ~= lua_table_indexof(v.ids, chapter.id) then
+                    self._showmode[chapter.sub_type] = mode
+                    return mode
+                end
+            end
+        end
+    end
+    return self._showmode[chapter.sub_type]
+end
+
+function Chapter:GetJumpdata()
+    return self._jumpdata
+end
+
+function Chapter:SetJumpChapterLevel(chapterid, levelid)
+    if chapterid == nil and levelid == nil then
+        return
+    end
+    if levelid == nil then
+        local chapter = self:GetChapter(chapterid)
+        levelid = chapter.levelids[1]
+    end
+
+    local chapter = self:GetChapterByLevelId(levelid)
+    self._jumpdata = {
+        showtype    = self:_GetChapterShowMode(chapter),
+        showmode    = chapter.sub_type,
+        chapterid   = chapter.id,
+        levelid     = levelid,
+    }
+end
+
+function Chapter:ClearJumpChapterLevel()
+    self._jumpdata = {}
+end
+
+function Chapter:OnFixedJumpChapter()
+    -- 跳转到章节
+    self._jumpdata.levelid = nil
+end
+
+function Chapter:GetLevelStarReward(levelid)
+    local level = Chapter:GetLevel(levelid)
+    local drops = Item:GetDrops(level.star_rewards)
+    local ret = {itype = 0, cfgid = 0, num = 0}
+    for i, v in ipairs(drops) do
+        if tonumber(v[2]) ~= Player.ITEM_VALUE_EXP then
+            ret.itype = v[1]
+            ret.cfgid = v[2]
+            ret.num   = v[3]
+            break
+        end
+    end
+    return ret
+end
+
+function Chapter:LevelIsUnlock(levelid, onlyUnlock)
+    local level = self:GetLevel(levelid)
+    local unlock = true
+    if level.prev_levelid ~= 0 then
+        local lvtmp = self:GetLevel(level.prev_levelid)
+        if lvtmp ~= nil then
+            unlock = lvtmp.open
+        end
+    end
+    unlock = unlock and (Player:GetValue(Player.VALUE_LEVEL) >= level.open_level)
+    if onlyUnlock then
+        return unlock
+    end
+    local lockstr = ""
+    if level.open_level > 0 and Player:GetLevel() < level.open_level then
+        lockstr = string.format(LanguageMgr:GetTextByID(20031), level.open_level)
+    else
+        lockstr = LanguageMgr:GetTextByID(20027)
+    end
+    if(unlock)then
+        if(level.timeid > 0 and not CTime:IsOpen(level.timeid))then--时间开启
+            unlock = false;
+        end
+    end
+    return unlock, lockstr,level.open_level
+end
+
+function Chapter:GetLevelIndexInChapter(levelid)
+    local chapter = self:GetChapterByLevelId(levelid)
+    local index = 1
+    for i, v in ipairs(chapter.levelids) do
+        if v == levelid then
+            index = i
+            break
+        end
+    end
+    return index
+end
+
+function Chapter:SetShenYeChapterId(chapterid)
+    self._shenyeChapterId = chapterid or 0
+end
+
+function Chapter:GetShenYeChapterId()
+    return self._shenyeChapterId or 0
+end
+
+function Chapter:GetShenYeChapter()
+    return self:GetChapter(self._shenyeChapterId)
+end
+
+function Chapter:GetTowerChapter()
+    if self._chapterTower == nil then
+        self._chapterTower = self:GetChapter(Chapter.MODE_TOWER_CID)
+    end
+    if self._chapterTower == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!can't find tower chapter")
+    end
+    return self._chapterTower
+end
+
+function Chapter:LevelIsTimeOpen(lid)
+    local level = self:GetLevel(lid)
+    if level.timeid == 0 then
+        return false
+    else
+        return CTime:IsOpen(level.timeid)
+    end
+end
+
+function Chapter:ChapterIsTimeOpen(cid)
+    local chapter = self:GetChapter(cid)
+    if chapter.timeid == 0 then
+        if chapter.levelids[1] ~= nil then
+            return self:LevelIsTimeOpen(chapter.levelids[1])
+        else
+            return false
+        end
+    else
+        return CTime:IsOpen(chapter.timeid)
+    end
+end
+
+function Chapter:GetEquipChapter()
+    for _, v in pairs(self._chapters) do
+        if v.sub_type == Chapter.MODE_EQUIP then
+            if self:ChapterIsTimeOpen(v.id) then
+                return v.id
+            end
+        end
+    end
+    return 0
+end
+
+function Chapter:CheckEquipChapter()
+    if Chapter.MODE_EQUIP_CID == 0 then
+        Chapter.MODE_EQUIP_CID = self:GetEquipChapter()
+    else
+        if Chapter:ChapterIsTimeOpen(Chapter.MODE_EQUIP_CID) then
+            -- todo: nothing
+        else
+            Chapter.MODE_EQUIP_CID = self:GetEquipChapter()
+        end
+    end
+end
+
+function Chapter:OnUpdateChapterDay()
+    for _, v in pairs(self._levels) do
+        v.pass_count = 0
+        v.remain = v.fight_count
+    end
+    for _, v in pairs(self._chapters) do
+        v.pass_count = 0
+        v.fight_buy  = 0
+    end
+end
+
+function Chapter:GetTeamStr(heroids)
+    local str = ""
+    for _, heroid in pairs(heroids or {}) do
+        if heroid ~= 0 then
+            str = str..heroid.."&"
+        end
+    end
+    str = string.sub(str,1,#str-1)
+    return str
+end
+
+function Chapter:ChapterIsOpen(chapterid)
+    return self:chapterOrLevelIsOpen(self:GetChapter(chapterid))
+end
+
+--判断 章节或level 是否开启
+function Chapter:chapterOrLevelIsOpen(chapter, level)
+    local sub_type
+    if chapter ~= nil then
+        sub_type  = chapter.sub_type
+    end
+    if level ~= nil then
+        sub_type = Chapter:GetChapter(level.chapterid).sub_type
+    end
+    local descstr
+    local open
+    if sub_type == Chapter.MODE_PLOT_N then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.plot_n)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.plot_n)
+    elseif sub_type == Chapter.MODE_PLOT_D then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.plot_d)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.plot_d)
+    elseif sub_type == Chapter.MODE_PLOT_S then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.plot_s)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.plot_s)
+    elseif sub_type == Chapter.MODE_NIGHT then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_night)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_night)
+    elseif sub_type == Chapter.MODE_TOWER then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_tower)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_tower)
+    elseif sub_type == Chapter.MODE_COIN then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_daily1)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily1)
+    elseif sub_type == Chapter.MODE_MATERIAL then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_daily2)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily2)
+    elseif sub_type == Chapter.MODE_DRUG then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_daily3)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily3)
+    elseif sub_type == Chapter.MODE_HEART then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_daily4)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily4)
+    elseif sub_type == Chapter.MODE_EQUIP then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_daily5)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily5)
+    elseif sub_type == Chapter.MODE_LIGHT or sub_type == Chapter.MODE_DARK or sub_type == Chapter.MODE_CHAOS then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_lob)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_lob)
+    elseif sub_type == Chapter.MODE_MYSTERY then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_mystery)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_mystery)
+    elseif sub_type == Chapter.MODE_ETHER_1 or sub_type == Chapter.MODE_ETHER_2 or sub_type == Chapter.MODE_ETHER_3 or sub_type == Chapter.MODE_ETHER_4 then -- 以太边界
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_ether)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_ether)
+    elseif sub_type == Chapter.MODE_WORLD_BOSS then
+        descstr = Player:GetUnlockDesc(Player.SYS_FUNC.fight_wolrd)
+        open = Player:IsSysFuncOpen(Player.SYS_FUNC.fight_wolrd)
+    end
+    return open, descstr
+end
+
+function Chapter:ResetLastLvId(gid, mode)
+end
+
+function Chapter:SetServerHeroAttr(sattr)
+    local sdata = {}
+    for i, attr in ipairs(sattr) do
+        if self._tmphids[i] ~= 0 then
+            sdata[self._tmphids[i]] = attr
+        end
+    end
+    self._serverheroattr = sdata
+end
+
+function Chapter:GetServerHeroAttr(hid)
+    if self._serverheroattr == nil then
+        return nil
+    end
+    return self._serverheroattr[hid]
+end
+
+--战斗红点
+function Chapter:GetFightRedtip()
+    -- 剧情
+    if self:GetPlotRedTip() then return true end
+
+    -- 深夜
+    if MidNight:GetNightRed() then return true end
+
+    -- 白夜
+    if Task:IsBetterOper(Task.TYPE_BLOOD) and  Player:IsSysFuncOpen(Player.SYS_FUNC.fight_blood) then
+        return true
+    end
+
+    return false
+end
+
+--章节挑战红点
+function Chapter:ChallengRedTip(chapter)
+    local show = false
+    for _, v in pairs(chapter.rewards) do
+        if chapter.has_star ~= 0 and chapter.has_star >= v.star and v.state == Chapter.REWARD_STATE_NOT then
+            show = true
+            break
+        end
+    end
+    return show
+end
+--一键领取关卡3星奖励红点
+function Chapter:OneButtonRedTip(chapter)
+    local show = false
+    for _,levelid in pairs(chapter.levelids) do
+        local level = Chapter:GetLevel(levelid)
+        if level.receive == Chapter.REWARD_STATE_CAN then
+            show = true
+            break
+        end
+    end
+    return show
+end
+
+function Chapter:ChapterModeRedTip(ids)
+    for _, id in pairs(ids) do
+        if self:ChapterRedTip(id) then
+            return true
+        end
+    end
+    return false
+end
+
+
+function Chapter:ChapterRedTip(chapterId)
+    local chapter = self:GetChapter(chapterId)
+    if self:OneButtonRedTip(chapter) then
+        return true
+    end
+    if self:ChallengRedTip(chapter) then
+        return true
+    end
+    return false
+end
+
+function Chapter:GetRedTipByGid(gid)
+    for _, mode in pairs(self._plotChapters) do
+        for k,cpt in pairs(mode) do
+            if cpt.gid == gid then
+                if self:ChapterRedTip(cpt.cid) then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+function Chapter:GetPlotRedTip()
+    for _,mode in pairs(self._plotChapters) do
+        for k,cpt in pairs(mode) do
+            if self:ChapterRedTip(cpt.cid) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function Chapter:GetChapterHero(levelid)
+    local level = self:GetLevel(levelid)
+
+    if level.char_hero == "-1" then
+        return {}, {}
+    end
+
+    
+    if level.has_star > 0 then
+        return {}, {}
+    end
+    if level.open then
+        return {}, {}
+    end
+
+    local cheroids = lua_str_split(level.char_hero, "&",true)
+    local heroes = {}
+    local heroids = {}
+    for _, cid in pairs(cheroids) do
+        local chero = self:GetChapterHeroByID(cid)
+        table.insert(heroes, chero)
+        table.insert(heroids, chero.id)
+    end
+
+    return heroes,heroids
+end
+
+function Chapter:SetWhiteNightOpenState(isOpen)
+    self._whiteNightIsOpen = isOpen;
+end
+
+function Chapter:GetWhiteNightOpenState()
+    return self._whiteNightIsOpen or false;
+end
+
+function Chapter:InitCurChapterMode()
+    self._chapterMode = nil;
+end
+
+function Chapter:SetCurChapterMode(mode)
+    self._chapterMode = mode;
+end
+
+function Chapter:GetCurChapterMode()
+    if(self._chapterMode == nil )then
+        AppMgr:LogError("self._chapterMode == nil !!!");
+        return 0;
+    end
+    return self._chapterMode;
+end
+
+function Chapter:CloseCurSelectChapterId()
+    self._curSelectChapterId = 0;
+end
+
+function Chapter:SetCurSelectChapterId(chapterId)
+    self._curSelectChapterId = chapterId;
+end
+
+function Chapter:GetCurSelectChapterId()
+    return self._curSelectChapterId or 0;
+end
+
+function Chapter:SetCoinChapterState(state)
+    self._isInCoinChapter = state
+end
+
+function Chapter:SetDailyChapterState(state)
+    self._isInDaily = state
+end
+
+function Chapter:PreLevelIsOpen(levelid)
+    local level = self:GetLevel(levelid)
+    if not self:chapterOrLevelIsOpen(nil, level) then
+        return false
+    end
+    if level.prev_levelid ~= 0 then
+        local prelevel = self:GetLevel(level.prev_levelid)
+        return prelevel.open
+    end
+    local chapter = self:GetChapter(level.chapterid)
+    return chapter.open
+end
+
+-------------------------------------------------------------------------------------------------------
+function Chapter:GetLevelDes(curPower,needPower)
+    local result = curPower * 100 / needPower
+    local desc = nil
+    if result >= Hero:GetCommonValue("gear5") and result < Hero:GetCommonValue("gear4") then
+        desc = LanguageMgr:GetTextByID(3009036)
+    elseif result >= Hero:GetCommonValue("gear4") and result < Hero:GetCommonValue("gear3") then
+        --desc = LanguageMgr:GetTextByID(3009035)
+    elseif result >= Hero:GetCommonValue("gear3") and result < Hero:GetCommonValue("gear2") then
+        --desc = LanguageMgr:GetTextByID(3009034)
+    elseif result >= Hero:GetCommonValue("gear2") and result < Hero:GetCommonValue("gear1") then
+        --desc = LanguageMgr:GetTextByID(3009033)
+    elseif result >= Hero:GetCommonValue("gear1") then
+        --desc = LanguageMgr:GetTextByID(3009032)
+    end
+    return desc
+end
+
+function Chapter:IsTargetFight(curPower,needPower)
+    local result = curPower * 100 / needPower
+    if result >= Hero:GetCommonValue("gear5") and result < Hero:GetCommonValue("gear4") then
+        return false
+    end
+    return true
+end
+
+function Chapter:SetTriggerLevelId(levelId)
+    self._triggerLevelId = levelId
+end
+
+function Chapter:GetTriggerLevelId()
+    return self._triggerLevelId
+end
+
+
+function Chapter:GetActivityLevelIsOpen(levelid, onlyUnlock)
+    local level = self:GetLevel(levelid);
+    local unlock,lockstr = self:LevelIsUnlock(levelid, onlyUnlock);
+    if(level.timeid > 0 and not CTime:IsOpen(level.timeid))then--时间开启
+        local y,m,d = CTime:GetYearMonthDay(CTime:GetStartTime(level.timeid));
+        lockstr = string.format(LanguageMgr:GetTextByID(90387),m,d);
+    elseif level.prev_levelid ~= 0 then
+        if(Chapter:GetChapterByLevelId(levelid).sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD)then
+            if(Chapter:GetChapterByLevelId(level.prev_levelid).sub_type == Chapter.MODE_ACTIVITY_LEVEL_COMMON)then--通关普通关卡开启
+                lockstr = string.format(LanguageMgr:GetTextByID(90388),level.sortid);
+            else
+                lockstr = LanguageMgr:GetTextByID(20027)
+            end
+        else
+            lockstr = LanguageMgr:GetTextByID(20027)
+        end
+    end
+    return unlock, lockstr,level.open_level
+end
+
+function Chapter:GetCanGetIds(chapterId)
+    local tbl = {}
+    local chapter = Chapter:GetChapter(chapterId);
+    for _,levelid in pairs(chapter.levelids) do
+        local level = Chapter:GetLevel(levelid)
+        if level.receive == Chapter.REWARD_STATE_CAN then
+            table.insert(tbl, tonumber(levelid))
+        end
+    end
+    return tbl
+end
+
+function Chapter:addLevelSubTypePassNumber(levelId)
+    local chapter = self:GetChapterByLevelId(levelId)    
+    if self._subtypePassNumber[chapter.sub_type] == nil then
+        self._subtypePassNumber[chapter.sub_type] = 0
+    end
+    self._subtypePassNumber[chapter.sub_type] = self._subtypePassNumber[chapter.sub_type] + 1
+end
+
+function Chapter:GetLevelSubTypePassNumber(subtype)
+    return self._subtypePassNumber[subtype] or 0
+end
+
+--获得章节是否锁定
+function Chapter:GetChapterIsLock(chapterId)
+    local chapter = Chapter:GetChapter(chapterId);
+    --时间解锁
+    local isOpen = CTime:IsOpen(chapter.timeid);
+    if(not isOpen)then
+        local y,m,d = CTime:GetYearMonthDay(CTime:GetStartTime(chapter.timeid));
+        return false,string.format(LanguageMgr:GetTextByID(90393),m,d);
+    end
+
+    --等级解锁
+    if Player:GetLevel() < chapter.open_level then --等级不够
+        return false, string.format(LanguageMgr:GetTextByID(20087),chapter.open_level)
+    end
+
+    --章节解锁
+    if(chapter.open_id > 0)then
+        local tmpChapter = Chapter:GetChapter(chapter.open_id);
+        if(not tmpChapter.open)then
+            return false, string.format(LanguageMgr:GetTextByID(90394),tmpChapter.name_simple);
+        end
+    end
+
+    if(chapter.open)then
+        return true,"";
+    end
+
+    return false, LanguageMgr:GetTextByID(90395);
+end

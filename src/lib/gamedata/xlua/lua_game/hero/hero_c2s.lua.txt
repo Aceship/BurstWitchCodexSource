@@ -1,0 +1,381 @@
+
+--
+-- author: haosun
+-- date  : 2018-10-29 12:28:01
+-- brief : 
+--
+
+Hero = Hero or {}
+
+-- 魔女数据同步
+function Hero:SyncHeros(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步魔女数据----------")
+    self._isHeroLevelTrigger = true
+    for _, v in pairs(data.heros) do
+        self:_AddHero(v, false)
+        if v.id ~= 1001 and v.level >= Operation.TRIGGER_AWAKE_LEVEL_VALUE then
+            self._isHeroLevelTrigger = false
+        end
+    end
+
+    self:SetAdventuresData(data.adventures);
+
+    --需要通关解锁的纹章达成集合
+    self._emblemCons = {}
+    if data.emblem_condition2ok_ids ~= nil then
+        for emblemid,v in pairs(data.emblem_condition2ok_ids)do
+            self._emblemCons[tonumber(emblemid)] = v
+        end
+    end
+
+    -- 属性重新计算
+   -- self:CalAllHeroAttr()
+    --魔女同步完成后计算羁绊达成情况
+    Fetter:InitFetterByHero()
+    --初始化魔女红点
+    Player:InitHeroRedTips()
+
+    -- self:SetAllHeroBuildAttr();
+end
+
+function Hero:_commomStatsNotify()
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_STAR)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_QLTY)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_NUMBER)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_STAR)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_LEVEL)
+end
+
+function Hero:AddNewHero(heros, logid, logparam)
+    local heroIds = {}
+    for _, v in pairs(heros) do
+        self:_AddHero(v, true)
+        Fetter:FetterIsClear(v.id)
+        table.insert(heroIds, v.id)
+        GZSDKHelper:cardFlowWithPlayerInfo(v.id, logid)
+    end
+    self:_commomStatsNotify()
+    Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_NEW_WITCH}, heroIds)
+end
+
+function Hero:UnlockHeroReq(heroid)
+    if heroid == nil then
+        return
+    end
+    heroid = tonumber(heroid)
+    Network:CallServerScript({c2s.HERO_UNLOCK_REQ, heroid})
+end
+
+function Hero:UnlockHeroRep(heroid)
+    self:_commomStatsNotify()    
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UNLOCK, heroid)
+end
+
+function Hero:LevelUpReq(heroid, items)
+    Network:CallServerScript({c2s.HERO_LEVEL_UP_REQ, heroid, items})
+end
+
+function Hero:LevelUpRep(heroid, level, exp)
+    local hero = self:GetHero(heroid)
+    local oldlevel = hero.level
+    hero.level = level
+    hero.exp = exp
+    self:OnCalcAttr(hero)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UP_LEVEL, heroid)
+    Guide:RecoverGuide()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    if hero.level > oldlevel then
+        SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0,heroid);
+        Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_LEVEL)
+        Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_LEVEL)
+        local maxStepCfg = Hero:GetMaxLvStepCfg();
+        ThinkingMgr:SendTrack("succuba_level_up", {
+            succuba_id              = heroid,
+            succuba_current_level   = hero.level,
+            is_break_through        = hero.level > hero.maxLv and hero.level < maxStepCfg.levelMax,
+            succuba_previous_level  = oldlevel
+        })
+    end
+
+    if heroid ~= 1001 and self._isHeroLevelTrigger and level >= Operation.TRIGGER_AWAKE_LEVEL_VALUE then
+        self._isHeroLevelTrigger = false
+        Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_HERO_AWAKE})
+    end
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女升级", heroid)
+end
+
+function Hero:StepUpReq(heroid)
+    Network:CallServerScript({c2s.HERO_STEP_UP_REQ, heroid})
+end
+
+function Hero:StepUpRep(heroid,lv,exp)
+    local hero = self:GetHero(heroid)
+    local oldlevel = hero.level
+    hero.level = lv
+    hero.exp = exp
+    hero.step = hero.step + 1;
+    Hero:SetLevelStepUp(hero)
+    self:OnCalcAttr(hero)
+    -- 魔女进阶判断羁绊是否升级
+    Fetter:FetterIsClear(heroid)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UP_STEP, heroid)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    Guide:RecoverGuide()
+    if hero.level > oldlevel then
+        Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_LEVEL)
+    end
+    --盼盼说升阶只显示魔女战力
+    SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,2,heroid);
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女进阶", heroid)
+end
+
+function Hero:TopUpReq(heroid)
+    Network:CallServerScript({c2s.HERO_STAR_UP_REQ, heroid})
+end
+
+function Hero:TopUpRep(heroid, star ,star_mark)
+    local hero = self:GetHero(heroid)
+    local isTop = hero.star < star
+    hero.star_mark = star_mark
+    local is_break_through = false
+    if isTop then
+        SingletonMgr:CloseFightingUpTipsLayerTime();
+        is_break_through = true
+        hero.star_mark = 0
+        hero.star = hero.star + 1
+        Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_STAR)
+        Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_STAR)
+        --设置构筑信息
+        Hero:SetBuildDot(Hero:GetHero(heroid));
+        Build:HeroStarUp(heroid);
+    else
+    end
+    
+    self:UpdateHeroQlty(hero)
+    self:SetDeskills(hero)
+    self:OnCalcAttr(hero)
+    -- 魔女升星判断羁绊是否升级
+    Fetter:FetterIsClear(heroid)
+    -- 检查是否要更换头像边框
+    Player:CheckPlayerBorder(hero)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_HERO_IN_DOT)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_TOP, {heroid, isTop})
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_STAR_WITCH}, {heroid})
+    ThinkingMgr:SendTrack("succuba_star_up", {
+        succuba_id = heroid,
+        succuba_current_star = hero.star,
+        is_break_through = is_break_through,
+        succuba_previous_star = hero.level
+    })
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女升星", heroid)
+end
+--新增 一次升级的次数
+function Hero:SkillUpReq(heroid, slot, num)
+    Network:CallServerScript({c2s.HERO_SKILL_UP_REQ, heroid, slot, num})
+end
+
+function Hero:SkillUpRep(heroid, slot, cost_items)
+    -- 技能处理
+    local hero = self:GetHero(heroid)
+  --  self:SkillLvUp(hero, slot,num)
+  --  self:CalcSkillCd(hero)
+    -- 消息分发
+    --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UP_SKILL)
+    Hero:UpdateFightingCapacity(hero)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    Guide:RecoverGuide()
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_HERO_SKILL_LV)
+    local skill = hero.skills[slot]
+    SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0,heroid);
+    ThinkingMgr:SendTrack("succuba_skill_level_up", {
+        succuba_id          = heroid,
+        skill_id            = slot,
+        skill_current_level = skill.level
+    })
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女技能升级", heroid)
+end
+
+function Hero:CutSkinReq(heroId,SkinId)
+    -- print("~~~~~~~~",heroId,"   ",SkinId,"    ",type(heroId),"   ",type(SkinId))
+    local hero = Hero:GetHero(heroId);
+    local isSend = hero.skinid ~= SkinId;
+    if(isSend)then
+        Network:CallServerScript({c2s.HERO_SKIN_CHANGE_REQ, heroId, tonumber(SkinId)});
+    else
+        --容错处理, 皮肤重复穿戴时直接替换
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(80000012));
+        self:SetHeroSkinId(hero, SkinId)
+        self:SetHeroExtraInfo(hero)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_CUT_SKIN);
+    end
+end
+
+function Hero:CutSkinRep(heroId,skinId)
+    local hero = Hero:GetHero(heroId);    
+    self:SetHeroSkinId(hero, skinId)
+    self:SetHeroExtraInfo(hero)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_CUT_SKIN);
+end
+
+----------------------------------好感相关------------------------------------------
+
+function Hero:OnUpdateDay()
+    self._returnGiftData.da_num = 0;
+    self._returnGiftData.gots = {};
+    self._returnGiftData.sg_num = 0;
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+--礼物赠送请求
+function Hero:GiftReq(heroid,item,touchAward)
+    --代码保护 ,赠送物品不超过物品持有上限
+    for cfgid, num in pairs(item) do
+        num = math.min(Item:GetCount(cfgid), num)
+    end
+    local isTouch = 0;
+    if(touchAward)then
+        isTouch = 1;
+        self._returnGiftData.sg_num = 0;
+    end
+    Network:CallServerScript({c2s.HERO_INTIMACY_GIFT_GET_REQ, heroid, item,isTouch})
+end
+
+--礼物赠送回调
+function Hero:GiftRes(heroId,level,exp,isTouch)
+    local table = {}
+    local hero = Hero:GetHero(heroId)
+    hero.intimacy_data.level = level
+    hero.intimacy_data.exp = exp
+    table.level = level
+    table.exp = exp
+    if(isTouch == 1)then
+        self._returnGiftData.da_num = self._returnGiftData.da_num + 1;
+        if(self._returnGiftData.gots[heroId] == nil)then
+            self._returnGiftData.gots[heroId] = 0;
+        end
+        self._returnGiftData.gots[heroId] = self._returnGiftData.gots[heroId] + 1;
+        self._showGiftLvUpTips = true;
+    else
+        self._showGiftLvUpTips = true;
+    end
+    Fetter:SetMusicAddon(hero, level)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_FAVOR)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GIVE_GIFT,table);
+    Guide:RecoverGuide()
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女送礼", heroid)
+end
+
+function Hero:ReturnGiftReq(heroId)
+    Network:CallServerScript({c2s.HERO_INTIMACY_GET_ADVENTURE_REQ, heroId});
+end
+
+function Hero:ReturnGiftRep(heroId,drops,cfgid)
+    local tbl = {
+        id = cfgid,
+        drops = drops,
+    };
+    if(self._returnGiftData.gots[heroId] == nil)then
+        self._returnGiftData.gots[heroId] = 1;
+    end
+    self._returnGiftData.gots[heroId] = self._returnGiftData.gots[heroId] - 1;
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GET_ADVENTURE_REP,tbl);
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+--升华
+function Hero:SublimationReq(heroId)
+    Network:CallServerScript({c2s.HERO_INTIMACY_RAISE_UP_REQ, heroId});
+end
+
+--升华返回
+--[[p1:hero_id  魔女id
+--p2:升华层级  -1代表为执行了‘擦玻璃’事件
+--p3:drop_ret 具有掉落时的掉落显示table, 没有掉落则为nil
+--
+--新增参数
+--p4:hero_lv   升华过后的对应魔女等级，"擦玻璃"时返回nil
+--p5:hero_exp 升华过后的对应魔女经验，"擦玻璃"时返回nil]]--
+function Hero:SublimationRep(heroId,state,drops,heroLv,heroExp)
+    local tbl = {
+        id = heroId,
+        drops = drops,
+        state = state,
+    };
+    local hero = Hero:GetHero(heroId);
+    if heroLv ~= nil then
+        hero.level = heroLv
+    end
+    if heroExp ~= nil then
+        hero.exp = heroExp
+    end
+    hero.intimacy_data.raise = state;--修改魔女升华状态
+    self:OnCalcAttr(hero);
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_X_HERO_FAVORUP)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SUBLIMATION_REP,tbl);
+
+    GZSDKHelper:cardOpFlowWithPlayerInfo("魔女升华", heroid)
+end
+
+--------------------------------------------------------------------------------------
+--纹章升级请求
+function Hero:EmblemReq(emblemid)
+    Network:CallServerScript({c2s.HERO_EMBLEM_LV_UP_REQ, tonumber(emblemid) })
+end
+
+--纹章升级回调
+function Hero:EmblemRes(emblemid,level)
+    local tbl = {}
+    tbl.level = tonumber(level)
+    tbl.id = tonumber(emblemid)
+    local heroid = Fetter:GetEmblemsByCfgid(tbl.id).heroID
+    local hero = Hero:GetHero(tonumber(heroid))
+    hero.emblems[tbl.id] =  tbl.level
+    self:SetDeskills(hero)
+    self:OnCalcAttr(hero)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.UPGRADE_EMBLEM, tbl);
+
+end
+--纹章解锁条件达成通知
+function Hero:EmblemConditionNTF(data)
+    for k,v in pairs(data)do
+        self._emblemCons[tonumber(v)] = true
+    end
+end
+
+------------------构筑相关----------------------------
+
+function Hero:SetHeroBuildAttr(build)
+    local hero = Hero:GetHero(build.id);
+    build.buildAdds = {};
+    for i = 1,Hero.BuildAddNum do
+        for _, v in pairs(build[i].skills) do
+            if(build.buildAdds[v[2]] == nil)then
+                build.buildAdds[v[2]] = 0;
+            end
+            if(hero.owner)then
+                if(hero.level >= v[1])then
+                    build.buildAdds[v[2]] = build.buildAdds[v[2]] + v[3];
+                end
+            end
+        end
+    end
+end
+
+
+---------------------------注册回调---------------------------
+c2s[c2s.HERO_DATA_SYNC]                 = {Hero, Hero.SyncHeros}
+c2s[c2s.HERO_BATCH_ADD_NTF]             = {Hero, Hero.AddNewHero}
+c2s[c2s.HERO_UNLOCK_RES]                = {Hero, Hero.UnlockHeroRep}
+c2s[c2s.HERO_LEVEL_UP_RES]              = {Hero, Hero.LevelUpRep}
+c2s[c2s.HERO_STEP_UP_RES]               = {Hero, Hero.StepUpRep}
+c2s[c2s.HERO_STAR_UP_RES]               = {Hero, Hero.TopUpRep}
+c2s[c2s.HERO_SKILL_UP_RES]              = {Hero, Hero.SkillUpRep}
+c2s[c2s.HERO_SKIN_CHANGE_RES]           = {Hero, Hero.CutSkinRep}
+c2s[c2s.HERO_INTIMACY_GIFT_GET_RES]     = {Hero, Hero.GiftRes}
+c2s[c2s.HERO_EMBLEM_LV_UP_RES]          = {Hero, Hero.EmblemRes}
+c2s[c2s.HERO_EMBLEM_CONDITION2OK_NTF]   = {Hero, Hero.EmblemConditionNTF}
+c2s[c2s.HERO_INTIMACY_GET_ADVENTURE_RES]   = {Hero, Hero.ReturnGiftRep}
+c2s[c2s.HERO_INTIMACY_RAISE_UP_RES]     = {Hero, Hero.SublimationRep}

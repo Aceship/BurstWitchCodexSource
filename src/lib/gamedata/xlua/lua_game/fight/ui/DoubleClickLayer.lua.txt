@@ -1,0 +1,65 @@
+--
+-- author: haosun
+-- date  : 2021-05-29 19:58:32
+-- brief : 双击检测，使用在开场中
+--
+
+DoubleClickLayer = DoubleClickLayer or {}
+
+function DoubleClickLayer:InitDoubleClickLayer()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/skip_layer")
+    self.layer:Get("btn_skip"):SetScale(0, 0, 0)
+
+    self.layer:GetButtonComponent("btn_skip"):AddButtonListener(
+        function()
+            self:doSkipCheck()
+        end)
+    self.layer:GetButtonComponent("btn_click"):AddButtonListener(
+        function()
+            self:doDoubleClickCheck()
+        end)
+    self.layer:SetVisible(false)
+end
+
+function DoubleClickLayer:UnInitDoubleClickLayer()
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function DoubleClickLayer:EnterDoubleClickLayer(enterType)
+    self._enterType = enterType
+    self._skipOn = false
+    self._curClickCnt = 0
+    self.layer:SetVisible(true)
+end
+
+function DoubleClickLayer:ExitDoubleClickLayer()
+    self.layer:Get("btn_skip"):SetScale(0, 0, 0)
+    self.layer:SetVisible(false)
+end
+
+function DoubleClickLayer:doSkipCheck()
+    if 1 == self._enterType then
+        self:ExitDoubleClickLayer()
+        CS.ECSManager.Instance:StopTimeLine()
+        FightController:ExitFightCG()
+    elseif 2 == self._enterType then
+        self:ExitDoubleClickLayer()
+        VideoController:SkipVideoPlay()
+    end
+end
+
+function DoubleClickLayer:doDoubleClickCheck()
+    if self._skipOn then return end
+
+    self._curClickCnt = self._curClickCnt + 1
+    self.layer:DelayCall(0.25, function()
+            self._clickCnt = 0
+        end)
+    if self._curClickCnt >= 2 then
+        self._skipOn = true
+        self.layer:Get("btn_skip"):DOScale(1, 0.2)
+    end
+end

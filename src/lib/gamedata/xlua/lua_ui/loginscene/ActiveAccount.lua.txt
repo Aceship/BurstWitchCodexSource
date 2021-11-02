@@ -1,0 +1,86 @@
+--
+-- author: cjj
+-- date  : 2019-3-27 16:05:51
+-- brief :
+--
+local CBaseLayer    = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActiveAccount = class("ActiveAccount", CBaseLayer)
+
+local BUTTON_TYPE = {
+    close     = "changeInfo/button_close",
+    confirm   = "changeInfo/button_confirm",
+    cancel    = "changeInfo/button_cancel",
+}
+
+
+function ActiveAccount:ctor(super, layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_ActiveAccount",
+        trans = layer,
+        obj = true,
+    }
+    self:onEnter()
+end
+
+function ActiveAccount:onEnter()
+    self:createPnl()
+    self:registerButtonEvent()
+end
+
+
+-- function ActiveAccount:registerButtonEvent()
+    -- for _, v in pairs(BUTTON_TYPE) do
+        -- self.layer.transform:Find(v):GetComponent("Button").onClick:AddListener(
+            -- function()
+                -- self:onButtonClick(v)
+            -- end)
+    -- end
+-- end
+
+function ActiveAccount:registerButtonEvent()
+    for _, v in pairs(BUTTON_TYPE) do
+        local button = self.layer.transform:Find(v)
+		local UIButtonSFX = button:GetComponent("UIButtonSFX")
+		if UIButtonSFX ~= nil then
+		    button:GetComponent("Button").onClick:AddListener(function()
+                self:onButtonClick(v)
+            end)
+		else
+			button:GetComponent("Button").onClick:AddListener(function()
+                self:onButtonClick(v)
+            end)
+		end
+    end
+end
+
+function ActiveAccount:onButtonClick(itype)
+    if self._fading then
+        return
+    end
+    if itype == BUTTON_TYPE.close or itype == BUTTON_TYPE.cancel then
+        self.callback("")
+    elseif itype == BUTTON_TYPE.confirm then
+        self:onActiveAccount();
+    end
+end
+
+function ActiveAccount:onExit()
+    self:destory()
+end
+function ActiveAccount:onActiveAccount()
+    local sendInfo = self.layer.transform:Find("changeInfo/input_code"):GetComponent("InputField")
+    if sendInfo.text =="" or sendInfo.text == nil then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800078))
+        return;
+    end
+    self.callback(sendInfo.text);
+end
+
+function ActiveAccount:show(callback)
+    self.layer.gameObject:SetActive(true)
+    self._fading = true
+    self:playAni("ChangeNameFadeIn")
+    self.callback = callback
+end
+return ActiveAccount

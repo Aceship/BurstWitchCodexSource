@@ -1,0 +1,12 @@
+id,分页名称,英文名称,分页展示图,分页开放计时,指向表格,是否显示分页,顺序排序
+id,Name,EnglishName,Picture,Time,Table,ShowPaging,Order
+number,number,string,string,number,string,number,number
+1,10040044,LIEMCHARI CRECHAE,yq_yueka,-1,ActiveCharge,1,1
+2,10040045,HAROCHE TOIME,yq_libao,-1,ActiveCharge,1,2
+3,10040046,Elite Manual of Magic Woman,yq_pifu,-1,ActiveCharge,1,3
+4,10040047,,yq_jishi,-1,ActiveCharge,1,4
+5,10040048,,yq_zuanshi,-1,ActiveCharge,1,5
+9901,10030005,-1,-1,-1,ActiveCharge,0,0
+9999,10030001,SAKIAEME CHINI,1.0,360001,ActiveAD,0,0
+10001,10030003,HARCI RON HUFIA,btn_huodong_shuqian,-1,ActiveCharge,1,2
+10002,10030002,HARCI RON HUFIA,btn_huodong_wanfa,-1,ActiveGather,0,1

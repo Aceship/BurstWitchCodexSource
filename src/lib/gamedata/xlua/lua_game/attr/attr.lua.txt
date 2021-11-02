@@ -1,0 +1,93 @@
+--
+-- author: haosun
+-- date  : 2018-11-11 14:30:58
+-- brief :
+--
+
+CAttr = CAttr or {}
+
+function CAttr:NewAttrs()
+    local attrs = {}
+    for _ , attrtype in pairs( CAttr.Attrs_Array) do
+        attrs[attrtype] = 0
+    end
+    return attrs
+end
+
+function CAttr:ClearAttrs(attrs)
+    for attrtype, v in pairs(attrs) do
+        attrs[attrtype] = 0
+    end
+end
+
+function CAttr:AddAttrs(src, add)
+    for k, v in pairs(add) do
+        src[k] = (src[k] or 0) + v
+    end
+end
+
+function CAttr:AddPerAttrs(attrs)
+    --计算百分比加成
+    if attrs[CAttr.TYPE_PER_HP] ~= nil then
+        attrs[CAttr.TYPE_HP] = attrs[CAttr.TYPE_HP] + attrs[CAttr.TYPE_HP] * attrs[CAttr.TYPE_PER_HP]
+        attrs[CAttr.TYPE_HP]  = math.floor(attrs[CAttr.TYPE_HP] + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_ATK] ~= nil then
+        attrs[CAttr.TYPE_ATK] = attrs[CAttr.TYPE_ATK] + attrs[CAttr.TYPE_ATK] * attrs[CAttr.TYPE_PER_ATK]
+        attrs[CAttr.TYPE_ATK] = math.floor(attrs[CAttr.TYPE_ATK] + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_DEF] ~= nil then
+        attrs[CAttr.TYPE_DEF] = attrs[CAttr.TYPE_DEF] +  attrs[CAttr.TYPE_DEF] * attrs[CAttr.TYPE_PER_DEF]
+        attrs[CAttr.TYPE_DEF] = math.floor(attrs[CAttr.TYPE_DEF] + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_DMG] ~= nil then
+        attrs[CAttr.TYPE_DMG] = attrs[CAttr.TYPE_DMG] + attrs[CAttr.TYPE_DMG] *  attrs[CAttr.TYPE_PER_DMG]
+        attrs[CAttr.TYPE_DMG] = math.floor(attrs[CAttr.TYPE_DMG] + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_HIT] ~= nil then
+        attrs[CAttr.TYPE_HIT] = attrs[CAttr.TYPE_HIT] + attrs[CAttr.TYPE_HIT] *  attrs[CAttr.TYPE_PER_HIT]
+        attrs[CAttr.TYPE_HIT] = math.floor(attrs[CAttr.TYPE_HIT] + 0.5)
+    end
+end
+
+function CAttr:SubAttrs(attr1, attr2)
+    local attrs = self:NewAttrs()
+    for k, v in pairs(attrs) do
+        attrs[k] = (attr1[k] or 0) - (attr2[k] or 0)
+    end
+    return attrs
+end
+
+function CAttr:LogAttr(attr, flag)
+    local str = "attr value:"
+    if flag ~= nil then
+        str = flag .. str
+    end
+    --[[for k, v in pairs(attr) do
+        print("attr type: ", k, v)
+    end]]--
+end
+
+function CAttr:NewLackeyAttr()
+    local attrs = {
+        [CAttr.TYPE_HP]            = 0,
+        [CAttr.TYPE_PER_HP]        = 0,
+        [CAttr.TYPE_ATK]           = 0,
+        [CAttr.TYPE_PER_ATK]       = 0,
+        [CAttr.TYPE_DEF]           = 0,
+        [CAttr.TYPE_PER_DEF]       = 0,
+        [CAttr.TYPE_HIT]           = 0,
+        [CAttr.TYPE_PER_HIT]       = 0,
+        [CAttr.TYPE_DMG]           = 0,
+        [CAttr.TYPE_PER_DMG]       = 0,
+        [CAttr.TYPE_LIGHT_ATK]     = 0,
+        [CAttr.TYPE_LIGHT_DEF]     = 0,
+        [CAttr.TYPE_DARK_ATK]      = 0,
+        [CAttr.TYPE_DARK_DEF]      = 0,
+        [CAttr.TYPE_CHAOS_ATK]     = 0,
+        [CAttr.TYPE_CHAOS_DEF]     = 0,
+        [CAttr.TYPE_HIT_RATE]      = 0,
+        [CAttr.TYPE_DMG_RATE]      = 0,
+    }
+    return attrs
+end

@@ -1,0 +1,203 @@
+---
+--- @Author:2144
+--- @Create Time:2021-10-18 15:48:54
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PlayerReportLayer = class("PlayerReportLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnDysMassage = "trans_container/trans_dys_massage/btn_dys_massage",
+	BtnMalware = "trans_container/trans_malware/btn_malware",
+	BtnReport = "trans_container/btn_report",
+	--@ButtonEnd
+}
+--构造函数
+function PlayerReportLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_playerinfo/UI_PlayerReportLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function PlayerReportLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function PlayerReportLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnDysMassage)then 
+	   self:OnBtnDysMassageClick();
+    elseif(itype == BTNS.BtnMalware)then 
+	   self:OnBtnMalwareClick();
+    elseif(itype == BTNS.BtnReport)then 
+	   self:OnBtnReportClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+	
+end
+
+--初始化
+function PlayerReportLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function PlayerReportLayer:InitData()
+    self._pData = Player:GetPlayerCardData();
+    self._dysMassageIsSel = false;
+    self._malwareIsSel = false;
+end
+
+--初始化UI
+function PlayerReportLayer:InitUI()
+
+	self._imgDysMassageSelect = self.layer:GetImageComponent("trans_container/trans_dys_massage/img_dys_massage_select");
+	self._imgMalwareSelect = self.layer:GetImageComponent("trans_container/trans_malware/img_malware_select");
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._inputField = self.layer:Get("trans_container/InputField"):GetComponent("InputField");
+
+    self:SetUI();
+end
+
+--显示UI
+function PlayerReportLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function PlayerReportLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function PlayerReportLayer:onExit()
+
+    self._pData = nil;
+    self._inputField = nil;
+	self._imgDysMassageSelect = nil;
+	self._imgMalwareSelect = nil;
+	--@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function PlayerReportLayer:OnBtnReturnClick()
+    self:onBackClick();
+end
+
+function PlayerReportLayer:OnBtnDysMassageClick()
+
+    if(self._dysMassageIsSel)then
+        self._dysMassageIsSel = false;
+    else
+        self._dysMassageIsSel = true;
+    end
+    self._imgDysMassageSelect:SetEnabled(self._dysMassageIsSel);
+end
+
+function PlayerReportLayer:OnBtnMalwareClick()
+
+    if(self._malwareIsSel)then
+        self._malwareIsSel = false;
+    else
+        self._malwareIsSel = true;
+    end
+    self._imgMalwareSelect:SetEnabled(self._malwareIsSel);
+end
+
+function PlayerReportLayer:OnBtnReportClick()
+
+    if(CTime:GetServerTime() - Player:GetReportTime() <= Player.ReportCD)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800107));
+        return;
+    end
+    local sendStr = self._inputField.text;
+    if(sendStr~= nil and sendStr ~= "")then
+        if(not SensitiveWordUtil:CheckIsLegal(sendStr))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000032));
+            return;
+        end
+        if(not CS.UnityHelper.IsUtf8(sendStr))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000039));
+            return;
+        end
+    end
+
+    if(not self._malwareIsSel and not self._dysMassageIsSel)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800105));
+        return;
+    end
+
+    if(Robot:IsRobot(self._pData.id))then
+        Player:ReportRep();
+        return;
+    end
+    if(Player:GetPlayerCardType() == Player.CardType_Rank)then
+        UpLoadVideo:SetPlayerData(self._pData);
+        UpLoadVideo:SetIsReportState(true);
+        UpLoadVideo:GetDownLoadUrlReq();
+    elseif(Player:GetPlayerCardType() == Player.CardType_Talk)then
+        Player:ReportReq();
+    else
+        AppMgr:LogError("举报错误, 没有名片类型");
+        return;
+    end
+
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function PlayerReportLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.REPORT_REP,self.__cname,function()
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800104));
+        self:OnBtnReturnClick();
+    end);
+    self:addEventListener(EVENT_TYPE.GET_DOWN_LOAD_VIDEO_PATH_REP_REPORT, self.__cname, function(path)--
+        AppMgr:LogInfo(string.format("视频路径为: %s",path));
+        Player:SetReportStr(path);
+        Player:ReportReq();
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function PlayerReportLayer:SetUI()
+    self.layer:GetTextComponent("trans_container/txt_name"):SetText(self._pData.name);
+    Player:SetPlayerIconBorderObj(Player:CtorPlayerIconBorder(self.layer:Get("trans_container/trans_player")), self._pData.iconid, self._pData.frameid)
+    self._imgDysMassageSelect:SetEnabled(self._dysMassageIsSel);
+    self._imgMalwareSelect:SetEnabled(self._malwareIsSel);
+end
+
+return PlayerReportLayer;

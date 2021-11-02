@@ -1,0 +1,128 @@
+--
+-- author: haosun
+-- date  : 2020-10-30 17:04:57
+-- brief : 
+--
+local uihp = class("uihp")
+
+function uihp:InitHp(_hpBar, _hpDelay, _shieldBar)
+    self._hpBar     = _hpBar
+    self._hpDelay   = _hpDelay
+    
+    self._hpBarObj      = _hpBar.gameObject
+    self._hpDelayObj    = _hpDelay.gameObject
+
+    self.cache_hpFillAmount = 0
+    self.cache_hpDelay = 0
+
+    self:_InitShield(_shieldBar)
+    self:Reset()
+end
+
+function uihp:ResetFull()
+    self.cache_hpFillAmount = 1
+    self._hpBar.fillAmount = 1
+    self._hpDelay.fillAmount = 1
+    self.cache_hpDelay = 1
+end
+
+function uihp:Reset()
+    self:ResetFull()
+    self:_ResetShield()
+end
+
+function uihp:Zero()
+    self.cache_hpFillAmount = 0
+    self._hpBar.fillAmount = 0
+    self._hpDelay.fillAmount = 0
+    self.cache_hpDelay = 0
+
+    self:_ZeroShield()
+end
+
+function uihp:UnInit()
+    self._hpBar     = nil
+    self._hpBarObj  = nil
+    self._hpDelay   = nil
+    self._hpDelayObj    = nil
+
+    self.cache_hpFillAmount = nil
+    self.cache_hpDelay = nil
+    self:_UnInitShield()
+end
+
+function uihp:UpdateHp(dt, hpRate)
+    if self.cache_hpFillAmount ~= hpRate then
+        self.cache_hpFillAmount = hpRate
+        self._hpBar.fillAmount = hpRate
+    end
+    local value = self._hpDelay.fillAmount
+    if hpRate < value then
+        value = math.max(hpRate, value - (value - hpRate) * dt *2)
+        if self.cache_hpDelay ~= value then
+            self.cache_hpDelay = value
+            self._hpDelay.fillAmount = value
+        end
+    end
+end
+
+function uihp:SetHpRate(hpRate)
+    self.cache_hpFillAmount = 0
+    self._hpBar.fillAmount = hpRate
+    self._hpDelay.fillAmount = hpRate
+    self:UpdateHp(0, hpRate)
+end
+
+
+-- 以下是临时的盾处理
+function uihp:_InitShield(_shieldBar)
+    self._shieldBar     = _shieldBar
+    if _shieldBar ~= nil then
+        self._shieldBarObj = _shieldBar.gameObject
+    end
+    local hpPos = self._hpBar.transform.localPosition
+    self._hpX = hpPos.x
+    self._hpY = hpPos.y
+    self._hpZ = hpPos.z
+    self._hpWidth = self._hpBar:GetComponent("RectTransform").sizeDelta.x
+end
+
+function uihp:_ResetShield()
+    if(self._shieldBar ~= nil) then
+        self._hpBarObj:SetScale(1, 1, 1)
+        self._hpDelayObj:SetScale(1, 1, 1)
+        self._shieldBarObj:SetScale(1, 1, 1)
+        self._shieldBar:SetVisible(false)
+    end
+end    
+
+function uihp:_ZeroShield()
+    if(self._shieldBar ~= nil) then
+        self._shieldBar:SetVisible(false)
+    end
+end    
+
+function uihp:_UnInitShield()
+    if(self._shieldBar ~= nil) then
+        self._shieldBar = nil
+        self._shieldBarObj = nil
+    end
+end    
+
+function uihp:OnChangeShield(hpScale, shieldScale, hpFillAmount)
+    self._hpBarObj:SetScale(hpScale, 1, 1)
+    self._hpDelayObj:SetScale(hpScale, 1, 1)
+
+    if(shieldScale > 0) and self._shieldBar ~= nil then
+        self._shieldBar:SetVisible(true)
+        self._shieldBarObj:SetScale(shieldScale, 1, 1)
+        self._hpBar.fillAmount = hpFillAmount
+        self._hpDelay.fillAmount = self._hpBar.fillAmount
+        local posX = self._hpX + self._hpWidth * hpScale * self._hpBar.fillAmount
+        self._shieldBar.transform.localPosition = CS.UnityEngine.Vector3(posX, self._hpY, self._hpZ)
+    else
+        self._shieldBar:SetVisible(false)
+    end
+end
+
+return uihp

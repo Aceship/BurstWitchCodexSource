@@ -1,0 +1,37 @@
+--
+-- author: haosun
+-- date  : 2019-08-28 15:03:54
+-- brief : 
+--
+Clock = Clock or {}
+
+function Clock:_LoadCfg()
+    self._clockcfgs = {}
+    local cfgs = CfgLoader:LoadCfg("ClockItem")
+    local id, dropstr
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        dropstr = v.Item1
+        if v.Item2 ~= "-1" then
+            dropstr = dropstr .. "|" .. v.Item2
+        end
+        if v.Item3 ~= "-1" then
+            dropstr = dropstr .. "|" .. v.Item3
+        end
+        self._clockcfgs[id] = {
+            cfgid = id,
+            items_drop = lua_parse_cfg(dropstr, true),
+            other_drop = tonumber(v.Dropitem_id),
+            clocktype  = tonumber(v.Level_main_type),
+        }
+    end
+end
+
+function Clock:GetClockCfg(cfgid)
+    if self._clockcfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find clock item cfg!!! id = ".. cfgid)
+        return nil
+    end
+    return self._clockcfgs[cfgid]
+end
+

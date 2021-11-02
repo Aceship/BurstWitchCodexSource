@@ -1,0 +1,158 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-03-30 17:11:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildLvPreViewTipsLayer = class("BuildLvPreViewTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function BuildLvPreViewTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildLvPreViewTipsLayer",
+    }
+    self._uitype = 2;
+    self._tvInit = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuildLvPreViewTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function BuildLvPreViewTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function BuildLvPreViewTipsLayer:Init()
+    self._cellItems = {};
+    self._curLv = Build:GetBuildServerDataByAtkType(Build:GetCurSelectAtkType()).lv;
+    self:InitUI();
+end
+
+--初始化UI
+function BuildLvPreViewTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTvctrl = self.layer:Get("trans_container/trans_TVCtrl");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._tvController = UIController:CtorTableView(self._transTvctrl);
+    self:UpdateData();
+end
+
+--显示UI
+function BuildLvPreViewTipsLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function BuildLvPreViewTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function BuildLvPreViewTipsLayer:onExit()
+    self._cellItems = nil;
+    self._transTvctrl = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuildLvPreViewTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuildLvPreViewTipsLayer:UpdateData()
+    self._lvIds = Build:GetPreviewBuildLevelIdsByAtkType(Build:GetCurSelectAtkType());
+    local rows = #self._lvIds;
+    if(self._tvInit)then
+        self._tvInit = false;
+        self._tvController:Init(rows, true,
+                function(cell, row)
+                    self:UpdateTVData(cell, row + 1)
+                end, 0.1, 0.05)
+    else
+        self._tvController:Reload(rows,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function BuildLvPreViewTipsLayer:UpdateTVData(cell, row)
+    local cellItem = self._cellItems[cell];
+    if(cellItem == nil)then
+        cellItem = self:InitLvItem(cell);
+        self._cellItems[cell] = cellItem;
+    end
+    self:SetLvItem(self._cellItems[cell],self._lvIds[row])
+end
+
+function BuildLvPreViewTipsLayer:InitLvItem(obj)
+    local cls = clsbase:new(obj.transform);
+    cls.txtLv = cls:GetTextComponent("txt_lv");
+    cls.txtPointAdd = cls:GetTextComponent("trans_add_bg/txt_point_add");
+    cls.txtAtkAdd = cls:GetTextComponent("trans_add_bg/txt_atk_add");
+    cls.txtStoreUp = cls:GetTextComponent("trans_add_bg/txt_txt_store_up");
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    return cls;
+end
+
+function BuildLvPreViewTipsLayer:SetLvItem(cls,id)
+    local cfg = Build:GetBuildLevelUpCfgById(id);
+    cls.txtPointAdd:SetVisible(cfg.pointAdd > 0);
+    cls.txtAtkAdd:SetVisible(cfg.pointInFight > 0);
+    cls.txtStoreUp:SetVisible(cfg.changeSkillId > 0);
+    if(self._curLv >= cfg.lv)then
+        cls.imgIcon:LoadAtlasSprite("source_atlas/atlas_build_layer", "Img_Gouzhu_Dian_1 (2)");
+    else
+        cls.imgIcon:LoadAtlasSprite("source_atlas/atlas_build_layer", "img_gouzhu_10");
+    end
+    cls.txtLv:SetText(cfg.lv);
+    if(cfg.pointAdd > 0)then
+        cls.txtPointAdd:SetText(string.format(LanguageMgr:GetTextByID(702122),cfg.pointAdd));
+    end
+    if(cfg.pointInFight > 0)then
+        Build:SetAtkTypeAdd(cls.txtAtkAdd,Build:GetCurSelectAtkType(),cfg.pointInFight);
+    end
+    if(cfg.changeSkillId > 0)then
+        --local skillCfg = Skill:GetHeroSkillCfg(cfg.changeSkillId);
+        cls.txtStoreUp:SetText(LanguageMgr:GetTextByID(702136));
+    end
+end
+
+return BuildLvPreViewTipsLayer;

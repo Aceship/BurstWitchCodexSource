@@ -1,0 +1,1557 @@
+
+-- author: haosun
+-- date  : 2018-10-29 12:30:46
+-- brief :
+--
+Hero = Hero or {}
+
+function Hero:InitHero(cfg)
+    local hero = {
+        owner               = false,
+
+        --------------------网络数据------------------------------------------------------------------------
+        id                  = tonumber(cfg.id),             -- id
+        exp                 = 0,
+        level               = 0,                            -- 等级
+        step                = 0,                            -- 阶级显示（大阶）
+        talentid            = 0,                            -- 天赋技能
+        star                = 0,                            -- 星级
+        equipids            = {0, 0, 0, 0, 0, 0},           -- 装备
+        skills              = {},                           -- 技能{[id] = {slot, level}, [id] = {slot, level}, [id] = {slot, level}}
+        deskills            = {},                           -- 被动技能
+        lackeys             = {},
+        qlty                = tonumber(cfg.Quality) ,        -- 品质
+        attri_type          = tonumber(cfg.attri_type),     -- 属性类型
+        isSsr               = false,
+        isUr                = false,
+        maxStar             = tonumber(cfg.Star_MAX),
+        maxLv               = 0,
+        step                = 0,  -- 当前等级阶位
+        skinid              = 0,
+        wear_skin           = false,
+        expGroupId          = tonumber(cfg.LvUpGroup),
+        star_mark           = 0, --刻印等级 满8才能升星
+        atktype             = tonumber(cfg.AtkType),        -- 魔女使用枪型
+        --------------------网络数据------------------------------------------------------------------------
+        skinids             = {},
+        config              = cfg,                          -- 配置
+        cfg_attrs           = {},
+        attrs               = {},
+        addPer              = {},
+        calc_attrs          = {},
+        lackeyid            = 0,                            -- 宠物配置ID
+        seed                = math.random(1024, 65535),
+        out_deskills        = {},                           -- 外围计算属性的被动技能
+        emblems             = {}, -- 纹章
+        intimacy_data       = {level = 0, exp = 0, raise = -1, maxraise = 1}, --好感
+        fetters             = {}, --
+        new_talent          = {},
+        fighting_capacity   = 0,    --战斗力
+        build_ids           = {},
+        apperance           = lua_str_split(cfg.Appearance, "|",true),--外貌
+        raceid              = tonumber(cfg.RaceID), --种族id
+        music_tags          = {},--乐器标签集合
+        dots                = {},--构筑
+        sortDots            = {},
+        fit_num             = 0,
+        job_type            = tonumber(cfg.job),
+        job_name            = Language:GetTxtBuyId(cfg.Name_job),
+        job_des             = Language:GetTxtBuyId(cfg.Name_job_des),
+        EquipSuitRecommend  = {},
+        Intimacy            = lua_str_split(cfg.Intimacy, "&", true),
+        Proficiency         = 0,    --演奏熟练度
+        singTrack           = cfg.Sing_track,
+        musics              = lua_str_split(cfg.musical_use, "&", true),
+    }
+    -- 初始化爪牙列表
+    local tbl = lua_parse_cfg(cfg.Lackeys_id, true)
+    for _, v in ipairs(tbl) do
+        table.insert(hero.lackeys, {unlock_type = v[1], lackeyid = v[2], unlock_value = v[3]})
+    end
+    -- 天赋初始化
+    hero.talentid = tonumber(cfg.TalentID)
+    -- 星级初始化
+    hero.star = tonumber(cfg.Star)
+    self:UpdateHeroQlty(hero)
+    -- 属性初始化
+    for _, i in pairs(CAttr.Attrs_Array) do
+        hero.attrs[i]       = 0     -- 基础属性
+        hero.addPer[i]      = 0     -- 附加百分比
+    end
+
+    if cfg.Build_id ~= "-1" then
+        for i, v in ipairs(lua_str_split(cfg.Build_id, "|")) do
+            table.insert(hero.build_ids, tonumber(v))
+        end
+    end
+    --初始化构筑
+    local curDots = lua_parse_cfg(cfg.Builddotadd,true);
+    for i, v in ipairs(curDots) do
+        table.insert(hero.sortDots,{id = v[2],star = v[1]});
+        hero.dots[v[2]] = 0;
+    end
+    -- 初始化皮肤
+    local skinids = lua_str_split(cfg.Skin, "&", true)
+    for _, skinid in ipairs(skinids) do
+        local skinCfg = self:GetSkinCfg(skinid);
+        if(skinCfg ~= nil and skinCfg.platIds ~= nil) then
+            for i, plat in ipairs(skinCfg.platIds) do
+                if tonumber(plat) == GameSdkMgr:GetPlatformId() then
+                    table.insert(hero.skinids, skinid)
+                    break;
+                end
+            end
+        else
+            table.insert(hero.skinids, skinid);
+        end
+    end
+
+    for i = 1, #skinids do
+        self:AddSkinId(hero.skinids[i],hero.id)
+    end
+    hero.skinid = hero.skinids[1];
+
+    -- 技能初始化
+    self:SkillInit(hero)
+
+    -- -- 初始化乐器
+    self:InitMusic(hero, cfg)
+    --相关羁绊
+    local fetters =lua_str_split(cfg.Fetter_relation,"&")
+    for i, fetterid in pairs(fetters) do
+        table.insert( hero.fetters , tonumber(fetterid))
+    end
+    hero.new_talent = lua_parse_cfg(cfg.NewTalentID,true)
+    --个人信息
+    local arr = lua_str_split(cfg.CardInfor,"|");
+    hero.personalData = {
+        height = arr[1],
+        age = arr[2],
+        weight = arr[3],
+        bloodType = arr[4],
+        Stature = lua_str_split(arr[5],"/"),
+        birthday = arr[6],
+    };
+    --设置乐器标签
+    self:SetMusicTags(hero)
+    -- 推荐套装
+    local recommends = lua_str_split(cfg.EquipSuitRecommend, "|")
+    for i = 1, lua_table_len(recommends) do
+        local suit = lua_str_split(recommends[i], "&")
+        table.insert(hero.EquipSuitRecommend, suit)
+    end
+    return hero
+end
+
+function Hero:Ctor()
+    self._SkinCfgs      = nil
+    self._cfgAttrs      = {}
+    self._heroes        = {}
+    self._lvUpAttrUp    = {}
+    self._starUpAttrUp  = {}
+    self._stepUpAttrUp  = {}
+    self._starUpCost    = {}
+    self._allskin       = {}
+    self._heroTmpAttr   = {}
+    self._markUpCost    = {}
+    self._markUpAttrUp  = {}
+    self._cardcfg       = CfgLoader:LoadCfgTable("CardCharacter")
+    self._lastFighting = {};
+    self._allLastFighting = 0;
+    self._sortHero      = {}
+    local hid
+    for _, v in pairs(self._cardcfg) do
+        v.Name          = Language:GetTxtBuyId(v.Name)
+        v.Name_after    = Language:GetTxtBuyId(v.Name_after)
+        v.dialog        = Language:GetTxtBuyId(v.dialog)
+        v.CV_CN         = Language:GetTxtBuyId(v.CV_CN)
+        v.CV_JP         = Language:GetTxtBuyId(v.CV_JP)
+        v.Name_UP       = Language:GetTxtBuyId(v.Name_UP)
+        hid = tonumber(v.id)
+        if hid > Hero.CONFIG_INDEX and v.isWitchActive == "1" then
+            -- 初始化基本信息
+            self._heroes[hid] = self:InitHero(v)
+            if tonumber(v.Quality) > Hero.MAX_QLTY_NUM then
+                Hero.MAX_QLTY_NUM = tonumber(v.Quality)
+            end
+            if tonumber(v.Star_MAX) > Hero.MAX_STAR_NUM then
+                Hero.MAX_STAR_NUM = tonumber(v.Star_MAX)
+            end
+            if tonumber(v.MaxStep) > Hero.MAX_STEP_NUM then
+                Hero.MAX_STEP_NUM = tonumber(v.MaxStep)
+            end
+        end
+        self._lvUpAttrUp[hid]   = lua_parse_cfg(v.LvUpAttrUp, true)
+        self._starUpAttrUp[hid] = lua_parse_cfg(v.StarUpAttrUp, true)
+        --升阶
+        self._stepUpAttrUp[hid] = lua_parse_cfg(v.StepUpAttrRates, true)
+        self._starUpCost[hid]   = lua_parse_cfg(v.StarUpCost, true)
+        self._markUpCost[hid]   = lua_parse_cfg(v.MarkUpCost, true)
+        local markAttrs = lua_str_split(v.MarkUpAttrUp, "|")
+        local attrs
+        self._markUpAttrUp[hid] = {}
+        for k, vv in pairs(markAttrs) do
+            attrs = lua_str_split(vv, "&")
+            self._markUpAttrUp[hid][k] = {}
+            for i = 1, lua_table_len(attrs) - 1, 2 do
+                table.insert(self._markUpAttrUp[hid][k],{ [tonumber(attrs[i])] = tonumber(attrs[i + 1]) })
+            end
+        end
+    end
+    self:InitSublimation()
+
+    self:InitCriticalParam()
+end
+
+function Hero:SetHeroClipInfo()
+    for id, hero in pairs(self._heroes) do
+        --关联碎片
+        local clipCfg = Item:GetCfg(tonumber(hero.config.StarItemID));
+        if(clipCfg ~= nil)then
+            clipCfg.heroId = id;
+        end
+    end
+end
+
+function Hero:GetMarkUpAttr(heroid)
+    return self._markUpAttrUp[heroid]
+end
+
+function Hero:AddSkinId(skinId,heroId)
+    if(skinId == nil) or (heroId == nil)then
+        return;
+    end
+    self._allskin[tonumber(skinId)] = tonumber(heroId);
+end
+
+function Hero:GetHeroIdBySkinId(skinId)
+    if(skinId == nil)then
+        CS.Logger.LogError("skinId is nil  id = "..skinId);
+        return nil;
+    end
+    skinId = tonumber(skinId);
+    local heroid = self._allskin[skinId];
+    local isSkin = true;
+    if(heroid == nil or 0)then
+        for _, v in pairs(self._allskin) do
+            if(v == skinId)then
+                heroid = v;
+                isSkin = false;
+            end
+        end
+    end
+    if(heroid == nil)then
+        CS.Logger.LogError("heroid is nil  id = "..skinId);
+        return nil;
+    end
+    return heroid,isSkin;
+end
+
+function Hero:GetOwnerSkinIds()
+    local ids = {}
+    local hero;
+    for i, v in pairs(self._allskin) do
+        if(Item:GetCount(i) > 0)then
+            hero = self:GetHero(v);
+            if(hero.owner)then
+                table.insert(ids,i);
+            end
+        end
+    end
+    return ids
+end
+
+function Hero:IsDefSkin(skinId)
+    if(skinId == nil)then
+        CS.Logger.LogError("skinId is nil ");
+        return false;
+    end
+    local isDef = false;
+    for _, v in pairs(self._allskin) do
+        if(v == skinId)then
+            isDef = true;
+        end
+    end
+    return isDef;
+end
+
+function Hero:Clear()
+    self:Ctor()
+end
+
+function Hero:GetHeroes()
+    return self._heroes
+end
+
+
+function Hero:GetOwnerIds()
+    local ids = {}
+    for _, v in pairs(self._heroes) do
+        if v.owner then
+            table.insert(ids, v.id)
+        end
+    end
+    return ids
+end
+
+function Hero:GetOwenHeros()
+    local ids = {}
+    for _, v in pairs(self._heroes) do
+        if v.owner then
+            table.insert(ids, v)
+        end
+    end
+    return ids
+end
+
+--
+function Hero:GetCanRecmendHeros(musicType)
+    local ids = {}
+    local hero
+    for _, v in pairs(self._heroes) do
+        hero = Hero:GetHero(v.id)
+        if v.owner and not Concert:IsConcertShowingHero(v.id) and Concert:IsCanMusicAndHero(hero,musicType) then
+            table.insert(ids, v)
+        end
+    end
+    return ids
+end
+
+function Hero:GetHeroIds()
+    local ids = {}
+    for _, v in pairs(self._heroes) do
+        table.insert(ids, v.id)
+    end
+    return ids
+end
+
+function Hero:_AddHero(data, isnew)
+    local hero = self:GetHero(data.id)
+    hero.owner                  = true
+    hero.exp                    = data.exp
+    hero.level                  = data.level
+    hero.talentid               = data.talentid
+    hero.star                   = data.star
+    hero.equipids               = data.equipids
+    hero.lackeyid               = data.petid
+    hero.star_mark              = data.star_mark
+    hero.step                   = data.step;
+    -- 皮肤q
+    self:SetHeroSkinId(hero, data.skinid)
+    -- 好感
+    if data.intimacy_data ~= nil then
+        hero.intimacy_data.level    = data.intimacy_data.level or 0
+        hero.intimacy_data.exp      = data.intimacy_data.exp or 0
+        hero.intimacy_data.raise    = data.intimacy_data.raise or -1
+    else
+        hero.intimacy_data.level    = 0
+        hero.intimacy_data.exp      = 0
+        hero.intimacy_data.raise    = 0
+        AppMgr:LogError("-----------------------未获取好感相关的服务器数据-----------------------")
+    end
+    local cfgs = self:GetSublimationCfgsByGroupId(hero.Intimacy[4])
+    if cfgs ~= nil then
+        hero.intimacy_data.maxraise = #cfgs
+    end
+
+    Fetter:SetMusicAddon(hero, hero.intimacy_data.level)
+    --纹章
+    hero.emblems                = {};
+    if data.emblems ~= nil then
+        hero.emblems                = data.emblems
+    end
+
+    self:UpdateHeroQlty(hero)
+    self:SetHeroExtraInfo(hero, data.skills, isnew)
+    --初始化构筑
+    Hero:SetBuildDot(hero);
+
+    --设置等级升阶数据
+    Hero:SetLevelStepUp(hero)
+end
+
+function Hero:SetLevelStepUp(hero)
+    local stepCfg = Hero:GetHeroStepUpCfgByStep(hero.step);
+    if(stepCfg ~= nil)then
+        hero.maxLv               = stepCfg.levelMax;
+    end
+end
+
+function Hero:SetBuildDot(hero)
+    local curDots = lua_parse_cfg(hero.config.Builddotadd,true);
+    hero.dots = {};
+    for i, v in ipairs(curDots) do
+        if(hero.star >= v[1])then
+            if(hero.dots[v[2]] == nil)then
+                hero.dots[v[2]] = 1;
+            else
+                hero.dots[v[2]] = hero.dots[v[2]] + 1;
+            end
+        else
+            if(hero.dots[v[2]] == nil)then
+                hero.dots[v[2]] = 0;
+            end
+        end
+    end
+end
+
+function Hero:SetHeroExtraInfo(hero, skills, isnew)
+    -- 设置技能
+    self:SetHeroSkills(hero, skills)
+    -- 设置皮肤对应构筑
+    hero.build_ids = self:GetSkinBuildById(hero.skinid)
+
+    if isnew then
+        -- 设置被动技能
+        self:SetDeskills(hero)
+
+        -- 计算属性
+        self:OnCalcAttr(hero)
+    end
+end
+
+function Hero:GetHaveIds(sortdata)
+    local tbl1 = {}
+    if(sortdata == nil)then
+        sortdata = {
+            sorttype = Hero.SORT_TYPE.qlty,
+            sortorder = true
+        }
+    end
+    for _, v in pairs(self._heroes) do
+        if(v.level > 0)then
+            table.insert(tbl1,v);
+        end
+    end
+    local owners = {}
+    local tbl = {}
+    for _, v in pairs(tbl1) do
+        if v.owner then
+            local sortid = 0
+            if sortdata.sorttype == Hero.SORT_TYPE.qlty then
+                if sortdata.sortorder then
+                    sortid = v.qlty * 10000000 + v.level * 10000 + tonumber(v.id)
+                else
+                    sortid = (10 - v.qlty) * 10000000 + v.level * 10000 + tonumber(v.id)
+                end
+            elseif sortdata.sorttype == Hero.SORT_TYPE.attri then
+                sortid = v.level * 10000000 + v.qlty * 10000 + tonumber(v.id)
+                local cfg = self:GetCfg(v.id)
+                local attri_type = tonumber(cfg.attri_type)
+                if sortdata.sortorder then
+                    sortid = sortid + (10 - attri_type) * 1000000000
+                else
+                    sortid = sortid + (attri_type) * 1000000000
+                end
+
+            elseif sortdata.sorttype == Hero.SORT_TYPE.level then
+                if sortdata.sortorder then
+                    sortid = v.level * 10000000 + v.qlty * 10000 + tonumber(v.id)
+                else
+                    sortid = (200 - v.level) * 10000000 + v.qlty * 10000 + tonumber(v.id)
+                end
+            end
+            table.insert(owners, {id = v.id, sortid = sortid})
+        else
+            local sortid = v.qlty * 10000 + tonumber(v.id)
+            if self:CanCallOrStarUp(v.id) then
+                sortid = 2000000 + sortid
+            else
+                sortid = 1000000 + sortid
+            end
+            table.insert(tbl, {id = v.id, sortid = sortid})
+        end
+    end
+    table.sort(owners, function(a, b)
+        return a.sortid > b.sortid
+    end)
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+    local ids = {}
+    for i, v in ipairs(owners) do
+        table.insert(ids, v.id)
+    end
+    for i, v in ipairs(tbl) do
+        table.insert(ids, v.id)
+    end
+    return ids
+end
+
+function Hero:GetIds()
+    -- 魔女头像排序：
+    --      1.拥有的魔女（按等级由高到低排序，等级相同按品质由高到低排序，品质相同按魔女编号排序）
+    --      2.可以召唤的魔女（按品质由高到低排序，品质相同按编号排序）
+    --      3.未拥有的魔女（按品质由高到低排序，品质相同按魔女编号排序）
+    local tbl = {}
+    for _, v in pairs(self._heroes) do
+        local sortid = v.level * 100000 + (v.config.Quality) * 10000 + tonumber(v.id)
+        if v.owner then
+            sortid = 300000000 + sortid
+        else
+            if self:CanCallOrStarUp(v.id) then
+                sortid = 200000000 + sortid
+            else
+                sortid = 100000000 + sortid
+            end
+        end
+        table.insert(tbl, {id = v.id, sortid = sortid})
+    end
+
+    table.sort(tbl, function(a, b)
+            return a.sortid > b.sortid
+        end)
+    local ids = {}
+    for i, v in ipairs(tbl) do
+        table.insert(ids, v.id)
+    end
+    return ids
+end
+
+function Hero:GetEquip(hero, itype)
+    local uid = hero.equipids[itype]
+    if uid ~= 0 then
+        return Equip:GetEquip(uid)
+    else
+        return nil
+    end
+end
+
+function Hero:GetHasHeroIds()
+    local tmp    = {}
+    for _, v in pairs(self._heroes) do
+        if v.owner then
+            local sortid = v.level * 100000 + v.qlty *100 + v.star
+            table.insert(tmp, {id = v.id, sortid = sortid})
+        end
+    end
+    table.sort(tmp, function(a, b)
+            return a.sortid > b.sortid
+        end)
+    local _ids = {}
+    for _, v in ipairs(tmp) do
+        table.insert(_ids, v.id)
+    end
+    return _ids
+end
+
+function Hero:GetHero(id)
+    id = tonumber(id)
+    if(self._heroes[id] == nil)then
+        AppMgr:LogError("can't find hero by id. id = " .. id)
+    end
+    return self._heroes[id]
+end
+
+function Hero:GetPlotHero(id)
+    id = tonumber(id)
+    local config = self:GetCfg(id)
+    local hero = self:InitHero(config)
+    hero.level = 1          -- 剧情魔女初始化等级为1
+    return hero
+end
+
+function Hero:__ParseCfg(hero, str, calc)
+    local arr = lua_str_split(str, "|")
+    if tonumber(arr[1]) == Hero.DESKILL_OUT then
+        table.insert(hero.out_deskills, arr[2])
+    elseif tonumber(arr[1]) == Hero.DESKILL_FIGHT then
+        if calc then
+            table.insert(hero.deskills, arr[2])
+        end
+    else
+        -- TODO: Error Type
+    end
+end
+
+function Hero:GetEquipSkill(hero)
+    local skills = {}
+    for i, eid in pairs(hero.equipids) do
+        if eid ~= 0 then
+            local equip = self:FindEquipInHero(hero, eid)
+            for _, sid in pairs(equip.skills) do
+                table.insert(skills, sid)
+            end
+        end
+    end
+    return skills
+end
+
+function Hero:GetEquipSuitSkill(hero)
+    local suitids = {}
+    for i, eid in pairs(hero.equipids) do
+        if eid ~= 0 then
+            local equip = self:FindEquipInHero(hero, eid)
+            if equip and equip.suitid ~= 0 then
+                if suitids[equip.suitid] == nil then
+                    suitids[equip.suitid] = 0
+                end
+                suitids[equip.suitid] = suitids[equip.suitid] + 1
+            end
+        end
+    end
+    local skills = {}
+    for suitid, num in pairs(suitids) do
+        local ids = Equip:GetEquipSuitCfgIds(suitid, num)
+        skills = lua_merge_tables(false, skills, ids)
+    end
+    return skills
+end
+
+function Hero:SetDeskills(hero)
+    hero.deskills = {}
+    hero.out_deskills = {}
+    self:setHeroTalent(hero)
+
+    --套装技能
+    local suitskills = self:GetEquipSuitSkill(hero)
+    for _, sid in pairs(suitskills) do
+        local skillcfg = Equip:GetEquipSuitCfg(sid)
+        self:__ParseCfg(hero, skillcfg.skill, true)
+    end
+
+    -- 星之纹章 内外分开
+    if Fetter.Emblem_Open then
+        local out_deskill,in_deskill = Fetter:GetEmblemSkills(hero)
+        for _, v in pairs(out_deskill) do
+            table.insert(hero.out_deskills, v)
+        end
+        for _, v in pairs(in_deskill) do
+            table.insert(hero.deskills, v)
+        end
+    end
+end
+--设置魔女天赋
+function Hero:setHeroTalent(hero)
+    hero.talentcfg = {}
+    -- 英雄自身天赋被动
+    for _, v in pairs(hero.new_talent) do
+        local cfg = self:GetTalentCfg(v[2])
+        hero.talentcfg[_]= {}
+        hero.talentcfg[_].unlock = false
+        hero.talentcfg[_].star = v[1]
+        if hero.star >= v[1] then
+            self:__ParseCfg(hero, cfg.DeSkill_id, false)
+            hero.talentcfg[_].unlock = true
+        end
+        hero.talentcfg[_].cfg = cfg
+    end
+end
+
+function Hero:GetHeroAttrTypeStr(attr_type)
+    if attr_type == Hero.ATTR_TYPE_LIGHT then
+        return LanguageMgr:GetTextByID(880036)
+    elseif attr_type == Hero.ATTR_TYPE_DARK then
+        return LanguageMgr:GetTextByID(880037)
+    elseif attr_type == Hero.ATTR_TYPE_CHAOS then
+        return LanguageMgr:GetTextByID(880038)
+    else
+        return ""
+    end
+end
+--服务器会同步最终属性
+function Hero:OtherPlayerHero(hero, equips, attrs ,builds)
+    if next(hero) == nil then
+        return 0
+    end
+    local ret = self:InitHero(Hero:GetCfg(hero.id))
+    ret.level                  = hero.level
+    ret.step                   = hero.step or 0
+    ret.talentid               = hero.talentid
+    ret.star                   = hero.star
+    ret.equipids               = hero.equipids
+    ret.other                  = true
+  --  ret.config                 = nil
+    ret.fetters                = hero.fetters
+    ret.emblems                = hero.emblems or {}
+    ret.builds                 =  nil
+    self:UpdateHeroQlty(ret)
+    if builds ~= nil then
+        for _, v in pairs(builds) do
+            if ret.atktype == v.b_type then
+                ret.builds = v.b_builds
+            end
+        end
+    end
+    -- 设置装备
+    ret.equips = {0,0,0,0,0,0}
+    if equips ~= nil then
+        for i, v in ipairs(ret.equipids) do
+            if v ~= 0 then
+                local data = Equip:FindEquipInArrByUid(v, equips)
+                if data ~= nil then
+                    ret.equips[i] = Equip:InitEquip(data.configid)
+                    Equip:SetEquipData(ret.equips[i], data , true)
+                end
+            end
+        end
+    end
+    self:SetHeroExtraInfo(ret, hero.skills)
+   -- self:OnCalcAttr(ret)
+  --  ret.attrs = attrs
+    for _, v in pairs(attrs) do
+        ret.attrs[v.id] = math.floor((v.num or 0) + 0.5)
+    end
+
+    return ret
+end
+
+function Hero:FindEquipInHero(hero, uid)
+    if uid == 0 then
+        return nil
+    end
+    if true == hero.other then
+        for _, v in pairs(hero.equips) do
+            if v ~= 0 and uid == v.uid then
+                return v
+            end
+        end
+        return nil
+    else
+        return Equip:GetEquip(uid)
+    end
+end
+
+function Hero:Hero2Chip(heroid)
+    local ret = {}
+    local cfg = Hero:GetCfg(heroid)
+    ret.cfgid = cfg.StarItemID
+    ret.count = tonumber(cfg.StarRepeat)
+    return ret
+end
+
+function Hero:IsBetterOper(heroid)
+    --新增是否开启红点
+    local showRed = Player:GetHeroRedTipsById(heroid)
+    if  showRed then return false end
+
+    if self:CanCallOrStarUp(heroid) then return true end
+
+    local hero = self:GetHero(heroid)
+    if not hero.owner then return false end
+
+    -- 是否可以升星
+    if self:CanCallOrStarUp(heroid) then return true end
+
+    -- 是否可以升级
+    if self:CanLvUp(heroid) then return true end
+
+    -- 技能是否可以升级
+    if self:HasLevelUpSkill(heroid) then return true end
+
+    --是否升阶
+    if self:HeroIsStepUp(heroid) then return true end
+
+    -- 奇遇
+    if self:GetAwardBtnShowStateByHeroId(heroid) then return true end
+
+    -- 升华
+    if self:IsBatterSublimationOper(heroid) then return true end
+
+    -- 是否有更好的符石
+    if self:IsBatterEquipOper(heroid) then return true end
+
+    -- 是否有新的皮肤
+    if self:IsHasNewHeroSkin(heroid) then return true end
+
+    return false
+end
+
+function Hero:HeroIsAnyBetter()
+    for _, v in pairs(self._heroes) do
+        if self:IsBetterOper(v.id) then
+            return true
+        end
+    end
+    return false
+end
+
+function Hero:PlaySound(cfgid, default)
+    local cfg = Hero:GetCfg(cfgid)
+	if cfg.WitchSoundFmodPath == "" then
+		return
+	end
+
+	local vo = {};
+	vo = Groble_SoundMgr:PlayEffectByEvent(cfg.WitchSoundFmodPath);
+	return vo
+
+    -- if cfg.WitchSound == "-1" then
+        -- return
+    -- end
+    -- local sounds = lua_str_split(cfg.WitchSound, "|")
+    -- local index = 1 math.random(#sounds)
+    -- if true ~= default then
+        -- index = math.random(#sounds)
+    -- end
+    -- Groble_SoundMgr:PlayHeroSound(sounds[index])
+end
+
+function Hero:GetNextLevelExp(heroid, level)
+    local hero = self:GetHero(heroid)
+    return self:GetLvUpExp(hero.expGroupId, level)
+end
+
+function Hero:InitCollectStates(key)
+    local data = Groble_SceneMgr:PrefsGetString(key)
+    if data == nil or data == "" then
+        local _ids = Hero:GetHeroIds()
+        for _, v in pairs(_ids) do
+            data = data .. v .. "&0|"
+        end
+        data = string.sub(data, 1, #data-1)
+    end
+    self._sortHero = lua_parse_cfg(data, true)
+    --print("所有英雄收藏状态  : "..data)
+end
+
+--state 0 未收藏，1 已收藏
+function Hero:SetCollectHeroState(heroid,state)
+    for i, v in pairs(self._sortHero) do
+        if v[1] == heroid then
+            v[2] = state
+            --print("收藏英雄  ： "..v[1].." ： 是否收藏 ： "..v[2])
+        end
+    end
+end
+
+function Hero:GetCollectHeroState(heroid)
+    for i, v in pairs(self._sortHero) do
+        if v[1] == heroid then
+            return v[2]
+        end
+    end
+    return 0
+end
+
+--退出界面时，保存一次
+function Hero:SaveToPrefs(key)
+    local data = ""
+    for i, v in pairs(self._sortHero) do
+        data = data..string.format("%s&%s|",v[1],v[2])
+    end
+    data = string.sub(data, 1, #data-1)
+    Groble_SceneMgr:PrefsSetString(key, data)
+    --print("保存到本地  ： "..data)
+end
+
+function Hero:SelectHeroListByAttri(ids,attri)
+    local result = {}
+    if ids == nil or #ids <= 0 then
+        return result
+    end
+    if attri <= 0 then
+        return ids
+    end
+
+    local hero;
+    for _, id in ipairs(ids) do
+        hero = self:GetHero(id)
+        if hero.attri_type == attri then
+            table.insert(result,id)
+        end
+    end
+    return result
+end
+
+function Hero:SelectHeroListByGun(ids,gunType)
+    local result = {}
+    if ids == nil or #ids <= 0 then
+        return result
+    end
+    if gunType <= 0 then
+        return ids
+    end
+
+    local hero;
+    for _, id in ipairs(ids) do
+        hero = self:GetHero(id)
+        if hero.atktype == gunType then
+            table.insert(result,id)
+        end
+    end
+    return result
+end
+
+function Hero:SelectHeroList(ids,sortdata)
+    if sortdata.sortType == nil or sortdata.subType == nil or sortdata.subType == 0 then  --不做筛选
+        return ids
+    end
+
+    local result = {}
+    if sortdata.sortType == Hero.Select_TYPE_HERO.attri then     --属性筛选
+        result = self:SelectHeroListByAttri(ids,sortdata.subType)
+    elseif sortdata.sortType == Hero.Select_TYPE_HERO.gunType then        --枪型筛选
+        result = self:SelectHeroListByGun(ids,sortdata.subType);
+    end
+    return result
+end
+
+function Hero:SortHeroList(ids,sortdata)
+    if sortdata == nil or sortdata.sortType ~= Hero.Select_TYPE_HERO.sort then
+        return
+    end
+
+    local tbl = {}
+    local heroIds = {}
+    local hero,sortid;
+    for _, id in ipairs(ids) do
+        hero = self:GetHero(id)
+        sortid = 0
+
+        local summonId = 0
+        local qlty = hero.qlty
+        local collectId = self:GetCollectHeroState(id)
+        local ownId = 1
+
+        local power = hero.fighting_capacity
+        local star = hero.star
+        local wakeup = 0
+        hero = self:GetHero(id)
+
+        if not hero.owner then --未拥有
+            ownId = 0
+            local has, cost = Hero:GetHeroChipNumber(hero)
+            if has >= cost then
+                --可召唤
+                summonId = 1
+            else
+                summonId = -1
+            end
+        end
+        if self:IsHeroWakeUp(hero) then
+            wakeup = 1
+        end
+        if sortdata.subType == Hero.SORT_TYPE_HERO.default then
+            sortid = summonId * 100000000 + power;--qlty * 1000000 + collectId * 100000 + ownId * 10000 + hero.id
+        elseif  sortdata.subType == Hero.SORT_TYPE_HERO.power then
+            sortid = summonId * 100000000 + power + collectId * 1000 + ownId * 100
+        elseif sortdata.subType == Hero.SORT_TYPE_HERO.star then
+            sortid = summonId * 100000000 + star * 1000000 + collectId * 100000 + ownId * 10000 + hero.id
+        elseif sortdata.subType == Hero.SORT_TYPE_HERO.wakeup then
+            sortid = summonId * 100000000 + wakeup * 1000000 + collectId * 100000 + ownId * 10000 + hero.id
+        end
+        table.insert(tbl, {id = id, sortid = sortid})
+        --print("sortid :"..sortid.." : 召唤 ： "..summonId.." : 品质 ： "..qlty.." ： 收藏 ： "..collectId.." : 拥有 ： "..ownId.." : 战力 ： "..power.." : 星级 ： "..star.." : 觉醒 ： "..wakeup)
+    end
+
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+    for i, v in ipairs(tbl) do
+        heroIds[i] = v.id
+        --print("排序 sortId  :  "..v.sortid)
+    end
+    return heroIds
+end
+
+function Hero:SortByType(ids, sortdata,uitype)
+    if sortdata == nil then
+        return
+    end
+    local tbl = {}
+
+    local v, sortid
+    for _, id in ipairs(ids) do
+        v = self:GetHero(id)
+        sortid = 0
+        if v.owner then
+            if sortdata.sorttype == Hero.SORT_TYPE.qlty then
+                sortid = v.qlty * 10000000 + v.level * 10000 + tonumber(v.id)
+            elseif sortdata.sorttype == Hero.SORT_TYPE.attri then
+                sortid = v.level * 10000000 + v.qlty * 10000 + tonumber(v.id)
+                local cfg = self:GetCfg(v.id)
+                local attri_type = tonumber(cfg.attri_type)
+                sortid = sortid + (attri_type) * 1000000000
+            elseif sortdata.sorttype == Hero.SORT_TYPE.level then
+                sortid = v.level * 10000000 + v.qlty * 10000 + tonumber(v.id)
+            elseif sortdata.sorttype == Hero.SORT_TYPE.favour then
+                sortid = v.intimacy_data.level * 10000000 + v.qlty * 10000 + tonumber(v.id)
+            end
+            table.insert(tbl, {id = id, sortid = sortid})
+        else
+            sortid = v.qlty * 10000 + tonumber(v.id)
+            if self:CanCallOrStarUp(v.id) then
+                if(uitype == HeroTable_Type.favour)then
+                    sortid = 200000 + sortid
+                else
+                    sortid = 9000000000 + sortid
+                end
+            else
+                sortid = 100000 + sortid
+            end
+            table.insert(tbl, {id = id, sortid = sortid})
+        end
+    end
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+
+    for i, v in ipairs(tbl) do
+        ids[i] = v.id
+    end
+    return ids
+end
+
+--根据属性获取魔女ID
+function Hero:GetHeroIdByAttr(attr,isHave)
+    local retArr = {};
+    if(attr == Hero.ATTR_TYPE_ALL)then
+        for i, v in pairs(self._heroes) do
+            if(isHave)then
+                if(v.owner)then
+                    table.insert(retArr, v.id);
+                end
+            else
+                table.insert(retArr, v.id);
+            end
+        end
+    else
+        for i, v in pairs(self._heroes) do
+            if(v.attri_type == attr)then
+                if(isHave)then
+                    if(v.owner)then
+                        table.insert(retArr, v.id);
+                    end
+                else
+                    table.insert(retArr, v.id);
+                end
+            end
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a > b;
+    end);
+
+    return retArr;
+end
+
+--根据品质获取魔女ID
+function Hero:GetHeroIdByQuality(quality)
+    local retArr = {};
+    for i, v in pairs(self._heroes) do
+        if(v.qlty == quality)then
+            table.insert(retArr, v.id);
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a > b;
+    end);
+    return retArr;
+end
+
+function Hero:getEmblemCondition()
+    return self._emblemCons
+end
+
+function Hero:CalAllHeroAttr()
+    for _, hero in pairs(self._heroes) do
+        -- 刷新被动
+        self:SetDeskills(hero)
+        -- 属性重新计算
+        self:OnCalcAttr(hero)
+    end
+end
+
+-- 品质计算公式每升两星加一级品质 品质+（当前星级-初始星级）/2
+function Hero:CalHeroQlty(hero, star)
+    star = star or hero.star
+    local cfg = self:GetCfg(hero.id)
+    local qlty = tonumber(cfg.Quality) + math.floor((star - tonumber(cfg.Star)) /2 )
+    if qlty > Bag.QLTY_UTR then
+        qlty = Bag.QLTY_UTR
+    end
+    return qlty
+end
+
+--获得魔女能提升的下一个品质
+function Hero:getNextQlty(hero)
+    local oldQlty = hero.qlty
+    local newQlty
+    for i = hero.star,Hero.MAX_STAR_NUM do
+        newQlty = self:CalHeroQlty(hero , i)
+        if newQlty > oldQlty then
+            return i,newQlty
+        end
+    end
+    return 0,0
+end
+
+function Hero:UpdateHeroQlty(hero)
+    hero.qlty = self:CalHeroQlty(hero, hero.star)
+    hero.isSsr = hero.qlty == Bag.QLTY_SSR
+    hero.isUr = hero.qlty >= Bag.QLTY_UTR
+end
+
+--随机获得一条对话内容
+function Hero:GetHeroDialogueRan(heroid ,dtype)
+    if self._dTypeCfg[heroid] == nil then
+        return nil
+    end
+    if self._dTypeCfg[heroid][dtype] == nil then
+        return nil
+    end
+    local index
+    local canuse = false
+    local level = Hero:GetHero(heroid).intimacy_data.level
+    while not canuse do
+        index = math.random(1,#self._dTypeCfg[heroid][dtype])
+        if self._dTypeCfg[heroid][dtype][index].unlock ~= "-1" then
+            canuse = level >= tonumber(self._dTypeCfg[heroid][dtype][index].unlock)
+        else
+            canuse = true
+        end
+    end
+    return  self._dTypeCfg[heroid][dtype][index]
+end
+
+--魔女是否可以升级
+function Hero:CanLvUp(heroid)
+    local unlock = Player:IsSysFuncOpen(Player.SYS_FUNC.sys_herolevel)
+    if not unlock then return false end
+    
+    local hero = self:GetHero(heroid)
+    if not hero.owner then return false end
+
+    if hero.level >= hero.maxLv then
+        return false
+    end
+
+    local lvUpCfg = self:GetCurSublimationCfgByHeroId(heroid)
+    if lvUpCfg == nil then return false end
+
+    if hero.level >= lvUpCfg.lvUpMaxLevel and hero.intimacy_data.raise <= 0 then return false end
+
+    return Item:HasExpMedicine()
+end
+
+function Hero:GetIdsByAtkType(atype,isHave)
+    local tbl = {}
+    for _, v in pairs(self._heroes) do
+        if(isHave)then
+            if v.owner then
+                local sortid =(v.config.Quality) * 10000 + tonumber(v.id)
+                if(atype == nil or atype == 0)then
+                    table.insert(tbl, {id = v.id, sortid = sortid})
+                else
+                    if(tonumber(atype) == tonumber(v.config.AtkType))then
+                        table.insert(tbl, {id = v.id, sortid = sortid})
+                    end
+                end
+            end
+        else
+            local sortid =(v.config.Quality) * 10000 + tonumber(v.id)
+            if v.owner then
+                sortid = 300000000 + sortid
+            else
+                sortid = 200000000 + sortid
+            end
+            if(atype == nil or atype == 0)then
+                table.insert(tbl, {id = v.id, sortid = sortid})
+            else
+                if(tonumber(atype) == tonumber(v.config.AtkType))then
+                    table.insert(tbl, {id = v.id, sortid = sortid})
+                end
+            end
+        end
+    end
+
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+    local ids = {}
+    for i, v in ipairs(tbl) do
+        table.insert(ids, v.id)
+    end
+    return ids
+
+end
+
+--设置对话框高度
+function Hero:SetBoxHeight(obj, str )
+    local perline = 19
+    local txtNum = lua_str_utf8len(str)
+    if txtNum <= perline * 2 then
+        return
+    end
+    local baseh = 140
+    local addh = 40
+    local width = 707
+    local height = baseh + addh * (math.ceil(txtNum / perline) - 2)
+
+    u3d_set_size(obj, width, height)
+end
+
+function Hero:SetMusicTags(hero)
+    local tbl = {}
+    for _, v in pairs(hero.musics) do
+        table.insert(tbl,{tagType = Hero.TAG_MUSICAL, value = v.mtype , isFit = false})
+    end
+    for _,v in pairs(hero.apperance) do
+        table.insert(tbl,{tagType = Hero.TAG_RACE, value = v , isFit = false})
+    end
+    hero.music_tags = tbl
+
+end
+
+function Hero:GetAppearanceTags(hero,apType)
+    local tbl = {}
+    if hero == nil then
+        return tbl
+    end
+    for  _,v in pairs(hero.music_tags)do
+        if v.tagType == apType then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+
+function Hero:GetMusicTagWithOutType(hero, woType)
+    local tbl = {}
+    for  _,v in pairs(hero.music_tags)do
+        if v.tagType ~= woType then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+
+--
+-- brief：获取所有魔女总战斗值
+--
+local Max_FIGHT_NUM = 5
+function Hero:GetTotalFightNum()
+    local num = 0
+    local owerHeros = {}
+    for _ , hero in pairs(self._heroes) do
+        if hero.owner then
+            table.insert(owerHeros,hero)
+            --num = num + Hero:GetFightingCapacity(hero.id)
+        end
+    end
+    table.sort(owerHeros, function(a, b)
+        return a.fighting_capacity > b.fighting_capacity
+    end)
+
+    local count = math.min(#owerHeros,Max_FIGHT_NUM)
+    for i = 1, count do
+        --print("英雄战力  : "..Hero:GetFightingCapacity(owerHeros[i].id))
+        num = num + Hero:GetFightingCapacity(owerHeros[i].id)
+    end
+    if not self._oldTotalFightNum then
+        self._oldTotalFightNum = 0
+    end
+    if self._oldTotalFightNum ~= num then
+        self._oldTotalFightNum = num
+        ThinkingMgr:AddUserSet("combat_effectiveness_point", num)
+        ThinkingMgr:UserSet()
+    end
+
+    return math.ceil(num)
+end
+
+--获取前5名战力最高的英雄
+function Hero:GetFightHeroList()
+    local heroList = {}
+    local owerHeros = {}
+    for _ , hero in pairs(self._heroes) do
+        if hero.owner then
+            table.insert(owerHeros,hero)
+        end
+    end
+    table.sort(owerHeros, function(a, b)
+        return a.fighting_capacity > b.fighting_capacity
+    end)
+    local count = math.min(#owerHeros,Max_FIGHT_NUM)
+    for i = 1, count do
+        table.insert(heroList,owerHeros[i])
+    end
+    return heroList
+end
+
+--获取每个出战魔女的伤害值
+function Hero:GetHeroFight()
+    local AllDpsIndex = FightArrController.UIAttrIndex.fAllDps
+    local dps1 = FightArrController:GetUIAttr(0)[AllDpsIndex]
+    local dps2 = FightArrController:GetUIAttr(1)[AllDpsIndex]
+    local dps3 = FightArrController:GetUIAttr(2)[AllDpsIndex]
+
+    local _heroDps = {}
+    if _heroDps then
+        _heroDps[1] = tonumber(math.floor(dps1))
+        _heroDps[2] = tonumber(math.floor(dps2))
+        _heroDps[3] = tonumber(math.floor(dps3))
+    else
+        _heroDps = {
+            tonumber(math.floor(dps1)),
+            tonumber(math.floor(dps2)),
+            tonumber(math.floor(dps3)),
+        }
+    end
+    return _heroDps
+end
+
+--获取所有已上阵魔女总战斗值
+function Hero:GetFightingHeroPower()
+
+end
+
+
+--从出战选人跳转至养成
+function Hero:SetMainWitchHero(heroid)
+    self._curHeroid = heroid
+end
+
+function Hero:GetMainWitchHero()
+   return self._curHeroid
+end
+
+--获取根据heroId获取升阶属性
+function Hero:GetStepUpAttrByHeroId(heroId)
+    heroId = tonumber(heroId);
+    local retData = self._stepUpAttrUp[heroId];
+    if(retData  == nil)then
+        CS.Logger.LogError("retData is null Path = ## Hero:GetStepUpAttrByHeroId ##   heroId = "..heroId);
+    end
+    return retData;
+end
+
+--角色是否可升阶
+function Hero:HeroIsStepUp(heroId)
+    heroId = tonumber(heroId);
+    local isStep = false;
+    local hero = Hero:GetHero(heroId);
+    if(hero == nil)then
+        CS.Logger.LogError("hero is null Path = ## Hero:HeroIsStepUp ##   heroId = "..heroId);
+    end
+    --是否满足升阶等级
+    if(hero.level >= hero.maxLv)then
+        local curCfg = Hero:GetHeroStepUpCfgByStep(hero.step);
+        if(Player:GetLevel() >= curCfg.unLockLv)then
+            local maxStepCfg = Hero:GetMaxLvStepCfg();
+            if(maxStepCfg.levelMax > hero.maxLv)then
+                isStep = true;
+            end
+        end
+    end
+    --判断升阶物品是否充足
+    if(isStep)then
+        local stepUpCosts = Hero:GetStepUpCostsByAttrAndStep(hero.attri_type,hero.step + 1);
+        if(not next(stepUpCosts))then
+            isStep = false;
+        end
+        for _, item in ipairs(stepUpCosts) do
+            if(Item:GetCount(item[1]) < item[2])then
+                isStep = false;
+                break;
+            end
+        end
+    end
+
+    return isStep;
+end
+
+---------------------------奇遇相关-----------------------------
+function Hero:SetAdventuresData(data)
+    self._returnGiftData = data or {};
+    self._showGiftLvUpTips = true;
+end
+
+function Hero:GetShowGiftLvUpTips()
+    return self._showGiftLvUpTips;
+end
+
+function Hero:GetAdventuresData()
+    return self._returnGiftData or {};
+end
+
+function Hero:GetSendGiftNum()
+    return self._returnGiftData.sg_num or 0;
+end
+
+function Hero:GetAwardBtnShowStateByHeroId(heroId)
+    heroId = tonumber(heroId);
+    local awardNum = 0;
+    if(self._returnGiftData.da_num > 0)then
+        if(self._returnGiftData.gots[heroId] ~= nil)then
+            awardNum = self._returnGiftData.gots[heroId];
+        end
+    end
+    return awardNum > 0,awardNum;
+end
+
+--------------------------------升华相关---------------------
+function Hero:IsHeroWakeUp(hero)
+    return hero.intimacy_data.raise ~= nil and hero.intimacy_data.raise > 0
+end
+
+function Hero:GetSublimationIsLock(heroId)
+    local hero = Hero:GetHero(heroId);
+    if(hero.intimacy_data.raise == Hero.SublimationType.Unlock)then
+        local cfg;
+        cfg = Hero:GetCurSublimationCfgByHeroId(heroId);
+        if(hero.intimacy_data.level < cfg.unLockLv)then
+            return true,cfg.unLockLv;
+        end
+        return false;
+    else
+        return false;
+    end
+end
+
+--获取角色是否升华
+function Hero:GetHeroIsSublimation(heroId)
+    local hero = Hero:GetHero(tonumber(heroId));
+    local cfgs = Hero:GetSublimationCfgsByGroupId(hero.Intimacy[4]);
+    if(#cfgs == hero.intimacy_data.raise)then
+        if(hero.config.Dialogue ~= "-1")then
+            return Hero.SublimationBtnType.LockBack;
+        end
+        return Hero.SublimationBtnType.Close;
+    end
+    return Hero.SublimationBtnType.Sublimation;
+end
+
+--根据星级获取角色星级增长属性
+function Hero:GetHeroStarAddAttrByStar(heroId,star)
+    local attrs = self._starUpAttrUp[heroId];
+    if(attrs == nil)then
+        AppMgr:LogError("heroStepLvUpAttr is null   heroId = "..heroId);
+        return nil;
+    end
+    local retArr = {};
+    for _, v in pairs(attrs) do
+        retArr[v[1]] = v[star + 1] or 0;
+    end
+    return retArr;
+end
+
+--获取英雄的套装数量
+function Hero:GetHeroSuitNum(hero)
+    local suitIds = {}
+    for _, eid in pairs(hero.equipids) do
+        if eid ~= 0 then
+            local equip = Equip:GetEquip(eid)
+            if equip ~= nil and equip.suitid ~= nil and equip.suitid > 0 then
+                if suitIds[equip.suitid] == nil then
+                    suitIds[equip.suitid] = 0
+                end
+                suitIds[equip.suitid] = suitIds[equip.suitid] + 1
+            end
+        end
+    end
+    local num = 0
+    for i, v in pairs(suitIds) do
+        num = math.max(num, v)
+    end
+    return num
+end
+
+--初始化上一次的战斗力(用于战斗力提升时调用)
+function Hero:InitLastFighting()
+    self._allLastFighting = Hero:GetTotalFightNum();
+    for _, v in pairs(self._heroes) do
+        self._lastFighting[v.id] = v.fighting_capacity;
+    end
+end
+
+function Hero:UpdateAllLastFighting()
+    Hero:InitLastFighting();
+end
+
+function Hero:UpdateLastFightingById(heroId)
+    local hero = Hero:GetHero(heroId);
+    self._lastFighting[heroId] = hero.fighting_capacity or 0;
+end
+
+function Hero:GetAllLastFighting()
+    return self._allLastFighting or 0;
+end
+
+function Hero:GetLastFightingById(heroId)
+    return self._lastFighting[heroId] or 0;
+end
+
+
+--获取出战魔女的等级
+function Hero:GetCurHeorLvDes(heroes)
+    local result = ""
+    if heroes == nil then
+        return result
+    end
+    local level = -1
+    for i, v in ipairs(heroes) do
+        if(v.hero ~= nil)then
+            if v.plot then
+                level =  Chapter:GetChapterHeroByID(v.hero.plotId).level
+            else
+                level = v.hero.level
+            end
+            result = result..string.format("%s级 ",level)
+        end
+    end
+    if result == "" then
+        result = LanguageMgr:GetTextByID(80026)
+    end
+    return result
+end
+
+--获取出战魔女的平均等级
+function Hero:GetAvLevel(heroes)
+    local allLevel = 0
+    if heroes == nil then
+        return allLevel
+    end
+    local level = 0
+    local heroNum = 0
+    for i,v in ipairs(heroes) do
+        if v.hero ~= nil then
+            heroNum = heroNum + 1
+            if v.plot then
+                level =  Chapter:GetChapterHeroByID(v.hero.plotId).level
+            else
+                level = v.hero.level
+            end
+            allLevel = allLevel + level
+        end
+    end
+    return math.ceil(allLevel/heroNum)
+end
+
+--获取出战魔女的战力总和
+function Hero:GetCurHerosPower(heroes)
+    local power = 0
+    if heroes == nil then
+        return power
+    end
+    local tmp = 0
+    for i, v in pairs(heroes) do
+        if  v.hero ~= nil then
+            if v.plot then --剧情
+                local chero = Chapter:GetChapterHeroByID(v.hero.plotId)
+                tmp = self:GetPlotHeroPower(chero)
+            else
+                tmp = Hero:GetHeroPower(v.hero)
+            end
+            power = power + tmp--Hero:GetHeroPower(v.hero)
+        end
+    end
+    return power
+end
+
+--获取剧情魔女的战力
+function Hero:GetPlotHeroPower(chero)
+    local result = 0
+    if chero == nil then
+        return result
+    end
+
+    local attrPower = self:GetHeroAttrPower(chero)
+    --local buildPower = self:GetHeroBuildPower(chero)
+    --local skillPower = self:GetHeroSkillPower(chero)
+    local starPower = self:GetHeroStarPower(chero)
+    --local suitPower = self:GetHeroSuitPower(chero)
+    result = attrPower + starPower
+    return result
+end

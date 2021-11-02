@@ -1,0 +1,79 @@
+--
+-- author: haosun
+-- date  : 2019-03-13 16:57:17
+-- brief : 
+--
+
+Guide = Guide or {}
+
+Guide.STATE_NONE    = 0
+Guide.STATE_DONE    = 1
+
+Guide.TYPE_CLICK    = 1     -- 点击
+Guide.TYPE_DIALOG   = 2     -- 对话
+Guide.TYPE_INTRO    = 3     -- 介绍图片
+Guide.TYPE_AUTO     = 4     -- 自动模式
+Guide.TYPE_MOVE     = 5     -- 移动
+
+Guide.GUIDE_BEGIN0  = 10000
+Guide.GUIDE_BEGIN   = 10001
+Guide.GUIDE_SECOND  = 10002
+Guide.GUIDE_LOTTERY = 10004     -- 召唤引导
+Guide.GUIDE_END     = 10005     -- 新手强制引导结束组ID
+Guide.GUIDE_SKIP    = 999999    -- 跳过引导ID
+
+Guide.SKIP_STEP     = 5
+
+Guide.COMMIT_TYPE_NONE      = 0     -- 不提交
+Guide.COMMIT_TYPE_CLICK     = 1     -- 点击提交
+Guide.COMMIT_TYPE_LEVEL     = 2     -- 结算提交
+
+Guide.GUIDE_LEVEL_IDS       = {
+    level1 = 100001,
+}
+
+Guide.GUIDE_LEVEL_ID        = 100001
+
+Guide.FIGHT_BACK_TO_MAIN    = 1
+Guide.FIGHT_BACK_TO_LIST    = 2
+Guide.FIGHT_BACK_TO_LEVEL   = 3
+
+Guide.COMPLETE_FIGHT        = 1     -- 战斗
+Guide.COMPLETE_SKILL        = 2     -- 技能升级
+Guide.COMPLETE_REWARD       = 3     -- 三星奖励
+Guide.COMPLETE_EQUIP        = 4     -- 装备
+Guide.COMPLETE_EQUIP_UP     = 5     -- 装备强化
+Guide.COMPLETE_LEVEL        = 6     -- 魔女升级
+Guide.COMPLETE_STEP         = 7     -- 魔女进阶
+Guide.COMPLETE_LOTTERY      = 8     -- 召唤
+Guide.COMPLETE_TEAM_HERO    = 9     -- 上阵魔女
+Guide.COMPLETE_EQUIP_TOP    = 10    -- 装备突破
+Guide.COMPLETE_HERO_TOP     = 11    -- 魔女突破
+
+Guide.CLICK_EMPTY           = 0
+Guide.CLICK_INVOKE          = 1
+
+Guide.GUIDE_TYPE_MAP        = 1
+Guide.GUIDE_TYPE_LEVEL      = 2
+Guide.GUIDE_TYPE_UI         = 3
+
+Guide.BUILD_GUIDE_ID        = 3001
+
+Guide.FIRST_OPEN_COLLECT    = 801       -- 首次图鉴
+Guide.FIRST_RANK_RST        = 2801      -- 首次深夜结算
+Guide.FIRST_MIDNIGHT_DAY    = 4001      -- 首次深夜领取日奖励
+Guide.FIRST_ENTER_1_2       = 1002      -- 首次进入1-2关卡
+Guide.FIRST_ENTER_1_6       = 1001      -- 首次进入1-6关卡
+Guide.FIRST_ENTER_3_1       = 1003      -- 首次进入3-1关卡
+Guide.FIRST_FIGHT_RANDOM    = 7041      -- 首次进入塞壬的游戏
+Guide.FIRST_FIGHT_RANDOM2   = 7042      -- 首次进入塞壬的游戏枪型介绍
+Guide.FIRST_FIGHT_DRUG      = 7031      -- 首次进入天狱之上
+Guide.FIRST_FIGHT_DRUG2     = 7032      -- 首次进入天狱之上红点
+Guide.FIRST_FIGHT_COIN      = 7011      -- 首次进入海地司祭阵
+Guide.FIRST_FIGHT_BOSS      = 2901      -- 首次进入圣光印记
+Guide.FIRST_FIGHT_ETHER     = 2906      -- 首次进入以太边界
+Guide.FIRST_FIGHT_ENERGY    = 8004      -- 首次战斗精力不足
+Guide.FIRST_LOTTERY_TASK    = 1024      -- 任务领取10张抽卡券
+Guide.FIRST_LOTTERY_10      = 1025      -- 新手十连
+Guide.FIRST_HERO_LEVELUP    = 1022      -- 魔女升级
+

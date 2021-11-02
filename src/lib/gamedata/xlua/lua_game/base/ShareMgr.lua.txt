@@ -1,0 +1,10 @@
+ShareMgr = ShareMgr or {};
+
+local instance = CS.ShareMgr.Instance;
+
+function ShareMgr:DoScreenShot(callback)
+     instance:DoScreenShot(callback)
+end
+
+
+

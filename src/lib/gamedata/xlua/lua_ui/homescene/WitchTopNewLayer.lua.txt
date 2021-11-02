@@ -1,0 +1,232 @@
+--
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchTopNewLayer = class("WitchTopNewLayer", CBaseLayer)
+
+function WitchTopNewLayer:ctor(super, layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchTopNewLayer",
+    }
+    self._topData =
+    {
+        showBtnBack     = false
+    }
+    self._addStack = true
+    self._hideOtherLayer = true;
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function WitchTopNewLayer:initObj()
+
+    self._starObj = self.layer:Get("stars")
+    self._starEffect = self.layer:Get("image_star")
+    self._attrObj = self.layer:Get("pnl_attr")
+    self._bgObj = self.layer:Get("container/bgs")
+    self._backObj = self.layer:Get("button_go")
+    self.layer:GetButtonComponent("button_go").onClick:AddListener(
+          function()
+              self:showNextUi()
+             -- Groble_UIMgr:ClickOnReturnBtn();
+          end
+    )
+    self._stars = {}
+    for i = 1,6 do
+        self._stars[i] = self.layer:GetImageComponent("stars/image_star_"..i)
+    end
+    self.timer = {}
+end
+
+
+
+function WitchTopNewLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:addBaseAnimationBehaviour(self._starEffect)
+end
+
+function WitchTopNewLayer:onExit()
+    self._callback = nil
+
+    self._starObj = nil
+    self._attrObj = nil
+    for id, v in pairs(self.timer) do
+        Timer:RemoveTimerCall(id)
+    end
+    self.timer = nil
+    CBaseLayer.onExit(self)
+end
+
+function WitchTopNewLayer:show(hero, callback,spineParent)
+    Groble_SoundMgr:PlayEffect(20000020)
+    self._fading = true
+    self._hero = hero
+    self._callback = callback
+    self._showstep = 0
+    self._spineTrans = spineParent:GetChild(0);
+    self:setOldInfo()
+   -- self:showNextUi()
+    self:showLayer()
+    self:playAni("WitchTopNewLayerAni")    
+end
+
+function WitchTopNewLayer:setOldInfo()
+    -- old star
+    for i = 1, 6 do
+        local imgName
+        if i <= self._hero.star - 1 then
+            imgName = "Img_MoNvTouXiAng_Xing_Da5"
+        else
+            imgName = "Img_MoNvTouXiAng_Xing_Da6"
+        end
+        self._stars[i].sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", imgName)
+    end
+    self.oldQlty = Hero:CalHeroQlty(self._hero, self._hero.star -1)
+    if  self.oldQlty < self._hero.qlty then
+        self._isup = true
+    end
+
+    self._attrCObjArr = {}
+    for i = 1, 5, 1 do
+        self._attrCObjArr[i] = CAttr:CtorAttrCObj(self.layer:Get("pnl_attr/attr_" .. i))
+    end
+
+    local oldAttr = Hero:GetHeroTmpAttr(self._hero.id)
+    for i, cls in ipairs(self._attrCObjArr) do
+        local attrtype = Hero.Attr6[i]
+        cls:Visible(attrtype ~= nil)
+        if attrtype ~= nil then
+            CAttr:SetAttrCObj(cls, attrtype, oldAttr[attrtype], true)
+        end
+    end
+    self:SetAddAttr()
+    self:setHeroQlty()
+    self:setHeroInfo()
+    self:setHeroBuild()
+    self:setHeroTalent()
+    self._starEffect:SetVisible(false)
+end
+
+function WitchTopNewLayer:setHeroQlty()
+    if self._isup then
+        Hero:SetHeroQlty(self.layer:Get("qlty/img_qlty_old"), self.oldQlty)
+        Hero:SetHeroQlty(self.layer:Get("qlty/img_qlty_new"), self._hero.qlty)
+    else
+        Hero:SetHeroQlty(self.layer:Get("qlty/img_qlty_old"), self.oldQlty)
+        self.layer:Get("qlty/img_qlty_new"):SetVisible(false)
+        self.layer:Get("qlty/img_arrow"):SetVisible(false)
+    end
+
+end
+
+function WitchTopNewLayer:setHeroInfo()
+     -- local  _filepath = "source_avatar/hero_upgrade/head_" .. self._hero.skinid
+     -- self.layer:GetImageComponent("pnl_head/img_icon").sprite = AssetLoader:LoadSprite(_filepath)
+     self.layer:GetImageComponent("pnl_head/img_fazhen").sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", "fazhen_"..self._hero.attri_type)
+     self.layer:GetTextComponent("heroinfo/txt_name").text = self._hero.config.Name
+     self.layer:GetTextComponent("heroinfo/txt_name_en").text = self._hero.config.Name_EN
+end
+
+
+function WitchTopNewLayer:SetAddAttr()
+    local heroAddAttr = Hero:GetHeroStarAddAttrByStar(self._hero.id,self._hero.star);
+    for i, cls in ipairs(self._attrCObjArr) do
+        local attrtype = Hero.Attr6[i]
+        cls:Visible(attrtype ~= nil)
+        if attrtype ~= nil then
+            CAttr:SetAddAttrCObj(cls, math.floor(heroAddAttr[attrtype]));
+        end
+    end
+end
+
+function WitchTopNewLayer:setNewInfo()
+    for i = 1, 6 do
+        local imgName
+        if i <= self._hero.star  then
+            imgName = "Img_MoNvTouXiAng_Xing_Da5"
+        else
+            imgName = "Img_MoNvTouXiAng_Xing_Da6"
+        end
+        self._stars[i].sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", imgName)
+    end
+end
+
+function WitchTopNewLayer:showNextUi()
+    if self._fading then
+        return
+    end
+    self._showstep = self._showstep + 1
+    CS.Logger.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" .. self._showstep)
+    if self._showstep == 1 then
+        local aniname = string.format("WitchTopLayerStar%dAni", self._hero.star)
+        self._starEffect:SetVisible(true)
+        Groble_UIMgr:PlayAni(self._starEffect, aniname)
+        self._fading = true
+    else
+        Groble_UIMgr:ClickOnReturnBtn();
+    end
+end
+
+function WitchTopNewLayer:UI_MainBoxFadeInEnd()
+    self._fading = false
+    self:setNewInfo()
+end
+
+function WitchTopNewLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.1,self._hero.id);
+    self:onPopLayer()
+end
+
+function WitchTopNewLayer:onLayerFadeInEndCall()
+    self:showNextUi()
+  --  Guide:ContinueGuideEvent(self.__cname)
+end
+
+function WitchTopNewLayer:setHeroTalent()
+    local cfg = nil
+    for  _, v in pairs(self._hero.talentcfg) do
+        if self._hero.star == v.star then
+            cfg = v
+        end
+    end
+    if cfg ~= nil then
+       self.layer:GetTextComponent("unlocks/talent/txt_name").text = cfg.cfg.Talent_Name
+       self.layer:GetImageComponent("unlocks/talent/img_icon").sprite =  AssetLoader:LoadSprite("source_icon/talent/"..cfg.cfg.Talent_ICON)
+       self.layer:GetButtonComponent("unlocks/talent").onClick:AddListener(
+                function()
+                    UIMgr:ShowDescTipsLayer( self.layer:Get("unlocks/talent/img_bg"), cfg.cfg.Talent_Name, cfg.cfg.desc)
+                end
+        )
+    else
+       self.layer:Get("unlocks/talent"):SetVisible(false)
+    end
+end
+function WitchTopNewLayer:setHeroBuild()
+    local curDots = lua_parse_cfg(self._hero.config.Builddotadd,true);
+    local cfg = nil
+    for i, v in ipairs(curDots) do
+        if self._hero.star == v[1] then
+            cfg = Build:GetBuildAttrCfgByCfgId(v[2])
+        end
+    end
+    if cfg ~= nil then
+       self.layer:GetTextComponent("unlocks/build/txt_name").text = cfg.name
+        Build:SetBuildIcon(self.layer:GetImageComponent("unlocks/build/img_icon"), cfg.iconPath)
+       self.layer:GetButtonComponent("unlocks/build").onClick:AddListener(
+                function()
+                    UIMgr:ShowDescTipsLayer( self.layer:Get("unlocks/build/img_bg"), cfg.name, cfg.desc)
+                end
+        )
+    else
+       self.layer:Get("unlocks/build"):SetVisible(false)
+    end
+end
+
+return WitchTopNewLayer
+

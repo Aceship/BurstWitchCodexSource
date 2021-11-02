@@ -1,0 +1,51 @@
+--
+-- author: haosun
+-- date  : 2018-11-28 21:00:46
+-- brief : 
+--
+
+Bag = Bag or {}
+
+function Bag:TableDrops2Array(drops)
+    local arr, show = {}, true
+    for itype, items in pairs(drops) do
+        for uid, count in pairs(items) do
+            show = true
+            if itype == Bag.TYPE_ITEM then
+                if uid == Player.ITEM_VALUE_EXP or uid == Player.ITEM_VALUE_HANDBOOK_EXP then
+                    show = false
+                end
+                local cfg = Item:GetCfg(uid)
+                if tonumber(cfg.itemuse) == Item.USE_TYPE_GET then
+                    show = false
+                end
+            end
+            if true == show then
+                table.insert(arr, {itype, uid, count})
+            end
+        end
+    end
+    return arr
+end
+
+-- 
+-- drops: {bagtype = {id = count, id = count}, bagtype = {id = count, id = count}}
+-- 
+function Bag:ShowDrops(drops, callback,closeTime)
+    local tbl = self:TableDrops2Array(drops)
+    SingletonMgr:ShowGetTipsLayer(tbl, callback,closeTime)
+end
+
+function Bag:ShowExDrops(drops, callback,closeTime)
+    local tbl = self:TableDrops2Array(drops.drop)
+    if(drops.exDrop ~= nil)then
+        local exDrop = self:TableDrops2Array(drops.exDrop);
+        for i, v in ipairs(exDrop) do
+            table.insert(tbl,{v[1], v[2], v[3],true});
+        end
+    end
+    SingletonMgr:ShowGetTipsLayer(tbl, callback,closeTime)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.BAG_DROP_SHOW_NTF]              = {Bag, Bag.ShowDrops}

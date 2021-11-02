@@ -1,0 +1,332 @@
+--角色选择界面
+local HeroSelectController = class("HeroSelectController");
+local HeroNum = 3;
+
+function HeroSelectController:ctor(super, trans, showUp)
+    self._transform = trans;
+    self._heroItems = {};
+    self._judgePosX = {}
+    for i = 1, HeroNum do
+        self._heroItems[i] = self:InitHeroItem(i)      
+        -- print("---------------", self._heroItems[i])
+    end
+    self._disPosX   = self._heroItems[2].basePosX - self._heroItems[1].basePosX
+    local halfPosX  = self._disPosX * 0.5
+    self._minPosX   = self._heroItems[1].basePosX - halfPosX
+    self._maxPosX   = self._heroItems[3].basePosX + halfPosX
+
+    for i, v in ipairs(self._heroItems) do
+        v.minPosX = v.basePosX - halfPosX
+        v.maxPosX = v.basePosX + halfPosX
+    end
+    self._enabled = true
+    self._txtType = HeroTxtType.Name
+    self._showUp = showUp
+end
+
+function HeroSelectController:setHeroId(index, heroId)
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == index then
+            v.heroId = heroId
+        end
+    end
+end
+
+function HeroSelectController:refreshHeroIds(heroIds)
+    if heroIds == nil then return end
+
+    self:setHeroId(1, heroIds[1] or 0)
+    self:setHeroId(2, heroIds[2] or 0)
+    self:setHeroId(3, heroIds[3] or 0)
+end
+
+--初始化
+function HeroSelectController:Init(heroIds, btnClick, onBeginDragClick, onEndDragClick)
+    self:refreshHeroIds(heroIds)
+    self._offset = 0;
+    self._isName = true
+    self._btnClick = btnClick;
+    self._onBeginDragClick = onBeginDragClick;
+    self._onEndDragClick = onEndDragClick;
+end
+
+--更新角色数据
+function HeroSelectController:UpdateHeroItem(heroIds)
+    self:refreshHeroIds(heroIds)
+    for i, v in ipairs(self._heroItems) do
+        self:SetHeroItem(v)
+    end
+end
+
+function HeroSelectController:onStopJumpCd()
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+    end
+    self._timerId = nil
+end
+
+function HeroSelectController:doJumpLayer(heroId)
+    self._timerId = nil
+    self._enabled = false
+    uimgr:showMainWitchLayerWithHid(heroId)
+end
+
+function HeroSelectController:onClick(cls)
+    if cls.cutPos then return end
+
+    if Guide:IsGuideExchangeHero() then return end
+
+    -- AppMgr:LogInfo("-----------------------onClick-----------------------")
+    if self._btnClick ~= nil then
+        self._btnClick(cls.posIndex)
+    end
+end
+
+function HeroSelectController:onDown(cls)
+    -- AppMgr:LogInfo("-----------------------onDown-----------------------")
+    if self._isPlot and self._plotData[cls.index].plot then return end
+
+    if cls.heroId == 0 then return end
+    
+    if Guide:IsGuideExchangeHero() then return end
+
+    self._timerId = Timer:AddTimerCall(1, 
+        function()
+            self:doJumpLayer(cls.heroId)
+        end)
+end
+
+function HeroSelectController:onUp(cls)
+    -- AppMgr:LogInfo("-----------------------onUp-----------------------")
+    self:onStopJumpCd()
+end
+
+function HeroSelectController:onBeginDrag(cls, arg)
+    if self._isPlot and self._plotData[cls.index].plot then return end
+    
+    if cls.heroId == 0 then return end
+
+    if not self._enabled then return end
+    
+    self._dragIndex = cls.index
+    -- AppMgr:LogInfo("---------------------- self._dragIndex = " .. self._dragIndex)
+
+    cls.transform:SetScale(1.1, 1.1, 1.1)
+    cls.objEmpty:SetVisible(true)
+    cls.transform:SetAsLastSibling()
+    local temp , worldPos = CS.UnityEngine.RectTransformUtility.ScreenPointToWorldPointInRectangle(cls.rect, arg.position, arg.pressEventCamera);
+    self._offset = cls.transform.position - worldPos;
+
+    if(self._onBeginDragClick ~= nil)then
+        self._onBeginDragClick();
+    end
+end
+
+function HeroSelectController:onDrag(cls, arg)
+    if self._isPlot and self._plotData[cls.index].plot then return end
+    
+    if cls.heroId == 0 then return end
+
+    if not self._enabled then return end
+
+    self:onStopJumpCd()
+    cls.cutPos = true;
+    local temp , worldPos = CS.UnityEngine.RectTransformUtility.ScreenPointToWorldPointInRectangle(cls.rect, arg.position, arg.pressEventCamera);
+    local newPos = worldPos + self._offset
+    newPos.y = cls.basePosY
+    if Guide:IsGuideExchangeHero() then
+        newPos.x = math.min(cls.basePosX, newPos.x)
+    end
+    cls.transform.position = newPos
+    local posx = newPos.x
+    for i, obj in ipairs(self._heroItems) do
+        if obj.index ~= self._dragIndex and obj.heroId ~= 0 and posx >= obj.minPosX and posx <= obj.maxPosX then
+            if not (self._isPlot and self._plotData[i].plot) then
+                -- print("---------------------- posIndex = ", cls.posIndex, obj.posIndex)
+                -- obj.transform:DOMoveX(cls.basePosX, 10.1)
+                obj.transform:SetPositionX(cls.basePosX)
+                self:exchangeHeroItem(cls, obj)
+            end
+            break
+        end
+    end
+end
+
+function HeroSelectController:onEndDrag(cls, arg)
+    if self._isPlot and self._plotData[cls.index].plot then return end
+    
+    if cls.heroId == 0 then return end
+
+    if not self._enabled then return end
+    cls.cutPos = false
+
+    local temp, worldPos = CS.UnityEngine.RectTransformUtility.ScreenPointToWorldPointInRectangle(cls.rect, arg.position, arg.pressEventCamera);
+    local posx = worldPos.x
+    -- for i, obj in ipairs(self._heroItems) do
+    --     obj.transform:DOKill()
+    -- end
+    if Guide:IsGuideExchangeHero() then
+        posx = math.min(cls.basePosX, posx)
+    end
+    if posx <= self._minPosX or posx >= self._maxPosX then
+        cls.transform:SetPosition(cls.basePosX, cls.basePosY, cls.basePosZ)
+    else
+        for i, obj in ipairs(self._heroItems) do
+            if posx >= obj.minPosX and posx <= obj.maxPosX then
+                if self._isPlot and self._plotData[i].plot then
+                    cls.transform:SetPosition(cls.basePosX, cls.basePosY, cls.basePosZ)
+                else
+                    cls.transform:SetPosition(obj.basePosX, obj.basePosY, obj.basePosZ)                    
+                    obj.transform:SetPosition(cls.basePosX, cls.basePosY, cls.basePosZ)
+                    self:exchangeHeroItem(cls, obj)
+                end
+                break
+            end
+        end
+    end
+    cls.transform:SetScale(1, 1, 1)
+    
+    if self._onEndDragClick ~= nil then
+        local heroIds = {}
+        for i, v in ipairs(self._heroItems) do
+            heroIds[v.posIndex] = v.heroId
+        end
+        self._onEndDragClick(false, heroIds)
+        if Guide:IsGuideExchangeHero() then
+            if heroIds[1] ~= 1001 then
+                GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.MOVE_GUIDE_END)
+                Guide:ClearGuideExchangeHero()
+            end
+        end
+    end
+end
+
+function HeroSelectController:OnDestroy()
+    self._btnClick = nil;
+    self._onBeginDragClick = nil;
+    self._onEndDragClick = nil;
+
+    self._transform = nil
+    self._judgePosX = nil
+    if self._heroItems ~= nil then
+        for _, cls in pairs(self._heroItems) do
+            cls:clear()
+        end
+    end
+    self._heroItems = nil
+end
+
+--初始化heroItem
+function HeroSelectController:InitHeroItem(i)
+    local trans = self._transform:Find("heroitem_"..i)
+    local cls = clearbase:new()
+    cls.transform   = trans
+    cls.item        = Hero:HalfItemClassNew(trans:Get("hero"))
+    cls.rect        = trans:GetComponent("RectTransform")
+    cls.objEmpty    = self._transform:Get("img_empty" .. i)
+    cls.objTxtPlot  = self._transform:Get("txt_plot" .. i)
+    cls.objLock     = self._transform:Get("lock"..i)
+    cls.objKeZhi    = trans:Get("hero/kezhi")
+    cls.objUpCursor = trans:Get("hero/trans_cursor")
+    cls.cutPos      = false
+    cls.basePosX    = trans:GetPositionX()
+    cls.basePosY    = trans:GetPositionY()
+    cls.basePosZ    = trans:GetPositionZ()
+    cls.minPosX     = 0
+    cls.maxPosX     = 0
+    cls.index       = i
+    cls.heroId      = 0
+    cls.posIndex    = i
+
+    local listener = CS.EventTriggerListener.Get(trans.gameObject)
+    -- 点击回调
+    listener.onClick = function() self:onClick(cls) end
+    -- 按下
+    listener.onDown = function(data) self:onDown(cls) end
+    -- 抬起
+    listener.onUp = function(data) self:onUp(cls) end
+    -- 开始拖拽回调
+    listener.onBeginDrag = function(data) self:onBeginDrag(cls, data) end
+    -- 持续拖拽回调
+    listener.onDrag = function(data) self:onDrag(cls, data) end
+    -- 结束拖拽回调
+    listener.onEndDrag = function(data) self:onEndDrag(cls, data) end
+   
+    return cls
+end
+
+function HeroSelectController:SetHeroItem(cls)
+    cls.item.obj:SetVisible(cls.heroId > 0)
+    if cls.heroId > 0 then
+        if self._isPlot and self._plotData[cls.index].plot then
+            Hero:SetHalfItemClassData(cls.item, cls.heroId, self._plotData[cls.index].hero, true, false, self._txtType)
+        else
+            Hero:SetHalfItemClassData(cls.item, cls.heroId, nil,true,false, self._txtType)
+        end
+    end
+    if cls.objTxtPlot ~= nil then
+        cls.objTxtPlot:SetVisible(self._isPlot and self._plotData[cls.index].plot)
+        cls.objLock:SetVisible(self._isPlot and self._plotData[cls.index].plot)
+    end
+
+    if cls.objKeZhi ~= nil then
+        --cls.objKeZhi:SetVisible(Hero:IsForbearByAttrType(cls.heroId,self._monsterType) and self._isLevel and not self._isPlot and not self._plotData[cls.index].plot)
+        cls.objKeZhi:SetVisible(Hero:IsForbearByAttrType(cls.heroId,self._monsterType) and self._isLevel and not self._plotData[cls.index].plot)
+    end
+
+    if cls.objUpCursor ~= nil then
+        if self._showUp then
+            cls.objUpCursor:SetVisible(Activity:HeroIsInActivityUp(cls.heroId))
+        else
+            cls.objUpCursor:SetVisible(false)
+        end
+    end
+end
+
+function HeroSelectController:exchangeHeroItem(obj1, obj2)
+    local basePosX  = obj1.basePosX
+    local basePosY  = obj1.basePosY
+    local basePosZ  = obj1.basePosZ
+    local minPosX   = obj1.minPosX
+    local maxPosX   = obj1.maxPosX
+    local posIndex     = obj1.posIndex
+
+    obj1.minPosX = obj2.minPosX
+    obj1.maxPosX = obj2.maxPosX
+    obj1.basePosX = obj2.basePosX
+    obj1.basePosY = obj2.basePosY
+    obj1.basePosZ = obj2.basePosZ
+    obj1.posIndex = obj2.posIndex
+
+    obj2.basePosX = basePosX
+    obj2.basePosY = basePosY
+    obj2.basePosZ = basePosZ
+    obj2.minPosX = minPosX
+    obj2.maxPosX = maxPosX
+    obj2.posIndex = posIndex
+
+    -- print("1=========================", self._heroItems[1].heroId, self._heroItems[2].heroId, self._heroItems[3].heroId)
+    -- print("2=========================", self._heroItems[1].index, self._heroItems[2].index, self._heroItems[3].index)
+end
+
+--设置剧情关卡数据
+function HeroSelectController:SetPlotData(plotData)
+    self._isPlot = true;
+    self._plotData = plotData;
+end
+
+--设置怪物的光系
+function HeroSelectController:SetMonsterType(monsterType,isLevel)
+    self._monsterType = monsterType
+    self._isLevel = isLevel
+end
+
+function HeroSelectController:SetNameType(txtType)
+    self._txtType = txtType
+end
+
+function HeroSelectController:OnEnabled()
+    self._enabled = true
+end
+
+return HeroSelectController;

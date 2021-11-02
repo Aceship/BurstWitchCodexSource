@@ -1,0 +1,109 @@
+--
+-- author: haosun
+-- date  : 2019-07-17 11:30:53
+-- brief : 
+--
+
+function parse_cost_cfg(cfgstr)
+    local consumes = lua_parse_cfg(cfgstr, true)
+    local coin = {0, 0}
+    local items = {}
+    for _, v in pairs(consumes) do
+        if v[1] ~= 0 then
+            if #v == 2 then
+                if v[1] == Player.ITEM_VALUE_COIN or v[1] == Player.ITEM_VALUE_MONEY then
+                    coin[1] = v[1]
+                    coin[2] = v[2]
+                else
+                    table.insert(items, {Bag.TYPE_ITEM, v[1], v[2]})
+                end
+            elseif #v == 3 then
+                if v[2] == Player.ITEM_VALUE_COIN or v[2] == Player.ITEM_VALUE_MONEY then
+                    coin[2] = v[2]
+                    coin[3] = v[3]
+                else
+                    table.insert(items, v)
+                end
+            end
+        end
+    end
+    return coin, items
+end
+
+function set_com_title(obj, nor)
+    set_obj_active(obj.transform:Find("image_bg"), not nor)    
+    if nor then
+        obj.transform:Find("text_title"):GetComponent("Text").color = COLOR_TYPE.White
+        obj.transform:Find("text_title_en"):GetComponent("Text").color = COLOR_TYPE.White
+    else
+        obj.transform:Find("text_title"):GetComponent("Text").color = COLOR_TYPE.Black
+        obj.transform:Find("text_title_en"):GetComponent("Text").color = COLOR_TYPE.Black
+    end
+end
+
+function set_com_cls_title(cls, nor)
+    set_com_enabled(cls.bgCom, not nor)
+    cls.clickCom.interactable = nor
+    if nor then
+        cls.titleCom.color = COLOR_TYPE.White
+        cls.titleEnCom.color = COLOR_TYPE.White
+    else
+        cls.titleCom.color = COLOR_TYPE.Black
+        cls.titleEnCom.color = COLOR_TYPE.Black
+    end
+end
+
+function set_com_remain(uitext, remain)
+    uitext:GetComponent("Text").text = remain
+    if remain > 0 then
+        uitext:GetComponent("Text").color = COLOR_TYPE.White
+    else
+        uitext:GetComponent("Text").color = COLOR_TYPE.PaleRed
+    end
+end
+
+function set_com_nameBg(uitext, uiimg)
+    local w = uitext:GetComponent("Text").preferredWidth
+    local dis = uitext:GetComponent("RectTransform").localPosition.x - uiimg:GetComponent("RectTransform").localPosition.x
+    u3d_set_size(uiimg, w + dis * 2)
+end
+
+function InitEventTriggerEx(obj, onBeginDrag, onDrag, onEndDrag)
+    local go = obj:GetComponent("EventTriggerEx")
+    if go == nil then
+        go = obj.gameObject:AddComponent(typeof(CS.EventTriggerEx))
+    end
+    go.onBeginDrag = onBeginDrag
+    go.onDrag = onDrag
+    go.onEndDrag = onEndDrag
+end
+
+function InitShowTypeCObj(obj, c)
+    local arr = {}
+    for i = 1, c, 1 do
+        local cls       = clsbase:new(obj.transform:Find("show_type_" .. i))
+        cls.bgCom       = cls:GetImageComponent("img_bg")
+        cls.titleCom    = cls:GetTextComponent("label_title")
+        cls.titleEnCom  = cls:GetTextComponent("label_title_en")
+        cls.redCom      = cls:GetImageComponent("img_tips")
+        arr[i] = cls
+    end
+    return arr
+end
+
+function SetShowTypeCObj(cls, sel, open)
+    set_com_enabled(cls.bgCom, sel)
+    if sel then
+        cls.titleCom.color = COLOR_TYPE.Black
+        cls.titleEnCom.color = COLOR_TYPE.Black
+    else
+        if open then
+            cls.titleCom.color = COLOR_TYPE.White
+            cls.titleEnCom.color = COLOR_TYPE.White
+        else
+            cls.titleCom.color = COLOR_TYPE.GrayBlue
+            cls.titleEnCom.color = COLOR_TYPE.GrayBlue
+        end
+    end
+
+end

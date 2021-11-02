@@ -1,0 +1,267 @@
+--
+-- author: haosun
+-- date  : 2019-01-24 15:39:23
+-- brief : 
+--
+uimgr = {}
+
+uimgr.LOGIN_SCENE_ID    = 0     -- 登录场景
+uimgr.FIGHT_SCENE_ID    = 1     -- 战斗场景
+uimgr.MAIN_SCENE_ID     = 2     -- 主场景
+
+function uimgr:ctor()
+    self._sceneid   = uimgr.LOGIN_SCENE_ID
+    self._homeLayer = nil
+    self._layers    = {}
+    self._listCallback = {}
+end
+
+function uimgr:pushLayer(layer)
+    if self._layers[layer.__cname] ~= nil then
+        Groble_UIMgr:CheckStackLayer(layer.__cname)
+    end
+    self._layers[layer.__cname] = layer
+end
+
+function uimgr:popLayer(canme)
+    self._layers[canme] = nil
+end
+
+function uimgr:popAllLayer()
+    Guide:ClearGuideLayer()
+    for _, layer in pairs(self._layers) do
+        layer:onExit()
+    end
+    self._homeLayer = nil
+    self._layers = {}
+    self._todoList = {}
+
+    for k, v in pairs(self._listCallback) do
+        self._listCallback[k] = nil
+    end    
+end
+
+function uimgr:showHomeLayer()
+    if self._homeLayer == nil then
+        self._homeLayer = core.require("xlua/lua_UI/HomeScene/HomeLayer.txt"):new()
+    end
+    xpcall(function()
+            self._homeLayer:show()
+        end, function()
+            HttpUpload:UploadTraceback(debug.traceback())
+        end)
+end
+
+function uimgr:hideHomeLayer()
+    if self._homeLayer == nil then
+        self._homeLayer = core.require("xlua/lua_UI/HomeScene/HomeLayer.txt"):new()
+    end
+    self._homeLayer:hideLayer()
+end
+
+
+function uimgr:showMainWitchLayer()
+    core.require("xlua/lua_UI/HomeScene/MainWitchLayer.txt"):new():show()
+end
+
+function uimgr:showPlotLayer()
+    core.require("xlua/lua_UI/HomeScene/PlotLayer.txt"):new():show()
+end
+
+function uimgr:showLotteryLayer()
+    core.require("xlua/lua_UI/UILottery/LotteryLayer.txt"):new():show()
+end
+
+function uimgr:showLastLayer()
+    local tmptype = GTemp:GetMainTypeLayer()
+    if tmptype == nil then
+        tmptype = MAIN_BUTTON_TYPE.TYPE_HOME
+    end
+    if tmptype == MAIN_BUTTON_TYPE.TYPE_HOME then
+        uimgr:showHomeLayer()
+    elseif tmptype == MAIN_BUTTON_TYPE.TYPE_WITCH then
+        uimgr:showMainWitchLayer()
+    elseif tmptype == MAIN_BUTTON_TYPE.TYPE_PLOT then
+        uimgr:showPlotLayer()
+    elseif tmptype == MAIN_BUTTON_TYPE.TYPE_LOTTERY then
+        uimgr:showLotteryLayer()
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_MAIN_HEADINFO, true)
+    GTemp:SetMainTypeLayer(tmptype)
+end
+
+function uimgr:reloadLua()
+    Player:Clear()
+    Hero:Clear()
+    Item:Clear()
+    Equip:Clear()
+    Chapter:ChapterClear()
+    Stats:StatsDestructor()
+    Task:Clear()
+    Lottery:Clear()
+    Mail:Clear()
+    Rank:ClearVar()
+    Shop:Clear()
+    CTime:Clear()
+    Activity:Clear()
+    Guide:GuideClear()
+    FightModule:Clear()
+    Friend:Clear()
+    Talk:Clear()
+    Buff:Clear()
+    Clock:Clear()
+    Fetter:Clear()
+    Operation:Clear()
+    Login:Clear()    
+    Archive:Clear()
+    Tower:Clear()
+    GTemp:GTempClear()
+    UnIndulge:UnIndulgeClear()
+    Comment:Clear();
+    Build:BuildClear();
+    Concert:Clear();
+    MidNight:Clear();
+end
+
+function uimgr:onLoginScene(fadecall)
+    if Groble_UIMgr:IsPause() then
+        Groble_UIMgr:GamePause(false)
+    end
+    Network:CacheMsgClear()
+    NetworkGame:Logout()
+    Login:SetSwitchUser(true)
+    local function OnFadeIn()
+        if fadecall ~= nil then
+            fadecall();
+        end
+        self._sceneid = uimgr.LOGIN_SCENE_ID
+        self:reloadLua();
+        Equip:ClearEquipNumber();
+        Groble_SceneMgr:SetMultiTouchEnabled(false);
+        Groble_SceneMgr:LoadScene(uimgr.LOGIN_SCENE_ID)
+    end
+    UI_Loading:SceneTransition(OnFadeIn)
+end
+
+function uimgr:onMainScene(fadecall)
+    if Groble_UIMgr:IsPause() then
+        Groble_UIMgr:GamePause(false)
+    end
+    Player:ClearUnlockSys()
+    UI_Loading:InitLoading(uimgr.MAIN_SCENE_ID)
+    local function OnFadeIn()
+        if fadecall ~= nil then
+            fadecall();
+        end
+        Player:IgnoreLevelUp(false)
+        Player:SetOldInfo()
+        self._sceneid = uimgr.MAIN_SCENE_ID
+        Groble_SceneMgr:LoadScene(uimgr.MAIN_SCENE_ID)
+    end
+    UI_Loading:SceneTransition(OnFadeIn)
+end
+
+function uimgr:onFightScene(fadecall)
+    if Groble_UIMgr:IsPause() then
+        Groble_UIMgr:GamePause(false)
+    end
+    local function OnFadeIn()
+        if fadecall ~= nil then
+            fadecall();
+        end
+        self._sceneid = uimgr.FIGHT_SCENE_ID
+        Player:IgnoreLevelUp(true)
+        Player:SetOldInfo()
+        Groble_SceneMgr:SetMultiTouchEnabled(true);
+        Groble_SceneMgr:LoadScene(uimgr.FIGHT_SCENE_ID)
+    end
+    UI_Loading:SceneTransition(OnFadeIn)
+end
+
+function uimgr:GetSceneId()
+    return self._sceneid
+end
+
+function uimgr:clearInstance()
+    SingletonMgr:ClearInstance()
+end
+
+function uimgr:OpenSystemNoticeLayer(data)
+    if(self.SystemNoticeLayer == nil)then
+        self.SystemNoticeLayer = core.require("xlua/lua_UI/HomeScene/talkLayer/SystemNoticeLayer.txt"):new()
+    end
+    self.SystemNoticeLayer:show(data);
+
+end
+
+function uimgr:CloseSystemNoticeLayer()
+    if(self.SystemNoticeLayer == nil)then
+        return;
+    end
+    self.SystemNoticeLayer:onBackClick();
+    self.SystemNoticeLayer = nil;
+end
+
+function uimgr:ShowInterimLayer(timer,callback)
+    if(self.interimLayer == nil)then
+        self.interimLayer = core.require("xlua/lua_UI/HomeScene/InterimLayer.txt"):new()
+        self.interimLayer:show();
+    end
+    self.interimLayer:ShowUI(timer,callback)
+end
+
+function uimgr:CloseInterimLayer()
+    if(self.interimLayer == nil)then
+        return;
+    end
+    self.interimLayer:onBackClick();
+    self.interimLayer = nil;
+end
+
+function uimgr:showMainWitchLayerWithHid(heroid)
+    Hero:SetMainWitchHero(heroid)
+    self:ShowInterimLayer(CTime.delayTime,function ()
+        self:showMainWitchLayer()
+    end)
+end
+
+function uimgr:InitTodoList()
+    self._todoList = {}
+end
+
+function uimgr:AddTodoList(func)
+    table.insert(self._todoList, func)
+end
+
+function uimgr:CheckTodoList()
+    local func = self._todoList[1]
+    if func ~= nil then
+        table.remove(self._todoList, 1)
+        func()
+    end
+end
+
+function uimgr:SetMainWitchEnterType(value)
+    self._valueMainWitchEnterType = value
+end
+
+function uimgr:GetMainWitchEnterType()
+    return self._valueMainWitchEnterType or 0
+end
+
+function uimgr:AddWitchesLayerCallback(callback)
+    table.insert(self._listCallback, callback)
+end
+
+function uimgr:GetWitchesLayerCallback()
+    return self._listCallback[1]
+end
+
+function uimgr:RemoveWitchesLayerCallback()
+    local len = #self._listCallback
+    if len > 0 then
+        table.remove(self._listCallback, len)
+    end
+end
+
+uimgr:ctor()

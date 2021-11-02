@@ -1,0 +1,57 @@
+--
+-- author: haosun
+-- date  : 2021-01-13 10:57:21
+-- brief : 
+--
+AppMgr = AppMgr or {}
+
+local _ins = nil
+function AppMgr:InitAppMgr()
+    _ins = CS.AppMgr.Instance
+
+    self._isEditor = _ins:IsEditor()
+end
+
+function AppMgr:IsEditor()
+    return self._isEditor
+end
+
+function AppMgr:LogInfo(msg)
+    if self._isEditor then
+        CS.Logger.LogInfo(msg)
+    end
+end
+
+function AppMgr:LogWarning(msg)
+    if self._isEditor then
+        CS.Logger.LogWarning(msg)
+    end
+end
+
+function AppMgr:LogError(msg)
+    if self._isEditor then
+        CS.Logger.LogError(msg)
+        CS.Logger.LogError(debug.traceback())
+    end
+end
+
+function AppMgr:SetQualityLevel(quality)
+    CS.DevicePerformanceUtil.SetQualitySettings(quality)
+end
+
+function AppMgr:GetQualityLevel()
+    return CS.DevicePerformanceUtil.GetQualityLevel()
+end
+
+-- 
+-- brief: 获得推荐的QualityLevel
+-- 
+function AppMgr:GetRecommendQualityLevel()
+    return CS.DevicePerformanceUtil.GetRecommendQualityLevel()
+end
+
+function AppMgr:UpdateLayerDispose()
+    _ins:UpdateLayerDispose()
+end
+
+AppMgr:InitAppMgr()

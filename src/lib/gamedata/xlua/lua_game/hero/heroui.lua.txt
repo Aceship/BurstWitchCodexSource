@@ -1,0 +1,1184 @@
+--
+-- author: haosun
+-- date  : 2018-11-09 17:28:14
+-- brief :
+--
+
+Hero = Hero or {}
+function Hero:SetHeroNameEX(txt, heroid, cfg)
+    cfg = cfg or Hero:GetCfg(heroid)
+    txt.text = cfg.Name
+end
+
+--战力
+function Hero:SetHeroFight(txt,hero,isPlot)
+    if txt == nil or hero == nil then
+        return
+    end
+    local power = 0
+    if isPlot then
+        local chero = Chapter:GetChapterHeroByID(hero.plotId)
+        power = self:GetPlotHeroPower(chero)
+    else
+        power = Hero:GetFightingCapacity(hero.id)
+    end
+    txt.text = "战力:"..math.ceil(power)
+end
+
+function Hero:SetHeroLv(txt,hero)
+    if txt == nil or hero == nil then
+        return
+    end
+    txt.text = "Lv:"..hero.level
+end
+--
+-- 角色半身像
+--
+function Hero:SetHeroHalfSprite(img, heroid)
+    if img == nil or heroid == nil then
+        return
+    end
+    local hero = Hero:GetHero(heroid);
+    local _filepath = "source_avatar/hero/card_" .. hero.skinid
+    if plot then
+        _filepath = self:GetHeroHalfSpriteFile(heroid)
+    end
+    img.sprite = AssetLoader:LoadSprite(_filepath)
+end
+
+--
+function Hero:GetHeroHalfSpriteFile(heroid)
+    local hero = Hero:GetHero(heroid);
+    return "source_avatar/hero/half_" .. hero.skinid
+end
+
+--
+-- 角色头像
+-- isMain 菱形头像
+function Hero:SetHeroHeadSprite(img, heroid, fight,notShowSkin, isMain)
+    if img == nil or heroid == nil then
+        return
+    end    
+    local _filepath
+    local hero = Hero:GetHero(heroid);
+    if fight then
+        if(notShowSkin)then
+            _filepath = "source_avatar/hero/head_" .. hero.id
+        else
+            _filepath = "source_avatar/hero/head_" .. hero.skinid
+        end
+    elseif isMain then
+        if(notShowSkin)then
+            _filepath = "source_avatar/hero_main/head_" .. hero.skinids[1]
+        else
+            _filepath = "source_avatar/hero_main/head_" .. hero.skinid
+        end
+    else
+        if(notShowSkin)then
+            _filepath = "source_avatar/hero/head_" .. hero.skinids[1]
+        else
+            _filepath = "source_avatar/hero/head_" .. hero.skinid
+        end
+    end
+    if(img.sprite == nil)then
+        img = img:GetComponent("Image");
+    end
+    img.sprite = AssetLoader:LoadSprite(_filepath)
+end
+
+function Hero:LoadAttrIconSp(img, attr_type)
+    if(img.sprite == nil)then
+        img = img:GetComponent("Image");
+    end
+    self:LoadAttrIconSpEX(img, attr_type)
+end
+
+function Hero:LoadAttrIconSpEX(img, attr_type)
+    img.sprite = AtlasMgr:LoadAtlasAttr(tonumber(attr_type))
+end
+
+function Hero:NewIntroInfo(trans)
+    local cls = {};
+    cls.transform = trans;
+    cls.introInfo = self:NewHeroBasic(trans);
+    cls.imgNameBgs = {};
+    for i = 1, 2 do
+        if(trans.transform:Find("image_nameBg" .. i) ~= nil)then
+            cls.imgNameBgs[i] = trans.transform:Find("image_nameBg" .. i):GetComponent("RectTransform");
+        end
+    end
+    return cls;
+end
+
+function Hero:SetIntroInfo(cls, hero, newstar)
+    if cls == nil then
+        return
+    end
+    self:SetHeroBasic(cls.introInfo, hero,false,newstar)
+    local cfg = Hero:GetCfg(hero.id)
+    local nlen = lua_str_utf8len(cfg.Name)
+    for i = 1, 2 do
+        if(cls.imgNameBgs[i] ~= nil)then
+            local localScale = cls.imgNameBgs[i].localScale
+            localScale.y = 0.6 + (nlen -2) * 0.2
+            cls.imgNameBgs[i].localScale = localScale
+        end
+    end
+end
+
+
+function Hero:NewHeroBasic(trans)
+    local cls           = clsbase:new(trans);
+    cls.txtName         = trans:GetTextComponent("text_name");
+    cls.txtTitle        = trans:GetTextComponent("text_title");
+    cls.txtStep         = trans:GetTextComponent("text_step");
+    cls.txtFight        = trans:GetTextComponent("fight/txt_fighting");
+    cls.imgQlty         = trans:GetImageComponent("image_qlty");
+    cls.imgAttr         = trans:GetImageComponent("image_attr/img_attr");
+    cls.imgAtkType      = trans:GetImageComponent("img_atk_type")
+    cls.imgJobType      = trans:GetImageComponent("jobinfo/img_icon")
+    cls.txtJobType      = trans:GetTextComponent("jobinfo/txt_name")
+    cls.btnJobType      = trans:GetButtonComponent("jobinfo/btn_click")
+    if cls.btnJobType ~= nil then
+        cls.btnJobType:AddButtonListener(
+            function()
+                UIMgr:ShowDescTipsLayer( cls.btnJobType.transform,  cls.hero.job_name, cls.hero.job_des)
+            end)
+    end
+
+    cls.transStars      = trans:Find("image_stars");
+    cls.imgStars        = {};
+    if(cls.transStars ~= nil)then
+        for i = 1, 6, 1 do
+            cls.imgStars[i] = trans:GetImageComponent("image_stars/image_star_" .. i)
+        end
+    end
+    return cls;
+end
+--
+-- Brief: 魔女基本信息(名字、标题、品质、阶数、属性、星级)
+--
+function Hero:SetHeroBasic(cls, hero, onlycfg,newstar)
+    local cfg = Hero:GetCfg(hero.id)
+    cls.hero = hero
+    -- name
+    cls.txtName.text = cfg.Name
+    -- title
+    if(cls.txtTitle ~= nil)then
+        cls.txtTitle.text = cfg.Name_after;
+    end
+    -- hero qlty
+    if onlycfg then
+        self:SetHeroQlty(cls.imgQlty.transform, tonumber(cfg.Quality))
+    else
+        self:SetHeroQlty(cls.imgQlty.transform, hero.qlty)
+    end
+    -- hero step 屏蔽
+    --[[
+    if(cls.txtStep ~= nil)then
+        set_obj_active(cls.txtStep.transform, hero.step > 0)
+        if hero.step > 0 then
+            cls.txtStep.text = uistr.com_stepstr[hero.step]
+        end
+    end
+    ]]
+    if(cls.txtStep ~= nil)then
+        set_obj_active(cls.txtStep.transform, hero.star_mark >= 0)
+        self:SetHeroMarkTxt(cls.txtStep , hero)
+    end
+
+    -- attr
+    if cls.imgAttr ~= nil then
+        Hero:LoadAttrIconSp(cls.imgAttr, hero.attri_type)
+    end
+    --设置枪型
+    if cls.imgAtkType ~= nil then
+        Hero:SetHeroAtkType(cls.imgAtkType,tonumber(hero.config.AtkType));
+    end
+    --魔力值
+    if cls.txtFight ~= nil then
+        cls.txtFight.text = math.ceil(Hero:GetFightingCapacity(hero.id))
+    end
+    -- star
+    if(onlycfg)then
+        hero.star = tonumber( cfg.Star);
+    end
+    if cls.transStars ~= nil then
+        if newstar then
+            for i = 1, 6, 1 do
+                local _filepath = "Img_MoNvTouXiAng_Xing_Da5"
+                if hero.star < i then
+                    _filepath = "Img_MoNvTouXiAng_Xing_Da6"
+                end
+                cls.imgStars[i].sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", _filepath)
+            end
+        else
+            for i = 1, 6, 1 do
+                local _filepath = "Img_MoNvTouXiAng_Xing_Da1"
+                if hero.star < i then
+                    _filepath = "Img_MoNvTouXiAng_Xing_Da2"
+                end
+                cls.imgStars[i].sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", _filepath)
+            end
+        end
+
+    end
+    self:SetHeroJob(cls.imgJobType, cls.txtJobType, hero)
+end
+
+function Hero:SetHeroJob(img,txt,hero,txtdes)
+    if img ~= nil then
+        img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch", "icon_zhiye_"..hero.job_type);
+    end
+    if txt ~= nil then
+        txt.text = hero.job_name
+    end
+    if txtdes ~= nil then
+        txtdes.text = hero.job_des
+    end
+end
+
+function Hero:SetUIByCommonAtlas(img,path)
+    if(img == nil)then
+        CS.Logger.LogError("img is nil");
+        return;
+    end
+    if(path == nil)then
+        CS.Logger.LogError("path is nil");
+        return;
+    end
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", path);
+end
+
+function Hero:SetAttrTypeUi(imgbg, attr_type, nqlty)
+    Hero:LoadAttrTypeBg(imgbg:GetComponent("Image"), nqlty)
+    local imgattr = imgbg.transform:Find("image_attr")
+    if imgattr ~= nil then
+        self:LoadAttrIconSp(imgattr, attr_type)
+    end
+end
+
+function Hero:SetBorderUi(trans, hero,isCfg)
+    if(isCfg)then
+        Bag:SetGoodsBorder(trans, tonumber(hero.Quality))
+    else
+        Bag:SetGoodsBorder(trans, hero.qlty)
+    end
+end
+
+function Hero:SetHeroBorder(cls,qulity)
+    cls.spine_border_sr =  cls.objBorder:Find("spine_border_sr")
+    cls.spine_border_ssr = cls.objBorder:Find("spine_border_ssr")
+    cls.spine_border_ur =  cls.objBorder:Find("spine_border_ur")
+
+    if qulity <= Bag.QLTY_R then
+        cls.img_border:LoadAtlasSprite("source_atlas/atlas_common_res","Common_Btn_WuPing_n_"..qulity)
+    end
+    if qulity ==  Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = cls.objBorder:CreateChild("prefab_item_spine/spine_item_border_sr")
+            spineborder.name = "spine_border_sr"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_border_sr = spineborder
+        end
+    elseif qulity ==  Bag.QLTY_SSR then
+        if cls.spine_border_ssr == nil then
+            local spineborder = cls.objBorder:CreateChild("prefab_item_spine/spine_item_border")
+            spineborder.name = "spine_border_ssr"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ssr = spineborder
+        end
+    elseif qulity == Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = cls.objBorder:CreateChild("prefab_item_spine/spine_item_border_ur")
+            spineborder.name = "spine_border_ur"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_ur = spineborder
+        end
+    end
+
+    if cls.spine_border_ssr ~= nil then
+        cls.spine_border_ssr:SetVisible(qulity == Bag.QLTY_SSR)
+    end
+    if cls.spine_border_ur ~= nil then
+        cls.spine_border_ur:SetVisible(qulity == Bag.QLTY_UTR)
+    end
+    if cls.spine_border_sr ~= nil then
+        cls.spine_border_sr:SetVisible(qulity == Bag.QLTY_SR)
+    end
+end
+
+
+function Hero:SetHeroWakeUpBorder(cls, heroQlty)
+    cls.spine_wakeup_sr = cls.wakeUpPrefab:Find("spine_wake_sr")
+    cls.spine_wakeup_ssr =  cls.wakeUpPrefab:Find("spine_wake_ssr")
+    cls.spine_wakeup_ur =  cls.wakeUpPrefab:Find("spine_wake_ur")
+    cls.imgWakeUp:SetEnabled(heroQlty <= Bag.QLTY_R)
+    if heroQlty ==  Bag.QLTY_SSR then
+        if cls.spine_wakeup_ssr == nil then
+            local spineborder = cls.wakeUpPrefab:CreateChild("prefab_item_spine/spine_item_wake_ssr")
+            spineborder.name = "spine_wake_ssr"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_wakeup_ssr = spineborder
+            cls.spine_wakeup_ssr:SetScale(WakeUpBorderScale_X, WakeUpBorderScale_Y, 1)
+
+        end
+    elseif heroQlty ==  Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = cls.wakeUpPrefab:CreateChild("prefab_item_spine/spine_item_wake_ur")
+            spineborder.name = "spine_wake_ur"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ur = spineborder
+            cls.spine_border_ur:SetScale(WakeUpBorderScale_X, WakeUpBorderScale_Y, 1)
+
+        end
+    elseif heroQlty == Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = cls.wakeUpPrefab:CreateChild("prefab_item_spine/spine_item_wake_sr")
+            spineborder.name = "spine_wake_sr"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_sr = spineborder
+            cls.spine_border_sr:SetScale(WakeUpBorderScale_X, WakeUpBorderScale_Y, 1)
+        end
+    end
+
+    if cls.spine_wakeup_ssr ~= nil then
+        cls.spine_wakeup_ssr:SetVisible(heroQlty == Bag.QLTY_SSR)
+    end
+    if cls.spine_wakeup_ur ~= nil then
+        cls.spine_wakeup_ur:SetVisible(heroQlty == Bag.QLTY_UTR)
+    end
+    if cls.spine_wakeup_sr ~= nil then
+        cls.spine_wakeup_sr:SetVisible(heroQlty == Bag.QLTY_SR)
+    end
+end
+
+function Hero:FixedSpineOrder(spine, heroid, uitype)
+    if heroid == nil or uitype == nil then
+        return
+    end
+    local info = Hero.SPINE_INFO[heroid][uitype]
+    if info ~= nil then
+        local spineTrans = spine:GetComponent("Transform");
+        if info.localPos ~= nil then
+            spineTrans.localPosition = info.localPos
+        end
+        local old = spineTrans.localScale
+        if info.localScale ~= nil then
+            spineTrans.localScale = info.localScale
+            local ps = spine:GetComponent("UIParticleScale")
+            if ps ~= nil then
+                ps:ResetScale(info.localScale.x/old.x)
+            end
+        end
+        -- if info.sysScale ~= nil then
+        --     -- set_particle_scale(spine, info.sysScale)
+        --     local ps = spine:GetComponent("UIParticleScale")
+        --     if ps ~= nil then
+        --         ps:ResetScale(info.sysScale)
+        --     end
+        -- end
+    end
+    local localOrder = Hero.SPINE_ORDER[uitype] or 0
+    spine:GetComponent("SkeletonAnimation"):GetComponent("MeshRenderer").sortingOrder = localOrder
+    for i = 1, spine.transform.childCount do
+        local child = spine.transform:GetChild(i - 1).gameObject
+        if string.find(child.name, "_under") ~= nil then
+            set_particle_order(child, localOrder - 1)
+        else
+            set_particle_order(child, localOrder + 1)
+        end
+    end
+end
+
+function Hero:LoadSpineAsync(cname, container, heroid, uitype, callback, notShowSkin)
+    if (not notShowSkin) and heroid < 9999 then
+        local hero = self:GetHero(heroid)
+        if hero ~= nil and hero.wear_skin then
+            heroid = hero.skinid
+        end
+    end
+    local spine = container:Get("spine_" .. heroid)
+    if spine == nil then
+        if callback ~= nil then
+            callback()
+        end
+        AssetAsyncLoader:LoadSpineAsync(cname, heroid, function(obj)
+            clear_obj_children(container)
+            local spine = container:AddChild(obj)
+            spine.name = "spine_" .. heroid
+            if uitype ~= nil then
+                self:FixedSpineOrder(spine, tonumber(heroid), uitype)
+            end
+            if callback ~= nil then
+                callback(spine)
+            end
+        end)
+    end
+end
+
+--异步加载Q版模型
+function Hero:LoadQHeroAsync(heroId,container,loadOverBack)
+    local resPath = "prefab_qcharacter/".."qcharacter_"..heroId;
+    AssetAsyncLoader:LoadResourceAsync(resPath, function(obj)
+        if(obj == nil)then
+            return;
+        end
+        local obj = Groble_ResMgr:Instantiate(obj, container);
+        if(obj ~= nil)then
+            loadOverBack(obj);
+        end
+    end)
+end
+--
+-- 玩家头像边框
+--
+function Hero:NewPlayerBorder(trans)
+    local cls               = {};
+    cls.transform           = trans;
+    cls.borderCom           = trans:Find("image_border"):GetComponent("Image");
+    cls.imgLock             = trans:Find("image_lock"):GetComponent("Image");
+    cls.txtTips             = trans:Find("text_tips"):GetComponent("Text");
+    cls.imgSelect           = trans:Find("image_select");
+    return cls;
+end
+
+function Hero:SetPlayerBorder(cls, borderid, preview)
+    if cls == nil then
+        return
+    end
+    borderid = borderid or 0
+    local unlock = borderid <= Player.DEFAULT_ICON_INDEX or (borderid > Player.DEFAULT_ICON_INDEX and Item:GetCount(borderid) > 0) or (preview == true)
+    if unlock == false then
+        cls.borderCom.material = AssetLoader:LoadGrayMaterial()
+    end
+    if tonumber(borderid) > Player.DEFAULT_ICON_INDEX then
+        Item:SetItemIcon(cls.borderCom.transform, borderid)
+    end
+    cls.lock = not unlock;
+    if(cls.imgLock ~= nil)then
+        set_obj_active(cls.imgLock.transform, not unlock)
+    end
+    if(cls.txtTips ~= nil)then
+        set_obj_active(cls.txtTips.transform, borderid == -1)
+    end
+end
+
+function Hero:LookHeroInfo(hero, callback)
+    if hero == nil or hero == 0 or next(hero) == nil then
+        return
+    end
+    local WitchLookInfoLayer = core.require("xlua/lua_UI/PlayerInfo/WitchLookInfoLayer.txt")
+    WitchLookInfoLayer:new():show(hero, callback)
+end
+
+function Hero:AddPrefabHalf(container, posx, posy, scale, name)
+    local prefab
+    if name ~= nil then
+        prefab = container:Get(name)
+    end
+    if prefab == nil then
+        prefab = container:CreateChild("prefab_comframeWork/prefab_halfhero")
+        if name ~= nil then
+            prefab.name = name
+        end
+        prefab:SetScale(scale, scale, scale)
+        prefab:SetPosition(posx, posy, 0, true)
+    end
+    return prefab
+end
+
+function Hero:NewSkillLvUpCostUi(obj, count)
+    local cls = {};
+    for i = 1, count, 1 do
+        cls[i] = {};
+        cls[i].itemObj = obj.transform:Find("cost/item_cost_" .. i)
+        cls[i].imgIcon = cls[i].itemObj.transform:Find("image_icon"):GetComponent("Image");
+        cls[i].txtNum = cls[i].itemObj.transform:Find("text_number"):GetComponent("Text");
+        cls[i].btn = cls[i].itemObj:GetComponent("Button");
+        local UIButtonSFX = cls[i].itemObj:GetComponent("UIButtonSFX")
+        if UIButtonSFX ~= nil then
+            cls[i].btn.onClick:AddListener(function()
+                if cls[i].items[i] ~= nil then
+                    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,cls[i].items[i][2], cls[i].items[i][1])
+                end
+            end)
+        else
+            cls[i].btn.onClick:AddListener(function()
+                if cls[i].items[i] ~= nil then
+                    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,cls[i].items[i][2], cls[i].items[i][1])
+                end
+            end)
+        end
+    end
+    return cls;
+end
+
+function Hero:SetSkillLvUpCostUi(cls, count, items)
+    local cfgid, lack = 0, false
+    for i = 1, count, 1 do
+        cls[i].items = items;
+        cls[i].itemObj:SetVisible(items[i] ~= nil)
+        if items[i] ~= nil then
+            local has = Item:GetCount(items[i][2])
+            lack = has < items[i][3]
+
+            Item:SetItemIcon(cls[i].imgIcon, items[i][2])
+            if lack then
+                cfgid = items[i][2]
+                cls[i].txtNum.text = "<color=#FF6751FF>"..items[i][3].."</color>"
+            else
+                cls[i].txtNum.text = items[i][3]
+            end
+
+        end
+    end
+    return cfgid
+end
+
+function Hero:OpenWitchesLayer(param, callback)
+    local params =  {
+        intype      = param.intype,
+        ids         = {},
+        useids      = {},
+        deadids     = {},
+        fightids    = param.fightids,
+        plotids     = {},
+        showUp      = param.showUp
+    }
+    for _, heroid in ipairs(param.useids or {}) do
+        params.useids[heroid] = true
+    end
+    for _, heroid in pairs(param.plotids or {}) do
+        params.plotids[heroid] = true
+    end
+
+    local allids = Hero:GetHasHeroIds()
+    for _, heroid in ipairs(allids) do
+        if not params.useids[heroid] then
+            table.insert(params.ids, heroid)
+        end
+    end
+
+    for i, heroid in ipairs(param.useids or {}) do
+        table.insert(params.ids, i, heroid)
+    end
+
+    for _, rid in ipairs(param.removeids or {}) do
+        for i, hid in ipairs(params.ids) do
+            if hid == rid then
+                table.remove(params.ids, i)
+                break
+            end
+        end
+    end
+
+    if params.intype == WITCHES_IN_TYPE.FIGHT_TOWER then
+        for _, rid in ipairs(param.deadids) do
+            for i, hid in ipairs(params.ids) do
+                if hid == rid then
+                    table.remove(params.ids, i)
+                    break
+                end
+            end
+        end
+        for _, heroid in ipairs(param.deadids) do
+            table.insert(params.ids, heroid)
+            params.deadids[heroid] = true
+        end
+    end
+    uimgr:AddWitchesLayerCallback(callback)
+    core.require("xlua/lua_UI/HomeScene/WitchesLayer.txt"):new():show(params)
+end
+
+function Hero:CtorHeroCObj(obj, scale)
+
+    local cls       = clsbase:new(obj)
+    cls.clsbag      = Bag:CtorComSimpleGoodsUi(cls:Find("basic"), function() end)
+    cls.lvBgCom     = obj:GetImageComponent("basic/img_lvBg")
+    cls.attrBgCom   = obj:GetImageComponent("basic/img_attrBg")
+    cls.attrCom     = obj:GetImageComponent("basic/img_attrBg/img_attr")
+    cls.levelCom    = cls:GetTextComponent("basic/txt_level")
+    cls.lockCom     = obj:GetImageComponent("img_lock")
+    cls.redCom      = obj:GetImageComponent("img_red")
+    cls.effect      = obj:Get("ssr_effect")
+    cls.checkbg     = obj:Get("basic/img_check")
+    cls.heroid      = 0
+    cls.scale       = scale
+    return cls
+end
+
+function Hero:SetHeroCObj(cls, hero, params, iscfg)
+    Bag:SetComSimpleGoodsUi(cls.clsbag, Bag.TYPE_HERO, hero.id, nil, iscfg)
+    if cls.clsbag.darkCom then
+        cls.clsbag.darkCom:SetVisible(not hero.owner)
+    end
+    --todo
+    hero.isSsr  = false
+    hero.isUr   = false
+    if(cls.clsbag.spineBorder ~= nil)then
+        if hero.isSsr then
+            u3d_set_scale(cls.clsbag.spineBorder, 0.8, 0.8)
+        end
+    end
+    if(cls.clsbag.spineBorderUR ~= nil)then
+        if hero.isUr then
+            u3d_set_scale(cls.clsbag.spineBorderUR, 0.8, 0.8)
+        end
+    end
+    if cls.attrBgCom ~= nil then
+        self:LoadAttrTypeBg(cls.attrBgCom, hero.qlty)
+    end
+    if cls.attrCom ~= nil then
+        self:LoadAttrIconSpEX(cls.attrCom, hero.attri_type)
+    end
+
+    if cls.clsbag.starCom ~= nil and hero.owner then
+        Bag:SetStarSprite(cls.clsbag.starChilds, hero.star)
+    end
+
+    if cls.levelCom ~= nil and hero.owner then
+        cls.levelCom.text = "Lv." .. hero.level
+    end
+
+    if cls.redCom ~= nil then
+        set_com_enabled(cls.redCom, false)
+    end
+    if cls.lockCom ~= nil then
+        set_com_enabled(cls.lockCom, hero.owner)
+    end
+    -- set_obj_active(cls.effect, hero.isSsr)
+end
+
+--新建半身展示Item
+function Hero:HalfItemClassNew(trans, callBack, pressCall, pressDelay)
+    local cls           = clsbase:new(trans)
+    cls.imgBust         = cls:GetComponent("img_bust", "Image");
+    cls.txtLv           = cls:GetComponent("txt_lv_title/txt_lv", "Text");
+    cls.imgAttr         = cls:GetComponent("img_attr_bg/img_attr", "Image");
+    cls.txtName         = cls:GetComponent("txt_name", "Text");
+    cls.imgObj          = cls:Find("img_border")
+    cls.imgAtkType      = cls:GetComponent("img_attack_type_bg/img_attack_type","Image");
+    cls.imgBorder       = cls:GetComponent("img_border", "Image");
+    cls.maskCom         = cls:GetComponent("img_mask", "Image")
+    cls.maskTxtCom      = cls:GetComponent("txt_mask", "Text")
+    cls.maskTxtEnCom    = cls:GetComponent("txt_mask_en", "Text")
+    cls.clickCom        = cls.obj:GetComponent("Button")
+    if cls:Find("trans_star_bg") ~= nil then
+        cls.imgStar         = {};
+        for i = 1, 6 do
+            cls.imgStar[i] = cls:Find("trans_star_bg/img_star_"..i).gameObject;
+        end
+    end
+
+    if cls.clickCom ~= nil then
+        cls.clickCom.onClick:AddListener(
+                function()
+                    if callBack ~= nil then
+                        callBack(cls.heroid)
+                    end
+                end)
+        if pressCall ~= nil then
+            cls.clickCom.onPress:AddListener(
+                    function()
+                        if pressCall ~= nil then
+                            pressCall(cls.heroid)
+                        end
+                    end)
+            cls.clickCom:SetDelay(pressDelay)
+            --长按直接跳转
+            cls.clickCom:SetLongPress(true)
+        end
+    end
+    cls.heroid          = 0
+
+    if(cls.maskCom ~= nil)then
+        set_com_enabled(cls.maskCom, false)
+    end
+    if(cls.maskTxtCom ~= nil)then
+        set_com_enabled(cls.maskTxtCom, false)
+        set_com_enabled(cls.maskTxtEnCom, false)
+    end
+    return cls
+end
+
+
+--TODO 刷新半身Item数据
+function Hero:SetHalfItemClassData(cls, heroid, hero, showname, showstep,nameType)
+    if heroid == nil then return end
+    local tmpPlot = false
+    if hero ~= nil then
+        tmpPlot = true
+    end
+    hero = hero or self:GetHero(heroid)
+
+    -- level
+    if(cls.txtLv ~= nil)then
+        cls.txtLv.text = hero.level;
+    end
+    -- half icon
+    cls.imgBust:LoadSprite("source_avatar/hero/card_" .. hero.skinid);
+    -- border
+    cls.spine_border = cls:Find("img_border/spine_border")
+    cls.spine_border_ur =  cls:Find("img_border/spine_border_ur")
+    cls.spine_border_sr =  cls:Find("img_border/spine_border_sr")
+    cls.imgBorder:LoadAtlasSprite(AtlasMgr.WITCHES_LAYER, "comm_kapai_" .. hero.qlty);
+    if hero.qlty ==  Bag.QLTY_SSR then
+        if cls.spine_border == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/half_ssr", cls.imgObj)
+            spineborder.name = "spine_border"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_border = spineborder
+        end
+    elseif hero.qlty ==  Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/half_ur", cls.imgObj)
+            spineborder.name = "spine_border_ur"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ur = spineborder
+        end
+    elseif hero.qlty == Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/half_sr", cls.imgObj)
+            spineborder.name = "spine_border_sr"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_sr = spineborder
+        end
+    end
+    --set_com_enabled(cls.imgBorder, hero.qlty <  Bag.QLTY_SSR)
+    if cls.spine_border ~= nil then
+        set_obj_active(cls.spine_border, hero.qlty == Bag.QLTY_SSR)
+    end
+    if cls.spine_border_ur ~= nil then
+        set_obj_active(cls.spine_border_ur, hero.qlty == Bag.QLTY_UTR)
+    end
+    if cls.spine_border_sr ~= nil then
+        set_obj_active(cls.spine_border_sr, hero.qlty == Bag.QLTY_SR)
+    end
+    -- name
+    if showname then
+        self:SetHeroNameEX(cls.txtName, hero.id)
+    end
+    if nameType == HeroTxtType.Name then
+        self:SetHeroNameEX(cls.txtName, hero.id)
+    elseif nameType == HeroTxtType.Fight then
+        self:SetHeroFight(cls.txtName,hero,tmpPlot)
+    elseif nameType == HeroTxtType.Lv then
+        self:SetHeroLv(cls.txtName,hero)
+    end
+    --mark or attrtype
+    self:LoadAttrIconSpEX(cls.imgAttr, hero.attri_type)
+    -- star
+    Bag:SetStarSprite(cls.imgStar, hero.star)
+
+    if(cls.imgAtkType ~= nil)then
+        Hero:SetHeroAtkType(cls.imgAtkType,tonumber(hero.config.AtkType));
+    end
+    cls.heroid = hero.id
+end
+
+function Hero:SetHeroAtkType(img,atkType)
+    if(img.sprite == nil)then
+        img = img:GetComponent("Image");
+    end
+    Hero:SetUIByCommonAtlas(img,"comm_atk_"..atkType);
+end
+
+function Hero:LoadAttrTypeBg(imgbg, nqlty)
+    imgbg.sprite = AtlasMgr:LoadHeroAttrBgIcon(nqlty)
+end
+
+function Hero:SetHeroAttr(clsArr, hero, convert)
+    for i, cls in ipairs(clsArr) do
+        local attrtype = Hero.Attr6[i]
+        cls:Visible(attrtype ~= nil)
+        if attrtype ~= nil then
+            CAttr:SetAttrCObj(cls, attrtype, hero.attrs[attrtype], true)
+        end
+    end
+end
+
+function Hero:SetQlty(img,heroid)
+    local cfg = Hero:GetCfg(heroid)
+    -- hero qlty
+    self:SetHeroQlty(img.transform, tonumber(cfg.Quality))
+end
+
+function Hero:SetHeroQlty(transform, qlty, usespine)
+    local qltyssr = transform:Get("spine_ssr")
+    local qltyur  = transform:Get("spine_ur")
+    local qltysr  = transform:Get("spine_sr")
+    usespine = true
+    if usespine then
+        local component = transform:GetComponent("Image")
+        if qlty == Bag.QLTY_SSR then
+            if qltyssr == nil then
+                qltyssr = transform:CreateChild("prefab_item_spine/spine_qlty_ssr")
+                qltyssr.name = "spine_ssr"
+            end
+            qltyssr:SetVisible(true)
+            component:SetImageColor(1,1,1,0)
+            if qltyur ~= nil then qltyur:SetVisible(false) end
+            if qltysr ~= nil then qltysr:SetVisible(false) end
+        elseif qlty == Bag.QLTY_UTR then
+            if qltyur == nil then
+                qltyur = transform:CreateChild("prefab_item_spine/spine_qlty_ur")
+                qltyur.name = "spine_ur"
+            end
+            qltyur:SetVisible(true)
+            component:SetImageColor(1,1,1,0)
+            if qltyssr ~= nil then qltyssr:SetVisible(false) end
+            if qltysr ~= nil then qltysr:SetVisible(false) end
+        elseif qlty == Bag.QLTY_SR then
+            if qltysr == nil then
+                qltysr = transform:CreateChild("prefab_item_spine/spine_qlty_sr")
+                qltysr.name = "spine_sr"
+            end
+            qltysr:SetVisible(true)
+            component:SetImageColor(1,1,1,0)
+            if qltyssr ~= nil then qltyssr:SetVisible(false) end
+
+            if qltyur ~= nil then qltyur:SetVisible(false) end
+        else
+            component:SetImageColor(1,1,1,1)
+            if qltysr ~= nil then qltysr:SetVisible(false) end
+            if qltyssr ~= nil then qltyssr:SetVisible(false) end
+            if qltyur ~= nil then qltyur:SetVisible(false) end
+        end
+        component.sprite = AtlasMgr:LoadHeroQlty(qlty)
+        component:ResetSize()
+    else
+        local component = transform:GetComponent("Image")
+        component.sprite = AtlasMgr:LoadHeroQlty(qlty)
+        component:SetImageColor(1,1,1,1)
+        component:ResetSize()
+        if qltysr ~= nil then qltysr:SetVisible(false) end
+        if qltyssr ~= nil then qltyssr:SetVisible(false) end
+        if qltyur ~= nil then qltyur:SetVisible(false) end
+    end
+
+end
+
+function Hero:SetHeroMarkTxt(textcom , hero)
+    if hero.star == Hero.MAX_STAR_NUM or hero.star_mark == Hero.MIN_MARK_NUM  then
+        textcom.text = ""
+    else
+        textcom.text = uistr.com_stepstr[hero.star_mark]
+    end
+end
+
+function Hero:CtorHeroMusicTags(obj)
+    local cls = clsbase:new(obj)
+    cls.icon = cls:GetImageComponent("img_icon")
+    cls.bg = cls:GetImageComponent("img_bg")
+    cls.name  = cls:GetTextComponent("txt_title")
+    cls.unfit  = cls:Find("img_unfit")
+    cls.txt_none  = cls:Find("txt_none")
+    cls.lvObj = cls:Find("lv_obj")
+    cls.lvNum = cls:GetTextComponent("lv_obj/txt_num")
+    return cls
+end
+
+function Hero:SetHeroMusciTags(cls)
+    if cls.data ~= nil then
+        cls.obj:SetVisible(true)
+        if cls.txt_none ~= nil then
+            cls.txt_none:SetVisible(false)
+        end
+
+        if cls.unfit ~= nil then
+            cls.unfit:SetVisible( not cls.data.isFit)
+        end
+        if cls.data.tagType == Hero.TAG_MUSICAL then
+            local _filepath = "source_icon/music_hall/music_" .. cls.data.value;
+            cls.icon.sprite = AssetLoader:LoadSprite(_filepath);
+            if cls.name ~= nil then
+                cls.name.text =  Music:GetNameByType(cls.data.value)
+            end
+        elseif cls.data.tagType == Hero.TAG_APPREANCE then
+            local apprCfg = Concert:GetAddTagByCfgId(cls.data.value)
+            cls.icon.sprite = AssetLoader:LoadSprite(apprCfg.tagPath);
+            if cls.name ~= nil then
+                if cls.data.value == Hero.APPR_WHITE then
+                    cls.name.text =   LanguageMgr:GetTextByID( 301003)
+                elseif cls.data.value == Hero.APPR_RED then
+                    cls.name.text =   LanguageMgr:GetTextByID( 301004)
+                elseif cls.data.value == Hero.APPR_WING then
+                    cls.name.text =   LanguageMgr:GetTextByID( 301005)
+                --elseif cls.data.value == Hero.APPR_GOLD then
+                    --cls.name.text =   LanguageMgr:GetTextByID( 301006)
+                end
+
+            end
+        elseif cls.data.tagType == Hero.TAG_ATTR then
+            Hero:LoadAttrIconSp(cls.icon, cls.data.value)
+            if cls.name ~= nil then
+                if cls.data.value == Hero.ATTR_TYPE_LIGHT then
+                    cls.name.text =   LanguageMgr:GetTextByID(76000043)
+                elseif cls.data.value == Hero.ATTR_TYPE_DARK then
+                    cls.name.text =   LanguageMgr:GetTextByID(76000044)
+                elseif cls.data.value == Hero.ATTR_TYPE_CHAOS then
+                    cls.name.text =   LanguageMgr:GetTextByID(76000045)
+                end
+
+            end
+        elseif cls.data.tagType == Hero.TAG_RACE then
+            local apprCfg = Concert:GetAddTagByCfgId(cls.data.value)
+            cls.icon.sprite = AssetLoader:LoadSprite(apprCfg.tagPath);
+            if cls.name ~= nil then
+                if cls.data.value == Hero.RACE_WITCH then
+                    cls.name.text =   LanguageMgr:GetTextByID(301006)
+                elseif cls.data.value == Hero.RACE_ORACLE then
+                    cls.name.text =   LanguageMgr:GetTextByID(301007)
+                elseif cls.data.value == Hero.RACE_HUMAN then
+                    cls.name.text =   LanguageMgr:GetTextByID(301008)
+                elseif cls.data.value == Hero.RACE_VAMPIRE then
+                    cls.name.text =   LanguageMgr:GetTextByID(301009)
+                end
+            end
+        elseif cls.data.tagType == Hero.TAG_LEVEL then
+            local _filepath = "source_icon/music_hall/lv_" .. 1;
+            cls.icon.sprite = AssetLoader:LoadSprite(_filepath);
+
+        elseif cls.data.tagType == Hero.TAG_STAR then
+
+        end
+
+    else
+        if cls.txt_none ~= nil then
+            cls.txt_none:SetVisible(true)
+        else
+            cls.obj:SetVisible(false)
+        end
+
+    end
+
+end
+
+function Hero:CtorHeroTalent(obj, num, callback)
+    local tbl = {}
+    for i = 1, num do
+        local cls = clsbase:new(obj.transform:Find("item_"..i))
+        cls.icon = cls:GetImageComponent("img_icon")
+        cls.bg   = cls:GetImageComponent("img_bg")
+        cls.lock = cls:Find("img_lock")
+        cls.desc = cls:GetTextComponent("txt_desc")
+        cls.name = cls:GetTextComponent("txt_name")
+        cls.click = cls.obj:GetComponent("Button")
+        cls.starCom = cls:Find("img_star")
+        cls.starChilds     = {}
+        if cls.starCom ~= nil then
+            for i = 1, 6 do
+                cls.starChilds[i] = cls:GetImageComponent("img_star/img_star"..i)
+            end
+        end
+        cls.index = i
+        if callback ~= nil then
+            cls.click.onClick:AddListener(
+                    function()
+                        callback(cls)
+                    end)
+        end
+        tbl[i] = cls
+    end
+    return tbl
+end
+
+function Hero:SetHeroTalentUI(cls, data)
+    if data == nil then
+        cls.obj:SetVisible(false)
+    else
+        cls.obj:SetVisible(true)
+        cls.icon.sprite  = AssetLoader:LoadSprite("source_icon/talent/"..data.cfg.Talent_ICON)
+        if data.unlock then
+            cls.bg.sprite  = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_2")
+            cls.icon.gameObject:SetVisible(true)
+            if cls.desc ~= nil then
+                cls.desc.text = ""
+            end
+            if cls.lock~= nil then
+                cls.lock:SetVisible(false)
+            end
+            if lua_table_len(cls.starChilds) > 0 then
+                for i= 1,6 do
+                    cls.starChilds[i].sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da1")
+                end
+            end
+
+        else
+            cls.bg.sprite  = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_1")
+            cls.icon.gameObject:SetVisible(false)
+            if cls.desc ~= nil then
+                cls.desc.text = string.format(LanguageMgr:GetTextByID(70101), data.star)
+            end
+            if cls.lock~= nil then
+                cls.lock:SetVisible(true)
+            end
+            if lua_table_len(cls.starChilds) > 0 then
+                for i= 1,6 do
+                    cls.starChilds[i].sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da2")
+                end
+            end
+        end
+        Bag:SetStarSprite(cls.starChilds, data.star)
+        cls.data = data
+    end
+end
+
+-- 看板娘点击反馈效果
+function Hero:CtorHeroTalk(obj, heroID, skeletonAni, aniName, callback)
+    local cls         = clearbase:new()
+    cls._txtObj       = obj:Get("image_text")
+    cls._witchTxt     = obj:GetTextComponent("image_text/text")
+    cls._heroid       = tonumber(heroID)
+    cls._skeletonAni  = skeletonAni
+    cls._aniName      = aniName
+    cls._txtObj:SetVisible(false)
+
+    cls._playingSound = 0 -- 0 未播放, 1 播放中, 2 播放完毕
+    cls._hiting       = false -- 点击间隔1秒
+    cls._showTime     = nil -- 文字显示4秒
+    cls._sequence     = nil
+    cls._sounddt      = nil
+    cls._changed      = false
+
+    cls._hitdt        = nil
+
+    cls._btn          = obj:GetButtonComponent("")
+    if cls._btn then
+        cls._btn:AddButtonListener(function()
+            local hero = Hero:GetHero(cls._heroid)
+            if not hero or not hero.owner then
+                cls._txtObj:SetVisible(false)
+                return
+            end
+            cls.witchTalk()
+        end)
+    end
+
+    cls.setHeroID = function (heroid)
+        cls._heroid = heroid
+    end
+
+    cls.witchTalk = function ()
+
+        if cls._playingSound ~= 0 and cls._hiting then
+            return
+        end
+
+        cls.stopTalk()
+
+        local num = math.random(1,2)
+        local dtype = Hero.Talk_Type.favour
+        if num == 1 then
+          dtype = Hero.Talk_Type.talk
+        end
+        local dialogue = Hero:GetHeroDialogueRan(cls._heroid , dtype)
+
+        if dialogue == nil or dialogue == "-1" then
+            return
+        end
+
+        if callback then
+            callback()
+        end
+
+        local pos = CS.Mouseposition.Instance:GetMouseUIPos()-- self:GetMouspos()
+
+        if cls._skeletonAni == nil or cls._skeletonAni.state == nil then
+            return
+        end
+
+        cls._changed = cls._aniName ~= dialogue.expression
+        cls._skeletonAni.state:SetAnimation(0, dialogue.expression, true)
+
+        --播放语音
+        cls._inst = SoundMgr:PlayByDiaID(dialogue.id, function ()
+            cls._playingSound = 2
+        end)
+
+        cls._witchTxt:SetText(dialogue.dialogue)
+        Hero:SetBoxHeight(cls._txtObj, dialogue.dialogue)
+        cls._txtObj:SetVisible(true)
+
+        cls._showTime = 4
+        cls._hiting = true
+        cls._sounddt = 0
+        cls._playingSound = 1
+
+        if cls._sequence then
+            cls._sequence:Kill(false)
+        end
+        cls._sequence = CS.DG.Tweening.DOTween.Sequence()
+        cls._sequence:AppendInterval(1)
+        cls._sequence:AppendCallback(function()
+            cls._hiting = false
+        end)
+    end
+
+    cls.stopTalk = function ()
+
+        if cls._inst ~= nil then
+            Groble_SoundMgr:StopOnceEffect(cls._inst)
+        end
+    end
+
+    cls.hideTalkBox = function ()
+
+        cls._hiting       = false
+        cls._showTime = nil
+        cls._playingSound = 0
+        cls._txtObj:SetVisible(false)
+        if cls._sequence then
+            cls._sequence:Kill(false)
+        end
+
+        if cls._changed then
+            cls._skeletonAni.state:SetAnimation(0, cls._aniName, true , true)
+            cls._changed = false
+        end
+    end
+
+    cls.reset = function (heroid, skeletonAni, aniName)
+
+        cls._showTime = nil
+        cls._playingSound = 0
+        cls._hiting = false
+        cls._txtObj:SetVisible(false)
+
+        if heroid then
+            cls._heroid = heroid
+        end
+        if skeletonAni then
+            cls._skeletonAni = skeletonAni
+        end
+        if aniName then
+            cls._aniName = aniName
+        end
+    end
+
+    cls.update = function (dt)
+        if cls._showTime then
+            cls._showTime = cls._showTime - dt
+            if cls._showTime < 0 then
+                cls._showTime = nil
+                cls._txtObj:SetVisible(false)
+            end
+        end
+
+        if cls._playingSound == 2 then
+            cls._playingSound = 0
+        end
+    end
+
+    return cls
+end
+
+function Hero:OpenWitchSkinLayer(skinId)
+    core.require("xlua/lua_UI/Witch/WitchSkinLayer.txt"):new(skinId):show();
+end
+
+function Hero:OpenWitchHeroSkillLayer(heroID)
+    core.require("xlua/lua_UI/Witch/WitchHeroSkillLayer.txt"):new():show(heroID)
+end
+

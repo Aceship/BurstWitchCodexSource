@@ -1,0 +1,54 @@
+--
+-- author: haosun
+-- date  : 2019-09-27 12:19:01
+-- brief : 
+--
+
+CanvasMgr = CanvasMgr or {}
+
+function CanvasMgr:SetCanvas(canvas)
+    if canvas == nil then
+        self._canvas = CS.UnityEngine.GameObject.Find("Canvas")
+        self._comcanvas = CS.UnityEngine.GameObject.Find("Canvas/_component")
+    else
+        self._canvas = canvas.transform:Find("_layer")
+        self._comcanvas = self._canvas.transform:Find("_component")
+    end
+    CS.LuaLogicStaticCall.OnLoadSceneComplete(self._canvas.gameObject)
+    NetLinkingLayer:NetLinkingLayerCreator()
+    self._init = true
+end
+
+function CanvasMgr:ClearCanvas()
+    self._comcanvas = nil
+    self._canvas = nil
+    self._init = false
+    uimgr:CloseSystemNoticeLayer()
+    uimgr:CloseInterimLayer()
+    if WorldBoss ~= nil then
+        WorldBoss:CloseScene();
+    end
+    UI_TipsLayer:ClearTipsLayer()
+    Groble_UIMgr:CloseBackLayer();
+    NetLinkingLayer:NetLinkingLayerDestructor()
+end
+
+function CanvasMgr:GetCanvas()
+    return self._canvas
+end
+
+function CanvasMgr:GetComCanvas()
+    return self._comcanvas
+end
+
+function CanvasMgr:CreateCanvasChild(resPath)
+    return self._canvas:CreateChild(resPath)
+end
+
+function CanvasMgr:CreateComCanvasChild(resPath)
+    return self._comcanvas:CreateChild(resPath)
+end
+
+function CanvasMgr:IsInited()
+    return self._init
+end

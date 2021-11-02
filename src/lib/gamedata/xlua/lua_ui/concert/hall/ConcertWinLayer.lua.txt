@@ -1,0 +1,231 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-23 21:25:32
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertWinLayer = class("ConcertWinLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    Cancel              = "image_mask",
+    --@ButtonEnd
+}
+--构造函数
+function ConcertWinLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertWinLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+
+    self._dropItems = {}
+    self._items = {}
+    self._index = 1
+    self._showing = false
+
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertWinLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertWinLayer:onButtonClick(itype)
+    if (itype == BTNS.Cancel) then
+        self:onCancel();
+    end
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ConcertWinLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertWinLayer:InitUI()
+    --------------自动生成---------------------------------
+    local NODE_CLASS = {
+    };
+    self._cellItemHide = self.layer:GetRectTransformComponent("cell_item_hide").gameObject;
+    self._texBg = self.layer:GetRawImageComponent("tex_bg");
+    self._aniCdIconParent = self.layer:GetAnimationComponent("book_container/top/cd/ani_cdIconParent");
+    self._texCdIcon = self.layer:GetRawImageComponent("book_container/top/cd/ani_cdIconParent/tex_cdIcon");
+    self._objGunzi = self.layer:GetRectTransformComponent("book_container/top/cd/obj_gunzi").gameObject;
+    self._objCircle1 = self.layer:GetRectTransformComponent("book_container/top/cd/obj_circle1").gameObject;
+    self._objCircle2 = self.layer:GetRectTransformComponent("book_container/top/cd/obj_circle2").gameObject;
+    self._imgDefficultyNum = self.layer:GetImageComponent("book_container/top/info_score/img_defficultyNum");
+    self._objScore = self.layer:GetRectTransformComponent("book_container/top/info_score/obj_score").gameObject;
+    self._txtScoreNum = self.layer:GetTextComponent("book_container/top/info_score/obj_score/txt_scoreNum");
+    self._imgScoreLevel = self.layer:GetImageComponent("book_container/top/info_score/obj_score/img_scoreLevel");
+    self._rectInfoBook = self.layer:GetRectTransformComponent("book_container/top/rect_info_book");
+    self._txtBookDes = self.layer:GetTextComponent("book_container/top/rect_info_book/txt_book_des");
+    self._txtPreScoreNum = self.layer:GetTextComponent("book_container/top/score_up/txt_pre_score_num");
+    self._objContent = self.layer:GetRectTransformComponent("book_container/middle/scrollview/viewport/obj_content");
+end
+
+--显示UI
+function ConcertWinLayer:show(params)
+    if  self._showing then
+        return
+    end
+    self._params = params
+    table.insert(self._items, params.items)
+    local  index =  self._index
+    if self._items[index] == nil then
+        return
+    end
+    self._showing = true
+
+    local maxnum, disx = 6, 166
+    local scrollview = self.layer:Get("book_container/middle/scrollview")
+    local posx = 0
+    self._dropItems, posx = self:SetScrollGoods(self._dropItems, scrollview, self._items[index], maxnum, 1000, disx, 0.6, nil, true)
+    local num = math.min(#self._items[index], maxnum)
+
+    self._hall  = Concert:GetConcertById(params.hallId);
+    self._curBook  = Concert:GetConcertBookById(self._hall.curBookId);
+    Concert:SetRtBg(self._texBg);
+    self:refreshView()
+    self:showLayer();
+    if num >= maxnum then
+        --self._objContent:SetPositionX(326,true)
+        self._objContent:SetSizeX(disx * num)
+        self._objContent:SetPivot(0,0.5)
+    else
+        self._objContent:SetPositionX(0,true)
+        self._objContent:SetPivot(0.5,0.5)
+    end
+
+    self._fmodinst = fmod:playEvent("event:/GameEffect/UIEffect/UI_GetTipsLayer-OnEnable")
+end
+
+--退出按钮事件
+function ConcertWinLayer:onBackClick()
+    self._showing = false
+    if self._fmodinst ~= nil then
+        fmod:StopByInstnace(self._fmodinst)
+    end
+    self._fmodinst = nil
+
+    self:onPopLayer();
+end
+
+function ConcertWinLayer:onCancel()
+    self:onBackClick()
+end
+--释放
+function ConcertWinLayer:onExit()
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+    end
+
+    self._cellItemHide = nil;
+    self._texBg = nil;
+    self._aniCdIconParent = nil;
+    self._texCdIcon = nil;
+    self._objGunzi = nil;
+    self._objCircle1 = nil;
+    self._objCircle2 = nil;
+    self._imgDefficultyNum = nil;
+    self._objScore = nil;
+    self._txtScoreNum = nil;
+    self._imgScoreLevel = nil;
+    self._rectInfoBook = nil;
+    self._txtBookDes = nil;
+    self._txtPreScoreNum = nil;
+    self._objContent = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertWinLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertWinLayer:refreshView()
+    self._imgDefficultyNum:LoadAtlasSprite(Concert.ConcertAtlas, "nb_yyt_"..self._curBook.difficulty)
+    self._txtScoreNum.text = self._params.curScore
+    self._imgScoreLevel:LoadAtlasSprite(Concert.ConcertAtlas,Concert:GetScoreLevelPath(self._curBook,self._params.curScore))
+    self._txtPreScoreNum.text = Concert:GetAverageRate(self._params.heros,self._curBook).."%"
+    local book = Item:GetCfg(self._curBook.id)
+    self._txtBookDes.text = book.Name
+end
+
+function ConcertWinLayer:SetScrollGoods(cls,scrollview, items, max_num, width, disx, scale, posx, isuid, showMay)
+    local num = #items
+    if posx == nil then
+        posx = width/2 - (num - 1) * (disx / 2)
+        if num > max_num then
+            posx = width/2 - (max_num - 1) * (disx / 2)
+        end
+    end
+    local content = scrollview:Get("viewport/obj_content")
+    if num > max_num then
+        --content:SetSizeX(disx * num)
+    end
+    --scrollview:GetComponent("ScrollRect").horizontal = num > max_num
+    --scrollview:GetComponent("ScrollRect").horizontalNormalizedPosition = 0
+    cls = self:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay)
+    return cls, posx
+end
+
+function ConcertWinLayer:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay)
+    local count = math.max(content.childCount, #items)
+    if cls == nil then
+        cls = {}
+    end
+    if cls.items == nil then
+        cls.items = {}
+    end
+    for i = 1, count do
+        local prefab_item = content:Get("prefab_item" .. i)
+        if prefab_item == nil then
+            local simple = true
+            if items[i]~= nil then
+                simple =  items[i][1] ~= Bag.TYPE_EQUIP
+            end
+            prefab_item = content:AddChild(self._cellItemHide)
+            prefab_item.name = "prefab_item"..i
+            prefab_item:GetComponent("RectTransform").anchorMin = CS.UnityEngine.Vector2(0, 0.5)
+            prefab_item:GetComponent("RectTransform").anchorMax = CS.UnityEngine.Vector2(0, 0.5)
+            prefab_item:SetScale(scale, scale, scale)
+            cls.items[i] = Bag:CtorGoodsUi(prefab_item,nil,true);
+        end
+        cls.items[i].transform:SetVisible(items[i] ~= nil)
+        --cls.items[i].transform:SetPosition(posx + (i - 1) * disx, 0, 0)
+        if items[i] ~= nil then
+            Bag:SetGoodsUiEx(cls.items[i], items[i][1], items[i][2], items[i][3], isuid, items[i][4], showMay)
+        end
+    end
+    return cls
+end
+
+return ConcertWinLayer;

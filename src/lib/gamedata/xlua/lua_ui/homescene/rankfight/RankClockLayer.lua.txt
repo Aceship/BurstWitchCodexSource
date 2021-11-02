@@ -1,0 +1,157 @@
+--
+-- author: haosun
+-- date  : 2019-08-28 14:58:50
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local RankClockLayer = class("RankClockLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    use     = "container/button_use",
+    cancel  = "container/button_cancel",
+}
+
+function RankClockLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_rank/UI_RankClockLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function RankClockLayer:initObj()
+    self._emptyCom      = self.layer:GetTextComponent("container/txt_empty")
+    self._clsItemArr    = {}
+    for i = 1, 4 do
+        local _item     = self.layer:Get("container/prefab_item_" .. i)
+        local cls       = Bag:CtorComSimpleGoodsUi(_item, function() self:onClockClick(i) end)
+        cls.useObj      = _item:Get("img_use")
+        cls.selObj      = _item:Get("img_sel")
+        cls.darkObj     = _item:Get("img_dark")
+
+        self._clsItemArr[i] = cls
+    end
+    self._cancelObj     = self.layer:Get("container/button_cancel")
+    self._useObj        = self.layer:Get("container/button_use")
+
+    self._nameCom       = self.layer:GetTextComponent("container/text_name")
+    self._descCom       = self.layer:GetTextComponent("container/text_desc")
+    self._ownerCom      = self.layer:GetTextComponent("container/text_owner")
+
+    self._dropsObj      = {}
+    for i = 1, 3, 1 do
+        self._dropsObj[i] = self.layer:GetImageComponent("container/img_drop_" .. i)
+    end
+end
+
+function RankClockLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+end
+
+function RankClockLayer:onExit()
+    self._emptyCom      = nil
+    self._clsItemArr    = nil
+    self._cancelObj     = nil
+    self._useObj        = nil
+    self._nameCom       = nil
+    self._descCom       = nil
+    self._ownerCom      = nil
+    self._dropsObj      = nil
+
+    self._clocktype = nil
+    self._callback  = nil
+    self._clockid   = nil
+    self._clockids  = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function RankClockLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback(self._clockid)
+        self._callback = nil
+    end
+    self:onPopLayer()
+end
+
+function RankClockLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.use then
+        Clock:SetUsingClock(self._clocktype, self._clockids[self._selindex])
+        self._clockid = self._clockids[self._selindex]
+        self:refreshUsingClock()
+    elseif buttontype == BUTTON_TYPE.cancel then
+        Clock:SetUsingClock(self._clocktype, nil)
+        self._clockid = nil
+        self:refreshUsingClock()
+    end
+end
+
+function RankClockLayer:show(clocktype, callback)
+    play_effect_show()
+    self._clocktype = clocktype
+    self._callback = callback
+    self._clockid = Clock:GetUsingClock(clocktype)
+    self._clockids = Clock:GetClockIdsByType(clocktype)
+
+    self:refreshClock()
+    self:refreshUsingClock()
+    self:onClockClick(Clock:GetSYClockIndex())
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function RankClockLayer:refreshClock()
+    for i, cls in ipairs(self._clsItemArr) do
+        Bag:SetComSimpleGoodsUi(cls, Bag.TYPE_ITEM, self._clockids[i])
+        cls.darkObj:SetVisible(Item:GetCount(self._clockids[i]) == 0)
+    end
+end
+
+function RankClockLayer:onClockClick(slot)
+    self._selindex = slot
+    local id = self._clockids[slot]
+    local cfg = Item:GetCfg(id)
+    self._nameCom.text = cfg.Name
+    self._descCom.text = cfg.itemInfo
+    local count = Item:GetCount(id)
+    self._ownerCom.text = count
+
+    self._cancelObj:SetVisible(self._clockid == id)
+    self._useObj:SetVisible(count > 0 and self._clockid ~= id)
+
+    local clockcfg = Clock:GetClockCfg(id)
+    for i, com in ipairs(self._dropsObj) do
+        com:SetVisible(clockcfg.items_drop[i] ~= nil)
+        if clockcfg.items_drop[i] ~= nil then
+            com.sprite = Item:LoadSpriteByCfgid(clockcfg.items_drop[i][1])
+        end
+    end
+    for i, cls in ipairs(self._clsItemArr) do
+        cls.selObj:SetVisible(self._selindex == i)
+    end
+    if count > 0 then
+        self._emptyCom.text = ""
+    else
+        if id == Player.ITEM_SY_CLOCK then
+            self._emptyCom:SetTextById(77000064)
+        else
+            self._emptyCom:SetTextById(77000065)
+        end
+    end
+end
+
+function RankClockLayer:refreshUsingClock()
+    for i, cls in ipairs(self._clsItemArr) do
+        cls.useObj:SetVisible(self._clockids[i] == self._clockid)
+    end
+    local _id = self._clockids[self._selindex]
+    self._cancelObj:SetVisible(self._clockid == _id)
+    self._useObj:SetVisible(Item:GetCount(_id) > 0 and self._clockid ~= _id)
+end
+
+return RankClockLayer
+

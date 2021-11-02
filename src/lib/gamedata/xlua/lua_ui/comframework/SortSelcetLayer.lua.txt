@@ -1,0 +1,246 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-10 18:53:41
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SortSelcetLayer = class("SortSelcetLayer", CBaseLayer)
+
+local attriDatas = {
+    [1] = 0,    --全部
+    [2] = 1,    --光
+    [3] = 2,    --暗
+    [4] = 3,    --混
+}
+
+local gunData = {
+    [1] = 0,    --全部
+    [2] = 1,
+    [3] = 2,
+    [4] = 3,
+    [5] = 4,
+    [6] = 5,
+    [7] = 6,
+}
+
+--构造函数
+function SortSelcetLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_SortSelcetLayer",
+    }
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function SortSelcetLayer:onEnter()
+    self:createPnl();
+    self:Init();
+end
+
+--按钮事件
+function SortSelcetLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function SortSelcetLayer:Init()
+    self.curAttriId = -1  --全部
+    self.curGunId = -1
+    self.curSortId = -1
+
+    self:InitUI();
+end
+
+--初始化UI
+function SortSelcetLayer:InitUI()
+    -- print("初始化：")
+    self._attriObj = self.layer:Get("container/trans_attri");
+    self._attriTransBg = self.layer:Get("container/trans_attri/tog_bg");
+
+    self._gunTypeObj = self.layer:Get("container/trans_guntype");
+    self._gunTransBg = self.layer:Get("container/trans_guntype/tog_bg");
+
+    self._sortObj = self.layer:Get("container/trans_sort");
+    self._sortTansBg = self.layer:Get("container/trans_sort/tog_bg");
+
+    self._objItem = self.layer:Get("container/item_hide/tog_item").gameObject;
+
+    self:InitAttriTogItems();
+    self:InitGunTogItems();
+    self:InitSortTogItems();
+    --self:UpdateView();
+end
+
+--显示UI
+function SortSelcetLayer:show(data,callback)
+    self._fading = false
+    self._curData = data
+    self._callBack = callback
+    self:UpdateView();
+    self:showLayer();
+end
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+--属性筛选
+function SortSelcetLayer:OnAttriTogClick(isOn,cls)
+    if(isOn)then
+        if(self.curAttriId == cls.attriId)then
+            return;
+        end
+        self.curAttriId = cls.attriId;
+        cls.txtName.color = COLOR_TYPE.Black;
+        --self:CutSelectDot();
+        local param = {}
+        param.sortType = Hero.Select_TYPE_HERO.attri;
+        param.subType = self.curAttriId
+        if self._callBack ~= nil then
+            self._callBack(param,true) --参数，sortData，true
+        end
+    else
+        cls.txtName.color = COLOR_TYPE.White_Gray;
+    end
+end
+
+function SortSelcetLayer:OnGunTogClick(isOn,cls)
+    if isOn then
+        if(self.curGunId == cls.gunId)then
+            return;
+        end
+        self.curGunId = cls.gunId
+        cls.txtName.color = COLOR_TYPE.Black;
+
+        local param = {}
+        param.sortType = Hero.Select_TYPE_HERO.gunType;
+        param.subType = self.curGunId
+        if self._callBack ~= nil then
+            self._callBack(param,true) --参数，sortData，true
+        end
+    else
+        cls.txtName.color = COLOR_TYPE.White_Gray;
+    end
+end
+
+function SortSelcetLayer:OnSortTogClick(isOn,cls)
+    if isOn then
+        if(self.curSortId == cls.sortId)then
+            return;
+        end
+        self.curSortId = cls.sortId
+        cls.txtName.color = COLOR_TYPE.Black;
+
+        local param = {}
+        param.sortType = Hero.Select_TYPE_HERO.sort;
+        param.subType = self.curSortId
+        if self._callBack ~= nil then
+            self._callBack(param,true) --参数，sortData，true
+        end
+    else
+        cls.txtName.color = COLOR_TYPE.White_Gray;
+    end
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+--属性筛选
+function SortSelcetLayer:InitAttriTogItems()
+    self._attriItems = {};
+    for i, v in ipairs(attriDatas) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._attriTransBg));
+        cls.txtName = cls:GetTextComponent("txt_name/name");
+        cls.icon = cls:GetImageComponent("txt_name/icon")
+        cls.iconObj = cls.transform:Get("txt_name/icon")
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnAttriTogClick(isOn,cls);
+        end);
+        cls.attriId = v;
+        set_obj_active(cls.iconObj,v > 0)
+        cls.txtName.text = LanguageMgr:GetTextByID(703039 + v);
+        local path = string.format("Icom_Head_ShuXing%s",tostring(v))
+        cls.icon:LoadAtlasSprite("source_atlas/atlas_common_res", path);
+        self._attriItems[i] = cls;
+    end
+    --[[
+    if self._curData.sortType == Hero.SORT_TYPE_HERO.attri and self._curData.subType == 1 then
+        local item = self._attriItems[1]
+        item.tog.isOn = true
+        self:OnAttriTogClick(item.tog.isOn,item)
+    end]]--
+end
+
+--枪型筛选
+function SortSelcetLayer:InitGunTogItems()
+    self._gunItems = {};
+    for i,v in ipairs(gunData) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._gunTransBg));
+        cls.txtName = cls:GetTextComponent("txt_name/name");
+        cls.icon = cls:GetImageComponent("txt_name/icon")
+        cls.iconObj = cls.transform:Get("txt_name/icon")
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnGunTogClick(isOn,cls);
+        end);
+        cls.gunId = v;
+        set_obj_active(cls.iconObj,v > 0)
+        if v > 0 then
+            cls.txtName.text =  string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + v))
+        else
+            cls.txtName.text = LanguageMgr:GetTextByID(703039)
+        end
+        local path = string.format("comm_atk_%s",tostring(v))
+        if v > 0 then
+            cls.icon:LoadAtlasSprite("source_atlas/atlas_common_res", path);
+        end
+        self._gunItems[i] = cls;
+    end
+    --[[
+    if self._curData.sortType == Hero.SORT_TYPE_HERO.gunType and self._curData.subType == 1 then
+        local item = self._gunItems[1]
+        item.tog.isOn = true
+        self:OnGunTogClick(item.tog.isOn,item)
+    end]]--
+end
+
+function SortSelcetLayer:InitSortTogItems()
+    self._sortItems = {}
+    for i,v in ipairs(Hero.sortData) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._sortTansBg));
+        cls.txtName = cls:GetTextComponent("txt_name/name");
+        cls.icon = cls:GetImageComponent("txt_name/icon")
+        cls.iconObj = cls.transform:Get("txt_name/icon")
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnSortTogClick(isOn,cls);
+        end);
+        cls.sortId = i
+        set_obj_active(cls.iconObj,false)
+        cls.txtName.text = LanguageMgr:GetTextByID(v);
+        self._sortItems[i] = cls
+    end
+end
+
+function SortSelcetLayer:UpdateView()
+    if self._curData == nil then
+        return
+    end
+    self._attriObj:SetVisible(self._curData.sortType == Hero.Select_TYPE_HERO.attri)
+    self._gunTypeObj:SetVisible(self._curData.sortType == Hero.Select_TYPE_HERO.gunType)
+    self._sortObj:SetVisible(self._curData.sortType == Hero.Select_TYPE_HERO.sort)
+
+    if self._curData.sortType == Hero.Select_TYPE_HERO.attri then
+        local item = self._attriItems[self._curData.subType]
+        item.tog.isOn = true
+        self:OnAttriTogClick(item.tog.isOn,item)
+    elseif self._curData.sortType == Hero.Select_TYPE_HERO.gunType then
+        local item = self._gunItems[self._curData.subType]
+        item.tog.isOn = true
+        self:OnGunTogClick(item.tog.isOn,item)
+    elseif self._curData.sortType == Hero.Select_TYPE_HERO.sort then
+        local item = self._sortItems[self._curData.subType]
+        item.tog.isOn = true
+        self:OnSortTogClick(item.tog.isOn,item)
+    end
+end
+
+
+return SortSelcetLayer;

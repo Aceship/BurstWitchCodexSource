@@ -1,0 +1,64 @@
+--
+-- author: haosun
+-- date  : 2019-08-28 15:03:29
+-- brief : 
+--
+Clock = Clock or {}
+
+function Clock:Ctor()
+    self._syclockindex = nil
+    self._usingclock = {}
+end
+
+function Clock:Clear()
+    self:Ctor()
+end
+
+function Clock:GetClockIdsByType(clocktype)
+    local ids = {}
+    for _, v in pairs(self._clockcfgs) do
+        if v.clocktype == clocktype then
+            table.insert(ids, v.cfgid)
+        end
+    end
+    table.sort(ids, function(a, b)
+            return a < b
+        end)
+    return ids
+end
+
+function Clock:GetUsingClock(clocktype)
+    return self._usingclock[clocktype]
+end
+
+function Clock:SetUsingClock(clocktype, cfgid)
+    self._usingclock[clocktype] = cfgid
+end
+
+function Clock:GetSYUsingClock()
+    local clockid = self:GetUsingClock(Clock.CLOCK_TYPE_SY)
+    if clockid == nil then
+        if Item:GetCount(Player.ITEM_SY_CLOCK) > 0 then
+            clockid = Player.ITEM_SY_CLOCK
+            self:SetUsingClock(Clock.CLOCK_TYPE_SY, clockid)
+        end
+    else
+        if Item:GetCount(clockid) == 0 then
+            self:SetUsingClock(Clock.CLOCK_TYPE_SY, nil)
+            clockid = nil
+        end
+    end
+    return clockid
+end
+
+function Clock:GetSYClockIndex()
+    local index = lua_table_indexof(self:GetClockIdsByType(Clock.CLOCK_TYPE_SY), self:GetSYUsingClock())
+    if index == nil or index == -1 then
+        index = 1
+    end
+    return index
+end
+
+function Clock:IsClockItem(cfgid)
+    return self._clockcfgs[cfgid] ~= nil
+end

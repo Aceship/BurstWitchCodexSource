@@ -1,0 +1,439 @@
+--
+-- author: haosun
+-- date  : 2018-10-10 13:34:03
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LoginLayer = class("LoginLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    notice      = "Top/layout/button_notice",
+    logout      = "Top/layout/button_logout",
+    user        = "Top/layout/button_user",
+    enter       = "Middle/button_enter",
+    server      = "Bottom/button_server",
+    cadpa       = "Bottom/btn_cadpa"
+}
+
+local loginstate_nil    = 0
+local loginstate_acc    = 1
+local loginstate_list   = 2
+
+--构造函数
+function LoginLayer:ctor(super)
+    CBaseLayer.ctor(self)   
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_LoginLayer",
+    }
+    
+    self._uid                   = Groble_SceneMgr:PrefsGetString("myaccount")
+    self._token                 = "123456"
+    self._textActiveCode        = ""
+    self.activeCodeCheckStack   = {}
+    self._accActive             = {}
+    self._dt                    = 0
+
+    self._loginstate            = loginstate_nil
+    self._entergame             = false
+    -- init network
+    GameSdkMgr:OnGameInit()
+
+    self._isStartup = true
+    self:onEnter()
+    Network:ResetSyncNotify()
+
+    if Login:GetEnterLoginLayer() then
+        GameSdkMgr:Logout()
+    end
+    Login:SetEnterLoginLayer(true)
+end
+
+function LoginLayer:initObj()
+    self._logoutObj     = self.layer:Get(BUTTON_TYPE.logout)
+    self._userObj       = self.layer:Get(BUTTON_TYPE.user)
+    self._obj_enter = self.layer:Get(BUTTON_TYPE.enter)
+    self._obj_load  = self.layer:Get("Middle/txt_loading")    
+    self._instantiateGo = {}
+    local qLevel = AppMgr:GetQualityLevel()
+    if qLevel == CS.QualityLevel.Low 
+        or qLevel == CS.QualityLevel.Mid then
+        set_obj_active(self.layer:Get("Middle/img_video_bg"), true)
+        local videoNode = self.layer:Get("Middle/video_player")
+        set_obj_active(videoNode, true)
+        local rect = videoNode:GetComponent("RectTransform")
+        local size = rect.rect.size
+        local sizeDelta = rect.sizeDelta
+        sizeDelta.x = size.y * 9 / 15
+        rect.sizeDelta = sizeDelta
+        self._video_player = videoNode:GetComponent("CriVideoHelper")
+        self._video_player:SetVideoClip("CriVideo/source_video/Signin001.usm")
+        AppMgr:UpdateLayerDispose()
+    else
+        local instantiate = {
+            -- "prefab_scene/UIScenePrefab/UIRoleSceneInfo2",
+            "prefab_comframeWork/login_preload/LoginInfo"
+        }
+        for _, path in ipairs(instantiate) do
+            table.insert(self._instantiateGo, Groble_ResMgr:Instantiate(path))
+        end
+        AssetAsyncLoader:LoadResourceAsync("prefab_scene/UIScenePrefab/UIRoleSceneInfo2",
+            function(obj)
+                table.insert(self._instantiateGo, Groble_ResMgr:Instantiate(obj))
+                AppMgr:UpdateLayerDispose()
+            end)
+    end
+end
+
+function LoginLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_LOGIN,
+        function(data)
+            self:onSDKLogin(data)
+            if self._inputView then
+                self._inputView:onCloseLayer()
+                self._inputView = nil;
+            end
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_LOGOUT,
+        function()
+            self:onSDKLogout()
+        end)    
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_SWITCH_ACC,
+        function()
+            self:onSDKSwitch()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LINE_UP_REP,
+        function()
+        end)    
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_SERVER_CFG,
+        function()
+            self:refreshLayer()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST,
+        function(rst)
+            self:repGameLogin(rst)
+        end)   
+    self:addEventListener(EVENT_TYPE.SHOW_LOGIN_QQORWX,self.__cname,function()
+            CS.Logger.LogError("EVENT_TYPE.SHOW_LOGIN_QQORWX")
+            self:showNull()
+            self:ShowInputView(function()
+                -- self:showEnter()
+                self:onAccLoginSucc()
+            end, 1);
+        end);         
+    CS.UnityHelper.NotchfitY(self.layer:Get("Top"), 5)
+    self.layer:Get("Bottom"):SetVisible(GameSdkMgr:IsIssue2144())
+    self._userObj:SetVisible(GameSdkMgr:HasUserCenter())
+    
+    if GameSdkMgr:IsTestApk() or AppMgr:IsEditor() then
+        local _keyboard = self.layer.gameObject:AddComponent(typeof(CS.KeyboardBehaviour))
+        _keyboard:InitMonoBehaviour(self)
+        self.layer:Get("Bottom/button_server"):SetVisible(true)
+    else
+        self.layer:Get("Bottom/button_server"):SetVisible(false)
+    end
+
+    self:hideLayer()
+    -- Groble_SoundMgr:PlayBgm(301001)
+    fmod:PlayBgm("event:/GameBgm/musicBook-Burst Witch Main Theme -Violin ver-")
+    CameraController:InitCameraController()
+end
+
+function LoginLayer:onExit()
+    for _, obj in pairs(self._instantiateGo) do
+        obj:Release()
+    end
+    -- self._toggleCom     = nil
+    self._logoutObj     = nil
+    self._userObj       = nil
+    self._instantiateGo = nil
+    self._obj_enter = nil
+    self._obj_load  = nil
+
+    self.activeCodeCheckStack   = nil
+    self._accActive             = nil
+
+    if(self._video_player ~= nil) then
+        self._video_player:ClearVideoClip()
+    end
+    self._video_player = nil
+    CBaseLayer.onExit(self)
+end
+
+function LoginLayer:KeyboardEvent()
+    if self._loginstate == loginstate_acc then
+        if not self._showarea then
+            core.require("xlua/lua_UI/LoginScene/GameAreaLayer.txt"):new(
+                function()
+                    self._showarea = true
+                    self:hideLayer()
+                end,
+                function()
+                    self._showarea = false
+                    self:showLayer()
+                end)
+        end
+    end
+end
+
+function LoginLayer:show()
+    self._fading = false
+
+    self:initLayer()
+    self:showLayer()
+    -- 下载服务器列表
+    cdnwww:DownloadServer()
+    
+    CameraController:HideUICameraBg()
+end
+
+--初始化界面
+function LoginLayer:initLayer()
+    -- show login acc pnl & hide area pnl
+    self:showNull()
+    -- set game ver 
+    local strVer = string.format(LanguageMgr:GetTextByID(10012), AssetLoader:GetDisplayVer())
+    self.layer:GetTextComponent("Top/text_ver"):SetText(strVer)
+    self:setLogoutObjVisible(false)
+end
+
+function LoginLayer:refreshLayer()
+    Login:TestLogin()
+    self:onClickGameStart()
+end
+
+function LoginLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.enter then
+        self:onClickGameStart()
+    elseif buttontype == BUTTON_TYPE.logout then
+        self:onLogoutAcc()
+    elseif buttontype == BUTTON_TYPE.notice then
+        self:showGonggao()
+    elseif buttontype == BUTTON_TYPE.user then
+        GameSdkMgr:ShowUserCenter()
+    elseif buttontype == BUTTON_TYPE.server then
+        self:KeyboardEvent()
+    elseif buttontype == BUTTON_TYPE.cadpa then
+        self:ShowCadpa()
+    end
+end
+
+function LoginLayer:doLoginAcc()
+    if GameSdkMgr:IsUseSdk() then
+        GameSdkMgr:Login()
+    else
+        self:ShowInputView(function(input_acc)
+            self._uid = input_acc
+            self._loginstate = loginstate_acc
+            Groble_SceneMgr:PrefsSetString("myaccount", self._uid)
+            self:onAccLoginSucc()
+        end, 0) 
+    end
+end
+
+function LoginLayer:onClickGameStart()
+    if self._loginstate == loginstate_nil then
+        self:doLoginAcc()
+    elseif self._loginstate == loginstate_acc then
+        self:showLoading()
+        self:onStartGame(true)
+    end
+end
+
+function LoginLayer:onAccLoginSucc()
+    self:setLogoutObjVisible(true)
+    self:showEnter()
+    -- self:showGonggao()
+end
+
+function LoginLayer:onLogoutAcc()
+    if self._loginstate == loginstate_nil then
+        return
+    end
+    self:showNull()
+    self._loginstate = loginstate_nil
+    self:setLogoutObjVisible(false)
+    
+    if GameSdkMgr:IsUseSdk() then
+        -- SDK支持直接切换的话调用SDK切换，不支持的话调用SDK登出
+        Login:SetAutoLogin(false)
+        GameSdkMgr:SwitchUser()
+    else
+        self:doLoginAcc()
+    end
+end
+
+function LoginLayer:onStartGame(shownotice)
+    if Login:IsRegisterFull() then
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(99000025), nil, false, true)
+        return
+    end
+    local tdata = Login:GetLastServer()
+    Login:SetUserUid(self._uid)
+    self:doGameLogin(shownotice)
+end
+
+function LoginLayer:doGameLogin(shownotice)
+    if shownotice then
+        cdnwww:CheckHotVersionIsOK(
+            function(ok)
+                if ok then
+                    self:_doGameLogin()
+                end
+            end)
+    else
+        self:_doGameLogin()
+    end
+end
+
+function LoginLayer:_doGameLogin()
+    self._dt = 0
+    local platform = GameSdkMgr:GetPlatformId()
+    local tdata = Login:GetLastServer()
+    if not self._entergame then
+        self._entergame = true        
+        NetworkLogin:LoginAccount(self._uid, self._token, tdata.zoneid, platform)
+    end
+end
+
+function LoginLayer:showGonggao()
+    cdnwww:GetCDN_Notice(
+        function(list)
+            if uimgr:GetSceneId() == uimgr.LOGIN_SCENE_ID then
+                core.require("xlua/lua_UI/LoginScene/NoticeLayer.txt"):new():show(list)
+            end
+        end)
+end
+
+function LoginLayer:setLogoutObjVisible(visible)
+    if visible then
+        visible = GameSdkMgr:IsSwitchAcc()
+    end
+    self._logoutObj:SetVisible(visible)
+end
+
+function LoginLayer:repGameLogin(rst)
+    if rst then
+        -- login success
+        Login:LoginSucc(self._uid)
+        Network:SetSyncNotifyTrue()
+        self:PushSuperProperties();
+        -- 检查前三关是否已通关
+        if Guide:IsForceFightGuideEnd() then
+            uimgr:onMainScene()
+        else
+            Guide:StartGuide()
+        end
+
+        CS.UIHelpScript.Instance:SetBuglyUserId(Player:GetName());
+
+        --登录成功后,
+        CS.Logger.LogError("LoginLayer:repGameLogin:" .. Player:GetLevel())
+        if Player:GetLevel() >= GameSdkMgr:GetDownResLevel() or GameSdkMgr:IsMustDown() then
+            GameSdkMgr:DownByLeBian()
+        end
+    else
+        -- login failed
+        self._entergame = false
+        if(Login:GetAccUnActivityState())then
+            self:showActiveCodeLayer();
+        end
+        self:showEnter()
+    end
+end
+
+function LoginLayer:onSDKLogin(data)
+    if data.code == 0 then
+        self._uid       = data.data.uid
+        self._token     = data.data.token
+        CS.UIHelpScript.Instance:SetBuglyUserId(self._uid)
+        Player:ClearNewPlayer()
+        if Login:IsTokenErr() then
+            self._loginstate = loginstate_list
+            self:showNull()
+            self:onStartGame(false)
+        else
+            self._loginstate = loginstate_acc
+            -- self:showEnter()
+            -- self:showGonggao()
+            self:onAccLoginSucc()
+        end
+    end
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("Top"), 5)
+end
+
+function LoginLayer:onSDKLogout()
+    -- sdk logout or switch account
+    self._loginstate = loginstate_nil
+    self:setLogoutObjVisible(false)
+    -- if GameSdkMgr:IsUseSdk() then
+    --     GameSdkMgr:Login()
+    -- end
+    self:showEnter()
+end
+
+function LoginLayer:onSDKSwitch()
+    -- sdk logout or switch account
+    if GameSdkMgr:IsJurenSdk() then
+        self._loginstate = loginstate_nil
+        self:setLogoutObjVisible(false)
+        GameSdkMgr:Login()
+    end
+end
+
+function LoginLayer:showActiveCodeLayer()
+    Network:ClearWait();
+    Groble_UIMgr:ShowInputLayer(self.layer, InputUid.acc,
+        function(str)
+            if str ~= "" then
+                NetworkLogin:AccActivityReq(self._uid,str,function ()
+                    self:onClickGameStart();
+                end);
+            end
+        end, true, true)
+end
+
+function LoginLayer:PushSuperProperties()
+    ThinkingMgr:SetEventName("user_id")
+    ThinkingMgr:AddEventParam("#account_id",Player:GetId())
+    ThinkingMgr:AddEventParam("account",self._uid)
+    ThinkingMgr:SetSuperProperties()
+    ThinkingMgr:Login(Player:GetId())
+
+    ThinkingMgr:AddUserSet("account",self._uid)
+    ThinkingMgr:UserSet()
+end
+
+function LoginLayer:showNull()
+    self._obj_enter:SetVisible(false)
+    self._obj_load:SetVisible(false)
+end
+
+function LoginLayer:showEnter()
+    self._obj_enter:SetVisible(true)
+    self._obj_load:SetVisible(false)
+end
+
+function LoginLayer:showLoading()
+    self._obj_enter:SetVisible(false)
+    self._obj_load:SetVisible(true)
+end
+
+function LoginLayer:ShowCadpa()
+    core.require("xlua/lua_UI/LoginScene/CadpaLayer.txt"):new():show()
+end
+
+function LoginLayer:ShowInputView(callback, type) 
+    if self._inputView then
+        self._inputView:onCloseLayer()
+        self._inputView = nil;
+    end
+    self._inputView = core.require("xlua/lua_UI/LoginScene/PcInputLayer.txt"):new()
+    self._inputView:show(callback, type)
+end
+
+return LoginLayer
+

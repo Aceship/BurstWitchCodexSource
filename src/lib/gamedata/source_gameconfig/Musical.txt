@@ -1,0 +1,16 @@
+id,乐器类型,乐器名称,乐器描述,图标,乐器模型位置,乐器模型旋转角度
+id,Type,Name,Des,itemPath,MusicModPos,MusicModRot
+number,number,number,string,string,array_&,number
+1,1,10270001,竖琴乐器的描述,source_icon/music_hall/music_1,-0.7&0.13&-0.33,-23.1
+2,2,10270002,钢琴乐器的描述,source_icon/music_hall/music_2,0.24&0&-1,14
+3,3,10270003,小提琴乐器的描述,source_icon/music_hall/music_3,-0.37&0&0,18
+4,4,10270004,大提琴乐器的描述,source_icon/music_hall/music_4,-0.27&0&0,0
+5,5,10270005,长号乐器的描述,source_icon/music_hall/music_5,-0.48&0&-0.28,12
+6,6,10270006,圆号乐器的描述,source_icon/music_hall/music_6,-0.48&0&-0.28,12
+7,7,10270007,黑管乐器的描述,source_icon/music_hall/music_7,-0.48&0&-0.28,12
+8,8,10270008,长笛乐器的描述,source_icon/music_hall/music_8,-0.48&0&-0.28,12
+101,101,10270009,麦克风乐器的描述,source_icon/music_hall/music_101,-0.48&0&-0.28,12
+102,102,10270010,管风琴乐器的描述,source_icon/music_hall/music_102,-0.19&0&-0.5,8
+103,103,10270011,电吉他乐器的描述,source_icon/music_hall/music_103,-0.4 &0&-0.32,0
+104,104,10270012,键盘乐器的描述,source_icon/music_hall/music_104,-0.45&0&0,25
+105,105,10270013,定音鼓乐器的描述,source_icon/music_hall/music_105,-0.55&0&-0.18,13

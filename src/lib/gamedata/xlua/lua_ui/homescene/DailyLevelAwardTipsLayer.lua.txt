@@ -1,0 +1,272 @@
+---
+--- @Author:2144
+--- @Create Time:2021-06-08 11:27:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyLevelAwardTipsLayer = class("DailyLevelAwardTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function DailyLevelAwardTipsLayer:ctor(super,levelId)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_DailyLevelAwardTipsLayer",
+    }
+    self._levelId = levelId;
+    self._level = Chapter:GetLevel(levelId);
+    self._fading = false;
+    self._uitype = 2;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function DailyLevelAwardTipsLayer:onEnter()
+     --self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DailyLevelAwardTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function DailyLevelAwardTipsLayer:Init()
+    self._curAwardIndex = -1;
+    if self._level.fight_rewards[1] == Chapter.DROP_SCORE then
+        self._allBasicsDrops = Chapter:GetAllScoreDrop(self._level.rewards[2]);
+        self._allExtraDrops = Chapter:GetAllScoreDrop(self._level.fight_rewards[2]);
+        -- for _, v in ipairs(self._allBasicsDrops) do
+        --     if(self._level.max_score >= v.score)then
+        --         self._curAwardIndex = _;
+        --     else
+        --         break;
+        --     end
+        -- end
+
+        local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
+        local type = levelList[1].type
+        local score = 0
+        if(self._level ~= nil) then
+            score = self._level.max_score
+        end
+        if(type == 1) then
+        elseif(type == 2) then
+            if(self._level ~= nil and self._level.p_rate ~= nil
+                and self._level.p_rate[2] ~= nil) then
+                score = self._level.p_rate[2]
+            end
+        elseif(type == 3) then
+            if(self._level ~= nil and self._level.p_rate ~= nil
+                and self._level.p_rate[3] ~= nil) then
+                score = self._level.p_rate[3]
+            end
+        elseif(type == 4) then
+            if(self._level ~= nil and self._level.p_rate ~= nil
+                and self._level.p_rate[4] ~= nil) then
+                score = self._level.p_rate[4]
+            end
+        end
+        local level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],score)
+        self._curAwardIndex = level
+    else
+        self._allBasicsDrops = {};
+        self._allExtraDrops = {};
+    end
+    self:InitUI();
+end
+
+--初始化UI
+function DailyLevelAwardTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTableViewController = self.layer:Get("trans_container/trans_table_view_controller");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._scrollTBView = self._transTableViewController:GetScrollRectComponent("TableView");
+    self._scrollTBView.vertical = false;
+    self._cellItems = {};
+    self:SetTableView();
+end
+
+--显示UI
+function DailyLevelAwardTipsLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function DailyLevelAwardTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function DailyLevelAwardTipsLayer:onExit()
+
+    self._allBasicsDrops = nil;
+    self._allExtraDrops = nil;
+    self._level = nil;
+
+    self._objItem = nil;
+    self._scrollTBView = nil;
+	self._transTableViewController = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function DailyLevelAwardTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+--[[function DailyLevelAwardTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end]]--
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DailyLevelAwardTipsLayer:SetTableView()
+    local row = #self._allBasicsDrops;
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self._transTableViewController)
+        self._tvController:Init(row, true,
+                function(cell, row)
+                    self:SetCell(cell, row + 1);
+                end)
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(row);
+    end
+end
+
+function DailyLevelAwardTipsLayer:SetCell(cell, row)
+    local cls = self._cellItems[cell];
+    if(cls == nil)then
+        cls = self:NewCellItem(cell);
+        self._cellItems[cell] = cls;
+    end
+    self:SetCellItem(cls,row);
+end
+
+function DailyLevelAwardTipsLayer:NewCellItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgPoint = cls:GetImageComponent("img_point");
+    cls.txtExtraEmpty = cls:GetTextComponent("txt_empty_extra");
+    cls.txtBasicsEmpty = cls:GetTextComponent("txt_empty_basics");
+    cls.txtScore = cls:GetTextComponent("txt_score");
+    cls.txtScoreDesc = cls:GetTextComponent("txt_score_desc");
+    cls.transExtraParent = cls:Find("scroll_extra/content");
+    cls.transBasicsParent = cls:Find("scroll_basics/content");
+    cls.levelIcon = cls:GetImageComponent("img_level")
+    cls.extraItems = {};
+    cls.basicsItems = {};
+    return cls;
+end
+
+function DailyLevelAwardTipsLayer:SetCellItem(cls,index)
+    local basics = Item:GetDrops(self._allBasicsDrops[index].id);
+    local extra = Item:GetDrops(self._allExtraDrops[index].id);
+    local desc1 = self._allExtraDrops[index].desc1
+    local desc2 = self._allExtraDrops[index].desc2
+    if(desc1 == -1) then
+        local score = math.ceil(self._allBasicsDrops[index].score)
+        cls.txtScore:SetText(math.mTally(score));
+        cls.txtScoreDesc:SetText("")
+    else
+        cls.txtScore:SetText("")   --(Language:GetTxtBuyId(desc1))
+        cls.txtScoreDesc:SetText(Language:GetTxtBuyId(desc2))
+    end
+    if(self._curAwardIndex == index and self._level.max_score > 0)then
+        cls.imgPoint:LoadAtlasSprite("source_atlas/atlas_tips_layer", "img_point_c");
+    else
+        cls.imgPoint:LoadAtlasSprite("source_atlas/atlas_tips_layer", "img_point_a");
+    end
+
+    local level = 1
+    local preNum = 0
+    local nextNum = 0
+    local path = ""
+
+    if self._level.rewards ~= nil then
+        level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],self._allBasicsDrops[index].score)
+        set_com_enabled(cls.levelIcon,level > 0)
+        if level > 0 then
+            path = Chapter.levelIconD[level]
+            cls.levelIcon:LoadAtlasSprite("source_atlas/atlas_rank_task_layer", path);
+        end
+    end
+
+    cls.transExtraParent:SetVisible(#extra > 0);
+    cls.txtExtraEmpty:SetVisible(#extra <= 0);
+    cls.transBasicsParent:SetVisible(#basics > 0);
+    cls.txtBasicsEmpty:SetVisible(#basics <= 0);
+
+    --固定奖励
+    if(#basics > 0)then
+        local num = #cls.basicsItems;
+        if(#basics > #cls.basicsItems)then
+            num = #basics;
+        end
+        for i = 1, num do
+            if(cls.basicsItems[i] == nil)then
+                cls.basicsItems[i] = Bag:CtorComSimpleGoodsUi(Groble_ResMgr:Instantiate(self._objItem, cls.transBasicsParent));
+            end
+            cls.basicsItems[i]:Visible(basics[i] ~= nil);
+            if(basics[i] ~= nil)then
+                Bag:SetComSimpleGoodsUi(cls.basicsItems[i],basics[i][1],basics[i][2],basics[i][3],true);
+            end
+        end
+    end
+
+    --额外奖励
+    if(#extra > 0)then
+        local num = #cls.extraItems;
+        if(#extra > #cls.extraItems)then
+            num = #extra;
+        end
+        for i = 1, num do
+            if(cls.extraItems[i] == nil)then
+                cls.extraItems[i] = Bag:CtorComSimpleGoodsUi(Groble_ResMgr:Instantiate(self._objItem, cls.transExtraParent));
+            end
+            cls.extraItems[i]:Visible(extra[i] ~= nil);
+            if(extra[i] ~= nil)then
+                Bag:SetComSimpleGoodsUi(cls.extraItems[i],extra[i][1],extra[i][2],extra[i][3],true);
+            end
+        end
+    end
+end
+
+function DailyLevelAwardTipsLayer:KeyFrameCall()
+    self._scrollTBView.vertical = true;
+end
+
+return DailyLevelAwardTipsLayer;

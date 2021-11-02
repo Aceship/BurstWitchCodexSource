@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2019-01-08 17:14:48
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Shop/shop.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Shop/shop_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Shop/shopcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Shop/shopdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Shop/shopui.txt")
+
+Shop:Ctor()
+Shop:_LoadCfg()

@@ -1,0 +1,40 @@
+--
+-- author: haosun
+-- date  : 2020-07-22 10:12:10
+-- brief : 
+--
+
+MathController = MathController or {}
+
+--以PLayer 为基准
+function MathController:GetRestraintType(playerType, enemyType)
+    if playerType == RestraintType.Enum_Guang and enemyType == RestraintType.Enum_An then
+        return 1;--克制
+    end
+    if playerType == RestraintType.Enum_An and enemyType == RestraintType.Enum_Hundun then
+        return 1;--克制
+    end
+    if playerType == RestraintType.Enum_Hundun and enemyType == RestraintType.Enum_Guang then
+        return 1;--克制
+    end
+
+    if playerType == RestraintType.Enum_Guang and enemyType == RestraintType.Enum_Hundun then
+        return 0;--被克制
+    end
+    if playerType == RestraintType.Enum_An and enemyType == RestraintType.Enum_Guang then
+        return 0;--被克制
+    end
+    if playerType == RestraintType.Enum_Hundun and enemyType == RestraintType.Enum_An then
+        return 0;--被克制
+    end
+
+    if playerType == RestraintType.Enum_Guang and enemyType == RestraintType.Enum_Guang then
+        return 2;--无克制
+    end
+    if playerType == RestraintType.Enum_An and enemyType == RestraintType.Enum_An then
+        return 2;--无克制
+    end
+    if playerType == RestraintType.Enum_Hundun and enemyType == RestraintType.Enum_Hundun then
+        return 2;--无克制
+    end
+end

@@ -1,0 +1,171 @@
+---
+--- Author:admin
+--- Create Time:2021-09-03 15:55:25
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightRankAwardLayer = class("MidNightRankAwardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnBack = "button_back",
+    BtnGetAward = "trans_container/trans_down/btn_get_award"
+    --@ButtonEnd
+}
+--构造函数
+function MidNightRankAwardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightRankAwardLayer"
+    }
+    self._uitype = 2
+    self._fading = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function MidNightRankAwardLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+--按钮事件
+function MidNightRankAwardLayer:onButtonClick(itype)
+    if (itype == BTNS.BtnBack) then
+        self:OnBtnReturnClick()
+    elseif (itype == BTNS.BtnGetAward) then
+        self:OnBtnGetAwardClick()
+    end
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function MidNightRankAwardLayer:Init()
+    self:InitData()
+    self:InitUI()
+end
+--初始化数据
+function MidNightRankAwardLayer:InitData()
+    self._serverData = MidNight:GetServerData()
+end
+--初始化UI
+function MidNightRankAwardLayer:InitUI()
+    self:InitAwardItem()
+end
+
+--显示UI
+function MidNightRankAwardLayer:show()
+    self:showLayer()
+    CS.UnityHelper.DoTipsLayerEnter(self.layer:Get("trans_container"), 0.25)
+end
+
+--释放
+function MidNightRankAwardLayer:onExit()
+    self._serverData = nil
+
+    --@CloseEnd
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+--  一键领取接口
+function MidNightRankAwardLayer:OnBtnGetAwardClick()
+    MidNight:DayAwardGetReq()
+end
+function MidNightRankAwardLayer:OnBtnReturnClick()
+    self:onBackClick()
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightRankAwardLayer:RegisterHandler()
+    self:addEventListener(
+        EVENT_TYPE.GET_MIDNIGHT_DAY_AWARD_REP,
+        self.__cname,
+        function()
+            --
+            self:OnBtnReturnClick()
+            --Guide:OpenGuideEvent(Guide.FIRST_MIDNIGHT_DAY)
+        end
+    )
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+--显示奖励
+local RankAwardMaxNum = 2
+function MidNightRankAwardLayer:InitAwardItem()
+    local _trans
+    local prefab
+    -- lua_table_print(self._serverData.awards);
+
+    local _transContent = self.layer:Get("trans_container/ScrollView/Viewport/Content")
+    local _objItem = self.layer:Get("trans_container/item_hide/prefab_cell").gameObject
+    table.sort(self._serverData.awards,function (a,b)
+        return a.date < b.date;
+    end);
+    for i = 1, #self._serverData.awards do
+        prefab = _transContent:AddChild(_objItem)
+        prefab:GetTextComponent("txt_ranking"):SetText(self._serverData.awards[i].rank)
+        prefab:GetTextComponent("txt_date"):SetText(LanguageMgr:GetTextByID(120200 + self._serverData.awards[i].date))
+        _trans = prefab:Get("trans_item_1")
+        _trans:GetImageComponent("img_icon"):LoadSprite(Item:GetItemIconPath(self._serverData.awards[i].items[1].id))
+        _trans:GetTextComponent("txt_num"):SetText("×" .. tostring(self._serverData.awards[i].items[1].num))
+    end
+end
+return MidNightRankAwardLayer
+
+-- {
+--          [items] => table: 00000001AF678F40
+--              {
+--                  [1] => table: 00000001AF678CC0 {  [num] => 153  [id] => 1000008  }
+--                  [2] => table: 00000001AF678F80 {  [num] => 83  [id] => 1000002  }
+--              }
+--          [rank] => 10
+--          [date] => 2
+-- }
+-- {
+--      {
+--         date = 1,
+--         rank = 16,
+--         items = {
+--             {id = 1000008,num = 155},
+--             {id = 1000002,num = 85}
+--          },
+--     },
+--     {
+--         date = 2,
+--         rank = 13,
+--         items = {
+--              {id = 1000008,num = 155},
+--              {id = 1000002,num = 85,}
+--          },
+--      }
+-- }
+
+-- {
+--     [1] => table: 000000010EC636A0
+--     {
+--         [date] => 1
+--         [rank] => 16
+--         [items] => table: 000000010EC63460
+--             {
+--                 [1] => table: 000000010EC63920 {  [num] => 155  [id] => 1000008 }
+--                 [2] => table: 000000010EC63560 {  [num] => 85  [id] => 1000002  }
+--             }
+--         }
+--     [2] => table: 000000010EC63720
+--     {
+--         [date] => 2
+--         [rank] => 13
+--         [items] => table: 000000010EC63A60
+--         {
+--             [1] => table: 000000010EC63AE0 {  [num] => 152  [id] => 1000008  }
+--             [2] => table: 000000010EC632E0 {  [num] => 83  [id] => 1000002  }
+--         }
+--     }
+-- }

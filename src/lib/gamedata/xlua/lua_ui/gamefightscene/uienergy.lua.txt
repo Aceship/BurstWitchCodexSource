@@ -1,0 +1,210 @@
+--
+-- author: thh
+-- date  : 
+-- brief : 
+--
+local uienergy = class("uienergy")
+
+local state_none = 0
+local state_normal = 1
+local state_low = 2
+local state_sleep = 3
+local state_awake = 4
+
+function uienergy:InitEnergy(energyNormal, energyLow, energySleep)
+    self._energyNormal = {
+        prefab = energyNormal,
+        bar = energyNormal:GetImageComponent("EnergyBar"),
+        awakeBar = energyNormal:GetImageComponent("EnergyAwakeBar"),
+        num = energyNormal:GetTextComponent("EnergyNum"),
+    }
+    energyNormal:SetVisible(false)
+
+    self._energyLow = {
+        prefab = energyLow,
+        bar = energyLow:GetImageComponent("EnergyBar"),
+        num = energyLow:GetTextComponent("EnergyNum"),
+        animation = energyLow:GetComponent("Animation"),
+    }
+    energyLow:SetVisible(false)
+
+    self._energySleep = {
+        prefab = energySleep,
+        bar = energySleep:GetImageComponent("EnergySleepBar"),
+        num = energySleep:GetTextComponent("EnergyTextBg/EnergySleepNum"),
+        animator = energySleep:GetComponent("Animator"),
+    }
+    energySleep:SetVisible(false)
+
+
+    self._state = state_none
+    self:ChangeState(state_normal)
+
+    self:Reset()
+end
+
+function uienergy:Reset()
+    self:ClearState()
+end
+
+function uienergy:ClearState()
+    self._state = state_none
+end
+
+function uienergy:Zero()
+end
+
+
+local function ClearTbl(tbl)
+    for k, _ in pairs(tbl) do
+        tbl[k] = nil
+    end
+end
+
+function uienergy:UnInit()
+    ClearTbl(self._energyNormal)
+    ClearTbl(self._energyLow)
+    ClearTbl(self._energySleep)
+
+    self._energyNormal = nil
+    self._energyLow = nil
+    self._energySleep = nil
+end
+
+
+function uienergy:OnExitState()
+    local state = self._state
+    if(state == state_normal) then
+        self._energyNormal.prefab:SetVisible(false)
+    elseif(state == state_low) then
+        self._energyLow.prefab:SetVisible(false)
+        self._energyLow.animation:Stop()
+    elseif(state == state_sleep) then
+        self._energySleep.prefab:SetVisible(false)
+        self._energySleep.animator:Play("None")
+    elseif(state == state_awake) then
+        self._energyNormal.prefab:SetVisible(false)
+    end        
+end
+
+function uienergy:OnEnterState()
+    local state = self._state
+    if(state == state_normal) then
+        self._energyNormal.prefab:SetVisible(true)
+    elseif(state == state_low) then
+        self._energyLow.prefab:SetVisible(true)
+        self._energyLow.animation:Play("EnergyLow")
+    elseif(state == state_sleep) then
+        self._energySleep.prefab:SetVisible(true)
+        self._energySleep.animator:Play("SleepStart")
+    elseif(state == state_awake) then
+        self._energyNormal.prefab:SetVisible(true)
+    end        
+end    
+
+function uienergy:ChangeState(state)
+    if(state ~= self._state) then
+        self:OnExitState()
+        self._state = state
+        self:OnEnterState()
+    end
+end
+
+
+function uienergy:UpdateEnergy(dt, maxEnergy, curEnergy, awakeEnergy, energySleepTime, energySleepMaxTime)
+    local rate = curEnergy / maxEnergy
+    local awakeRate = awakeEnergy / maxEnergy
+    local sleepRate = energySleepTime / energySleepMaxTime
+
+    local percent = string.format("%2.2f%%", rate * 100)
+    local awakePercent = string.format("%2.2f%%", awakeRate * 100)
+
+    local txtSleepTime = string.format("%2.2fs", energySleepTime)
+
+    if(energySleepTime <= 0) then
+        if(awakeRate > 0) then
+            self:ChangeState(state_awake)
+
+            local normal = self._energyNormal
+            normal.bar.fillAmount = rate
+            normal.awakeBar.fillAmount = awakeRate
+            normal.num:SetText(awakePercent)
+        else
+            if(rate > 0.1) then
+                self:ChangeState(state_normal)
+
+                local normal = self._energyNormal
+                normal.bar.fillAmount = rate
+                normal.awakeBar.fillAmount = awakeRate
+                normal.num:SetText(percent)
+            else
+                self:ChangeState(state_low)
+
+                local low = self._energyLow
+                low.bar.fillAmount = rate
+                low.num:SetText(percent)
+
+                local normal = self._energyNormal
+                normal.awakeBar.fillAmount = awakeRate
+            end
+        end
+    else
+        self:ChangeState(state_sleep)
+
+        local sleep = self._energySleep
+        sleep.num:SetText(txtSleepTime)
+        sleep.bar.fillAmount = sleepRate
+    end
+
+
+
+    -- if(energySleepTime > 0) then
+    --     self._energySleep:SetVisible(true)
+    --     self._energySleep.num:SetText(txtSleepTime)
+    -- else
+    --     self._energyTextBg:SetVisible(false)
+    --     self._energySleepNum:SetVisible(false)
+    --     self._energyNum:SetVisible(true)
+    --     if(awakeRate > 0) then
+    --         self._energyNum:SetText(awakePercent)
+    --     else
+    --         self._energyNum:SetText(percent)
+    --     end
+
+    --     if(self._isEnergyLow) then
+    --         if(rate > 0.1
+    --             or awakeRate > 0) then
+    --             self._isEnergyLow = false
+    --             self:ResetColor()
+    --             self._energyAnimator:Play("None")
+    --         end
+    --     else
+    --         if(rate < 0.1
+    --             and awakeRate <= 0) then
+    --             self._isEnergyLow = true
+    --             self._energyAnimator:Play("Low")
+    --         end
+    --     end
+    -- end
+
+    -- if(energySleepTime > 0) then
+    --     if(not self._isSleep) then
+    --         self._isSleep = true
+    --         self._energyAnimator:Play("SleepStart")
+    --     else
+
+    --     end
+    -- else
+    --     self._isSleep = false
+    -- end
+
+    -- self._energyBar.fillAmount = rate
+    -- self._energyAwakeBar.fillAmount = awakeRate
+    -- self._energySleepBar.fillAmount = sleepRate
+
+    --self._energyWarning:SetVisible(not (rate > 0))
+end
+
+
+
+return uienergy

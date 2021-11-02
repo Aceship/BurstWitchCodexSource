@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2019-10-21 20:11:50
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Tower/tower.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Tower/towercfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Tower/towerdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Tower/towerui.txt")
+
+Tower:Ctor()
+Tower:_LoadCfg()

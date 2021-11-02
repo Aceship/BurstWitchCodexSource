@@ -1,0 +1,747 @@
+--
+-- author: haosun
+-- date  : 2019-07-15 13:48:39
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchNewLvUpLayer = class("WitchNewLvUpLayer", CBaseLayer)
+
+local BTNS = {
+    BtnStepUp = "container/info_step_up/btn_step_up",
+    BtnStepLeft = "container/info_step_up/btn_left",
+    BtnStepRight = "container/info_step_up/btn_right",
+    BtnWakeUp = "container/btn_wake_up"
+    --@ButtonEnd
+}
+
+function WitchNewLvUpLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchNewLvUpLayer",
+    }
+    self._uitype = 2
+    self._topData = {
+        showBtnBack     = false,
+    };
+    self._addStack = true;
+    self._init = true;
+    
+    self:onEnter()
+end
+
+function WitchNewLvUpLayer:initObj()
+
+    self.container = self.layer:Get("container");
+
+    self._expCom = self.layer:Get("container/info_level/slider_exp"):GetComponent("Slider")
+    self._expAddCom = self.layer:Get("container/info_level/slider_add"):GetComponent("Slider")
+    self._expTxtCom =  self.layer:GetTextComponent("container/info_level/text_exp")
+    self._heroNameCom = self.layer:GetTextComponent("container/info_level/text_name")
+    self._heroLevelCom = self.layer:GetTextComponent("container/info_level/text_level")
+    self._effectLvup = self.layer:Get("container/info_level/effect"):GetComponent("ParticleBehaviour")
+    self._effectLvup:Stop()
+    self._prefabHero = Bag:CtorComSimpleGoodsUi(self.layer:Get("container/info_level/prefab_hero"),function () end)
+    self._txtMainTitle = self.layer:GetTextComponent("container/title/txt_title");
+    self._txtMainTitleE = self.layer:GetTextComponent("container/title/txt_title_E");
+    self._txtConsumeTitle = self.layer:GetTextComponent("container/trans_consume_title/txt_title");
+    self._txtConsumeTitleE = self.layer:GetTextComponent("container/trans_consume_title/txt_title_E");
+    self._txtStepTips = self.layer:GetTextComponent("container/info_step_up/txt_tips");
+    self._txtStepUpPreview = self.layer:GetTextComponent("container/info_step_up/txt_preview");
+
+    self._txtStepTitle = self.layer:GetTextComponent("container/info_step_up/btn_step_up/txt_title");
+    self._txtUnLockStep = self.layer:GetTextComponent("container/info_step_up/btn_step_up/txt_un_lock");
+
+    self._txtLvUpTips = self.layer:GetTextComponent("container/info_item/text_tips");
+    self._txtWakeUpDes = self.layer:GetTextComponent("container/btn_wake_up/txt_Des");
+
+    self._transInfoItem = self.layer:GetRectTransformComponent("container/info_item");
+    self._transInfoStepUp = self.layer:GetRectTransformComponent("container/info_step_up");
+    self._transStepLift = self.layer:Get(BTNS.BtnStepLeft);
+    self._transStepRight = self.layer:Get(BTNS.BtnStepRight);
+    self._btnStepUp = self.layer:GetButtonComponent(BTNS.BtnStepUp);
+    self._transWakeUp = self.layer:Get(BTNS.BtnWakeUp);
+    self._prefabHero.isMain = true
+    self._itemsCObj = {}
+    local obj
+    for i = 1, 5 do
+        obj = self.layer:Get("container/info_item/item_" .. i )
+        self._itemsCObj[i] = Bag:CtorComSimpleGoodsUi(obj,function () end)
+    end
+    self._attrCObjArr       = CAttr:NewAttrObjArr(self.layer:Get("container/info_attr"), 6)
+    self._costnum = 1
+    self._pressTime = 0
+end
+
+function WitchNewLvUpLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UP_LEVEL,
+        function(heroid)
+            self:onLevelUpRep(heroid)
+        end)
+    self._sendMessageCD = 0;
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UP_STEP,
+        function(heroid)
+            Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.STEP_UP)
+
+            local showType = self:GetCurShowType();
+            local ignoreStepCutShow = nil;
+            if(showType == Hero.LvUpShowType.Step) then
+                ignoreStepCutShow = true;
+            end
+            self._tmpdata.level = self._hero.level;
+            self._tmpdata.exp = self._hero.exp;
+            self:calcNextExp();
+            self._old_per = self._tmpdata.exp/self._tmpdata.nextExp;
+            self:onLevelUpRep(heroid,ignoreStepCutShow)
+            self:CutShowType(showType);
+
+        end)
+    self._sendMessageCD = 0;
+    self:addPrefabClickListener()
+end
+
+function WitchNewLvUpLayer:GetCurShowType()
+    if(self._hero.level >= self._hero.maxLv and self._hero.level < self._maxStepCfg.levelMax)then
+        return Hero.LvUpShowType.Step;
+    else
+        if(self._hero.level < self._maxStepCfg.levelMax)then
+            if self._lvUpCfg ~= nil then
+                --lvUpCfg.lvUpMaxLevel
+                if self._hero.level >= self._lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+                    return Hero.LvUpShowType.WakeUp;
+                end
+            end
+        end
+    end
+    return Hero.LvUpShowType.Lv;
+end
+
+function WitchNewLvUpLayer:onExit()
+    if self._uicostctrl ~= nil then
+        self._uicostctrl:UICostCtrlDtor()
+        self._uicostctrl = nil
+    end
+
+    CBaseLayer.onExit(self)
+end
+
+--按钮事件
+function WitchNewLvUpLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnStepUp)then
+        local curStepCfg = Hero:GetHeroStepUpCfgByStep(self._curStep - 1);
+        if(Hero:HeroIsStepUp(self._hero.id))then
+            Hero:StepUpReq(self._hero.id);
+        elseif(Player:GetLevel() < curStepCfg.unLockLv)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(6900022));
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(6900021));
+        end
+    elseif(itype == BTNS.BtnWakeUp) then
+        --print("前往好感界面")
+        self:onPopLayer()
+        if self._toFavorCallBack ~= nil then
+            self._toFavorCallBack()
+        end
+
+    elseif(itype == BTNS.BtnStepLeft)then
+        self._curStep = self._curStep - 1;
+        self:SetStepUpItems();
+    elseif(itype == BTNS.BtnStepRight)then
+        self._curStep = self._curStep + 1;
+        self:SetStepUpItems();
+    end
+end
+
+
+function WitchNewLvUpLayer:onUpdateCurrency()
+    self:setLvCostItems()
+end
+
+function WitchNewLvUpLayer:onBackClick()
+    self:doExit()
+end
+
+function WitchNewLvUpLayer:doExit()
+    if lua_table_empty(self._realUsing) then
+        if self._callback ~= nil then
+            self._callback()
+            self._callback = nil;
+        end
+        if self._toFavorCallBack ~= nil then
+            self._toFavorCallBack = nil
+        end
+        self._datas = nil
+        self:onPopLayer()
+    else
+        self._closing = true
+        self:realLevelUpReq()
+    end
+
+end
+
+function WitchNewLvUpLayer:onUpdate(dt)
+    if(self._sendMessageCD >= 0) and (not self._press)then
+        self._sendMessageCD = self._sendMessageCD + dt;
+        if(self._sendMessageCD >= Player.SendMessageCD_002 * 0.5)then
+            self:realLevelUpReq();
+            self._sendMessageCD = -1;
+        end
+    end
+    if self._press then
+        self._dt = self._dt + dt
+        self._pressTime = self._pressTime + dt
+        if  self._pressTime > 1 and self._pressTime < 2 then
+            self._costnum = 2
+        elseif self._pressTime >= 2 and self._pressTime < 3 then
+            self._costnum = 5
+        elseif self._pressTime > 3 and self._pressTime < 4 then
+            self._costnum = 10
+        elseif self._pressTime >= 4 then
+            self._costnum = 50
+        end
+
+        if self._dt >= 0.5 then
+            self._dt = self._dt - 0.1
+            self:onClickUpgrade()
+        end
+    else
+        self._dt = 0
+        self._pressTime = 0
+        self._costnum = 1
+    end
+
+    if self._updateper then
+        local per, dis = self._new_per, self._dis_per
+        if self._upcount > 0 then
+            per = 1
+            dis = 0.1
+        end
+        self._old_per = self._old_per + dis
+
+        if math.abs(self._old_per - per) < 0.001 then
+            self._old_per = per
+        end
+        if self._old_per > per then
+            self._old_per = per
+        end
+        if self._upcount == 0 and self._old_per == per then
+            self._updateper = false
+        end
+        if self._old_per >= 1 then
+            if(self._showlevel >= self._hero.maxLv)then
+                self._old_per = 1
+                self._updateper = false
+            else
+                self._old_per = 0
+            end
+            self._upcount = self._upcount - 1
+            self._showlevel =  self._tmpdata.level
+            self._effectLvup:Stop()
+            self._effectLvup:Play()
+            self._curLv = self._showlevel;
+            self:refreshAttr();
+        end
+        --升到当前满级时经验不溢出显示
+        --[[if self._showlevel == self._hero.maxLv then
+            if(self._tmpdata.exp >= self._tmpdata.nextExp)then
+                self._old_per = self._tmpdata.nextExp - 1
+            else
+                self._old_per = self._tmpdata.exp;
+            end
+            self._updateper = false
+            self._old_per = self._old_per/self._tmpdata.nextExp or 0
+        end]]--
+        -- self:setExp(self._old_per, self._tmpdata.exp, self._tmpdata.nextExp,self._showlevel)
+    end
+end
+
+function WitchNewLvUpLayer:show(heroid, showType,callback,toFavorCallBack)
+
+    play_effect_show()
+    self._fading = true
+    self._curStepLvMax = false;
+    self._hero = Hero:GetHero(heroid)
+    self._cfg = Hero:GetCfg(heroid)
+    self._curLv = self._hero.level;
+    self._curExp = self._hero.exp;
+    self._curStep = self._hero.step;
+    self._maxStepCfg = Hero:GetMaxLvStepCfg();
+    self._callback = callback
+    self._toFavorCallBack = toFavorCallBack
+    self._curShowType = showType or Hero.LvUpShowType.Lv;
+
+    self._lvUpCfg = Hero:GetCurSublimationCfgByHeroId(self._hero.id);
+
+    self:initLayer()
+    self:showLayer()
+    self:CutShowType(self._curShowType);
+    self:playAni("CommonLayerFadeInAni")
+end
+function WitchNewLvUpLayer:showLayer()
+    --self:onUpdateCurrency()
+    self:SetStepUpItems()
+    CBaseLayer.showLayer(self)
+end
+function WitchNewLvUpLayer:initLayer()
+    self._tmpdata = {
+    level   = self._hero.level,
+    exp     = self._hero.exp,
+    nextExp = 0,
+    }
+    self:calcNextExp()
+    self._old_per = self._tmpdata.exp / self._tmpdata.nextExp
+    self._updateper = false
+    self._upcount = 0
+    self._showlevel = self._hero.level
+    self._dt = 0
+    self._realUsing = {}
+    self:dataGen()
+    self:initHero()
+    self:refreshAttr()
+end
+
+function WitchNewLvUpLayer:addPrefabClickListener()
+    for i, cobj in ipairs(self._itemsCObj) do
+        local listener = CS.EventTriggerListener.Get(cobj.obj:GetComponent("Button").gameObject)
+        listener.onDown = function()
+            if self._tmpdata.level == self._hero.maxLv then
+                self._press = false
+            elseif self._tmpdata.level >= self._lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+                self._press = false
+            else
+                self._press = true
+            end
+            self._index = i
+        end
+        listener.onUp = function()
+            self._press = false
+            if(self._realUsing[self._datas[self._index].cfgid] ~= nil)then
+                self._realUsing[self._datas[self._index].cfgid] = Item:GetCount(self._datas[self._index].cfgid) - self._datas[self._index].count;
+            end
+            if self._datas[self._index].count == 0 then
+                if self._curShowType == Hero.LvUpShowType.WakeUp then
+
+                    Groble_UIMgr:ShowGameWordTipsLayer(6900026)
+                    return
+                end
+                Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item, self._datas[self._index].cfgid, Bag.TYPE_ITEM, 0)
+                if(Guide:IsGuiding())then
+                    self:realLevelUpReq()
+                    return;
+                end
+                self._sendMessageCD = 0;
+            else
+                self:onClickUpgrade()
+                if(Guide:IsGuiding())then
+                    self:realLevelUpReq()
+                    return;
+                end
+                self._sendMessageCD = 0;
+            end
+        end
+    end
+end
+
+
+function WitchNewLvUpLayer:calcNextExp()
+    self._tmpdata.nextExp = Hero:GetNextLevelExp(self._hero.id, self._tmpdata.level)
+end
+
+function WitchNewLvUpLayer:dataGen()
+    local ids = Item:GetCfgBySubType(Item.SUBTYPE_HERO_EXP)
+    self._datas = {}
+    for i, v in ipairs(ids) do
+        table.insert(self._datas, {cfgid = v, count = Item:GetCount(v)})
+    end
+end
+
+
+function WitchNewLvUpLayer:setLvCostItems()
+    for i, cobj in ipairs(self._itemsCObj) do
+        if self._datas ~= nil and self._datas[i] ~= nil then
+            Bag:SetComSimpleGoodsUi(cobj,Bag.TYPE_ITEM,self._datas[i].cfgid,self._datas[i].count)
+        end
+    end
+end
+
+--置黑所有道具
+function WitchNewLvUpLayer:setAllCostItemsDark()
+    for i, cobj in ipairs(self._itemsCObj) do
+        if self._datas ~= nil and self._datas[i] ~= nil then
+            Bag:SetComSimpleGoodsUi(cobj,Bag.TYPE_ITEM,self._datas[i].cfgid,self._datas[i].count,false,false,false,true)
+        end
+    end
+end
+
+function WitchNewLvUpLayer:onClickUpgrade()
+    if(self._curStepLvMax)then
+        return;
+    end
+    if self._sending then
+        return
+    end
+    if self._datas[self._index].count == 0 then
+        return
+    end
+    if self._tmpdata.level == self._hero.maxLv then
+        self._press = false
+        Groble_UIMgr:ShowGameWordTipsLayer(70073)
+        return
+    end
+    if self._tmpdata.level > self._hero.maxLv then
+        self._press = false
+        Groble_UIMgr:ShowGameWordTipsLayer(70073)
+        return
+    end
+    if self._tmpdata.level >= self._lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+        self._dt = 0
+        self._pressTime = 0
+        self._costnum = 1
+        self._press = false
+        self._old_per = 1
+        self._updateper = false
+        Groble_UIMgr:ShowGameWordTipsLayer(6900026)
+        self:CutShowType(Hero.LvUpShowType.WakeUp)
+        self:realLevelUpReq();
+        return
+    end
+    -- 模拟升级
+    self:imitateLevelUp(self._datas[self._index])
+end
+
+local isSend = false;
+function WitchNewLvUpLayer:imitateLevelUp(data,showLvMaxTips)
+    if data.count < self._costnum then
+        self._costnum = data.count
+    end
+    if(showLvMaxTips == nil)then
+        showLvMaxTips = true;
+    end
+    local maxLvExps,curExp = 0,0;
+    curExp = self._tmpdata.exp + Item:GetTransExp(data.cfgid) * self._costnum;
+    if(showLvMaxTips)then       --等级上限提示
+        for i = self._tmpdata.level, self._hero.maxLv do
+            maxLvExps = maxLvExps + Hero:GetNextLevelExp(self._hero.id, i);
+        end
+        if(curExp >= maxLvExps)then
+            if(self._maxStepCfg.levelMax > self._hero.maxLv)then
+                local count = math.floor( self._tmpdata.exp/Item:GetTransExp(data.cfgid))
+                if(self._costnum - count - 1 <= 0)then
+                    self._curStepLvMax = true;
+                    Groble_UIMgr:ShowMsgBy2CallLayer(LanguageMgr:GetTextByID(6900004),
+                            function ()
+                                self._curStepLvMax = false;
+                            end ,
+                            function()
+                                isSend = true;
+                                self._costnum = self._costnum + 1
+                                self:imitateLevelUp(data,false)
+                                self._curStepLvMax = false;
+                            end)
+                    return;
+                end
+            end
+        end
+    end
+    self._tmpdata.exp = curExp
+    local playerlv = self._hero.maxLv
+    for i = 1, self._hero.maxLv do
+        if self._tmpdata.exp < self._tmpdata.nextExp then
+            break
+        end
+        self._tmpdata.exp = self._tmpdata.exp - self._tmpdata.nextExp
+        self._tmpdata.level = self._tmpdata.level + 1
+        self._upcount = self._upcount + 1
+        Groble_SoundMgr:PlayEffect(20000017)
+        self:calcNextExp()
+        if self._tmpdata.level >= self._hero.maxLv then
+            --满级后根据溢出经验减少使用量
+            local count = math.floor( self._tmpdata.exp/Item:GetTransExp(data.cfgid))
+            print(count);
+            print("                        "..self._costnum);
+            self._costnum = self._costnum - count
+            self._tmpdata.exp = self._tmpdata.exp - Item:GetTransExp(data.cfgid) * count;
+            isSend = true;
+            break;
+        end
+        if self._tmpdata.level == playerlv then
+            local nextExp = Hero:GetNextLevelExp(self._hero.id, self._tmpdata.level)
+            self._tmpdata.exp = math.min(self._tmpdata.exp, nextExp)
+            if(self._tmpdata.exp >= nextExp)then
+                --self._tmpdata.exp = self._tmpdata.exp - 1;
+            else
+                local count = math.floor( self._tmpdata.exp/Item:GetTransExp(data.cfgid))
+                self._costnum = self._costnum - count
+                self._tmpdata.exp = self._tmpdata.exp - Item:GetTransExp(data.cfgid) * count;
+            end
+            break
+        end
+    end
+    -- 判断是否升级
+    self._updateper = true
+    self._new_per = self._tmpdata.exp / self._tmpdata.nextExp
+    if self._upcount > 0 then
+        self._dis_per = self._new_per/15
+    else
+        self._dis_per = (self._new_per - self._old_per)/15
+    end
+   self:setExp(self._old_per, self._tmpdata.exp, self._tmpdata.nextExp,self._tmpdata.level)
+    data.count = data.count - self._costnum
+    self:setLvCostItems()
+    if self._realUsing[data.cfgid] == nil then
+        self._realUsing[data.cfgid] = 0
+    end
+    self._realUsing[data.cfgid] = self._realUsing[data.cfgid] + self._costnum
+    if(isSend)then
+        isSend = false;
+        -- if self._tmpdata.level >= self._lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+        --     self._press = false
+        --     Groble_UIMgr:ShowGameWordTipsLayer(6900026)
+        --     self:CutShowType(Hero.LvUpShowType.WakeUp)
+        --     return
+        -- end
+        self:realLevelUpReq();
+    end
+end
+
+function WitchNewLvUpLayer:realLevelUpReq()
+    if self._sending then
+        return
+    end
+    if not lua_table_empty(self._realUsing) then
+        Hero:LevelUpReq(self._hero.id, self._realUsing)
+    end
+    
+end
+
+--当魔女升级/升阶时的回调
+--增加变量ignoreStepCutShow 处理升阶回调后 经验超过下一阶表现异常的情况
+function WitchNewLvUpLayer:onLevelUpRep(heroid,ignoreStepCutShow)
+    self._sending = false
+    self._realUsing = {}
+    self:refreshAttr()
+    local exp = Hero:GetNextLevelExp(self._hero.id, self._hero.level)
+    if(self._hero.level >= self._hero.maxLv and self._hero.level < self._maxStepCfg.levelMax)then
+        if(ignoreStepCutShow== nil) then
+            self:CutShowType(Hero.LvUpShowType.Step);
+        end
+    else
+        if(self._hero.level < self._maxStepCfg.levelMax)then
+            if self._lvUpCfg == nil then
+                CS.Logger.LogError("lvUpCfg is nil   path = ## Hero:GetCurSublimationCfgByHeroId ##");
+                return
+            end
+            --lvUpCfg.lvUpMaxLevel
+            if self._hero.level >= self._lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+                self:CutShowType(Hero.LvUpShowType.WakeUp)
+            else
+                self._txtLvUpTips:SetTextById(8880024);
+            end
+        else
+            --最大等级,显示经验天为一
+            self._txtLvUpTips:SetTextById(31122);
+            exp = 0;
+        end
+    end
+    local per = exp > 0 and self._hero.exp/exp or 0
+    self:setExp(per, self._hero.exp, exp ,self._hero.level)
+    if self._closing then
+        self:doExit()
+    end
+end
+
+function WitchNewLvUpLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function WitchNewLvUpLayer:refreshAttr()
+    if(self._hero.level == self._curLv)then
+        Hero:SetHeroAttr(self._attrCObjArr, self._hero, true);
+        return;
+    end
+    local tempLvData = {lv = self._hero.level,exp = self._hero.exp};
+    self._hero.level = self._curLv
+    Hero:OnCalcAttr(self._hero)
+    Hero:SetHeroAttr(self._attrCObjArr, self._hero, true)
+    self._hero.level = tempLvData.lv
+    Hero:OnCalcAttr(self._hero)
+end
+local expfomat = "%s/%s"
+function WitchNewLvUpLayer:setExp(expPer, exp, expmax,level,isInit)
+    self._expAddCom.value = expPer
+    if isInit then
+        self._expCom.value = expPer
+    else
+        self._expCom:DOValue( expPer,0.5)
+    end
+    self._heroLevelCom.text = string.format(expfomat, level, self._hero.maxLv)
+    if exp ~= nil and expmax ~= nil then
+        self._expTxtCom.text = string.format(expfomat, exp, expmax)
+    end
+    if level >= self._hero.maxLv then
+        self._expTxtCom.text = ""--LanguageMgr:GetTextByID(99000079)
+    end
+end
+function WitchNewLvUpLayer:initHero()
+    Bag:SetComSimpleGoodsUi(self._prefabHero,Bag.TYPE_HERO,self._hero.id)
+    self._heroNameCom.text = self._cfg.Name
+    local exp = Hero:GetNextLevelExp(self._hero.id, self._hero.level)
+    local per = exp > 0 and self._hero.exp/exp or 0
+
+    self:setExp(per, self._hero.exp, exp, self._hero.level,true)
+
+end
+
+function WitchNewLvUpLayer:CutShowType(showType)
+    set_com_enabled(self._txtLvUpTips,showType == Hero.LvUpShowType.Lv)
+    set_obj_active(self._transWakeUp,showType == Hero.LvUpShowType.WakeUp)
+
+    if(showType == Hero.LvUpShowType.Lv)then
+        if(not self._init)then
+            self:playAni("StepUpOutAnim")
+        end
+
+        self:HideInfoStepUp();
+        self._txtMainTitle:SetTextById(6900001);
+        self._txtMainTitleE:SetTextById(6900002);
+        self._txtConsumeTitle:SetTextById(6900006);
+        self._txtConsumeTitleE:SetTextById(6900007);
+        for _, cls in ipairs(self._attrCObjArr) do
+            CAttr:SetAddAttrCObj(cls, 0);
+        end
+        self:setLvCostItems();
+    elseif(showType == Hero.LvUpShowType.WakeUp) then
+        self._curShowType = Hero.LvUpShowType.WakeUp
+
+
+        --[[
+        if(not self._init)then
+            self:playAni("StepUpOutAnim")
+        end]]--
+        self:HideInfoStepUp();
+        self:SetInfoItemVisible(true);
+        self:setAllCostItemsDark();
+        self._txtMainTitle:SetTextById(6900001);
+        self._txtMainTitleE:SetTextById(6900002);
+        self._txtConsumeTitle:SetTextById(6900006);
+        self._txtConsumeTitleE:SetTextById(6900007);
+        local curRaise = self._hero.intimacy_data.raise
+        if curRaise < 0 then
+            curRaise = 0
+        end
+        self._txtWakeUpDes.text = string.format(LanguageMgr:GetTextByID(6900023),curRaise,self._lvUpCfg.lv)
+        for _, cls in ipairs(self._attrCObjArr) do
+            CAttr:SetAddAttrCObj(cls, 0);
+        end
+    else
+        if(not self._init)then
+            self:playAni("StepUpInAnim")
+        end
+        self:SetInfoItemVisible(false);
+        if(self._curStep < self._maxStepCfg.stepNum)then
+            self._curStep = self._curStep + 1;
+        end
+        self:SetStepUpItems();
+    end
+    
+    if(self._init)then
+        self._init = false;
+    end
+end
+
+function WitchNewLvUpLayer:SetInfoItemVisible(state)
+    local value =0;
+    if(state == false) then
+        value = -1080;
+    end
+    if(state == true) then
+        local canvasGroup = self._transInfoItem:GetComponent("CanvasGroup");
+        canvasGroup.alpha = 1;
+    end
+    self._transInfoItem:SetAnchoredPosX(value);
+end
+
+function WitchNewLvUpLayer:HideInfoStepUp()
+    self._transInfoStepUp:SetAnchoredPosX(-1080);
+end
+
+local stepUpItemNum = 5;
+---设置升阶UI
+function WitchNewLvUpLayer:SetStepUpItems()
+
+    local curStepCfg = Hero:GetHeroStepUpCfgByStep(self._curStep);
+    --Lift and Right Button
+    self._transStepLift:SetVisible(self._curStep > 1);
+    self._transStepRight:SetVisible(self._curStep < self._maxStepCfg.stepNum);
+    --title
+    self._txtMainTitle.text = string.format(LanguageMgr:GetTextByID(6900008),uistr.com_chapterstr[self._curStep + 1]);
+    self._txtMainTitleE:SetTextById(6900009);
+    self._txtConsumeTitle:SetTextById(6900010);
+    self._txtConsumeTitleE:SetTextById(6900011);
+    if(self._curStep > 0)then
+        if(self._hero.level == curStepCfg.levelMax)then--满阶
+            self._txtStepTips.text = "MAX";
+        else
+            self._txtStepTips.text = string.format(LanguageMgr:GetTextByID(6900005),curStepCfg.levelMax);
+        end
+    else
+        self._txtStepTips.text = "";
+    end
+
+    --item
+    if self._uicostctrl == nil then
+        self._uicostctrl = UICostCtrl:new(self.layer:Get("container/info_step_up/cost_bg"), 5)
+    end
+    local stepUpCosts = Hero:GetStepUpCostsByAttrAndStep(self._hero.attri_type,self._curStep);
+    self._uicostctrl:UpdateUICostCtrl(stepUpCosts)
+
+    --Add _attr
+    local heroAttrs = Hero:GetStepUpAttrByHeroId(self._hero.id);
+    if(self._curStep <= 0)then
+        self._btnStepUp.transform:SetVisible(false);
+        for _, cls in ipairs(self._attrCObjArr) do
+            CAttr:SetAddAttrCObj(cls, 0);
+        end
+    else
+        local curAddAttr = {};
+        for _, v in ipairs(heroAttrs) do
+            curAddAttr[v[1]] = v[self._curStep + 1];
+        end
+        local attrAddNum;
+        if(self._curStep ~= self._hero.step + 1 or self._hero.level < self._hero.maxLv)then
+            --预览
+            self._btnStepUp.transform:SetVisible(false);
+            self._txtStepUpPreview.text = string.format(LanguageMgr:GetTextByID(6900012),uistr.com_chapterstr[self._curStep + 1]);
+            for i, cls in ipairs(self._attrCObjArr) do
+                attrAddNum = curAddAttr[Hero.Attr6[i]] or 0;
+                if(Hero.Attr6[i] ~= nil)then
+                    CAttr:SetAttrCObj(cls, Hero.Attr6[i], string.format("<color=#7696CFFF>+%d</color>",math.floor(attrAddNum)) , true,true);
+                    CAttr:SetAddAttrCObj(cls, 0);
+                end
+            end
+        else
+            --升阶
+            --local isStepUp = Hero:HeroIsStepUp(self._hero.id);
+            local stepIsLock = false;
+            local curStepCfg = Hero:GetHeroStepUpCfgByStep(self._curStep -1);
+            self._txtStepUpPreview.text = "";
+            self._btnStepUp.transform:SetVisible(true);
+            self._btnStepUp.interactable = true;
+            stepIsLock = Player:GetLevel() < curStepCfg.unLockLv;
+            self._txtUnLockStep:SetEnabled(stepIsLock);
+            self._txtStepTitle:SetEnabled(not stepIsLock);
+            if(stepIsLock)then
+                self._txtUnLockStep:SetText(string.format(LanguageMgr:GetTextByID(6900020),Player:GetLevel(),curStepCfg.unLockLv));
+            end
+            Hero:SetHeroAttr(self._attrCObjArr, self._hero, true)
+            for i, cls in ipairs(self._attrCObjArr) do
+                CAttr:SetAddAttrCObj(cls, math.floor(curAddAttr[Hero.Attr6[i]] or 0));
+            end
+        end
+    end
+end
+
+return WitchNewLvUpLayer
+

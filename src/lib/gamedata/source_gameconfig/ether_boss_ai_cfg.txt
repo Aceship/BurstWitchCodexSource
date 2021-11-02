@@ -1,0 +1,7 @@
+序号,关卡ID,怪物ID,词条ID,词条等级,行为阶段,ai文件
+id,levelid,enemyid,buffid,bufflevel,step,aifiles
+int,int,int,int,int,int,sarray_|
+1,420001,42000110,10213,0,1,fightData/AI/Boss/gaiyafa/YiTaiBianJie/GYF_1_1|fightData/AI/Boss/gaiyafa/YiTaiBianJie/GYF_1_2|fightData/AI/Boss/gaiyafa/YiTaiBianJie/GYF_1_3|fightData/AI/Boss/gaiyafa/YiTaiBianJie/GYF_1_4
+2,420001,42000110,10213,0,2,fightData/AI/Boss/gaiyafa/zhuxian/gaiyafa03
+3,420001,42000110,10213,1,1,fightData/AI/Boss/gaiyafa/zhuxian/gaiyafa03
+4,420001,42000110,10213,1,2,fightData/AI/Boss/gaiyafa/zhuxian/gaiyafa03

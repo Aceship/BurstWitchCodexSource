@@ -1,0 +1,68 @@
+--
+-- author: liangxt
+-- date  : 2020年3月19日13:47:23
+-- brief : 
+--
+UnIndulge = UnIndulge or {}
+
+function UnIndulge:_LoadUnIndulgeCfg()
+    self:_LoadUnIndulgeCardCfg()
+    self:_LoadTimeCfg()
+end
+
+function UnIndulge:_LoadUnIndulgeCardCfg()
+    self._unIndulgeCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("UnIndulge")
+    for _, v in pairs(cfgs) do
+        self._unIndulgeCfgs[tonumber(v.id)] =
+        {
+            id    = tonumber(v.id),
+            type  = v.IndulgeType,
+            desc  = Language:GetTxtBuyId(v.IndulgeDes),
+            time  = {}
+        }
+        if v.Time ~= -1 then
+            self._unIndulgeCfgs[tonumber(v.id)].time = lua_str_split(v.Time ,"|")
+        end
+    end
+    
+end
+
+function UnIndulge:GetUnIndulgeCfg(cfgid)
+    if self._unIndulgeCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find UnIndulge cfg, id = " .. cfgid)
+    end
+    return self._unIndulgeCfgs[cfgid]
+end
+
+function UnIndulge:GetUnIndulgeByType(itype)
+    for _,v  in pairs(self._unIndulgeCfgs) do
+        if tonumber(v.type) == itype then
+            return v
+        end
+    end
+end
+
+function UnIndulge:_LoadTimeCfg()
+    local cfgs = CfgLoader:LoadCfg("UnIndulgeDate")
+    self._dateCfgs = {}
+    for _, v in pairs(cfgs) do
+        local tmp = {
+            id = tonumber(v.id),
+            desc = v.Des,
+            stime = CTime:Str2Time(v.open_date_begin),
+            etime = CTime:Str2Time(v.open_date_end),
+        }
+        self._dateCfgs[tonumber(v.id)] = tmp
+    end
+end
+
+function UnIndulge:Isholiday()
+    local curTime = CTime:GetServerTime()
+    for k,v in pairs(self._dateCfgs) do
+        if v.stime <= curTime and curTime<= v.etime then
+            return true
+        end
+    end
+    return false
+end

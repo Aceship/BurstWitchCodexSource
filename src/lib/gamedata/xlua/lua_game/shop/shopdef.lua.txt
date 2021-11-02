@@ -1,0 +1,149 @@
+--
+-- author: haosun
+-- date  : 2019-01-08 17:14:37
+-- brief : 
+--
+Shop = Shop or {}
+
+Shop.TYPE_MARKET        = 1     -- 黑市
+Shop.TYPE_FRIENDSHIP    = 2     -- 友情
+Shop.TYPE_EQUIP         = 3     -- 装备
+Shop.TYPE_MYSTERY       = 4     -- 神秘
+Shop.TYPE_RECHARGE      = 99     -- 充值（充值表）
+Shop.TYPE_RANK          = 5     -- 深夜
+Shop.TYPE_LOTTERY       = 6     -- 印记碎片
+Shop.TYPE_WORLD_BOSS    = 9     -- 世界BOSS
+Shop.TYPE_PAPER         = 7     -- 图纸
+Shop.TYPE_COMPONENT     = 8     -- 组件
+Shop.TYPE_TOWER         = 11    -- 爬塔商店
+Shop.TYPE_BLOOD         = 12    -- 血之轮回商店
+Shop.TYPE_SKIN          = 21    -- 皮肤
+Shop.TYPE_DIAL          = 22    -- 转盘
+
+-- 商店页签需要显示的货币
+Shop.SHOW_COINS = {
+    [Shop.TYPE_MARKET]          = {Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_WITCH_COIN},
+    [Shop.TYPE_FRIENDSHIP]      = {Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_FRIENDSHIP},
+    [Shop.TYPE_EQUIP]           = {Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_EQUIP_MONEY},
+    [Shop.TYPE_MYSTERY]         = {Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN ,Player.ITEM_VALUE_WITCH_COIN},
+    [Shop.TYPE_SKIN]            = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_WITCH_COIN,Player.ITEM_VALUE_SKIN_COIN},
+    [Shop.TYPE_RECHARGE]        = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN,Player.ITEM_VALUE_WITCH_COIN},
+    [Shop.TYPE_RANK]            = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN,Player.ITEM_VALUE_SY_COIN},
+    [Shop.TYPE_WORLD_BOSS]      = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN,Player.ITEM_VALUE_SY_COIN},
+
+    [Shop.TYPE_PAPER]           = {Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_MUISIC_COIN},
+    [Shop.TYPE_COMPONENT]       = {Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_MUISIC_COIN},
+    [Shop.TYPE_TOWER]           = {Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_TOWER_COIN},
+    [Shop.TYPE_BLOOD]           = {Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_BLOOD_COIN},
+
+}
+
+Shop.TYPES = {
+    Shop.TYPE_MARKET,
+    Shop.TYPE_FRIENDSHIP,
+    Shop.TYPE_EQUIP,
+    Shop.TYPE_MYSTERY,
+    Shop.TYPE_RECHARGE,
+    Shop.TYPE_PAPER,
+    Shop.TYPE_COMPONENT,
+    Shop.TYPE_TOWER,
+    Shop.TYPE_BLOOD,
+    Shop.TYPE_SKIN,
+    Shop.TYPE_DIAL,
+    Shop.TYPE_RANK,
+    Shop.TYPE_WORLD_BOSS,
+    Shop.TYPE_LOTTERY,
+}
+
+Shop.MAINTYPES = {
+    Shop.TYPE_MARKET,
+    Shop.TYPE_FRIENDSHIP,
+    Shop.TYPE_EQUIP,
+    Shop.TYPE_MYSTERY,
+    Shop.TYPE_RECHARGE,
+    Shop.TYPE_SKIN
+}
+
+Shop.MUSICTYPES = {
+    Shop.TYPE_PAPER,
+    Shop.TYPE_COMPONENT
+}
+
+Shop.TOWERTYPES = {
+    Shop.TYPE_TOWER
+}
+
+Shop.BLOODTYPES = {
+    Shop.TYPE_BLOOD
+}
+
+Shop.BUY_TYPE_NONE      = 0     -- 不限次数
+Shop.BUY_TYPE_DAY       = 1     -- 每日限购
+Shop.BUY_TYPE_WEEK      = 2     -- 每周限购
+Shop.BUY_TYPE_MONTH     = 3     -- 每月限购
+Shop.BUY_TYPE_ONCE      = 4     -- 一次性限购（限购次数用完后，就无法再购买）
+
+Shop.SELL_TYPE_DROP     = 1     -- 出售随机，由服务器发送
+Shop.SELL_TYPE_GOODS    = 2     -- 直接出售的实际物品
+Shop.SELL_POP_UP        = 3     --触发礼包
+
+Shop.ICON_RMB           = "icon_rmb"
+Shop.ICON_US            = "icon_usd"
+Shop.ICON_TW            = "icon_twd"
+Shop.ICON_HK            = "icon_hkd"
+Shop.ATLAS_PTAH         = "source_atlas/atlas_shop_layer"
+
+Shop.SHOP_TYPE_MAIN     = 1 --首页商店
+Shop.SHOP_TYPE_MUSIC    = 3 --世界BOSS
+Shop.SHOP_TYPE_TOWER    = 3 --爬塔商店
+Shop.SHOP_TYPE_BLOOD    = 4 --白夜商店
+Shop.SHOP_TYPE_WORLD_BOSS    =2     --世界BOSS
+
+
+Shop.TITLE_TEXT =  {
+    [Shop.TYPE_MARKET]          = {1006401, 1006402},
+    [Shop.TYPE_FRIENDSHIP]      = {1006403, 1006404},
+    [Shop.TYPE_EQUIP]           = {1006405, 1006406},
+    [Shop.TYPE_MYSTERY]         = {1006407, 1006408},
+    [Shop.TYPE_RECHARGE]        = {1006409, 1006410},
+ 
+    [Shop.TYPE_PAPER]           = {1006411, 1006412},
+    [Shop.TYPE_COMPONENT]       = {1006413, 1006414},
+    [Shop.TYPE_TOWER]           = {1006415, 1006416},
+    [Shop.TYPE_BLOOD]           = {1006417, 1006418},
+    [Shop.TYPE_SKIN]            = {1006419, 1006420},
+    [Shop.TYPE_WORLD_BOSS]      = {1006401, 1006402},
+}
+
+Shop.LAYER_TYPE = {
+    [Shop.SHOP_TYPE_MAIN]   = { Shop.TYPE_MARKET, Shop.TYPE_FRIENDSHIP, Shop.TYPE_EQUIP,Shop.TYPE_MYSTERY,Shop.TYPE_SKIN, Shop.TYPE_RECHARGE },
+    [Shop.SHOP_TYPE_MUSIC]  = { Shop.TYPE_PAPER, Shop.TYPE_COMPONENT },
+    [Shop.SHOP_TYPE_TOWER]  = { Shop.TYPE_TOWER },
+    [Shop.SHOP_TYPE_BLOOD]  = { Shop.TYPE_BLOOD },
+    [Shop.SHOP_TYPE_WORLD_BOSS]  = { Shop.TYPE_WORLD_BOSS},
+}
+
+Shop.SPINE_ID = {
+    [Shop.SHOP_TYPE_MAIN]   =  1012,
+    [Shop.SHOP_TYPE_MUSIC]  =  1024,
+    [Shop.SHOP_TYPE_TOWER]  =  1014,
+    [Shop.SHOP_TYPE_BLOOD]  =  10440003,
+    [Shop.SHOP_TYPE_WORLD_BOSS]  =  10440003,
+}
+
+Shop.UPDATE_TYPE = {Shop.TYPE_MARKET, Shop.TYPE_COMPONENT}
+
+Shop.UNLOCK_TYPE =
+{
+    Map   = 1,
+    Level =  2,
+}
+
+Shop.LockData_One     = 1
+Shop.LockData_More    = 2
+Shop.Icon_Rebate_pos  = CS.UnityEngine.Vector3(-85, -140, 0)
+Shop.Icon_Normal_pos  = CS.UnityEngine.Vector3(-55, -140, 0)
+
+Shop.Rank_Show = 1
+Shop.Rank_Spine = 2
+

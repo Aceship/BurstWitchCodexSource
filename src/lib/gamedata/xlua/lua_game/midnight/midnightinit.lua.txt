@@ -1,0 +1,15 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnight.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnightcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnight_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnightdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnightui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/MidNight/midnightdata.txt")
+
+MidNight:Ctor()
+MidNight:LoadCfg();

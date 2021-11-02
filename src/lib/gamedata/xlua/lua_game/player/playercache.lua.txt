@@ -1,0 +1,53 @@
+--
+-- author: haosun
+-- date  : 2019-06-26 16:33:06
+-- brief :
+--
+Player = Player or {}
+
+-- 保存名片信息
+function Player:GetPlayerCardCacheData(playerid)
+    local data = self._playercachedata[playerid]
+    if data ~= nil then
+        if os.time() - data.marktime < Player.REQ_PLAYER_INFO_TIME then
+            return data.playerdata
+        else
+            return nil
+        end
+    else
+        return nil
+    end
+end
+
+function Player:SetPlayerCardCacheData(playerid, playerdata)
+    if self._playercachedata[playerid] == nil then
+        self._playercachedata[playerid] = {}
+    end
+    self._playercachedata[playerid].marktime = os.time()
+    self._playercachedata[playerid].playerdata = playerdata
+end
+
+--名片信息类型
+function Player:GetPlayerCardType()
+    return self._playerCardType;
+end
+
+function Player:SetPlayerCardType(cardType)
+    self._playerCardType = cardType;
+end
+
+function Player:ClosePlayerCardType()
+    self._playerCardType = nil;
+end
+
+function Player:SetReportStr(str)
+    self._reportStr = str;
+end
+
+function Player:GetReportStr()
+    return self._reportStr;
+end
+
+function Player:CloseReportStr()
+    self._reportStr = nil;
+end

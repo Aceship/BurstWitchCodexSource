@@ -1,0 +1,151 @@
+--
+-- author: haosun
+-- date  : 2018-10-31 19:24:06
+-- brief : 
+--
+
+Item = Item or {}
+
+function Item:SyncItems(data)
+    if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步道具数据----------")
+    for _, v in pairs(data.items) do
+        self._items[v.id] = {
+            configid    = v.id,
+            count       = v.count
+        }
+    end
+end
+
+function Item:ItemVariety(id, value)
+    local item = self._items[id]
+    if item == nil then
+        item = {
+            configid = id,
+            count = 0
+        }
+        self._items[id] = item
+    end
+    local oldCount = item.count
+    local addCount = value
+    item.count = item.count + value
+    local allCount = item.count <= 0 and 0 or item.count
+    if item.count <= 0 then
+        self._items[id] = nil
+    end
+    return oldCount, addCount, allCount
+end
+
+function Item:AddItems(items, reason, param)
+    local idTab = {}
+    for i, v in pairs(items) do
+        local oldCount, addCount, allCount = self:ItemVariety(v.id, v.count)
+
+        local _cfg = self:GetCfg(v.id)
+        if _cfg.itemType == Item.TYPE_ROLE_ATTIRE then
+            Stats:UpdateStatsCount(Stats.STATS_TYPE_SKIN_NUM)
+        end
+        if(v.id ~= Player.ITEM_VALUE_CLOSE and v.id ~= Player.ITEM_VALUE_HANDBOOK_EXP and v.id ~= Player.ITEM_VALUE_EXP) then
+            ThinkingMgr:SendTrack("item_increase", {
+                item_id             = v.id,
+                previous_number     = oldCount,
+                increase_number     = addCount,
+                current_number      = allCount,
+                reasons             = reason
+            })
+        end
+
+        self:OnItemTdOper(v.id, v.count, reason, param, oldCount, allCount)
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Item:AddItemsRep(items, reason, param)
+    self:AddItems(items, reason, param)
+end
+
+function Item:SubItems(items, reason, param)
+    for i, v in pairs(items) do
+        local oldCount, addCount, allCount = self:ItemVariety(v.id, 0-v.count)
+        if(v.id ~= Player.ITEM_VALUE_CLOSE and v.id ~= Player.ITEM_VALUE_HANDBOOK_EXP and v.id ~= Player.ITEM_VALUE_EXP and reason ~= 0) then
+            ThinkingMgr:SendTrack("item_decrease", {
+                item_id             = v.id,
+                previous_number     = oldCount,
+                decrease_number     = 0-addCount,
+                current_number      = allCount,
+                reasons             = reason
+            })
+        end
+
+        self:OnItemTdOper(v.id, 0-v.count, reason, param, oldCount, allCount)
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Item:SubItemsRep(items, reason, param)
+    self:SubItems(items, reason, param)
+end
+
+function Item:ItemUseReq(configid, count,index)
+    local cfg = Item:GetCfg(configid);
+    local isEquip = false;
+    if(index ~= nil and index ~= 0)then
+        local data = lua_parse_cfg(cfg.Itemlist,true)[index];
+        if(data[1] == Bag.TYPE_EQUIP)then
+            isEquip = true;
+        end
+    else
+        local drops = Item:GetAllDrops(tonumber(cfg.dropID));
+        for _, v in pairs(drops) do
+            if(v[1] == Bag.TYPE_EQUIP)then
+                isEquip= true;
+                break;
+            end
+        end
+    end
+    if(isEquip)then
+        if(Equip:GetEquipNumWhetherMax())then
+            Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+            return;
+        end
+    end
+    Network:CallServerScript({c2s.ITEM_USE_REQ, configid, count,index})
+end
+
+function Item:ItemUseRep(cfgid)
+    if Clock:IsClockItem(cfgid) then
+        
+    else
+        if cfgid == Item.ITEM_POWER_ID then
+            if Chapter:IsAutoFight() then
+                Chapter:SubAutoUseNumber()
+                GEvent:fireEvent(EVENT_TYPE.UPDATE_STAMINA)
+                return
+            end
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_STAMINA)
+        end
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BAG_USE, cfgid)
+    end
+end
+
+-- params: {cfgid=num, ...}
+function Item:ItemSellReq(params)
+    Network:CallServerScript({c2s.ITEM_SELL_REQ, params})
+end
+
+function Item:ItemSellRep(items)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BAG_SELL,items)
+end
+
+function Item:ItemResolveRep()
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.ITEM_DATA_SYNC]                 = {Item, Item.SyncItems}
+c2s[c2s.ITEM_BATCH_ADD_NTF]             = {Item, Item.AddItemsRep}
+c2s[c2s.ITEM_BATCH_DEC_NTF]             = {Item, Item.SubItemsRep}
+c2s[c2s.ITEM_USE_RES]                   = {Item, Item.ItemUseRep}
+c2s[c2s.ITEM_SELL_RES]                  = {Item, Item.ItemSellRep}
+c2s[c2s.ITEM_RESOLVE_RES]               = {Item, Item.ItemResolveRep}
+

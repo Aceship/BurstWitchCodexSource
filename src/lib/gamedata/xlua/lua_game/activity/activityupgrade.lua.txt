@@ -1,0 +1,45 @@
+--
+-- author: haosun
+-- date  : 2021-07-03 15:13:45
+-- brief : 等级礼包
+--
+Activity = Activity or {}
+
+function Activity:InitUpgradePackage()
+    self._enterActivityUpgradeLayer = false
+end
+
+function Activity:SetEnterUpgradePackageLayer()
+    self._enterActivityUpgradeLayer = true
+end
+
+-- 
+-- brief: 是否存在可以购买的等级礼包
+-- 
+function Activity:IsExistCanBuyUpgradePackage()
+    local _rst = false
+    local _level = Player:GetLevel()
+    local _ids = Recharge:GetRechargeIdsByType(Recharge.ChargeType.UpgradePackage)
+    local _cfg, _cnt = nil, 0
+    for i, id in ipairs(_ids) do
+        _cfg = Recharge:GetData(id)
+        _cnt = Operation:GetGiftBagBoughtNum(id)
+        if _cfg.openData == -1 then
+            _rst = _cnt < _cfg.stock
+        else
+            if _level >= _cfg.openData[1][2] then
+                _rst = _cnt < _cfg.stock
+            end
+        end
+        if _rst then break end
+    end
+    if _rst then
+        AppMgr:LogInfo("------------------存在可以购买的等级礼包------------------")
+    end
+    return _rst
+end
+
+function Activity:IsUpgradePackageTips()
+    return (not self._enterActivityUpgradeLayer) and self:IsExistCanBuyUpgradePackage()
+end
+

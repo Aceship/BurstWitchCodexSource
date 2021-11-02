@@ -1,0 +1,141 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 18:52:30
+-- brief :
+--
+
+Hero = Hero or {}
+
+function Hero:_InitHeroSkillByIds(hero, skillids, skillShowIds)
+    if(skillShowIds == nil) then
+        skillShowIds = lua_deep_copy(skillids)
+    end
+
+    local skillcfg = nil
+    local skillid = 0
+    for i, v in ipairs(Hero.SKILL_SLOT) do
+        skillid = tonumber(skillids[i])
+        hero.skills[i].cfgid = skillid
+        skillcfg = Skill:GetHeroSkillCfg(skillid, hero.star)
+        if skillcfg ~= nil then
+            hero.skills[i].maxlevel = skillcfg.maxlevel
+        end
+        hero.skills[i].showid = tonumber(skillShowIds[i])
+    end
+end
+
+function Hero:SkillInit(hero, skills)
+    hero.skills = {}
+    local cfg = self:GetCfg(hero.id)
+    for i, v in ipairs(Hero.SKILL_SLOT) do
+        hero.skills[i] = {
+            slot        = i,
+            cfgid       = 0,
+            showid      = 0,
+            level       = 1,
+            maxlevel    = 1,
+            attrs       = {},
+            playcd      = 0,
+        }
+    end
+    local skillids
+    if skills ~= nil then
+        skillids = lua_str_split(skills, "|")
+    else
+        skillids = self:GetSkinSkillById(hero.skinid)
+    end
+
+    local skillShowIds = self:GetSkinSkillShowById(hero.skinid)
+
+    self:_InitHeroSkillByIds(hero, skillids, skillShowIds)
+end
+
+function Hero:SetHeroSkills(hero, skills)
+    if skills == nil then
+        skills = {}
+        for _, v in pairs(hero.skills) do
+            table.insert(skills, {slot = v.slot, level = v.level})
+        end
+    end
+    -- 魔女穿戴皮肤
+    local skinSkillIds = self:GetSkinSkillById(hero.skinid)
+    local skinSkillShowIds = self:GetSkinSkillShowById(hero.skinid)
+    if next(skinSkillIds) ~= nil 
+        and next(skinSkillShowIds) ~= nil  then
+        self:_InitHeroSkillByIds(hero, skinSkillIds, skinSkillShowIds)
+    end
+    for _, v in pairs(skills) do
+        hero.skills[v.slot].level = v.level
+    end
+end
+
+function Hero:SetHeroMaxLvSkills(hero, skills)
+    for _, v in pairs(hero.skills) do
+        v.level = v.maxlevel
+    end
+end
+
+function Hero:SkillLvUp(hero, slot)
+    local skill = hero.skills[slot]
+    skill.level = skill.level + 1
+end
+
+function Hero:CalcSkillCd(hero)
+    for _, skill in pairs(hero.skills) do
+        local cfg = Skill:GetHeroSkillCfg(skill.cfgid, hero.star)
+        if cfg ~= nil then
+            if Skill.TYPE_BULLET == cfg.playtype then
+                local cd = math.ceil((1/hero.attrs[CAttr.TYPE_SPD])*50000)/1000
+                skill.playcd = math.floor(cd * 100) / 100
+            elseif Skill.TYPE_KILL == cfg.playtype then
+                -- 表里配的技能CD - CAttr.TYPE_CD（可成长）
+                skill.playcd = cfg.playcd - hero.attrs[CAttr.TYPE_CD]
+            end
+        end
+    end
+end
+
+function Hero:GetSkillLevelUpCost(cfgid)
+    local cfg = Skill:GetHeroSkillCfg(cfgid)
+    if cfg ~= nil then
+        return lua_parse_cfg(cfg.lvcost, true)
+    else
+        return {}
+    end
+end
+
+function Hero:HasSlotSkillLevelUp(heroid, slot)
+    local hero = self:GetHero(heroid)
+    if slot ~= nil and hero.skills[slot] ~= nil then
+        local skill = hero.skills[slot]
+        if skill.level < skill.maxlevel and skill.level < hero.level then
+            local skillcfg = Skill:GetHeroSkillCfg(skill.cfgid, hero.star)
+            local costcfg = Skill:GetSKillCost(skillcfg.skillType, skill.level)
+            local consumes = lua_parse_cfg(costcfg.Materials, true)
+            local bflag = true
+            for _, v in pairs(consumes) do
+                bflag = bflag and (Item:GetCount(v[1]) >= v[2])
+            end
+            bflag = bflag and Skill:SkillUpEnable(slot, hero.level, skill.level, skill.maxlevel) -- 等级限制
+            if bflag then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function Hero:HasLevelUpSkill(heroid)
+    --未解锁功能不显示红点
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_skill) then
+        return false
+    end
+
+    for _, slot in ipairs(Hero.SKILL_SLOT) do
+        if self:HasSlotSkillLevelUp(heroid, slot) then
+            return true
+        end
+    end
+    return false
+end
+

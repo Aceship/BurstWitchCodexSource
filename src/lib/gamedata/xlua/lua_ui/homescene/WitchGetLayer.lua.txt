@@ -1,0 +1,77 @@
+--
+-- author: haosun
+-- date  : 2018-10-26 15:47:37
+-- brief : 碎片合成魔女模块
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchGetLayer = class("WitchGetLayer", CBaseLayer)
+
+function WitchGetLayer:ctor(super, layer)
+    CBaseLayer.ctor(self, params)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchGetLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function WitchGetLayer:onEnter()
+    self:createPnl()
+end
+
+function WitchGetLayer:onExit()
+    self._hero = nil
+    self._callback = nil
+    Groble_SoundMgr:StopHeroSound();
+    if(self._inst ~= nil)then
+        Groble_SoundMgr:StopOnceEffect(self._inst);
+        self._inst = nil;
+    end
+    CBaseLayer.onExit(self)
+end
+
+function WitchGetLayer:show(hero, callback)
+
+    self._inst = Groble_SoundMgr:PlayEffect(20000022)
+    self._hero = hero
+    self._callback = callback
+    self:setInfo()
+    self:showLayer()
+end
+
+function WitchGetLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+function WitchGetLayer:setInfo()
+    -- ssr
+    Hero:SetHeroQlty(self.layer:Get("container/image_qlty"), self._hero.qlty)
+    -- star
+    for i = 1, 3 do
+        self.layer:Get("container/stars/img_star_" .. i):SetVisible(self._hero.star >= i)
+    end
+    -- name & desc410                                                                                                                                                                          n
+    self.layer:GetTextComponent("container/text_name").text = self._hero.config.Name
+    self.layer:GetTextComponent("container/text_name/name_txt_E").text = self._hero.config.Name_after
+    local dialogs = lua_str_split(self._hero.config.dialog, "|")
+    self.layer:GetTextComponent("container/text_desc").text = dialogs[1]    
+    -- 配音
+    Groble_SoundMgr:PlayNewHeroSound(self._hero.id)
+    --定位
+    Hero:SetHeroJob(self.layer:GetImageComponent("container/jobinfo/img_icon"), 
+        self.layer:GetTextComponent("container/jobinfo/txt_name"), self._hero, 
+        self.layer:GetTextComponent("container/jobinfo/txt_desc"))
+    self.layer:Get("container/jobinfo/img_descbg"):SetSizeX( (lua_str_utf8len(self._hero.job_des) - 4) * 60 +260)
+    --枪形
+    Hero:SetHeroAtkType(self.layer:GetImageComponent("container/img_atk_type"),tonumber(self._hero.config.AtkType));
+    local atkcfg = Build:GetAtkTypeCfgById( self._hero.config.AtkType)
+    self.layer:GetTextComponent("container/img_atk_type/txt_desc").text = atkcfg.name
+end
+
+return WitchGetLayer
+

@@ -1,0 +1,106 @@
+
+ThinkingMgr = ThinkingMgr or  {}
+
+local _ThinkingUtil = nil
+
+function ThinkingMgr:Init()
+    _ThinkingUtil = CS.ThinkingAnalyticsUtil
+    _ThinkingUtil.SetParam("https://l3-prod-bili-shushu-blmn.bilibiligame.net")
+end
+
+function ThinkingMgr:Login(id)
+    _ThinkingUtil.Login(id)
+end
+
+function ThinkingMgr:Logout()
+    _ThinkingUtil.Logout()
+end
+
+function ThinkingMgr:SetEventName(eventName)
+    _ThinkingUtil.SetEventName(eventName)
+end
+
+function ThinkingMgr:AddEventParam(key,value)
+    _ThinkingUtil.AddEventParam(key,value)
+end
+
+function ThinkingMgr:AddListEventParam(key,value)
+    local json = luajson.encode(value)
+    _ThinkingUtil.AddListEventParam(key,tostring(json))
+end
+
+function ThinkingMgr:Track(isFirst)
+    if isFirst ~= true then
+        isFirst = false
+    end
+    _ThinkingUtil.Track(isFirst)
+end
+
+function ThinkingMgr:SetSuperProperties()
+    _ThinkingUtil.SetSuperProperties()
+end
+
+function ThinkingMgr:SetDynamicSuperProperties()
+    _ThinkingUtil.SetDynamicSuperProperties()
+end
+
+function ThinkingMgr:SendSuperProperties(eventName, pushData)
+    if not self:CanReport() then return end
+    ThinkingMgr:SetEventName(eventName)
+    for k,v in pairs(pushData) do
+        if type(v) == "table" then
+            ThinkingMgr:AddListEventParam(k,v)
+        else
+            ThinkingMgr:AddEventParam(k,v)
+        end
+    end
+    ThinkingMgr:SetSuperProperties()
+end
+
+function ThinkingMgr:SendTrack(eventName, pushData)
+    if not self:CanReport() then return end
+    ThinkingMgr:SetEventName(eventName)
+    for k,v in pairs(pushData) do
+        if type(v) == "table" then
+            ThinkingMgr:AddListEventParam(k,v)
+        else
+            ThinkingMgr:AddEventParam(k,v)
+        end
+    end
+    ThinkingMgr:Track()
+end
+
+function ThinkingMgr:SendGuide(stepId, smallStepId)
+    if not self:CanReport() then return end
+    ThinkingMgr:SendTrack("guide", {
+        guide_id = stepId,
+        smallStepId = smallStepId
+    })
+end
+
+function ThinkingMgr:AddUserSet(key, value)
+    if not self:CanReport() then return end
+    _ThinkingUtil.AddUserSet(key,value)
+end
+
+function ThinkingMgr:UserSet()
+    if not self:CanReport() then return end
+    _ThinkingUtil.UserSet()
+end
+
+function ThinkingMgr:CanReport()
+    local tdata = Login:GetLastServer();
+    local ip, port = Login:GetGameIpPort(tdata.zoneid);
+    --B站正式服/B站UO服/开发服，才允许上报数据
+    if ip == "101.35.121.80" or ip == "101.35.119.113" or ip == "106.54.147.112" then
+        return true
+    end
+    return false
+end
+
+
+--[[
+    简单说明：
+    数据上报流程：SetEventName----》[AddEventParam]----》Track/SetSuperProperties/SetDynamicSuperProperties
+    先调用SetEventName设置属性名，增加上传数据内容为string，object，最后选择上传类型Track：自定义事件，SetSuperProperties：静态公共属性，SetDynamicSuperProperties：动态公共属性
+]]

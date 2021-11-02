@@ -1,0 +1,328 @@
+SceneMgr = class("SceneMgr")
+
+function SceneMgr:ctor()
+	self.MyResMgr = CS.LuaResMgr();
+end
+function SceneMgr:LoadScene(sceneId)
+	CameraController:ChangeSceneResetCamera();
+	UI_Loading:SetLoadingState(sceneId)
+	uimgr:popAllLayer()
+	uimgr:clearInstance()
+	LayerMgr:Clear()
+	GEvent:ClearListener()
+	FightController:ReadyForLoadScene(sceneId)
+end
+
+function SceneMgr:SubTalkStr(str,index)
+	return self.MyResMgr:SubTalkStr(str,index);
+end
+function SceneMgr:GetStrLen(str)
+	return self.MyResMgr:GetStrLen(str);
+end
+function SceneMgr:CheckIsDoubleClick()
+	return self.MyResMgr:CheckIsDoubleClick()
+end
+function SceneMgr:UpdateAnimNormalizedTime(aniState,_progressTime)
+	return self.MyResMgr:UpdateAnimNormalizedTime(aniState,_progressTime)
+end
+function SceneMgr:GetAllFiles(shotName)
+	return self.MyResMgr:GetAllFiles(shotName)
+end
+function SceneMgr:SetPlayerRenderEnable(obj,enable)
+	return self.MyResMgr:SetPlayerRenderEnable(obj,enable)
+end
+
+function SceneMgr:SetGaussianBlurAmount(camera,amount)
+	self.MyResMgr:SetGaussianBlurAmount(camera,amount)
+end
+function SceneMgr:RectTransform(rect,screenPos,worldCamera)
+	return self.MyResMgr:RectTransform(rect,screenPos,worldCamera)
+end
+function SceneMgr:RectTransformX(rect,screenPos,worldCamera)
+	return self.MyResMgr:RectTransformX(rect,screenPos,worldCamera)
+end
+function SceneMgr:RectTransformY(rect,screenPos,worldCamera)
+	return self.MyResMgr:RectTransformY(rect,screenPos,worldCamera)
+end
+
+function SceneMgr:PrefsSetString(str,value)
+	self.MyResMgr:PrefsSetString(str,value)
+end
+function SceneMgr:PrefsGetString(str)
+	return self.MyResMgr:PrefsGetString(str)
+end
+function SceneMgr:GetInputTouches(index)
+	return self.MyResMgr:GetInputTouches(index)
+end
+
+function SceneMgr:GetTapCount(index)
+	return self.MyResMgr:GetTapCount(index)
+end
+
+function SceneMgr:GetFingerID(index)
+	return self.MyResMgr:GetFingerID(index)
+end
+
+function SceneMgr:GamePause(isPause)
+	return self.MyResMgr:GamePause(isPause)
+end
+
+function SceneMgr:GetRealTime()
+	return self.MyResMgr:GetRealTime()
+end
+function SceneMgr:GetAnimStateLen(state)
+	return self.MyResMgr:GetAnimStateLen(state)
+end
+
+function SceneMgr:checkStrIsSure(str)
+	return self.MyResMgr:checkStrIsSure(str)
+end
+function SceneMgr:checkStrIsChaneseOrENNUSure(str)
+	return self.MyResMgr:checkStrIsChaneseOrENNUSure(str)
+end
+function SceneMgr:checkStrIsChaneseSure(str)
+	return self.MyResMgr:checkStrIsChaneseSure(str)
+end
+
+function SceneMgr:SetFrameFps(fps)
+	return self.MyResMgr:SetFrameFps(fps)
+end
+
+function SceneMgr:GetBatteyLevel()
+	local level =  self.MyResMgr:GetBatteyLevel();
+	if level == -1.0 then
+		return nil;
+	else
+		return level;
+	end
+end
+
+function SceneMgr:SetAnimationSpeed(speed,obj)
+	return self.MyResMgr:SetAnimationSpeed(speed,obj);
+end
+
+function SceneMgr:SetPrefabBoxCenter(box,center)
+	return self.MyResMgr:SetPrefabBoxCenter(box,center)
+end
+function SceneMgr:PrefabTranslate(prefab,beginPos,targetPos,times)
+	return self.MyResMgr:PrefabTranslate(prefab,beginPos,targetPos,times)
+end
+function SceneMgr:SetPrefabColor(prefab,name,color)
+	return self.MyResMgr:SetPrefabColor(prefab,name,color)
+end
+function SceneMgr:SetPrefabFloat(prefab,name,value)
+	return self.MyResMgr:SetPrefabFloat(prefab,name,value)
+end
+function SceneMgr:GetPrefabColor(prefab,name)
+	return self.MyResMgr:GetPrefabColor(prefab,name)
+end
+function SceneMgr:GetPrefabFloat(prefab,name)
+	return self.MyResMgr:GetPrefabFloat(prefab,name)
+end
+
+function SceneMgr:SetMatQueue(prefab,queue)
+	return self.MyResMgr:SetMaterialQueue(prefab,queue)
+end
+
+function SceneMgr:SetGameTimeScale(times)
+	return self.MyResMgr:SetGameTimeScale(times)
+end
+function SceneMgr:SetRadialBlur(camera,streng,darkness)
+	self.MyResMgr:SetRadialBlur(camera,streng,darkness)
+end
+function SceneMgr:CloseRadialBlur(camera)
+	self.MyResMgr:CloseRadialBlur(camera)
+end
+function SceneMgr:GetRadialBlurStren(camera)
+	return self.MyResMgr:GetRadialBlurStren(camera)
+end
+function SceneMgr:GetRadialBlurDarss(camera)
+	return self.MyResMgr:GetRadialBlurDarss(camera)
+end
+-------------------
+function SceneMgr:SetMultiTouchEnabled(enable)
+	self.MyResMgr:SetMultiTouchEnabled(enable)
+end
+function SceneMgr:SetBoxColliderEnabled(box,enable)
+	self.MyResMgr:SetBoxColliderEnabled(box,enable)
+end
+function SceneMgr:SetSpearColliderEnabled(spear,enable)
+	self.MyResMgr:SetSpearColliderEnabled(spear,enable)
+end
+function SceneMgr:RemoveAllListeners(btn)
+	self.MyResMgr:RemoveAllListeners(btn)
+end
+function SceneMgr:PlayerAnimator(animtor,ani,layer)
+	self.MyResMgr:PlayerAnimator(animtor,ani,layer)
+end
+function SceneMgr:SetAniSpeed(animtor,speed)
+	self.MyResMgr:SetAniSpeed(animtor,speed)
+end
+function SceneMgr:c_CheckIsNull(obj)
+	return self.MyResMgr:c_CheckIsNull(obj)
+end
+function SceneMgr:unLoadSceneInfo()
+	return self.MyResMgr:unLoadSceneInfo()
+end
+
+function SceneMgr:OpenUrl(url)
+	self.MyResMgr:OpenUrl(url)
+end
+
+function SceneMgr:getWordCamera(canvas)
+	return self.MyResMgr:getWordCamera(canvas)
+end
+function SceneMgr:setPrefabAniEnable(ani,enable)
+	return self.MyResMgr:setPrefabAniEnable(ani,enable)
+end
+function SceneMgr:getPosX(trans)
+	return self.MyResMgr:getTransformPosX(trans)
+end
+function SceneMgr:getPosY(trans)
+	return self.MyResMgr:getTransformPosY(trans)
+end
+function SceneMgr:getPosZ(trans)
+	return self.MyResMgr:getTransformPosZ(trans)
+end
+
+function SceneMgr:getLPosX(trans)
+	return self.MyResMgr:getTransformLocalPosX(trans)
+end
+function SceneMgr:getLPosY(trans)
+	return self.MyResMgr:getTransformLocalPosY(trans)
+end
+function SceneMgr:getLPosZ(trans)
+	return  self.MyResMgr:getTransformLocalPosZ(trans)
+end
+function SceneMgr:getMousePostion()
+	return self.MyResMgr:getMousePostion()
+end
+function SceneMgr:checkIsMouseBtnClick()
+	return self.MyResMgr:checkIsMouseBtnClick()
+end
+function SceneMgr:getMouseTouchCount()
+	return self.MyResMgr:getMouseTouchCount()
+end
+function SceneMgr:getMousePostionX()
+	return self.MyResMgr:getMousePostionX()
+end
+function SceneMgr:getMousePostionY()
+	return self.MyResMgr:getMousePostionY()
+end
+function SceneMgr:getMousePostionZ()
+	return self.MyResMgr:getMousePostionZ()
+end
+
+function SceneMgr:getSizeDataX(trans)
+	return self.MyResMgr:getSizeDataX(trans)
+end
+function SceneMgr:getSizeDataY(trans)
+	return self.MyResMgr:getSizeDataY(trans)
+end
+
+function SceneMgr:getTransLocalRotationX(trans)
+	return self.MyResMgr:getTransLocalRotationX(trans)
+end
+function SceneMgr:getTransLocalRotationY(trans)
+	return self.MyResMgr:getTransLocalRotationY(trans)
+end
+function SceneMgr:getTransLocalRotationZ(trans)
+	return self.MyResMgr:getTransLocalRotationZ(trans)
+end
+
+function SceneMgr:playFmodEvent(path)
+	self.MyResMgr:playFmodEvent(path)
+end
+function SceneMgr:getFmodEinstance(path)
+	return self.MyResMgr:getFmodEinstance(path)
+end
+function SceneMgr:getAnimation(obj)
+	return self.MyResMgr:getAnimation(obj)
+end
+function SceneMgr:playAnimation(ani,effect)
+	self.MyResMgr:playAnimation(ani,effect)
+end
+
+function SceneMgr:getTransLocalScaleX(trans)
+	return self.MyResMgr:getTransLocalScaleX(trans)
+end
+
+function SceneMgr:getTransLocalScaleY(trans)
+	return self.MyResMgr:getTransLocalScaleY(trans)
+end
+function SceneMgr:getTransLocalScaleZ(trans)
+	return self.MyResMgr:getTransLocalScaleZ(trans)
+end
+
+function SceneMgr:setScreenSleep(type)
+	self.MyResMgr:setScreenSleep(type)
+end
+
+function SceneMgr:Euler(x,y,z)
+	return self.MyResMgr:Euler(x,y,z)
+end
+function SceneMgr:GetAxis(key)
+	return self.MyResMgr:GetAxis(key)
+end
+
+function SceneMgr:GetMousePosDir(pos)
+	return self.MyResMgr:GetMousePosDir(pos)
+end
+
+function SceneMgr:GetMouseButtonDown()
+	return self.MyResMgr:GetMouseButtonDown(0)
+end
+
+
+function SceneMgr:GetMouseButtonUp()
+	return self.MyResMgr:GetMouseButtonUp()
+end
+function SceneMgr:playAniByTimes(ani,name,times)
+	self.MyResMgr:playAniByTimes(ani,name,times)
+end
+
+function SceneMgr:GetGrayMaterial()
+	return self.MyResMgr:GetGrayMaterial()
+end
+
+SceneMgr.HUD_SHOW_COMMON_ATTACK		    = 0		-- 普通掉血
+SceneMgr.HUD_SHOW_CT_ATTACK				= 1		-- 普通掉血暴击
+
+SceneMgr.HUD_SHOW_HP_HURT				= 2		-- 克制掉血
+SceneMgr.HUD_SHOW_CT_ATTACKED		    = 3		-- 克制掉血暴击
+
+SceneMgr.HUD_SHOW_HP_HURTED				= 4		-- 被克制掉血
+SceneMgr.HUD_SHOW_HP_CT_HURTED		    = 5		-- 被克制掉血暴击
+
+SceneMgr.HUD_SHOW_RECOVER_HP		    = 6		-- 回血
+SceneMgr.HUD_SHOW_SCORE		    		= 7		-- 分数
+
+SceneMgr.HUD_SHOW_NOHURT				= 8		-- 免疫
+
+function SceneMgr:AddHudNumber(nNumber, pos, tempScale ,hurttype)
+	self.MyResMgr:AddHudNumber(nNumber, pos, tempScale, hurttype)
+end
+
+function SceneMgr:GetHUDType(isHit,restraintType)
+	local hudtype = SceneMgr.HUD_SHOW_COMMON_ATTACK
+	if isHit then
+		if restraintType == 2 then
+			hudtype = SceneMgr.HUD_SHOW_CT_ATTACK
+		elseif restraintType == 1 then
+			hudtype = SceneMgr.HUD_SHOW_CT_ATTACKED
+		elseif restraintType == 0 then
+			-- 被克制
+			hudtype = SceneMgr.HUD_SHOW_HP_CT_HURTED
+		end
+	else
+		if restraintType == 2 then
+			hudtype = SceneMgr.HUD_SHOW_COMMON_ATTACK
+		elseif restraintType == 1 then
+			hudtype = SceneMgr.HUD_SHOW_HP_HURT
+		elseif restraintType == 0 then
+			-- 被克制
+			hudtype = SceneMgr.HUD_SHOW_HP_HURTED
+		end
+	end
+	return hudtype
+end

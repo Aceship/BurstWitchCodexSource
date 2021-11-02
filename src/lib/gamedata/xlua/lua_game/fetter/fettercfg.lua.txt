@@ -1,0 +1,188 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+--
+Fetter = Fetter or {}
+
+function Fetter:_LoadCfg()
+    self:_LoadFetterCardCfg()
+  --  self:_LoadFetterAttCfg()
+    self:_LoadIntimacyCfg()
+    self:_LoadHeartEmblemCfg()
+    self:_LoadEmblemLevelCfg()
+end
+
+function Fetter:_LoadFetterCardCfg()
+    self._fetterCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("FetterCard")
+    local cfg
+    for _, v in pairs(cfgs) do
+        cfg =
+        {
+            id       = tonumber(v.id),
+            fetter_card         = lua_parse_cfg(v.fetter_card,true)[1],
+            fetter_relationship = tonumber(v.fetter_relationship),
+            fetter_relationship_des  = Language:GetTxtBuyId(v.fetter_relationship_des),
+            fetter_name         = Language:GetTxtBuyId(v.fetter_name),
+            fetter_name_en      = Language:GetTxtBuyId(v.fetter_name_en),
+            fetter_att_group    = tonumber(v.fetter_att_group),
+            collect_att         = lua_parse_cfg(v.collect_att,true),
+            fetter_num          = tonumber(v.fetter_number),
+            fetter_order        = tonumber(v.fetter_order),
+            star_lv             = lua_parse_cfg(v.star_lv , true),
+            star_add            = lua_parse_cfg(v.star_add , true),
+        }
+        self._fetterCfgs[tonumber(v.id)] = cfg
+    end
+    
+end
+
+function Fetter:_LoadFetterAttCfg()
+    self._fetterAttCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("FetterAtt")
+    local cfg
+    for _, v in pairs(cfgs) do
+        cfg =
+        {
+            id         = tonumber(v.id),
+            Step_Level = lua_parse_cfg(v.Step_Level , true),
+            Deskill_2  = lua_parse_cfg(v.Deskill_2 , true),
+            Star_Level = lua_parse_cfg(v.Star_Level , true),
+            Deskill_3  = lua_parse_cfg(v.Deskill_3 , true),
+        }
+        self._fetterAttCfgs[tonumber(v.id)] = cfg
+    end
+end
+
+function Fetter:_LoadIntimacyCfg()
+    self._intimacyAwardCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("IntimacyAward")
+    for _, v in pairs(cfgs) do
+        v.dialogue = Language:GetTxtBuyId(v.dialogue)
+        v.relation = Language:GetTxtBuyId(v.relation)
+        v.unlock_face = Language:GetTxtBuyId(v.unlock_face)
+        self._intimacyAwardCfgs[tonumber(v.id)] = v
+    end
+    self._intimacylvcfgs = CfgLoader:GenGroupConfig(self._intimacyAwardCfgs,"group","level")
+end
+
+function Fetter:GetFetterCfg(cfgid)
+    if self._fetterCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find fetter cfg, id = " .. cfgid)
+    end
+    return self._fetterCfgs[cfgid]
+end
+
+function Fetter:GetAllFetter()
+    if  self._orderFetter == nil then
+        self._orderFetter = {}
+        table.sort(self._fetterCfgs, function (a,b)
+           return a.fetter_order < b.fetter_order
+       end)
+        for _, fetter in pairs(self._fetterCfgs) do
+            self._orderFetter[fetter.fetter_order] = fetter
+        end
+    end
+    return self._orderFetter
+end
+
+
+function Fetter:GetFetterAttCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._fetterAttCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find fetterAtt cfg, id = " .. cfgid)
+    end
+    return self._fetterAttCfgs[cfgid]
+end
+
+function Fetter:GetIntimacyByGroupAndLevel(groupid, level)
+    groupid = tonumber(groupid)
+    level = tonumber(level)
+
+    if self._intimacylvcfgs[groupid][level] == nil then
+        AppMgr:LogError(string.format("!!!!!!!!!!!!!![IntimacyAward] %d, %d", groupid, level))
+    end
+    return self._intimacylvcfgs[groupid][level]
+end
+
+function Fetter:GetIntimacyByGroup(groupid)
+    groupid = tonumber(groupid)
+    if self._intimacylvcfgs ~= nil then
+        return self._intimacylvcfgs[groupid]
+    end
+end
+
+function Fetter:_LoadHeartEmblemCfg()
+    self._emblemCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("HeartEmblem")
+    for _, v in pairs(cfgs) do
+        self._emblemCfgs[tonumber(v.id)] = v
+    end
+  
+end
+--纹章cfg信息
+function Fetter:GetEmblemsByHeroid(heroid)
+    heroid = tonumber(heroid)
+    local tbl = {}
+    for _,v in pairs(self._emblemCfgs) do
+        if heroid == tonumber(v.heroID) then
+            table.insert(tbl , v)
+        end
+    end
+    return tbl
+end
+
+--根据id获取纹章信息
+function Fetter:GetEmblemsByCfgid(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._emblemCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find fetter cfg, id = " .. cfgid)
+    end
+    return self._emblemCfgs[cfgid]
+end
+
+function Fetter:_LoadEmblemLevelCfg()
+    self._emblemLevelUpCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("HeartEmblemLevelUp")
+    for _, v in pairs(cfgs) do
+        self._emblemLevelUpCfgs[tonumber(v.id)] = v
+    end
+    self._emblemlvCfgs = {}
+    self._emblemlvCfgs = CfgLoader:GenGroupConfig(self._emblemLevelUpCfgs,"groupid","level")
+end
+
+function Fetter:GetEmblemByGroupAndLevel(groupid,level)
+    groupid = tonumber(groupid)
+    level = tonumber(level)
+    if level < 1 then
+        level = 1
+    end
+    if self._emblemlvCfgs ~= nil then
+        if self._emblemlvCfgs[groupid] == nil then
+            CS.Logger.LogError("can't find embem group , groupid = " .. groupid)
+        end
+        return self._emblemlvCfgs[groupid][level]
+    end
+end
+
+function Fetter:SetMusicAddon(hero,level)
+    local tbl = {}
+    for i =1, level do
+        local cfg = self._intimacylvcfgs[hero.id][i]
+        if cfg.music_award ~= "-1" then
+           local add =  lua_parse_cfg(cfg.music_award)[1]
+            if  tbl[add[1]] == nil then
+                tbl[add[1]] = add[2]
+            else
+                tbl[add[1]] =  tbl[add[1]] + add[2]
+            end
+        end
+    end
+    if lua_table_len(tbl) > 0 then
+        hero.fit_add = tbl
+    else
+        hero.fit_add = nil
+    end
+    
+end

@@ -1,0 +1,31 @@
+--
+-- author: haosun
+-- date  : 2019-09-16 10:41:36
+-- brief : 
+--
+local ComTitle = class("ComTitle")
+
+function ComTitle:ctor(super, obj)
+    self._imgBgObj = obj.transform:Find("image_bg")
+    self._titleCom = obj.transform:Find("text_title"):GetComponent("Text")
+    self._titleEnCom = obj.transform:Find("text_title_en"):GetComponent("Text")
+end
+
+function ComTitle:clear()
+    self._imgBgObj = nil
+    self._titleCom = nil
+    self._titleEnCom = nil
+end
+
+function ComTitle:SetUi(nor)
+    set_obj_active(self._imgBgObj, not nor)
+    if nor then
+        self._titleCom.color = COLOR_TYPE.White
+        self._titleEnCom.color = COLOR_TYPE.White
+    else
+        self._titleCom.color = COLOR_TYPE.Black
+        self._titleEnCom.color = COLOR_TYPE.Black
+    end
+end
+
+return ComTitle

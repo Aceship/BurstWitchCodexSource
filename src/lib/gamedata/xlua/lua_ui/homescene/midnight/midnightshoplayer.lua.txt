@@ -1,0 +1,228 @@
+--
+-- author: haosun
+-- date  : 2021-08-31 15:48:48
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightShopLayer = class("MidNightShopLayer", CBaseLayer)
+
+local buttons = {
+    list    = "Top/btn_list",
+    wish1   = "Bottom/btn_wish1",
+    wish2   = "Bottom/btn_wish2",
+    recv    = "Bottom/btn_recv",
+    box1    = "Bottom/obj_box1",
+    box2    = "Bottom/obj_box2",
+    box3    = "Bottom/obj_box3",
+}
+
+function MidNightShopLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uimidnight/UI_MidNightShopLayer",
+    }
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_MID_NIGHT_2,
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_SY,
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._canRecv = false
+    self:onEnter()
+end
+
+function MidNightShopLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(buttons)
+    CS.UnityHelper.NotchfitY(self.layer:Get("Top"))
+    self:addEventListener(EVENT_NAME.LOTTRY_RESULT, self.__cname,
+        function(drops)
+            self:onLotteryRep(drops)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.RANK_SHOP_BOX_RECV,
+        function()
+            self:onBoxRecvRep()
+        end)
+
+    self._comps = clearbase:new()
+    self._comps.imgBar = self.layer:GetImageComponent("Bottom/img_bar")
+    self._comps.lotteryParticleBehaviour = self.layer:Get("Mid/effect_lottery"):GetComponent("ParticleBehaviour")
+    self:onLoadUIParticleSpeed()
+
+    local trans
+    self._clsArrBox = {}
+    for i = 1, MidNight.LotteryBoxNumber, 1 do
+        trans = self.layer:Get("Bottom/obj_box" .. i)
+        self._clsArrBox[i] = clearbase:new()
+        self._clsArrBox[i].objLight = trans:Get("obj_light")
+        self._clsArrBox[i].objNormal = trans:Get("obj_normal")
+        self._clsArrBox[i].objRecved = trans:Get("obj_recved")
+    end
+
+    self._clsArrBtn = {}
+    local trans
+    for i = 1, 2, 1 do
+        self._clsArrBtn[i] = clearbase:new()
+        trans = self.layer:Get("Bottom/btn_wish" .. i)
+        self._clsArrBtn[i].imgCoin = trans:GetImageComponent("img_icon")
+        self._clsArrBtn[i].txtCoin = trans:GetTextComponent("txt_coin")
+        self._clsArrBtn[i].objTips = trans:Get("obj_tips")
+    end
+
+    self._comps.objRecvTips = self.layer:Get("Bottom/btn_recv/obj_tips")
+end
+
+function MidNightShopLayer:onExit()
+    DoClassClear(self._comps)
+    DoArrayClassClear(self._clsArrBox)
+    DoArrayClassClear(self._clsArrBtn)
+    self._data = nil
+    CBaseLayer.onExit(self)
+end
+
+function MidNightShopLayer:onButtonClick(buttontype)
+    if buttontype == buttons.list then
+        core.require("xlua/lua_ui/homescene/midnight/midnightshoplistlayer.txt"):new()
+    elseif buttontype == buttons.wish1 then
+        self:doLottery(MidNight.MidNight_Lottery1)
+    elseif buttontype == buttons.wish2 then
+        self:doLottery(MidNight.MidNight_Lottery5)
+    elseif buttontype == buttons.box1 then
+        SingletonMgr:ShowItemTipsLayer(self.layer:Get(buttons.box1), Bag.TYPE_ITEM, MidNight.LOTTERY_BOX_IDS[1])
+    elseif buttontype == buttons.box2 then
+        SingletonMgr:ShowItemTipsLayer(self.layer:Get(buttons.box2), Bag.TYPE_ITEM, MidNight.LOTTERY_BOX_IDS[2])
+    elseif buttontype == buttons.box3 then
+        SingletonMgr:ShowItemTipsLayer(self.layer:Get(buttons.box3), Bag.TYPE_ITEM, MidNight.LOTTERY_BOX_IDS[3])
+    elseif buttontype == buttons.recv then
+        if self._canRecv then
+            MidNight:LotteryBoxRecvReq()
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(77000208)
+        end
+    end
+end
+
+function MidNightShopLayer:show()
+    self._fading = false
+    self._data = MidNight:GetMidNightLottery()
+    local cfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId())
+    self._lotterycfg = Lottery:GetLotteryTypeCfg(cfg.gashaponId)
+    self:refreshBar()
+    self:refreshBoxs()
+    self:initBoxNumber()
+    self:initLotteryCost()
+    self:showLayer()
+end
+
+function MidNightShopLayer:refreshBar()
+    self._comps.imgBar.fillAmount = self._data.count / self._data.boxMaxNumber
+end
+
+function MidNightShopLayer:refreshBoxs()
+    self._canRecv = false
+    local canRecv
+    for i = 1, MidNight.LotteryBoxNumber, 1 do
+        local recved = (MidNight.LOTTERY_BOX_STATE[i] & self._data.recved) == MidNight.LOTTERY_BOX_STATE[i]
+        canRecv = not recved and (self._data.count >= self._data.boxNumber[i])
+        self._clsArrBox[i].objLight:SetVisible(canRecv)
+        self._clsArrBox[i].objNormal:SetVisible(not recved)
+        self._clsArrBox[i].objRecved:SetVisible(recved)
+        self._canRecv = self._canRecv or canRecv
+    end
+
+    self._comps.objRecvTips:SetVisible(self._canRecv)
+end
+
+function MidNightShopLayer:initBoxNumber()
+    for i = 1, MidNight.LotteryBoxNumber, 1 do
+        self.layer:GetTextComponent("Bottom/txt_tag" .. i):SetText(self._data.boxNumber[i])
+    end
+end
+
+function MidNightShopLayer:initLotteryCost()
+    for i = 1, 2, 1 do
+        self._clsArrBtn[i].imgCoin:LoadSprite(Item:GetItemIconPath(self._lotterycfg.poolcfg[i].cost_cfgid))
+        self._clsArrBtn[i].txtCoin:SetText(self._lotterycfg.poolcfg[i].cost_count)
+    end
+    self:refreshLotteryCost()
+end
+
+function MidNightShopLayer:refreshLotteryCost()
+    for i = 1, 2, 1 do
+        if Item:CheckCount(self._lotterycfg.poolcfg[i].cost_cfgid, self._lotterycfg.poolcfg[i].cost_count) then
+            self._clsArrBtn[i].txtCoin:SetTextColor(0.92, 0.92, 0.92, 1)
+            if self._clsArrBtn[i].objTips ~= nil then
+                self._clsArrBtn[i].objTips:SetVisible(true)
+            end
+        else
+            self._clsArrBtn[i].txtCoin:SetTextColor(1, 0.40, 0.32, 1)
+            if self._clsArrBtn[i].objTips ~= nil then
+                self._clsArrBtn[i].objTips:SetVisible(false)
+            end
+        end
+    end
+end
+
+function MidNightShopLayer:doLottery(lotterytype)
+    local cfg
+    if lotterytype == MidNight.MidNight_Lottery1 then
+        self._lotterynum = 1
+        cfg = self._lotterycfg.poolcfg[1]
+    else
+        self._lotterynum = 5
+        cfg = self._lotterycfg.poolcfg[2]
+    end
+    if Item:CheckCount(cfg.cost_cfgid, cfg.cost_count) then
+        Lottery:LotteryReq(cfg.poolid, cfg.cost_cfgid, cfg.cost_count)
+    else
+        Groble_UIMgr:ShowLackCurrencyTips(cfg.cost_cfgid)
+    end
+end
+
+function MidNightShopLayer:onLotteryRep(drops)
+    self._fading = true
+    self._data.count = self._data.count + self._lotterynum
+    if self._comps.loopParticleSpeed ~= nil then
+        self._comps.loopParticleSpeed:SetSpeed(10,0)
+    end
+    self._comps.lotteryParticleBehaviour:Stop()
+    self._comps.lotteryParticleBehaviour:Play()
+    
+    local items = {}
+    for _, v in ipairs(drops) do
+        table.insert(items, {v.u_type, v.id, v.count})
+    end
+
+    self:refreshBar()
+    self:refreshBoxs()
+    self:refreshLotteryCost()
+    self.layer:DelayInvoke(3, function()
+        self._fading = false
+        if self._comps.loopParticleSpeed ~= nil then
+            self._comps.loopParticleSpeed:SetSpeed(0.8, 0)
+        end
+        SingletonMgr:ShowGetTipsLayer(items)
+    end)
+end
+
+function MidNightShopLayer:onBoxRecvRep()
+    self:refreshBar()
+    self:refreshBoxs()
+end
+
+function MidNightShopLayer:onLoadUIParticleSpeed()
+    local trans = self.layer:Get("Mid/effect_normal").transform
+    local comp = self.layer:Get("Mid/effect_normal"):GetComponent("UIParticleScale")
+    comp:ResetScale(1.5)
+    local child = trans:GetChild(0)
+    self._comps.loopParticleSpeed = child:GetComponent("UIParticleSpeed")
+    self._comps.loopParticleSpeed:SetSpeed(0.8)
+end
+
+return MidNightShopLayer

@@ -1,0 +1,61 @@
+--
+-- author: haosun
+-- date  : 2021-04-19 19:40:29
+-- brief : 
+--
+local EnemyHpBar = class("EnemyHpBar")
+
+function EnemyHpBar:ctor(super, barIndex)
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_EnemeyFightInfo")
+    -- hp
+    self._txtHp = self.prefab:GetTextComponent("HpRate")
+    self._uihp  = core.require("xlua/lua_UI/GameFightScene/uihp.txt"):new()
+    self._uihp:InitHp(self.prefab:GetImageComponent("HpBar"), self.prefab:GetImageComponent("HpBarCan"))
+    -- buff
+    self._uibuff = core.require("xlua/lua_UI/GameFightScene/uibuff.txt"):new()
+    self._uibuff:Init(self.prefab:Get("BossBuffInfo"))
+
+    self._barIndex = barIndex
+    self:UpdateEnemyHpBar()
+
+    local data = FightArrController:GetEnemyHpBar(self._barIndex)
+    local EnemyHpBarIndex = FightArrController.EnemyHpBarIndex
+
+    -- attri
+    self.prefab:GetImageComponent("img_attrib"):LoadAtlasSprite(AtlasMgr.COM_RES, 
+        AtlasMgr.IMG_ATTRIBUTE[data[EnemyHpBarIndex.iAttriType]])
+
+    self.prefab:SetVisible(true)
+end
+
+
+function EnemyHpBar:EnemyHpBarDestructor()
+    self._txtHp = nil
+
+    self._uihp:UnInit()
+    self._uihp = nil    
+    self._uibuff:UnInit()
+    self._uibuff = nil
+    self.prefab:Release()
+    self.prefab = nil
+
+    FightArrController:FreeEnemyBar(self._barIndex)
+end
+
+function EnemyHpBar:UpdateEnemyHpBar()
+    --FightArrController:UpdateEnemyBar(self._barIndex)
+
+    local data = FightArrController:GetEnemyHpBar(self._barIndex)
+    local EnemyHpBarIndex = FightArrController.EnemyHpBarIndex
+
+    self.prefab:SetPosition(data[EnemyHpBarIndex.fX], data[EnemyHpBarIndex.fY]+120, 0, true)
+    -- hp info
+    self._hpRate = data[EnemyHpBarIndex.fCurHp] / data[EnemyHpBarIndex.fMaxHp]
+    self._txtHp.text = math.floor(self._hpRate * 100) .."%"
+    self._uihp:UpdateHp(0.016, self._hpRate)
+
+    self._uibuff:UpdateBuff(data, EnemyHpBarIndex.iRenderBuffsCount, EnemyHpBarIndex.aRenderBuffsStart, data[EnemyHpBarIndex.iCurFrame])
+end
+
+
+return EnemyHpBar

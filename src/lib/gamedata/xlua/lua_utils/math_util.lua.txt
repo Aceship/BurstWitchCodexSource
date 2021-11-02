@@ -1,0 +1,235 @@
+--
+-- author: haosun
+-- date  : 2016-06-26 17:46:57
+-- brief : math function tools
+--
+
+--
+-- brief  数值转换为k_m计数
+-- param  k为千, m为百万
+-- return string
+--
+function lua_math_k_m(num)
+    local retStr = num or 0;
+    if num >= 1000 and num < 1000000 then
+        retStr = string.format("%sK",math.floor(num / 1000));
+    elseif(num >= 1000000)then
+        retStr = string.format("%sM",math.floor(num / 1000000));
+    end
+    return retStr;
+end
+
+-- 
+-- brief  判断number类型
+-- param
+-- return Bool(true or false)
+--
+function lua_math_is_number(num)
+    return num ~= nil and type(num) == "number"
+end
+
+-- 
+-- brief  四舍五入法
+-- param  number类型
+-- return number
+-- 
+function lua_math_round(num)
+
+    if lua_math_is_number(num) then
+        return math.floor(num + 0.5)
+    else
+        -- TODO：Error
+        return num
+    end
+end
+
+-- 
+-- brief  获取小数的整数以及小数部分
+-- param  number
+-- return number
+--
+function lua_math_split_float(num)
+    if lua_math_is_number(num) then
+        local _int = 0
+        local _float = 0
+
+        if num < 0 then
+            _int = math.ceil(num)
+        elseif num > 0 then
+            _int = math.floor(num)
+            _float = num - _int
+        end
+        return _int, _float
+    else
+        --TODO：Error
+        return num, num
+    end
+end
+
+--
+-- brief  角度转弧长
+-- param  number
+-- return number
+--
+local _pi = math.pi
+local _piDiv180 = _pi / 180
+function lua_math_angle2radian(angle)
+    return angle * _piDiv180
+end
+
+--
+-- brief  弧长转角度
+-- param  number
+-- return number
+--
+local _piMul180 = _pi * 180
+function lua_math_radian2angle(radian)
+    return radian / _piMul180
+end
+
+--
+-- brief  在最小和最大之间取值
+-- param  number, number
+-- return number
+--
+function lua_math_in_range(val, min, max)
+    if (not lua_math_is_number(val)) or (not lua_math_is_number(val)) or (not lua_math_is_number(val)) then
+        return val
+    end
+    if val >= min and val <= max then
+        return val
+    end
+    if val < min then
+        return min
+    end
+    if val > max then
+        return max
+    end
+end
+
+--
+-- brief  在100内随机与数值比较
+-- param  number
+-- return bool
+--
+local function randomforcmp(value)
+    return math.random(100) <= value
+end
+math.randomforcmp = math.randomforcmp or randomforcmp
+
+--
+-- brief  
+-- param  
+-- return 
+--
+local function anglexy(x, y, r, angle)
+    angle = angle * 3.14 / 180
+    return x + r*math.cos(angle),  y + r*math.sin(angle)
+end
+math.anglexy = math.anglexy or anglexy
+
+--
+-- brief  value值是否在区间内 
+-- param1 number
+-- param2 number
+-- return bool
+--
+local function inregion(value, min, max)
+    return value >= min and value <= max
+end
+
+math.inregion = math.inregion or inregion
+
+-- 
+-- 打乱数组
+-- 
+local function _mixed_arr(array)
+    local _index, _tmpvalue, _number = 0, 0, #array
+    for i, v in ipairs(array) do
+        _index = math.random(1000)%_number + 1
+        if i == _index and i ~= _number then _index = i + 1 end
+        _tmpvalue = array[i]
+        array[i] = array[_index]
+        array[_index] = _tmpvalue
+    end
+end
+
+math.mixed_arr = math.mixed_arr or _mixed_arr
+
+
+local function _interp(from, to, t)
+    return from + (to - from) * t
+end
+
+math.interp = math.interp or _interp
+
+local _100_value    = 100
+local _100K_value   = 1000000
+local _10G_value    = 1000000000
+
+local function _tally(value, _start)
+    if type(value) ~= "number" then return value end
+    if value < _start then return value end
+
+    if value >= _start and value < _100K_value then
+        value = math.floor(value /_100_value)
+        if value % 10 == 0 then
+            return math.floor(value /10) .. "K"
+        else
+            return string.format("%.1f", value /10 ) .. "K"
+        end
+    end
+
+    if value >= _100K_value then
+        value = math.floor(value /_100K_value*10)
+        if value % 10 == 0 then
+            return math.floor(value /10) .. "M"
+        else
+            return string.format("%.1f", value /10 ) .. "M"
+        end
+    end
+
+    -- if value >= _10G_value then
+    --     value = math.floor(value /_10G_value * 10)
+    --     if value % 10 == 0 then
+    --         return math.floor(value /10) .. "G"
+    --     else
+    --         return string.format("%.1f", value /10 ) .. "G"
+    --     end
+    -- end
+end
+
+local function _kTally(value)
+    return _tally(value, 1000)
+end
+math.kTally = math.kTally or _kTally
+
+local function _wTally(value)
+    return _tally(value, 10000)
+end
+math.wTally = math.wTally or _wTally
+
+local function _mTally(value)
+    if type(value) ~= "number" then return value end
+    local _start = 1000000
+    if value < _start then return value end
+
+    if value >= _start and value < _10G_value then
+        value = math.floor(value /_100_value)
+        if value % 10 == 0 then
+            return math.floor(value /10) .. "K"
+        else
+            return string.format("%.1f", value /10 ) .. "K"
+        end
+    end
+
+    if value >= _10G_value then
+        value = math.floor(value /_10K_value*10)
+        if value % 10 == 0 then
+            return math.floor(value /10) .. "M"
+        else
+            return string.format("%.1f", value /10 ) .. "M"
+        end
+    end
+end
+math.mTally = math.mTally or _mTally

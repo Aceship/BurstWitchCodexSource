@@ -1,0 +1,30 @@
+--
+-- author: haosun
+-- date  : 2020-05-14 20:54:15
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ExplainLayer = class("ExplainLayer", CBaseLayer)
+
+function ExplainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_setting/UI_ExplainLayer"        
+    }
+    self:onEnter()
+end
+
+function ExplainLayer:onEnter()
+    self:createPnl()
+    self.layer.transform:Find("container/scrollview"):GetComponent("ScrollRect").vertical = false
+end
+
+function ExplainLayer:show()
+    self:showLayer()
+end
+
+function ExplainLayer:onLayerFadeInEndCall()
+    self.layer.transform:Find("container/scrollview"):GetComponent("ScrollRect").vertical = true
+end
+
+return ExplainLayer

@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 22:13:56
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Time/utime.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Time/utime_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Time/utimecfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Time/utimedef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Time/utime_event.txt")
+
+CTime:Ctor()
+CTime:_LoadCfg()

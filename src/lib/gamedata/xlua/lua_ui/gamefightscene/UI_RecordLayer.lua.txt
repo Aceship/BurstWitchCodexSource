@@ -1,0 +1,109 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local UI_RecordLayer = class("UI_RecordLayer", CBaseLayer)
+
+function UI_RecordLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiFight/ui_FightTalk/prefab/UI_RecordLayer",
+    }
+    self._fading = false;
+    self:onEnter()
+end
+
+function UI_RecordLayer:onBackClick()
+    if self._callback then
+        self._callback()
+    end
+    self:onExit();
+end
+
+function UI_RecordLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer, 10, true)
+
+    self.sysObj   = self.layer:Get("prefab_sys").gameObject
+    self.emptyObj = self.layer:Get("prefab_empty").gameObject
+
+    self.layer:GetButtonComponent("button_back"):AddButtonListener(function() self:onBackClick() end)
+    self._worldContentObj = self.layer:Get("container/scroll_world/Viewport/Content")
+end
+--显示UI
+function UI_RecordLayer:show(recordinfo,callback)
+    self._callback = callback
+    self:showLayer();
+    self:InitRecordInfo(recordinfo)
+end
+function UI_RecordLayer:onExit()
+    self.sysObj   = nil
+    self.emptyObj = nil
+    CBaseLayer.onExit(self)
+end
+function UI_RecordLayer:InitRecordInfo(recordinfo)
+    for k, info in ipairs(recordinfo) do
+        local isPreSys = k ~= 1 and self:isSystemMsg(recordinfo[k - 1])
+        if self:isSystemMsg(info) then
+            self:initSysMsgobj(info.textid, isPreSys)
+        else
+            self:initTalkerMsgObj(info.textid, info.name, info.headid, isPreSys)
+        end
+    end
+end
+
+function UI_RecordLayer:initTalkerMsgObj(textid, sender, id, isPreSys)
+    if isPreSys then
+        local empty = self._worldContentObj:AddChild(self.emptyObj)
+        empty:SetScale(1, 1, 1, true)
+        empty:SetPosition(0, 0, 0, true)
+        empty:SetVisible(true)
+    end
+
+    local prefab = self._worldContentObj:CreateChild("prefab_uiFight/ui_FightTalk/prefab/prefab_talk_avatar")
+    prefab:GetTextComponent("text_name"):SetText(sender)
+    prefab:GetImageComponent("prefab_player/img_icon"):LoadSprite("source_avatar/hero/pay_"..id)
+
+    local talktext = prefab:GetTextComponent("text_msg")
+    local txt = FightModule.LanguageTextMsg[textid]
+
+    if textid == 13193 then
+        txt = string.gsub(txt, "xxxxxx", Player:GetName())
+    end
+    talktext.text = txt
+    local w, h = talktext.preferredWidth, talktext.preferredHeight
+    prefab:Get("msg_bg"):SetSize(math.min(w, Talk.TEXT_MAX_WIDTH) + 60, h + 34)
+    if w >= Talk.TEXT_MAX_WIDTH then
+        talktext.alignment = TextAnchor.UpperLeft
+    end
+    if h + 84 > Talk.BG_MIN_HEIGHT then
+        h = h + 84 - Talk.BG_MIN_HEIGHT + Talk.CELL_MIN_HEIGHT
+        prefab:SetSizeY(h)
+    end
+end
+
+function UI_RecordLayer:initSysMsgobj(textid, isPreSys)
+    local prefab = self._worldContentObj:AddChild(self.sysObj)
+    prefab:SetScale(1, 1, 1, true)
+    prefab:SetPosition(0, 0, 0, true)
+    prefab:SetVisible(true)
+    local talktext = prefab:GetTextComponent("text_msg")
+    talktext:SetText(FightModule.LanguageTextMsg[textid])
+
+    local imgBG = prefab:Get("img_bg")
+    local w, h = talktext.preferredWidth, talktext.preferredHeight
+    local h_bg = h + 53
+    if isPreSys then
+        -- h_bg = h_bg - 10 -- 连续两条系统消息, 第二条与前一条间隔小一点
+    end
+    imgBG:SetSize(840, h_bg)
+    prefab:SetSize(1080, h_bg + 14)
+end
+
+-- 是否是系统消息
+function UI_RecordLayer:isSystemMsg(info)
+    if not info then
+        return false
+    end
+    return info.name == nil or info.name == ""
+end
+
+return UI_RecordLayer
+

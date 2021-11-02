@@ -1,0 +1,54 @@
+--
+-- author: haosun
+-- date  : 2020-09-22 10:42:02
+-- brief : 
+--
+UI_TimeAddLayer = UI_TimeAddLayer or {}
+
+function UI_TimeAddLayer:onTimeAddLayerCreator()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/TimeAddLayer")
+    self.layer:AddAnimationBehaviour(self)
+    self.layer:SetVisible(false)
+
+    self._txtValue = self.layer:GetTextComponent("timetext")
+    self._inited = true
+end
+
+function UI_TimeAddLayer:onAnimationDestroy()
+    self:TimeAddLayerDestructor()
+end
+
+function UI_TimeAddLayer:onAnimationEvent(anitype, keyTag)
+    self.layer:SetVisible(false)
+end
+
+--public api---------------------------------------------------------------------
+
+function UI_TimeAddLayer:ShowTimeAddLayer(addvalue)
+    if not self._inited then
+        self:onTimeAddLayerCreator()
+    end
+    self._txtValue.text = string.format(LanguageMgr:GetTextByID(8880005), addvalue)
+    self.layer:SetVisible(true)
+    self.layer:AnimationPlay("sy_time_add")
+end
+
+function UI_TimeAddLayer:ShowMidNightAddLayer()
+    if not self._inited then
+        self:onTimeAddLayerCreator()
+    end
+    self._txtValue.text = string.format(LanguageMgr:GetTextByID(77000209), 0)
+    self.layer:SetVisible(true)
+    self.layer:AnimationPlay("sy_time_add")
+end
+
+function UI_TimeAddLayer:TimeAddLayerDestructor()
+    if self._inited then
+        self._txtValue = nil
+        self._inited = false
+        if self.layer ~= nil then
+            self.layer:Release()
+        end
+        self.layer = nil
+    end
+end

@@ -1,0 +1,602 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-25 14:50:16
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local OriginTipsLayer = class("OriginTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+
+--获取体力类型
+local GetStaminaType = {
+    Use = 1,
+    Buy = 2
+}
+--构造函数
+function OriginTipsLayer:ctor(super,tipsType,itype,cfgId)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_OriginTipsLayer",
+    }
+    self._uitype = 2
+    if(itype == nil)then
+        itype = Bag.TYPE_ITEM;
+    end
+    self._tipsType = tipsType;
+    self._cfgType = itype;
+    self._cfgId = cfgId;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function OriginTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function OriginTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+        GTemp:SetSweepTmpData(nil)
+        self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function OriginTipsLayer:Init()
+    if(self._cfgType == Bag.TYPE_EQUIP)then
+        self._cfg = Equip:GetCfg(self._cfgId);
+    else
+        self._cfg = Item:GetCfg(self._cfgId);
+    end
+    self:InitUI();
+end
+
+--初始化UI
+function OriginTipsLayer:InitUI()
+
+	--@ImageEnd
+
+    self._txtGetTitle = self.layer:GetTextComponent("trans_container/txt_get_title");
+    self._txtGetTitleEn = self.layer:GetTextComponent("trans_container/txt_get_title_en");
+    self._txtName = self.layer:GetTextComponent("trans_container/txt_name");
+    self._txtDesc = self.layer:GetTextComponent("trans_container/txt_desc");
+    self._txtOwnerNum = self.layer:GetTextComponent("trans_container/txt_owner_num");
+	--@TextEnd
+
+    self._transWay = self.layer:Get("trans_container/trans_way");
+    self._transStamina = self.layer:Get("trans_container/trans_stamina");
+    self._transBuyJewel = self.layer:Get("trans_container/trans_buy_jewel");
+    self._transHeroClip = self.layer:Get("trans_container/trans_hero_clip");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._item = Bag:CtorComSimpleGoodsUi(self.layer:Get("trans_container/trans_item"));
+
+    self._transStamina:SetVisible(self._tipsType == OriginTipsType.Stamina);
+    self._transBuyJewel:SetVisible(self._tipsType == OriginTipsType.Jewel);
+    self._transHeroClip:SetVisible(self._tipsType == OriginTipsType.HeroClip);
+    self._transWay:SetVisible(self._tipsType == OriginTipsType.Item or self._tipsType == OriginTipsType.HeroClip);
+    if(self._tipsType == OriginTipsType.Stamina)then--体力兑换
+        self._txtGetTitle:SetTextById(880074);
+        self._txtGetTitleEn:SetTextById(880075);
+        self._staminaBuy = self:InitStaminaItem(self._transStamina:Get("trans_buy"),GetStaminaType.Buy);
+        self._staminaGet = self:InitStaminaItem(self._transStamina:Get("trans_get"),GetStaminaType.Use);
+        self._txtMaxBuy = self._transStamina:GetTextComponent("txt_max_buy");
+        self:SetStamina();
+    elseif(self._tipsType == OriginTipsType.Jewel)then--钻石兑换
+        self._txtGetTitle:SetTextById(880067);
+        self._txtGetTitleEn:SetTextById(880057);
+        self._jewelItems = {};
+        self._transBuyJewel:GetButtonComponent("btn_on").onClick:AddListener(function()
+            self:OnBtnOkClick();
+        end);
+        self._transBuyJewel:GetButtonComponent("btn_off").onClick:AddListener(function()
+            self:OnBtnOffClick();
+        end);
+        self:SetJewel();
+    elseif(self._tipsType == OriginTipsType.HeroClip or self._tipsType == OriginTipsType.Item)then--碎片或普通物品
+    self._txtGetTitle:SetTextById(880058);
+        self._txtGetTitleEn:SetTextById(880059);
+        self._wayItems = {};
+        self._txtEmpty = self._transWay:GetTextComponent("rect_way_bg/text_empty");
+        self._transContent = self._transWay:Get("rect_way_bg/trans_viewport/trans_content");
+        self._rectWayBg = self._transWay:GetRectTransformComponent("rect_way_bg");
+        self._objItem = self._transWay:Get("item_hide/obj_item").gameObject;
+        self._scrollWayBg = self._transWay:GetScrollRectComponent("rect_way_bg");
+        self._scrollWayBg.vertical = false;
+        if(self._tipsType == OriginTipsType.HeroClip)then
+            self._imgClipGetIcon = self._transHeroClip:GetImageComponent("img_clip_get_icon");
+            self._imgClipExpendIcon = self._transHeroClip:GetImageComponent("img_clip_expend_icon");
+            self._txtClipGetNum = self._transHeroClip:GetTextComponent("txt_clip_get_num");
+            self._txtClipExpendNum = self._transHeroClip:GetTextComponent("txt_clip_expend_num");
+            self._btnClip = self._transHeroClip:GetButtonComponent("btn_clip_click");
+            self._btnClip.onClick:AddListener(function ()
+                self:OnBtnHeroClipClick();
+            end);
+            self._rectWayBg:SetSizeY(241);
+            self._heroClip = {};
+            self:SetHeroClip();
+        elseif(self._tipsType == OriginTipsType.Item)then
+            self._rectWayBg:SetSizeY(492);
+        end
+        self:SetWay();
+    end
+    self:SetComUI();
+end
+
+--显示UI
+function OriginTipsLayer:show()
+
+    self:showLayer();
+end
+
+--退出按钮事件
+function OriginTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function OriginTipsLayer:onExit()
+
+    self._staminaBuy = nil;
+    self._staminaGet = nil;
+    self._jewelItems = nil;
+    self._heroClip = nil;
+    self._cfg = nil;
+    self._wayItems = nil;
+
+    self._txtGetTitle = nil;
+	self._txtGetTitleEn = nil;
+	self._txtName = nil;
+	self._txtDesc = nil;
+	self._txtOwnerNum = nil;
+	self._transWay = nil;
+	self._transStamina = nil;
+	self._transBuyJewel = nil;
+	self._transHeroClip = nil;
+    self._txtMaxBuy = nil;
+	self._rectWayBg = nil;
+	self._txtEmpty = nil;
+	self._transContent = nil;
+	self._objItem = nil;
+	self._imgClipGetIcon = nil;
+	self._imgClipExpendIcon = nil;
+	self._txtClipGetNum = nil;
+	self._txtClipExpendNum = nil;
+    self._scrollWayBg = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function OriginTipsLayer:OnBtnStaminaClick(getType)
+    if(getType == GetStaminaType.Buy)then
+        if(Player:GetBuyPowerTimes() >= Player.MAX_POWER_BUY)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880061));
+            return;
+        end
+
+        if(Item:GetCount(Player.ITEM_VALUE_MONEY) < Player:GetBuyPowerCost())then
+            local cfg = Item:GetCfg(Player.ITEM_VALUE_MONEY);
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(880062),cfg.Name));
+            return;
+        end
+        Player:BuyPowerReq();
+    else
+
+        if(Item:GetCount(Item.ITEM_POWER_ID) < 1)then
+            local cfg = Item:GetCfg(Item.ITEM_POWER_ID);
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(880062),cfg.Name));
+            return;
+        end
+        Item:ItemUseReq(Item.ITEM_POWER_ID, 1);
+    end
+end
+
+function OriginTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+end
+
+function OriginTipsLayer:OnBtnWayItemClick(info)
+    if JumpMgr:JumpCheck({tonumber(info[1]), tonumber(info[2])}) then
+        GEvent:fireEvent(EVENT_TYPE.JUMP_OVER_EVENT);
+        self:onBackClick();
+    end
+end
+
+function OriginTipsLayer:OnBtnHeroClipClick()
+    local hero = Hero:GetHero(self._cfg.heroId);
+    local has, cost = Hero:GetHeroChipNumber(hero);
+    local ronNum = Item:GetCount(Player.ITEM_RON);
+    if ronNum >= (cost - has) then
+        self:onExit()
+        if Player.isChooseUseRon then
+            Hero:SetHeroTmpAttr(hero.id)
+            Hero:TopUpReq(hero.id)
+        else
+            local useRonTips = core.require("xlua/lua_UI/Witch/UseRonTips.txt"):new()
+            useRonTips:show({
+                hero = hero
+            })
+        end
+    else
+        UIMgr:ShowGameWordTipsLayer(702021)
+    end
+end
+
+function OriginTipsLayer:OnBtnOffClick()
+    self:onBackClick();
+end
+
+function OriginTipsLayer:OnBtnOkClick()
+    if(self._chargeId == nil or self._chargeId <= 0)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880076));
+        return;
+    end
+    local charge = Recharge:GetData(self._chargeId);
+    local cfg = Item:GetCfg(charge.priceId);
+    if(Item:GetCount(charge.priceId) < charge.price)then
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(880066),cfg.Name));
+        return;
+    end
+    Operation:SendMessage(Operation.ActivityID.ShopSundryGoods,{id = self._chargeId,num = 1});
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function OriginTipsLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_STAMINA,self.__cname,function()
+        self:SetComUI();
+        if(self._tipsType == OriginTipsType.Stamina)then--体力兑换
+            self:SetStamina();
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)--体力兑换后再刷新一次货币(因为获得物品会先刷新一次, 但刷新时并没有修改每日首次购买体力的次数)
+        elseif(self._tipsType == OriginTipsType.Jewel)then--钻石兑换
+            self:SetJewel();
+        end
+    end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:SetComUI();
+        if(self._tipsType == OriginTipsType.Stamina)then--体力兑换
+            self:SetStamina();
+        elseif(self._tipsType == OriginTipsType.Jewel)then--钻石兑换
+            self:SetJewel();
+        end
+    end);
+
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:OnUpdateCurrency();
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+--设置通用UI
+function OriginTipsLayer:SetComUI()
+    if(self._cfgType == Bag.TYPE_EQUIP)then
+        self._txtOwnerNum:SetText(Equip:GetCount(self._cfgId));
+    else
+        self._txtOwnerNum:SetText(tostring(Item:GetCount(self._cfgId)));
+    end
+    Bag:SetComSimpleGoodsUi(self._item,self._cfgType,self._cfgId);
+    self._txtName:SetText(self._cfg.Name);
+
+    --物品介绍
+    if(self._tipsType == OriginTipsType.Stamina)then--体力特殊处理, 显示体力获取时间
+        self:SetStaminaTime();
+    else
+        local des = lua_color_str(self._cfg.itemInfo);
+        self._txtDesc:SetText(des);
+    end
+end
+
+function OriginTipsLayer:SetStaminaTime()
+    local des = ""
+    local nextRemain = Player:GetPowerRecoveryTime(1)
+    local allRemain = Player:GetPowerRecoveryTime(2)
+    des = string.format(LanguageMgr:GetTextByID(880060),CTime:Time2Str(nextRemain),CTime:Time2Str(allRemain));
+    des = string.gsub(des, '\\n', '\n');
+    self._txtDesc:SetText(des);
+end
+
+------------------------------------------------------------------体力
+function OriginTipsLayer:InitStaminaItem(trans,getType)
+    local cls = {};
+    cls.transform = trans;
+    cls.getType = getType;
+    cls.imgIcon = trans:GetImageComponent("img_icon");
+    cls.transBtnTitleFree = trans:Get("txt_btn_title_free");
+    cls.transBtnTitle = trans:Get("txt_btn_title");
+    cls.imgExpendIcon = trans:GetImageComponent("img_expend_icon");
+    cls.txtHaveNum = trans:GetTextComponent("txt_have_num");
+    cls.txtGetNum = trans:GetTextComponent("txt_get_num");
+    cls.txtExpendNum = trans:GetTextComponent("txt_expend_num");
+    cls.imgRed = trans:GetImageComponent("img_red");
+    cls.btn = trans:GetButtonComponent("btn_click");
+    cls.btn.onClick:AddListener(function ()
+        self:OnBtnStaminaClick(cls.getType);
+    end);
+    return cls;
+end
+
+function OriginTipsLayer:SetStamina()
+
+    -- 物品消耗
+    Item:SetItemIcon(self._staminaGet.imgIcon.transform, Player.ITEM_VALUE_POWER);
+    Item:SetItemIcon(self._staminaGet.imgExpendIcon.transform, Item.ITEM_POWER_ID);
+    self._staminaGet.txtGetNum:SetText(Item:GetDrops(Item.ITEM_POWER_ID)[1][3]);--获得纸杯蛋糕的掉落体力值
+    local num = Item:GetCount(Item.ITEM_POWER_ID);
+    local str = 1;
+    if(num < 1)then
+        str = string.format("<color=#FF6751FF>%d</color>", 1);
+    end
+    self._staminaGet.txtExpendNum:SetText(str);
+    self._staminaGet.txtHaveNum:SetText(Item:GetCount(Item.ITEM_POWER_ID));
+    --购买
+    local maxBuy = Player:GetBuyPowerTimes() >= Player.MAX_POWER_BUY;
+    self._txtMaxBuy:SetEnabled(maxBuy);
+    self._staminaBuy.transform:SetVisible(not maxBuy);
+    if(not maxBuy)then
+        Item:SetItemIcon(self._staminaBuy.imgIcon.transform, Player.ITEM_VALUE_POWER);
+        Item:SetItemIcon(self._staminaBuy.imgExpendIcon.transform, Player.ITEM_VALUE_MONEY);
+        self._staminaBuy.txtGetNum:SetText(Item.PURCHAS_VIT);
+        num = Player:GetBuyPowerCost();
+        self._staminaBuy.imgExpendIcon:SetVisible(num > 0);
+        self._staminaBuy.transBtnTitle:SetVisible(num > 0);
+        self._staminaBuy.transBtnTitleFree:SetVisible(num <= 0);
+        self._staminaBuy.imgRed:SetEnabled(Player:GetBuyPowerRed());
+        if(num > 0)then
+            str = num;
+            if(Item:GetCount(Player.ITEM_VALUE_MONEY) < num)then
+                str = string.format("<color=#FF6751FF>%d</color>", num);
+            end
+        else
+            str = "";
+        end
+        self._staminaBuy.txtExpendNum:SetText(str);
+        self._staminaBuy.txtHaveNum:SetText(string.format(LanguageMgr:GetTextByID(880065),(Player.MAX_POWER_BUY - Player:GetBuyPowerTimes())));
+    end
+end
+
+------------------------------------------------------------------钻石充值
+function OriginTipsLayer:SetJewel()
+    local itemMaxNum = 3;
+    local charges = Recharge:GetAllDataByType(Recharge.ChargeType.Gold);
+    for i = 1, itemMaxNum do
+        local cls = self._jewelItems[i];
+        if(cls == nil)then
+            cls = self:NewJewelItem(self._transBuyJewel:Get(string.format("item_%s",i)));
+            self._jewelItems[i] = cls;
+        end
+        self:SetJewelItem(cls,charges[i].cfgid);
+    end
+end
+
+function OriginTipsLayer:NewJewelItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgExpendIcon = cls:GetImageComponent("img_expend_icon");
+    cls.imgGetIcon = cls:GetImageComponent("img_get_icon");
+    cls.txtExpendNum = cls:GetTextComponent("txt_expend_num");
+    cls.txtGetNum = cls:GetTextComponent("txt_get_num");
+    cls.tog = cls:GetMToggleComponent("tog_select");
+    cls.tog.onValueChanged:AddListener(function (isOn)
+        if(isOn)then
+            self._chargeId = cls.chargeId;
+        else
+            if(self._chargeId == cls.chargeId)then
+                self._chargeId = -1;
+            end
+        end
+    end);
+    return cls;
+end
+
+function OriginTipsLayer:SetJewelItem(cls,chargeId)
+    cls.chargeId = chargeId;
+    local charge = Recharge:GetData(chargeId);
+    cls.imgGetIcon:LoadSprite(Item:GetItemIconPath(charge.goods[1][2]));
+    cls.imgExpendIcon:LoadSprite(Item:GetItemIconPath(charge.priceId));
+    cls.txtGetNum:SetText(charge.goods[1][3]);
+    local str = charge.price;
+    if(Item:GetCount(charge.priceId) < charge.price)then
+        str = string.format("<color=#FF6751FF>%d</color>",charge.price);
+    end
+    cls.txtExpendNum:SetText(str);
+end
+
+-------------------------------------------------------------------------碎片兑换
+function OriginTipsLayer:SetHeroClip()
+
+    local hero = Hero:GetHero(self._cfg.heroId);
+    local has, cost = Hero:GetHeroChipNumber(hero);
+    local ronNum = Item:GetCount(Player.ITEM_RON);
+    self._imgClipGetIcon:LoadSprite(Item:GetItemIconPath(self._cfgId));
+    self._imgClipExpendIcon:LoadSprite(Item:GetItemIconPath(Player.ITEM_RON));
+    self._txtClipGetNum:SetText(cost - has);
+    local str = cost - has;
+    if ronNum < (cost - has) then
+        str = string.format("<color=#FF6751FF>%d</color>",cost - has);
+    end
+    self._txtClipExpendNum:SetText(str);
+end
+
+-------------------------------------------------------------------------获取途径
+function OriginTipsLayer:SetWay()
+
+    local itemForm = self._cfg.itemForm;
+    for i = #itemForm, 1, -1 do
+        if itemForm[i][1] == "0" then
+            table.remove(itemForm, i)
+        end
+    end
+    local cnt = #itemForm
+    self._txtEmpty:SetEnabled(cnt<= 0)
+
+    if cnt > 0 then
+        -- if cnt > 1 then
+        --     table.sort(itemForm, function(a, b)
+        --         return self:onGenSortId(a) < self:onGenSortId(b)
+        --     end)
+        -- end
+        self._orgPosX = self._objItem:Get("txt_chapter"):GetPositionX(true)
+        self._transContent:SetSizeY(100*cnt)
+        for i, v in ipairs(itemForm) do
+            local cls = self._wayItems[i];
+            if(cls == nil)then
+                cls = self:InitWayItem();
+                self._wayItems[i] = cls
+            end
+            cls.gameObject:SetPositionY(0 - 100*(i-1), true)
+            self:SetWayItem(cls,v);
+        end
+    end
+
+end
+
+function OriginTipsLayer:InitWayItem()
+    local gameObject = self._transContent:AddChild(self._objItem)
+    local cls = {
+        gameObject  = gameObject,
+        txtChapter  = gameObject:GetTextComponent("txt_chapter"),
+        objLock     = gameObject:Get("img_lock"),
+        btn = gameObject:GetButtonComponent("btn_click"),
+        txtBtnTitle = gameObject:GetTextComponent("btn_click/txt_title"),
+        txtBtnTitleE = gameObject:GetTextComponent("btn_click/txt_title_E"),
+    }
+    cls.btn:AddButtonListener(function () self:OnBtnWayItemClick(cls.data) end)
+    return cls
+end
+
+function OriginTipsLayer:SetWayItem(cls,data)
+    cls.data = data;
+    local origin = tonumber(data[1])
+    local canGo = origin ~= Item.ORIGIN_TEXT
+    local showstr = ""
+    local unLock = true;
+    if origin == Item.ORIGIN_LEVEL then
+        local level = Chapter:GetLevel(data[2])
+        local str = ""
+        local open = Chapter:PreLevelIsOpen(data[2])
+        if open and Player:GetValue(Player.VALUE_LEVEL) >= level.open_level then
+            unLock = true
+            if level.fight_count == 0 then
+                str = ""
+            else
+                if level.remain > 0 then
+                    str = string.format("(%d/%d)", level.remain, level.fight_count)
+                else
+                    str = string.format("(<color=#FF6751FF>0</color>/%d)", level.fight_count)
+                end
+            end
+        end
+        cls.txtChapter:SetText(level.name_simple .. str)
+        if unLock then
+            cls.txtChapter.color = COLOR_TYPE.White
+        else
+            cls.txtChapter.color = COLOR_TYPE.Gray55
+            local posx = self._orgPosX + cls.txtChapter:GetTextX() + 10
+            cls.objLock:SetPositionX(posx, true)
+        end
+    elseif origin == Item.ORIGIN_CHAPTER then
+        cls.txtChapter:SetText(lua_str_split(Chapter:GetChapter(data[2]).name_simple, "-")[1])
+    else        
+        cls.txtChapter:SetText(Language:GetTxtBuyId(data[3]))
+    end
+    cls.btn.transform:SetVisible(canGo);
+    cls.objLock:SetVisible(origin == Item.ORIGIN_LEVEL and (not unLock))
+    if JumpMgr:IsJump({tonumber(data[1]), tonumber(data[2])}) then
+        cls.txtBtnTitle:SetTextById(76000028);
+        cls.txtBtnTitleE:SetTextById(76000029);
+    else
+        cls.txtBtnTitle:SetTextById(76000088);
+        cls.txtBtnTitleE:SetTextById(76000089);
+    end
+end
+
+--
+-- 已经解锁的关卡（同解锁的关卡按id由小到大排序）>
+--     已经解锁的章节（同解锁的章节按id由小到大排序）>
+--     已经解锁的战斗模式>未解锁的关卡>未解锁的章节>
+--     未解锁的战斗模式>商店>抽卡
+--
+function OriginTipsLayer:onGenSortId(info)
+    local origin = tonumber(info[1])
+    local sortid = 0
+    if origin == Item.ORIGIN_LEVEL then
+        local level = Chapter:GetLevel(info[2])
+        local index = Chapter:GetLevelIndexInChapter(info[2])
+        local open = Chapter:PreLevelIsOpen(info[2])
+        if open and Player:GetLevel() >= level.open_level then
+            sortid = index + level.chapterid * 100
+        else
+            sortid = index + level.chapterid * 300
+        end
+    elseif origin == Item.ORIGIN_CHAPTER then
+        local chapter = Chapter:GetChapter(info[2])
+        if chapter.open and Player:GetLevel() >= chapter.open_level and Chapter:chapterOrLevelIsOpen(chapter) then
+            sortid = chapter.id * 200
+        else
+            sortid = chapter.id * 400
+        end
+    elseif origin == Item.ORIGIN_FIGHT or origin == Item.ORIGIN_SHOP or origin == Item.ORIGIN_LOTTERY then
+        sortid = origin * 100000000
+    elseif origin == Item.ORIGIN_TEXT then
+        sortid = origin * 100000000
+    end
+    return sortid
+end
+
+
+function OriginTipsLayer:onPerSecondUpdate()
+    if(self._tipsType == OriginTipsType.Stamina)then
+        self:SetStaminaTime();
+    end
+end
+
+--扫荡代码, 暂时不做
+function OriginTipsLayer:onSweepClick(item, info)
+    local origin = tonumber(info[1])
+    if origin == Item.ORIGIN_LEVEL then
+        Chapter:LevelSweepReq(tonumber(info[2]), 1, function()
+            self:refreshItemUi(item, info)
+        end)
+    end
+end
+
+function OriginTipsLayer:KeyFrameCall()
+    if(self._scrollWayBg ~= nil)then
+        self._scrollWayBg.vertical = true;
+    end
+end
+
+function OriginTipsLayer:OnUpdateCurrency()
+    if(self._cfgType == Bag.TYPE_EQUIP)then
+        self._txtOwnerNum:SetText(Equip:GetCount(self._cfgId));
+    else
+        self._txtOwnerNum:SetText(tostring(Item:GetCount(self._cfgId)));
+    end
+end
+
+return OriginTipsLayer;

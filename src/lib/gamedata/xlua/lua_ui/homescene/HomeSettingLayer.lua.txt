@@ -1,0 +1,403 @@
+--
+-- author: cjj
+-- date  : 2018-12-27 20:05:51
+-- brief : 
+--
+local CBaseLayer    = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HomeSettingLayer = class("HomeSettingLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    cname           = "container/player_info/button_changeName",
+    copy            = "container/player_info/button_copy",
+    info            = "container/player_info/button_info",
+    changeAvatar    = "container/player_info/btn_avatar",
+    change          = "container/basic_info/button_three/button_change",
+    get             = "container/basic_info/button_three/button_get",
+    protocol        = "container/basic_info/button_three/button_protocol",
+    privacy         = "container/basic_info/button_three/button_privacy",
+    user            = "container/basic_info/button_three/button_user",
+    explain         = "container/basic_info/button_three/button_explain",
+    exit            = "container/basic_info/button_exit",
+    music           = "container/basic_info/button_music",
+    sound           = "container/basic_info/button_sound",
+    playskill       = "container/high_info/button_PlaySkill",
+    fightui         = "container/high_info/button_FightUI",
+    highFps         = "container/high_info/button_FPS",
+    button_must     = "container/high_info/button_must",
+    toolGm          = "container/button_gm",
+}
+
+function HomeSettingLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_setting/UI_HomeSetting",
+    }
+    self._uitype = 2
+    self:onEnter()
+end
+
+function HomeSettingLayer:onEnter()
+    self:createPnl()
+    self:InitUI();
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:initSetting();
+    self.layer:Get(BUTTON_TYPE.toolGm):SetVisible(GameSdkMgr:IsTestApk())
+end
+
+function HomeSettingLayer:onExit()
+    self.txtSetName     = nil
+    self.transPlaySkill = nil
+    self.transFightUI   = nil
+    self.highFpsBtn     = nil
+    self._mustPicture   = nil
+    self.transMusic     = nil
+    self.transSound     = nil
+    self.basicInfo      = nil
+    self.highInfo       = nil
+    self.nameRed        = nil
+
+    self.imgSoundFill   = nil
+    self.imgMusicFill   = nil
+    self.imgMusicHandle = nil
+    self.imgSoundHandle = nil
+
+    if self._avatarPrefab ~= nil then
+        self._avatarPrefab:clear()
+        self._avatarPrefab = nil
+    end
+
+    self._voice_1 = nil
+    self._voice_2 = nil
+    self.togBasic = nil
+    self.togHigh = nil
+    self.quality_info_low = nil
+    self.quality_info_mid = nil
+    self.quality_info_high = nil
+    self.quality_info_perfect  = nil
+    if self.music_slider ~= nil then
+        self.music_slider.onValueChanged:RemoveAllListeners()
+        self.music_slider = nil
+    end
+    if self.sound_slider ~= nil then
+        self.sound_slider.onValueChanged:RemoveAllListeners()
+        self.sound_slider = nil
+    end
+
+    CBaseLayer.onExit(self)
+end
+
+function HomeSettingLayer:InitUI()
+    self.txtSetName     = self.layer:GetTextComponent("container/player_info/set_name")
+    self.transPlaySkill = self.layer:Get("container/high_info/button_PlaySkill/Gou")
+    self.transFightUI   = self.layer:Get("container/high_info/button_FightUI/Gou")
+    self.highFpsBtn   = self.layer:Get("container/high_info/button_FPS/Gou")
+    self._mustPicture   = self.layer:Get("container/high_info/button_must/Gou")
+    self.transMusic     = self.layer:Get("container/basic_info/button_music/Gou")
+    self.transSound     = self.layer:Get("container/basic_info/button_sound/Gou")
+    self.togBasic       = self.layer:GetMToggleComponent("container/image_type_bg/tog_basic")
+    self.togHigh        = self.layer:GetMToggleComponent("container/image_type_bg/tog_high")
+    self.basicInfo      = self.layer:Get("container/basic_info");
+    self.highInfo       = self.layer:Get("container/high_info");
+    self.nameRed        = self.layer:Get("container/player_info/button_changeName/image_red_tips")
+    self.quality_info_low   = self.layer:GetMToggleComponent("container/high_info/quality_info/button_quality_low");
+    self.quality_info_mid   = self.layer:GetMToggleComponent("container/high_info/quality_info/button_quality_mid");
+    self.quality_info_high  = self.layer:GetMToggleComponent("container/high_info/quality_info/button_quality_high");
+    self.quality_info_perfect  = self.layer:GetMToggleComponent("container/high_info/quality_info/button_quality_perfect");
+
+    self.basicInfoShowPosX  = self.basicInfo:GetPositionX()
+    self.basicInfoHidePosX  = self.basicInfoShowPosX + 10000
+    self.highInfoShowPosX   = self.highInfo:GetPositionX()
+    self.highInfoHidePosX   = self.highInfoShowPosX + 10000
+    self.togBasic.onValueChanged:AddListener(function (isOn)
+        self:OnTogBasicClick(isOn);
+    end)
+    self.togHigh.onValueChanged:AddListener(function (isOn)
+        self:OnTogHighClick(isOn);
+    end)
+
+    self.quality_info_low.onValueChanged:AddListener(function (isOn)
+        self:SetQuality(isOn, 0)
+    end)
+
+    self.quality_info_mid.onValueChanged:AddListener(function (isOn)
+        self:SetQuality(isOn, 1)
+    end)
+
+    self.quality_info_high.onValueChanged:AddListener(function (isOn)
+        self:SetQuality(isOn, 2)
+    end)
+
+    self.quality_info_perfect.onValueChanged:AddListener(function (isOn)
+        self:SetQuality(isOn, 3)
+    end)
+    self._voice_1 = self.layer:GetMToggleComponent("container/high_info/obj_voice/button_voice_1")
+    self._voice_1.onValueChanged:AddListener(
+        function(isOn)
+            if isOn then PrefsController:SetVoiceLanguage(G_VoiceLanguageZh) end
+        end)
+    self._voice_2 = self.layer:GetMToggleComponent("container/high_info/obj_voice/button_voice_2")
+    self._voice_2.onValueChanged:AddListener(
+        function(isOn)
+            if isOn then PrefsController:SetVoiceLanguage(G_VoiceLanguageJp) end
+        end)
+
+    self.layer:Get(BUTTON_TYPE.protocol):SetVisible(GameSdkMgr:IsHasUserProtocol())
+    self.layer:Get(BUTTON_TYPE.privacy):SetVisible(GameSdkMgr:IsHasUserPrivacy())
+    self.layer:Get(BUTTON_TYPE.user):SetVisible(GameSdkMgr:HasUserCenter())
+    self.layer:Get(BUTTON_TYPE.explain):SetVisible(GameSdkMgr:HasPermissionExplain())
+end
+
+function HomeSettingLayer:SetQuality(isOn, qlty)
+    if isOn then
+        AppMgr:SetQualityLevel(qlty)
+    end
+end
+
+function HomeSettingLayer:OnTogBasicClick(isOn)
+    if(isOn)then
+        self.basicInfo:SetPositionX(self.basicInfoShowPosX)
+    else
+        self.basicInfo:SetPositionX(self.basicInfoHidePosX)
+    end
+end
+
+function HomeSettingLayer:OnTogHighClick(isOn)
+    if(isOn)then
+        self.highInfo:SetPositionX(self.highInfoShowPosX)
+    else
+        self.highInfo:SetPositionX(self.highInfoHidePosX)
+    end
+end
+
+function HomeSettingLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.cname then
+        self:ChangeNameRed()
+        Groble_UIMgr:ShowInputLayer(self.layer, InputUid.name,
+            function(newname, update)
+                if update then
+                    self:setPlayerName(true)
+                else
+                    if newname ~= "" then
+                        Player:ModifyNameReq(newname)
+                    end
+                end
+            end, true, false)
+        UIController:OnProgressTopPlayer(Player.INFO_NAME)
+    elseif itype == BUTTON_TYPE.copy then
+        GameSdkMgr:CopyTextToClipboard(tostring(Player:GetId()))
+        Groble_UIMgr:ShowGameWordTipsLayer(1800049)
+    elseif itype == BUTTON_TYPE.info then
+        Player:SetPlayerCard(Player:GetBusinessData(), false, 
+            function()
+                self:showLayer()
+            end)
+        Player:ShowPlayerCardLayer()
+        self:hideLayer()
+    elseif itype == BUTTON_TYPE.get then
+        Groble_UIMgr:ShowInputLayer(self.layer, InputUid.code,
+            function(code)
+                if code ~= "" then
+                    Activity:NetChangeItem(code)
+                end
+            end, true, true)
+
+    elseif itype == BUTTON_TYPE.user then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800050);
+
+    elseif itype == BUTTON_TYPE.change then
+        Groble_UIMgr:ShowMsgLayer(string.format(LanguageMgr:GetTextByID(1800051), "\n", "\n"),
+            function()
+                Login:SetAutoLogin(false)
+                uimgr:onLoginScene();
+            end, true, false)
+    elseif itype == BUTTON_TYPE.protocol then
+        GameSdkMgr:ShowProtocol()
+    elseif itype == BUTTON_TYPE.privacy then
+        GameSdkMgr:ShowPrivacy()
+    elseif itype == BUTTON_TYPE.exit then
+        GameSdkMgr:Exit()
+    elseif itype == BUTTON_TYPE.explain then
+        core.require("xlua/lua_UI/HomeScene/ExplainLayer.txt"):new():show()
+    elseif itype == BUTTON_TYPE.music then
+        self._isPlayBgm = not self._isPlayBgm
+        Groble_SoundMgr:SetBgmOpen(self._isPlayBgm);
+        self:onMusicSwitch(self._isPlayBgm)
+    elseif itype == BUTTON_TYPE.sound then
+        self._isPlayEffect = not self._isPlayEffect
+        Groble_SoundMgr:SetEffectOpen(self._isPlayEffect);
+        self:onEffectSwitch(self._isPlayEffect)
+    elseif itype == BUTTON_TYPE.changeAvatar then
+        self:showChangeAvatarUI();
+    elseif itype == BUTTON_TYPE.playskill then
+        self._isPlaySkill        = not self._isPlaySkill;
+        PrefsController:SetDoublePlaySkill(self._isPlaySkill)
+        self.transPlaySkill:SetVisible(self._isPlaySkill)
+    elseif itype == BUTTON_TYPE.fightui then
+        self._isFightRight        = not self._isFightRight;
+        PrefsController:SetFightRight(self._isFightRight)
+        self.transFightUI:SetVisible(self._isFightRight);
+    elseif itype == BUTTON_TYPE.highFps then
+        local curFpsState = PrefsController:GetFpsSetting();
+        if curFpsState == FPSSettingHigh then
+            curFpsState = FPSSettingLow
+        else
+            curFpsState = FPSSettingHigh
+        end
+        PrefsController:SetFPSState(curFpsState)
+        self.highFpsBtn:SetVisible(curFpsState == FPSSettingHigh);
+    elseif itype == BUTTON_TYPE.button_must then
+        self._isMustPicture = not self._isMustPicture
+        PrefsController:SetMustPicture(self._isMustPicture)
+        self._mustPicture:SetVisible(self._isMustPicture)
+    elseif itype == BUTTON_TYPE.toolGm then
+        self:onPopLayer()
+        core.require("xlua/lua_UI/HomeScene/GmLayer.txt").GetInstance():show()
+    end
+end
+
+function HomeSettingLayer:show()
+    self._fading = true
+    --self:OnTogBasicClick(true)
+    self.togBasic.isOn = true;
+
+    --quality auto setting
+    local qualitystr = AppMgr:GetQualityLevel()
+    if qualitystr == CS.QualityLevel.Low then
+        self.quality_info_low.isOn = true;
+    elseif qualitystr == CS.QualityLevel.Mid then
+        self.quality_info_mid.isOn = true;
+    elseif qualitystr == CS.QualityLevel.High then
+        self.quality_info_high.isOn = true;
+    else
+        self.quality_info_perfect.isOn = true
+    end
+
+    -- verify 
+    if GameSdkMgr:IsVerifyVer() or GameSdkMgr:IsIosPlat() then
+        self.layer:Get(BUTTON_TYPE.get):SetVisible(false)
+    end
+    if GameSdkMgr:IsIosPlat() then
+        self.layer:Get(BUTTON_TYPE.exit):SetVisible(false)
+    end
+
+    -- voice
+    local voice = PrefsController:GetVoiceLanguage()
+    if G_VoiceLanguageZh == voice then
+        self._voice_1.isOn = true
+    elseif G_VoiceLanguageJp == voice then
+        self._voice_2.isOn = true
+    end
+
+    self:showLayer()
+    self:playAni("HomeSettingFadeIn")
+end
+
+function HomeSettingLayer:showChangeAvatarUI()
+    AppMgr:LogInfo("点击头像:"..Player:GetHeadIcon())
+    self:hideLayer()
+    core.require("xlua/lua_UI/HomeScene/ChangeAvatarLayer.txt"):new():show(function(modify)
+        self:showLayer()
+        if true == modify then
+            self:setPlayerAvatar(true)
+        end
+    end)
+end
+function HomeSettingLayer:initSetting()
+    self:setPlayerName()
+    self.layer:GetTextComponent("container/player_info/set_id").text = Player:GetId()
+    self.layer:GetTextComponent("container/player_info/set_level").text = "Lv" .. Player:GetLevel()
+    Player:SetPlayerExpPer(self.layer:GetTextComponent("container/player_info/set_exp"), 
+        self.layer:GetSliderComponent("container/player_info/slider_exp"))
+    if self._avatarPrefab == nil then
+        self._avatarPrefab = Player:CtorPlayerIconBorder(self.layer:Get("container/player_info/pnl_avatar/prefab_player"))
+    end
+    self:setPlayerAvatar();
+    ----设置音乐
+    self._isPlayBgm           = Groble_SoundMgr:IsBgmOpen()
+    self._isPlayEffect        = Groble_SoundMgr:IsEffectOpen()
+    self._isPlaySkill         = PrefsController:IsDoublePlaySkill()
+    self._isFightRight        = PrefsController:IsFightRight()
+    self._isMustPicture     = PrefsController:IsMustPicture()
+
+    self.music_slider         = self.layer:GetSliderComponent("container/basic_info/slider_music")
+    self.sound_slider         = self.layer:GetSliderComponent("container/basic_info/slider_sound")
+    self.music_slider.value   = Groble_SoundMgr:GetBgmVolume();
+    self.sound_slider.value   = Groble_SoundMgr:GetSoundVolume();
+    self:onMusicSwitch(self._isPlayBgm)
+    self:onEffectSwitch(self._isPlayEffect)
+
+    self.transPlaySkill:SetVisible(self._isPlaySkill);
+    self.transFightUI:SetVisible(self._isFightRight);
+    self._mustPicture:SetVisible(self._isMustPicture);
+    self.highFpsBtn:SetVisible(PrefsController:GetFpsSetting() == FPSSettingHigh);
+    local function onMusicChange()
+        Groble_SoundMgr:SetBGMVolume(self.music_slider.value);
+    end
+    self.music_slider.onValueChanged:AddListener(onMusicChange);
+    local function onSoundChange()
+        Groble_SoundMgr:SetEffectVolume(self.sound_slider.value);
+    end
+    self.sound_slider.onValueChanged:AddListener(onSoundChange);
+end
+
+function HomeSettingLayer:setPlayerName(showtips)
+    self.txtSetName.text = Player:GetName()
+    self:showModifyTips(showtips)
+    self.nameRed:SetVisible(Player:CanChangeNameTip())
+end
+
+function HomeSettingLayer:setPlayerAvatar(showtips)
+    Player:SetPlayerIconBorderObj(self._avatarPrefab, Player:GetHeadIcon(), Player:GetHeadBorder())
+    self:showModifyTips(showtips)
+end
+
+function HomeSettingLayer:showModifyTips(showtips)
+    if showtips then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800069))
+    end
+end
+
+function HomeSettingLayer:onMusicSwitch(bvalue)
+    self.transMusic:SetVisible(bvalue)
+    self.music_slider.interactable = bvalue
+    if(self.imgMusicHandle == nil)then
+        self.imgMusicHandle = self.layer:GetImageComponent("container/basic_info/slider_music/HandleSlideArea/Handle")
+        self.imgMusicFill = self.layer:GetImageComponent("container/basic_info/slider_music/FillArea/Fill")
+    end
+    if bvalue then
+        self.imgMusicHandle:SetImageColor(1, 1, 1, 1)
+        self.imgMusicFill:SetImageColor(0.55, 0.55, 0.55, 1)
+    else
+        self.imgMusicHandle:SetImageColor(0.55, 0.55, 0.55, 1)
+        self.imgMusicFill:SetImageColor(0.21, 0.21, 0.21, 1)
+    end
+end
+
+function HomeSettingLayer:onEffectSwitch(bvalue)
+    if(self.imgSoundHandle == nil)then
+        self.imgSoundHandle = self.layer:GetImageComponent("container/basic_info/slider_sound/HandleSlideArea/Handle")
+        self.imgSoundFill = self.layer:GetImageComponent("container/basic_info/slider_sound/FillArea/Fill")
+    end
+    self.transSound:SetVisible(bvalue)
+    self.sound_slider.interactable = bvalue
+    if bvalue then
+        self.imgSoundHandle:SetImageColor(1, 1, 1, 1)
+        self.imgSoundFill:SetImageColor(0.55, 0.55, 0.55, 1)
+    else
+        self.imgSoundHandle:SetImageColor(0.55, 0.55, 0.55, 1)
+        self.imgSoundFill:SetImageColor(0.21, 0.21, 0.21, 1)
+    end
+end
+
+function HomeSettingLayer:ChangeNameRed()
+    PrefsController:SetChangeNameTips(false)
+    self.nameRed:SetVisible(Player:CanChangeNameTip())
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_REFRESH_REDTIP)
+end
+
+function HomeSettingLayer:OnRetBtnClick()
+    Groble_UIMgr:ClickOnReturnBtn();
+end
+
+return HomeSettingLayer
+

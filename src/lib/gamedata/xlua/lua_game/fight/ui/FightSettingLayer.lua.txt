@@ -1,0 +1,576 @@
+--
+-- author: haosun
+-- date  : 2021-04-12 18:53:25
+-- brief : 
+--
+UI_FightSettingLayer = UI_FightSettingLayer or {}
+
+local _ecsInstance = CS.ECSManager.Instance
+
+function UI_FightSettingLayer:FightSettingLayerCreator()
+    self.__cname = "UI_FightSettingLayer"
+    self._hasDestroyed  = false
+    self.currFrame      = 0
+    self._lastFrame     = 0;
+    self.isPlayBgm      = true;
+    self.isPlayEffect   = true;
+    self.BlurAmount     = 0;
+    self._isVisible     = false
+    self._updateType    = 0
+    self._isPauseMask   = false
+    self._isTutorial    = TutorialController:IsTutorialLevel() or (not Guide:IsLevel1GuideEnd())
+    self._isHideAutoInfo= FightController:IsOnlyAvoidLevel() or FightController:IsTriggerLevel()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_SettingInfo")
+    self.layer:SetVisible(false)
+
+    self.PauseBtn = self.layer:Get("PauseBtn")
+
+    self.FadePanel = self.layer:Get("FadePanel")
+    self.FadePanel:AddAnimationBehaviour(self)
+    self.FadePanel:SetVisible(false)
+    self.BlurAmount = 1;
+    ---
+    self.progressMusic = self.FadePanel:GetSliderComponent("BaseInfo/progressMusic")
+    self.progressSound = self.FadePanel:GetSliderComponent("BaseInfo/progressSound")
+    self.progressMusic.value = Groble_SoundMgr:GetBgmVolume();
+    self.progressSound.value = Groble_SoundMgr:GetSoundVolume();
+
+    self.MusicGou = self.FadePanel:Get("BaseInfo/MainBtn2/Gou")
+    self.SoundGou = self.FadePanel:Get("BaseInfo/MainBtn3/Gou")
+
+    self.isPlayBgm      = Groble_SoundMgr:IsBgmOpen()
+    self.isPlayEffect   = Groble_SoundMgr:IsEffectOpen()
+    self.MusicGou:SetVisible(self.isPlayBgm);
+    self.SoundGou:SetVisible(self.isPlayEffect);
+
+    local levelID = FightController:GetLevelId()
+
+    local txtLevelSimpleName = self.layer:GetTextComponent("FadePanel/BaseInfo/txt_level_simple_name")
+    local txtTitle = self.layer:GetTextComponent("FadePanel/BaseInfo/Title")
+
+    local chapter = Chapter:GetChapterByLevelId(levelID)
+    local level = Chapter:GetLevel(levelID)
+
+    local isActivity = Chapter:LevelIsActivity(levelID)
+
+    local isPlot = Chapter:LevelIsPlot(levelID)
+    if(isPlot)then
+        txtLevelSimpleName.text = level.name_simple
+        txtTitle:SetVisible(true)
+    elseif(Chapter:LevelIsMystery(levelID))then
+        txtLevelSimpleName.text = string.format(LanguageMgr:GetTextByID(3001059),Mystery:GetFightFloor());
+        txtTitle:SetVisible(true)
+    else
+        txtLevelSimpleName.text = txtTitle.text;
+        txtTitle:SetVisible(false)
+    end
+
+    self.hasStar = isPlot or isActivity
+
+    if self.hasStar == false then
+        self.FadePanel:Find("BaseInfo"):SetPosition(0, 0, 0, true)
+    else
+        self.FadePanel:Find("BaseInfo"):SetPosition(0, 289, 0, true)
+        self:initStarTarget(levelID)
+        self:refreshStarTarget()
+    end
+    self.FadePanel:GetTextComponent("BaseInfo/LevelName").text = level.name
+
+    self.FadePanel:Get("StarInfo"):SetVisible(self.hasStar)
+
+    if Chapter:LevelIsTower(Chapter:GetCurFightLevelId()) then
+        self.layer:Get("FadePanel/MainBtn5"):SetVisible(false)
+    end
+
+    self.baseInfo = self.FadePanel:Get("BaseInfo")
+    self.starInfo = self.FadePanel:Get("StarInfo")
+    self.autoInfo = self.FadePanel:Get("AutoInfo")
+    self.isPlot = isPlot
+
+    self._subTypeObjs = {}
+
+    local tblTab = {
+        {
+            20047, 20048,
+        },
+        {
+            20049, 20050,
+        }
+    }
+
+    local tab = self.FadePanel:Get("Tab")
+    local tabTemplate = self.FadePanel:Get("TabTemplate").gameObject
+    for i, subtype in ipairs(tblTab) do
+        if self._subTypeObjs[i] == nil then
+            local transform = tab:AddChild(tabTemplate)
+            self._subTypeObjs[i] = {
+                transform = transform,
+                toggle  = transform:GetComponent("MToggle"),
+                txt_tite1   = transform:GetTextComponent("select/txt_tite"),
+                txt_tite_E1 = transform:GetTextComponent("select/txt_tite_E"),
+                txt_tite2   = transform:GetTextComponent("unselect/txt_tite"),
+                txt_tite_E2 = transform:GetTextComponent("unselect/txt_tite_E"),
+            }
+            self._subTypeObjs[i].toggle.onValueChanged:AddListener(function(isOn)
+                if isOn then self:onSubTypeClick(i) end
+            end)
+        end
+        self._subTypeObjs[i].transform:SetVisible(true)
+        self._subTypeObjs[i].transform:SetPosition(-120 + (i-1)*240, 0, 0, true)        
+        self._subTypeObjs[i].txt_tite1:SetTextById(tblTab[i][1])
+        self._subTypeObjs[i].txt_tite_E1:SetTextById(tblTab[i][2])
+        self._subTypeObjs[i].txt_tite2:SetTextById(tblTab[i][1])
+        self._subTypeObjs[i].txt_tite_E2:SetTextById(tblTab[i][2])
+    end
+
+    -- self._subTypeObjs[1].toggle.isOn = true
+    -- self:onSubTypeClick(1)
+
+    if self._isHideAutoInfo then
+        self._subTypeObjs[2].transform:SetVisible(false)
+    end
+    tabTemplate:SetVisible(false)
+
+    self._togAutoMoveContinue = self.layer:GetToggleComponent("FadePanel/AutoInfo/Move/MoveBtn1")
+    self._togAutoMoveContinue.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveContinue(isOn)
+        _ecsInstance:ChangeAutoMoveContinue(isOn)
+    end)
+
+    self._togAutoMoveElite = self.layer:GetToggleComponent("FadePanel/AutoInfo/Move/MoveBtn2")
+    self._togAutoMoveElite.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveElite(isOn)
+        _ecsInstance:ChangeAutoMoveIsEliteFirst(isOn)
+    end)
+
+    for i = 1, 3 do
+        self["_togAutoDazhao" .. i] = self.layer:GetToggleComponent("FadePanel/AutoInfo/Dazhao/Group/DazhaoBtn" .. i)
+        self["_togAutoDazhao" .. i].onValueChanged:AddListener(function(isOn)
+            if isOn then
+                PrefsController:SetAutoDazhaoType(i)
+                _ecsInstance:ChangeAutoDazhaoType(i)
+            end
+        end)
+    end
+
+    self._togAutoGunTypeSkill = self.layer:GetToggleComponent("FadePanel/AutoInfo/GunType/GunTypeSkillBtn")
+    self._togAutoGunTypeSkill.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoGunTypeSkill(isOn)
+        _ecsInstance:ChangeIsAutoGunTypeSkill(isOn)
+    end)
+
+    self._togAutoMoveChangeByHp = self.layer:GetToggleComponent("FadePanel/AutoInfo/Change/ChangeBtn1")
+    self._togAutoMoveChangeByHp.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveChangeByHp(isOn)
+        _ecsInstance:ChangeIsAutoMoveChangeByHp(isOn)
+    end)
+
+    self._togAutoMoveChangeByEnergy = self.layer:GetToggleComponent("FadePanel/AutoInfo/Change/ChangeBtn2")
+    self._togAutoMoveChangeByEnergy.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveChangeByEnergy(isOn)
+        _ecsInstance:ChangeIsAutoMoveChangeByEnergy(isOn)
+    end)
+
+    self._togAutoMoveChangeByAttrib = self.layer:GetToggleComponent("FadePanel/AutoInfo/Change/ChangeBtn3")
+    self._togAutoMoveChangeByAttrib.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveChangeByAttrib(isOn)
+        _ecsInstance:ChangeIsAutoMoveChangeByAttrib(isOn)
+    end)
+
+    self._togAutoMoveChangeByEnemyCount = self.layer:GetToggleComponent("FadePanel/AutoInfo/Change/ChangeBtn4")
+    self._togAutoMoveChangeByEnemyCount.onValueChanged:AddListener(function(isOn)
+        PrefsController:SetIsAutoMoveChangeByEnemyCount(isOn)
+        _ecsInstance:ChangeIsAutoMoveChangeByEnemyCount(isOn)
+    end)
+
+    self:registerNet()
+    self:registerBtn()
+end
+
+function UI_FightSettingLayer:onSubTypeClick(idx)
+    if(idx == 1) then
+        self.baseInfo:SetVisible(true)
+        self.starInfo:SetVisible(self.hasStar)
+
+        self.autoInfo:SetVisible(false)
+    elseif(idx == 2) then
+        self.baseInfo:SetVisible(false)
+        self.starInfo:SetVisible(false)
+
+        self.autoInfo:SetVisible(true)
+    end
+end
+
+function UI_FightSettingLayer:FightSettingLayerDestructor()
+    if self._hasDestroyed then return end
+
+    self._hasDestroyed  = true
+    self._currFrame     = nil;
+    self._lastFrame     = nil;
+    self.isPlayBgm      = nil;
+    self.isPlayEffect   = nil;
+    self.BlurAmount     = nil;
+    self.PauseBtn   = nil;
+    self.FadePanel  = nil;
+
+    self.layer:GetButtonComponent("PauseBtn").onClick:RemoveAllListeners()
+    self.layer:GetButtonComponent("FadePanel/MainBtn1").onClick:RemoveAllListeners()
+    self.layer:GetButtonComponent("FadePanel/MainBtn4").onClick:RemoveAllListeners()
+    self.layer:GetButtonComponent("FadePanel/MainBtn5").onClick:RemoveAllListeners()
+    self.layer:GetButtonComponent("FadePanel/BaseInfo/MainBtn2").onClick:RemoveAllListeners()
+    self.layer:GetButtonComponent("FadePanel/BaseInfo/MainBtn3").onClick:RemoveAllListeners()
+    self.progressMusic.onValueChanged:RemoveAllListeners();
+    self.progressSound.onValueChanged:RemoveAllListeners();
+
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveContinue)
+    self._togAutoMoveContinue = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveElite)
+    self._togAutoMoveElite = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoDazhao1)
+    self._togAutoDazhao1 = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoDazhao2)
+    self._togAutoDazhao2 = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoDazhao3)
+    self._togAutoDazhao3 = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoGunTypeSkill)
+    self._togAutoGunTypeSkill = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveChangeByHp)
+    self._togAutoMoveChangeByHp = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveChangeByEnergy)
+    self._togAutoMoveChangeByEnergy = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveChangeByAttrib)
+    self._togAutoMoveChangeByAttrib = nil
+    CS.UnityHelper.RemoveToggleListener(self._togAutoMoveChangeByEnemyCount)
+    self._togAutoMoveChangeByEnemyCount = nil
+
+    ---
+    self.progressMusic  = nil;
+    self.progressSound  = nil;
+
+    self.MusicGou       = nil;
+    self.SoundGou       = nil;
+
+
+    for k, v in pairs(self._subTypeObjs) do
+        v.transform = nil
+        v.toggle.onValueChanged:RemoveAllListeners()
+        v.toggle = nil
+        v.txt_tite1 = nil
+        v.txt_tite_E1 = nil
+        v.txt_tite2 = nil
+        v.txt_tite_E2 = nil
+    end        
+
+    self.baseInfo = nil
+    self.starInfo = nil
+    self.autoInfo = nil
+    self._subTypeObjs   = nil
+
+    DoArrayClassClear(self._stars)
+    
+    self._isVisible     = nil
+    self.layer:Release()
+    self.layer = nil
+end
+
+function UI_FightSettingLayer:registerNet()
+    GEvent:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            local function onFadeOk()
+                self:onExitSettingInfo();
+                if self.FadePanel ~= nil then
+                    self.FadePanel:SetVisible(false);
+                end
+                FightController:EndFightController(false)
+            end
+            FightController:GoOnceLevel(levelid, onFadeOk)
+        end)
+end
+
+function UI_FightSettingLayer:onExitSettingInfo()
+    FightController:WaitBegin()
+    GEvent:removeEventListenerByEvt(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname)
+end
+
+-- 将按钮监听点击事件
+function UI_FightSettingLayer:registerBtn()
+    -- 暂停
+    self.layer:AddButtonListener("PauseBtn", function() self:onPause() end)
+    -- 继续
+    self.layer:AddButtonListener("FadePanel/MainBtn1", function() self:onResume() end)
+    -- 退出    
+    self.layer:AddButtonListener("FadePanel/MainBtn4", function() self:doExitFight() end)
+    -- 重打
+    self.layer:AddButtonListener("FadePanel/MainBtn5", function() self:doReplayFight() end)
+    -- 音乐
+    self.layer:AddButtonListener("FadePanel/BaseInfo/MainBtn2", function() self:doMusic() end)
+    -- 音效
+    self.layer:AddButtonListener("FadePanel/BaseInfo/MainBtn3", function() self:doSound() end)
+    -- 音乐大小
+    local function onMusicChange()
+        -- AppMgr:LogInfo("musicVolume = "..self.progressMusic.value);
+        Groble_SoundMgr:SetBGMVolume(self.progressMusic.value);
+    end
+    -- 音效大小
+    self.progressMusic.onValueChanged:AddListener(onMusicChange);
+    local function onSoundChange()
+        -- AppMgr:LogInfo("soundVolume = "..self.progressSound.value);
+        Groble_SoundMgr:SetEffectVolume(self.progressSound.value);
+    end
+    self.progressSound.onValueChanged:AddListener(onSoundChange);
+    -- 成就
+end
+
+function UI_FightSettingLayer:_commonPlay()
+    self._fading    = true
+    self._lastFrame = Groble_SceneMgr:GetRealTime()
+    self._updating  = true
+end
+
+function UI_FightSettingLayer:onPause(idx)
+    -- if HeroController:IsCurHeroAlive() == false then return end
+    if self.layer == nil then return end
+    
+    if self._isPauseMask then return end
+
+    idx = idx or 1
+
+    self:_commonPlay()
+    self.BlurAmount = 0
+    self.FadePanel:SetVisible(true)
+    self.FadePanel:AnimatorPlay("enter")
+    self._updateType = 1
+    self.FadePanel.gameObject:DelayInvoke(2, function() self._fading = false end)
+    for k, v in pairs(self._subTypeObjs) do
+        self._subTypeObjs[k].toggle.isOn = k == idx
+    end
+    self:onSubTypeClick(idx)
+    self:SetAutoToggles()
+    if self.hasStar then
+        self:refreshStarTarget()
+    end
+
+    LuaScriptController:GamePause(true)
+    Groble_UIMgr:GamePause(true)
+end
+
+function UI_FightSettingLayer:onResume()
+    if self._fading then return end
+
+    self:_commonPlay()
+    self._updateType = 2
+    self.FadePanel:AnimatorPlay("out")
+end
+
+function UI_FightSettingLayer:doExitFight()
+    if self._fading then return end
+    if Chapter._feelWallId then
+        Chapter:ClearJumpChapterLevel()
+    end
+    FightController:EndFightController(false)
+    Chapter:StopAutoFight(Chapter.AUTO_STOP_AUTO, true)
+    Chapter:ChapterLevelQuit()
+    Chapter:SetJumpChapterLevel(nil, Chapter:GetCurFightLevelId())
+    if Chapter:LevelIsActivity(Chapter:GetCurFightLevelId()) then
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_HOME);
+        Chapter:ClearJumpChapterLevel();
+
+        --  core.require("xlua/lua_UI/HomeScene/FlipLayer.txt"):new():show()
+    else
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+    end
+    self:onExitSettingInfo()
+    GZSDKHelper:stageFlowWithPlayerInfo(Chapter:GetCurFightLevelId(), "退出战斗", LuaScriptController:GetBattleDataFightTime())
+    uimgr:onMainScene()
+end
+
+function UI_FightSettingLayer:doReplayFight()
+    if self._fading then return end
+
+    --需要检测体力是否足够不足请弹提示框
+    Chapter:StopAutoFight(Chapter.AUTO_STOP_AUTO, true)
+    local levelid = Chapter:GetCurFightLevelId()
+    if Chapter:CurFightModeIsShenYe() then
+        local chapter = Chapter:GetShenYeChapter()
+        if chapter.levelids[1] ~= Chapter:GetCurFightLevelId() then
+            levelid = chapter.levelids[1]
+        end
+        Chapter:ChapterLevelBeginReq(levelid, Chapter:GetFightHeroIds(levelid))
+    elseif(Chapter:LevelIsEther(levelid))then
+        FightController:ReFightLevel(levelid, false, true)
+    else
+        Chapter:ChapterLevelBeginReq(levelid, Chapter:GetFightHeroIds(levelid),nil,nil,Chapter._feelWallId)
+    end
+end
+
+function UI_FightSettingLayer:doMusic()
+    if self._fading then return end
+
+    self.isPlayBgm = not self.isPlayBgm
+    Groble_SoundMgr:SetBgmOpen(self.isPlayBgm)
+    self.MusicGou:SetVisible(self.isPlayBgm)
+end
+
+function UI_FightSettingLayer:doSound()
+    if self._fading then return end
+
+    self.isPlayEffect = not self.isPlayEffect
+    Groble_SoundMgr:SetEffectOpen(self.isPlayEffect)
+    self.SoundGou:SetVisible(self.isPlayEffect)
+end
+
+function UI_FightSettingLayer:initStarTarget(levelID)
+    local desc = Chapter:LevelStarTarget(levelID)
+    self._stars = {}
+    for i = 1, Chapter.LEVEL_STAR_NUM do
+        local item = self.FadePanel:Get("StarInfo/star_item_"..i)
+        self._stars[i] = clearbase:new()
+        self._stars[i].obj_bg   = item:Get("image_bg")
+        self._stars[i].obj_done = item:Get("image_complete")
+        self._stars[i].txt_desc = item:GetTextComponent("text_desc")
+        self._stars[i].img_star = item:GetImageComponent("image_star")
+        self._stars[i].state    = -1
+        self._stars[i].txt_desc:SetText(desc[i])
+    end
+end
+
+function UI_FightSettingLayer:refreshStarTarget()
+    local achieve = LuaScriptController:GetBattleDataAchieve()
+    for i, cls in ipairs(self._stars) do
+        local complete_star = achieve[i]
+        if cls.state ~= complete_star then
+            cls.obj_bg:SetVisible(complete_star)
+            if complete_star then
+                cls.txt_desc:SetTextColor(1, 1, 1, 1)
+                cls.img_star:LoadSprite(FILE_PATH.STAR_LIGHT)
+            else
+                cls.txt_desc:SetTextColor(0.36, 0.36, 0.36, 1)
+                cls.img_star:LoadSprite(FILE_PATH.STAR_DARK)
+            end
+            cls.obj_done:SetVisible(complete_star)
+            cls.state = complete_star
+        end
+    end
+end
+
+function UI_FightSettingLayer:onAnimationDestroy()
+end
+
+function UI_FightSettingLayer:onAnimationEvent(anitype, intkey)
+    if 99 == intkey then
+        self._fading = false
+    elseif 1 == intkey then
+        self._fading = false
+        self.FadePanel:SetVisible(false)
+    end
+end
+
+-- public interface -------------------------------
+function UI_FightSettingLayer:UpdateFightSettingLayer()
+    if self._isTutorial then return end
+    if self._updateType == 0 then return end
+
+    self._currFrame = Groble_SceneMgr:GetRealTime()
+    self._tmpdt     = self._currFrame - self._lastFrame
+    self._lastFrame = self._currFrame
+
+    if self._updateType == 1 then
+        self.BlurAmount = self.BlurAmount + self._tmpdt * 5
+        if self.BlurAmount >= 5 then
+            self.BlurAmount = 5
+            self._updateType = 0
+            self._fading = false
+        end
+        CameraController:SetGaussianBlurAmount(self.BlurAmount)
+    elseif self._updateType == 2 then
+        self.BlurAmount = self.BlurAmount - self._tmpdt * 5
+        if self.BlurAmount <= 0 then
+            self.BlurAmount = 0
+            self._updateType = 0
+            self.FadePanel:SetVisible(false)
+            Groble_UIMgr:GamePause(false)
+            LuaScriptController:GamePause(false)
+            self._fading = false
+        end
+        CameraController:SetGaussianBlurAmount(self.BlurAmount)
+    end
+end
+
+--
+-- brief 显示
+-- 
+function UI_FightSettingLayer:EnterFightSettingLayer()
+    if self._isTutorial then return end
+    if self._isVisible then return end
+
+    if self.layer == nil then return end
+    
+    if PlaybackController:IsPlaybackFight() then return end
+    
+    self.layer:SetVisible(true)
+    self._isVisible = true
+    self.PauseBtn:DOLocalMoveX(474, 0.3)
+
+    local gunTypeText = self.layer:GetTextComponent("FadePanel/AutoInfo/GunType/GunTypeSkillBtn/Text")
+    if(Player:IsSysFuncOpen(Player.SYS_FUNC.sys_bulid)) then
+        gunTypeText.text = LanguageMgr:GetTextByID(20081)
+        self._togAutoGunTypeSkill.interactable = true
+        gunTypeText.color = COLOR_TYPE.White
+    else
+        gunTypeText.text = LanguageMgr:GetTextByID(20093)
+        self._togAutoGunTypeSkill.interactable = false
+        gunTypeText.color = CS.UnityEngine.Color(120/255, 120/255, 120/255, 1)
+    end
+end
+
+--
+-- brief 隐藏
+-- 
+function UI_FightSettingLayer:ExitFightSettingLayer()
+    if not self._isVisible then return end
+
+    self._isVisible = false
+    self.PauseBtn:DOLocalMoveX(674, 0.3)
+end
+
+
+function UI_FightSettingLayer:SetAutoToggles()
+
+    self._togAutoMoveContinue.isOn = PrefsController:IsAutoMoveContinue()
+    self._togAutoMoveElite.isOn = PrefsController:IsAutoMoveElite()
+    local autoDazhaoType = PrefsController:AutoDazhaoType()
+    for i = 1, 3 do 
+        self["_togAutoDazhao" .. i].isOn = (i == autoDazhaoType)
+    end
+    self._togAutoGunTypeSkill.isOn = PrefsController:IsAutoGunTypeSkill()
+
+    self._togAutoMoveChangeByHp.isOn = PrefsController:IsAutoMoveChangeByHp()
+    self._togAutoMoveChangeByEnergy.isOn = PrefsController:IsAutoMoveChangeByEnergy()
+    self._togAutoMoveChangeByAttrib.isOn = PrefsController:IsAutoMoveChangeByAttrib()
+    self._togAutoMoveChangeByEnemyCount.isOn = PrefsController:IsAutoMoveChangeByEnemyCount()
+
+    local isAutoFight = Chapter:IsAutoFight()
+                            --and not Chapter:IsAutoStopped()
+
+    if(isAutoFight) then
+        --local isContinue = PrefsController:IsAutoMoveContinue()
+        self._togAutoMoveContinue.isOn = true
+        --PrefsController:SetIsAutoMoveContinue(isContinue)
+        self._togAutoMoveContinue.interactable = false
+        local color = CS.UnityEngine.Color(120/255, 120/255, 120/255, 1)
+        self.layer:GetImageComponent("FadePanel/AutoInfo/Move/MoveBtn1/Gou").color = color
+        self.layer:GetTextComponent("FadePanel/AutoInfo/Move/MoveBtn1/Text").color = color
+    end
+
+end
+
+function UI_FightSettingLayer:DoAutoStop()
+    self._togAutoMoveContinue.isOn = PrefsController:IsAutoMoveContinue()
+    self._togAutoMoveContinue.interactable = true
+    self.layer:GetImageComponent("FadePanel/AutoInfo/Move/MoveBtn1/Gou").color = CS.UnityEngine.Color(1, 1, 1, 1)
+    self.layer:GetTextComponent("FadePanel/AutoInfo/Move/MoveBtn1/Text").color = CS.UnityEngine.Color(193/255, 193/255, 193/255, 1)
+end
+
+function UI_FightSettingLayer:SetPauseMask()
+    self._isPauseMask = true
+end

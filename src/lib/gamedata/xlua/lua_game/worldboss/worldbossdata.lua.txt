@@ -1,0 +1,39 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+WorldBoss = WorldBoss or {}
+
+function WorldBoss:InitData()
+    self._serverData = {
+        reqTime = 0,
+        getRankingTime = 0,
+        ranking = 0,
+        rankTime = 0,
+        value = 0,
+        rankList = {},
+    };
+    self._onThenList = false;
+end
+
+function WorldBoss:OnUpdateDay()
+    WorldBoss:InitData();
+    GEvent:fireEvent(EVENT_TYPE.WORLD_BOSS_UPDATE_DAY);
+end
+
+function WorldBoss:SetRankData(data)
+    self._serverData.ranking    = data.top or 0--排名
+    self._serverData.rankTime   = data.enroll_time or 0 --入榜时间
+    self._serverData.rewarded   = data.is_get_reward
+    self._serverData.value   = data.top_score--分数
+    self._serverData.rankId  = data.rankid  --战区
+
+    local isSend = self._serverData.value > 0;
+    if isSend then
+        Rank:GetRankingReq(Rank.TYPE_WORLD_BOSS)
+    end
+end
+
+function WorldBoss:GetRankData()
+    return self._serverData;
+end

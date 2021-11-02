@@ -1,0 +1,4 @@
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Language/language.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Language/languagedef.txt")
+
+Language:Ctor()

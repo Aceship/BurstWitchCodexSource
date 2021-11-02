@@ -1,0 +1,428 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 22:13:25
+-- brief : 
+--
+
+CTime = CTime or {}
+
+function CTime:Ctor()
+    self._datas = {}
+    self._local_timezone    = self:GetUTCTimeZone()
+    self._server_timezone   = -8 * CTime.HOUR_SEC       --时区
+    self._servertime        = 0
+    self._recordtime        = 0
+    CTime:InitEvent();
+
+    self._strDHM = "%d天%02d时%02d分"
+    self._strHMS = "%d小时%02d分%02d秒"
+end
+
+function CTime:Clear()
+    self._datas = {}
+    CTime:CloseAllHandler();
+end
+
+function CTime:SetServerTime(utctime)
+    self._servertime = math.floor(utctime / 1000)
+    self._recordtime = os.time()
+    -- 
+    self._server_timezone = Login:GetTimeZone() * CTime.HOUR_SEC
+end
+
+function CTime:GetServerTimeZone()
+    return self._server_timezone
+end
+
+function CTime:GetServerTime()
+    return self._servertime + (os.time() - self._recordtime)
+end
+
+function CTime:GetOffsetServerTime()
+    return self:GetServerTime() + (self._local_timezone - self._server_timezone) - CTime.OFFSET_SEC
+end
+
+function CTime:GetTimeById(id)
+    local id = tonumber(id)
+    if self._datas[id] == nil then
+        CS.Logger.LogError("can't find Time data by id: {0}", id)
+    end
+    return self._datas[id]
+end
+
+function CTime:IsOpen(id)
+    if id == 0 or id == -1 then
+        return true
+    end
+    local ctime = self:GetTimeById(id)
+    if ctime == nil then
+        return false
+    end
+    return ctime.state == CTime.STATE_OPEN
+end
+
+function CTime:GetRemainTime(id)
+    local ctime = self:GetTimeById(id)
+    if ctime == nil then
+        return 0
+    end
+    local ret = ctime.remain - (os.time() - ctime.stime)
+    if ret < 0 then ret = 0 end
+    return ret
+end
+
+function CTime:GetStartTime(id)
+    local ctime = CTime:GetCfg(id)
+    if ctime == nil then
+        return 0
+    end
+    return ctime.startTime;
+end
+
+function CTime:GetOverTime(id)
+    local ctime = CTime:GetCfg(id)
+    if ctime == nil then
+        return 0
+    end
+    return ctime.etime;
+end
+
+--
+-- Brief  时间值转为
+-- Param  
+-- Return 时间
+-- 
+function CTime:Time2Str(num, showtype)
+    local day = math.modf(num/ CTime.DAY_SEC)
+
+    num = num - day * CTime.DAY_SEC
+    local hour = math.modf(num/ CTime.HOUR_SEC)
+
+    num = num - hour * CTime.HOUR_SEC
+    local min = math.modf(num/CTime.MIN_SEC)
+
+    local sec = num - min * CTime.MIN_SEC
+
+    if showtype == nil then
+        if day > 0 then
+            return string.format("%d天:%02d时:%02d分", day, hour, min)
+        else
+            return string.format("%02d:%02d:%02d", hour, min, sec)
+        end
+    elseif showtype == CTime.SHOW_TYPE_DAY then
+        if day > 0 then
+            return string.format("%d天", day)
+        else
+            if hour > 0 then
+                return string.format("%d小时", hour)
+            else
+                if min > 0 then
+                    return string.format("%d分", min)
+                else
+                    return string.format("%d秒", sec)
+                end
+            end
+        end
+    elseif showtype == CTime.SHOW_TYPE_HOUR then
+        if hour > 0 then
+            return string.format("%d小时%d分", hour, min)
+        else
+            return string.format("%d分%d秒", min, sec)
+        end
+    end
+end
+
+function CTime:Time2HMS(num)
+    local day = math.modf(num/ CTime.DAY_SEC)
+
+    num = num - day * CTime.DAY_SEC
+    local hour = math.modf(num/ CTime.HOUR_SEC)
+
+    num = num - hour * CTime.HOUR_SEC
+    local min = math.modf(num/CTime.MIN_SEC)
+
+    local sec = num - min * CTime.MIN_SEC
+
+    if day > 0 then
+        return string.format(self._strDHM, day, hour, min)
+    else
+        return string.format(self._strHMS, hour, min, sec)
+    end
+end
+
+--
+-- Brief  时间值转为
+-- Param
+-- Return 时间
+--
+function CTime:Time2Str_2(num)
+    local day = math.modf(num/ CTime.DAY_SEC)
+
+    num = num - day * CTime.DAY_SEC
+    local hour = math.modf(num/ CTime.HOUR_SEC)
+
+    num = num - hour * CTime.HOUR_SEC
+    local min = math.modf(num/CTime.MIN_SEC)
+
+    local sec = num - min * CTime.MIN_SEC
+    if day > 0 then
+        return string.format("%d天 %02d时", day, hour)
+    else
+        return string.format("%02d:%02d:%02d", hour, min, sec)
+    end
+end
+
+--
+-- Brief  时间值转为
+-- Param
+-- Return 时间
+--
+function CTime:Time2Str_3(num)
+    local day = math.modf(num/ CTime.DAY_SEC)
+
+    num = num - day * CTime.DAY_SEC
+    local hour = math.modf(num/ CTime.HOUR_SEC)
+
+    num = num - hour * CTime.HOUR_SEC
+    local min = math.modf(num/CTime.MIN_SEC)
+
+    local sec = num - min * CTime.MIN_SEC
+    if day > 0 then
+        return string.format("%d天", day)
+    elseif hour > 0then
+        return string.format("%d小时", hour)
+    elseif min > 0then
+        return string.format("%d分", min)
+    else
+        return string.format("%d秒", sec)
+    end
+end
+
+--
+-- Brief  时间值转为
+-- Param  时间戳
+-- Return 时间字符串 yyyy-mm-dd HH:mm:ss
+-- 
+function CTime:UTime2Str(utime)
+    local date = os.date("*t", utime)
+    return string.format("%d-%02d-%02d %02d:%02d:%02d", date.year, date.month, date.day, date.hour, date.min, date.sec)
+end
+
+function CTime:UTime2DayStr(utime)
+    local date = os.date("*t", utime)
+    return string.format("%02d:%02d:%02d", date.hour, date.min, date.sec)
+end
+
+function CTime:UTime2YDTStr(utime)
+    local date = os.date("*t", utime)
+    return string.format("%d-%02d-%02d", date.year, date.month, date.day);
+end
+
+function CTime:UTime2DTDayStr(utime)
+    local date = os.date("*t", utime)
+    return string.format("%02d-%02d %02d:%02d",date.month, date.day,date.hour, date.min);
+end
+
+function CTime:dump()
+    for _, v in pairs(self._datas) do
+        lua_table_print(v)
+    end
+end
+function CTime:GetOneDaySecond()
+   return 86400;
+end
+function CTime:GetDayBySecond(second)
+   return math.floor(second/self:GetOneDaySecond());
+end
+function CTime:GetHourBySecond(second)
+   local daySecond = self:GetDayBySecond(second);
+   local hours     = math.floor(daySecond/3600);
+   if hours <= 1 then
+        return LanguageMgr:GetTextByID(1800081).."1"
+   else
+        return string.format("%.1f", daySecond/3600)
+   end 
+   
+end
+
+-- 获取本地时区
+function CTime:GetUTCTimeZone()
+    local utc = os.time()
+    return math.floor(0 - os.difftime(utc, os.time(os.date("!*t", utc))))
+end
+
+-- 获取2个UTC之间的相隔天数
+function CTime:GetUTCTimediff(utc1, utc2)
+    local tmp = os.date("*t", utc1)
+    local date = {tmp.year, tmp.month, tmp.day}
+    local days = math.ceil((utc2 - os.time(date))/CTime.DAY_SEC)
+    return days
+end
+
+--utc1 last  utc2 cur
+function CTime:IsSameDay(utc1, utc2)
+    local tmp1 = os.date("*t", utc1)
+    local tmp2 = os.date("*t", utc2)
+
+    local year = tmp2.year - tmp1.year
+    local month = tmp2.month - tmp1.month
+    local day = tmp2.day - tmp1.day
+
+    --print("上一次登录  ： "..tostring(tmp1.day).."  : 当前登录 ： "..tostring(tmp2.day))
+
+    local result = 365 * year + 30 * month + day
+
+    return result == 0
+end
+
+function CTime:IsSameDayByDay()
+    local lastDay = PrefsController:GetPushActivityDay()
+    local curDay = Player:GetOffsetDay()
+    --print("前一天 ： "..lastDay.."  当前天 ： "..curDay)
+    return lastDay == curDay
+end
+
+function CTime:IsSameLogin(utc1,utc2)
+    return utc1 == utc2
+end
+
+function CTime:GetOffsetDay()
+    return Player:GetOffsetDay();
+end
+
+-- 当前时间距离明天的剩余时间
+function CTime:CurTime2Tomorrow(utctime)
+    utctime = utctime + CTime.HOUR_SEC *(self._server_timezone - self._local_timezone)
+    local date = os.date("*t", utctime)
+    local hour = 23 - date.hour
+    local min  = 59 - date.min
+    local sec  = 59 - date.sec
+    return hour, min, sec
+end
+
+-- 获得一个月多少天
+function CTime:GetDayByYearMonth()
+    local date = os.date("*t", self:GetServerTime())
+    --print("year:"..date.year.." date.month:"..date.month)
+    local tempyear = tonumber(date.year);
+    local tempmonth = tonumber(date.month + 1)
+    local maxDay = os.date("%d", os.time({year=tempyear, month=tempmonth, day=0}))
+    return tonumber(maxDay);
+end
+
+function CTime:GetRemainByWeeks(weeks)
+    local servertime = self:GetServerTime()
+    local weekday = Lib:GetWeekNum(servertime)
+    local daypass = Lib:GetDayPassTime(servertime)
+    local offset_day, exist = 0, false
+    for _, day in ipairs(weeks) do
+        if (day == weekday and daypass < CTime.OFFSET_SEC) or day > weekday then
+            offset_day = day - weekday
+            exist = true
+            break
+        end
+    end
+    if false == exist then
+        -- 跨周需要偏移处理
+        offset_day = 7 + weeks[1] - weekday
+    end
+    return offset_day * CTime.DAY_SEC + CTime.OFFSET_SEC - daypass
+end
+
+function CTime:GetTimeDate(time)
+    local date = os.date("*t", time - CTime.OFFSET_SEC);--根据时间戳获取时间数据
+    return date
+end
+
+--获取服务器日期
+function CTime:GetServerDate()
+    local date = os.date("*t", self:GetServerTime() - CTime.OFFSET_SEC);--根据时间戳获取时间数据
+    return date;
+end
+
+--获取当前月份
+function CTime:GetCurMonth()
+    local date = CTime:GetServerDate()
+    return date.month;
+end
+
+--获取当前天数(每月刷新)
+function CTime:GetCurDayByMonth()
+    local date = CTime:GetServerDate()
+    return date.day;
+end
+
+--获取日期属于周几
+function CTime:GetWeekByDay(d)
+    local date = CTime:GetServerDate();
+    local y,m = date.year,date.month;
+    if m == 1 or m == 2 then
+        m = m + 12;
+        y = y - 1;
+    end
+    local m1,_ = math.modf(3 * (m + 1) / 5);
+    local m2,_ = math.modf(y / 4);
+    local m3,_ = math.modf(y / 100);
+    local m4,_ = math.modf(y / 400);
+    local iWeek = (d + 2 * m + m1 + y + m2 - m3  + m4 ) % 7;
+    return CTime.WeekTab[tostring(iWeek)];
+end
+
+--回去当前月份的全部天数
+function CTime:GetCurMonthDayNum()
+    local date = CTime:GetServerDate();
+    local dayAmount = os.date("%d", os.time({year = date.year, month = date.month + 1, day = 0})); -- 获取当月天数
+    return tonumber(dayAmount);
+end
+
+function CTime:Time2GetMinAndSec(num)
+    local day = math.modf(num/ CTime.DAY_SEC)
+
+    num = num - day * CTime.DAY_SEC
+    local hour = math.modf(num/ CTime.HOUR_SEC)
+
+    num = num - hour * CTime.HOUR_SEC
+    local min = math.modf(num/CTime.MIN_SEC)
+
+    local sec = num - min * CTime.MIN_SEC
+    local hstr,mstr,sstr;
+    if(hour < 10)then
+        hstr = "0"..hour;
+    else
+        hstr = hour;
+    end
+    if(min < 10)then
+        mstr = "0"..min;
+    else
+        mstr = min;
+    end
+    if(sec < 10)then
+        sstr = "0"..sec;
+    else
+        sstr = sec;
+    end
+    return string.format("%s:%s:%s",hstr,mstr,sstr)
+end
+
+function CTime:FindNextDayTimeId()
+    local index = 1
+    for i, tid in pairs(CTime.DayUpdateTimeId) do
+        if self:IsOpen(tid) then
+            if  i < #CTime.DayUpdateTimeId then
+                index = i +1
+            else
+                index = 1
+            end
+        end
+    end
+    self._nextDayId = CTime.DayUpdateTimeId[index]
+end
+
+--获得年月日
+function CTime:GetYearMonthDay(num)
+    if(num <= 0)then
+        return 0,0,0;
+    end
+    local data = os.date("*t",num);
+    return data.year,data.month,data.day
+end

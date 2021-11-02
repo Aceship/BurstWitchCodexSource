@@ -1,0 +1,262 @@
+---
+--- Author:admin
+--- Create Time:2021-09-27 20:57:07
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelTaskLayer = class("ActivityLevelTaskLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnGoAward = "container/Middle/info_get/button_goAward"
+}
+--构造函数
+function ActivityLevelTaskLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelTaskLayer"
+    }
+    self._topData = {
+        showBtnBack = true
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ActivityLevelTaskLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+function ActivityLevelTaskLayer:CheckCanRecv()
+    local tbl = {}
+    for _, v in pairs(self._taskIds) do
+        local data = Task:GetTask(v)
+        if data.state == Task.STATE_HAS_DONE then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+--按钮事件
+function ActivityLevelTaskLayer:onButtonClick(itype)
+    if (itype == BTNS.BtnGoAward) then
+        self:OnBtnGoAwardClick()
+    end
+    --RemoveEnd
+end
+
+--初始化
+function ActivityLevelTaskLayer:Init()
+    self:InitData()
+    self:UpdateTaskData()
+    self:InitUI()
+end
+--初始化数据
+function ActivityLevelTaskLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId()
+    self._mathTypeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid)
+    self._subType = tonumber(self._mathTypeCfg.taskType_1[1])
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+end
+
+--更新数据
+function ActivityLevelTaskLayer:UpdateTaskData()
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+end
+--初始化UI
+function ActivityLevelTaskLayer:InitUI()
+    self._imgFlower = self.layer:GetImageComponent("container/Middle/img_flower")
+    self._txtGrade = self.layer:GetTextComponent("container/Middle/txt_grade")
+    self._imgAllScore = self.layer:GetSliderComponent("container/Middle/img_sliderbg/img_allSource")
+    self._imgRealSlider = self.layer:GetSliderComponent("container/Middle/img_sliderbg/img_allSource/img_fill")
+    self._imgFill = self.layer:GetImageComponent("container/Middle/img_sliderbg/img_allSource/img_fill")
+    self._imgRealSliderFill = self.layer:GetImageComponent("container/Middle/img_sliderbg/img_allSource/img_realSlider")
+    self._txtAddSorce = self.layer:GetTextComponent("container/Middle/img_sliderbg/img_allSource/txt_addSorce")
+    self._imgTaskRed = self.layer:GetImageComponent("container/Middle/info_get/image_red_tips")
+    self._taskCells = {}
+
+    self._effectLvup =
+        self.layer:Get("container/Middle/img_sliderbg/img_allSource/effect"):GetComponent("ParticleBehaviour")
+    self._effectLvup:Stop()
+
+    self._TableViewController = self.layer:Get("container/TableViewController")
+    self._tvController = UIController:CtorTableView(self._TableViewController)
+    self:SetTaskTableView()
+end
+
+--显示UI
+function ActivityLevelTaskLayer:show()
+    self:showLayer()
+    self:SetUI()
+end
+function ActivityLevelTaskLayer:showLayer()
+    Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Task)
+    CBaseLayer.showLayer(self)
+end
+--退出按钮事件
+function ActivityLevelTaskLayer:onBackClick()
+    self:onPopLayer()
+end
+
+--释放
+function ActivityLevelTaskLayer:onExit()
+    self._imgFlower = nil
+    self._txtGrade = nil
+    self._imgAllScore = nil
+    self._imgFill = nil
+    self._txtAddSorce = nil
+    self._imgRealSlider = nil
+    self._imgTaskRed = nil
+    for _, cell in pairs(self._taskCells) do
+        cell:clear()
+    end
+    self._taskCells = nil
+    self._TableViewController = nil
+    self._tvController = nil
+    --@CloseEnd
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ActivityLevelTaskLayer:OnBtnGoAwardClick() --打开第六封印积分奖励界面
+    core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelAwardLayer.txt"):new():show()
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityLevelTaskLayer:RegisterHandler()
+    self:addEventListener(
+        EVENT_NAME.TASK_RECV_REWARD,
+        self.__cname,
+        function()
+            self:UpdateTaskData()
+            self:RefreshScoreAndSlider()
+            self:SetTaskTableView()
+        end
+    )
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+local speed = 0.001
+function ActivityLevelTaskLayer:onUpdate()
+    if self.flag then
+        if self._imgRealSlider.value < self._imgAllScore.value then
+            self._imgRealSlider.value = self._imgRealSlider.value + speed
+        else
+            self._txtAddSorce:SetVisible(true)
+            self.flag = false
+        end
+    end
+end
+
+function ActivityLevelTaskLayer:GetAward()
+    local recvs = self:CheckCanRecv()
+    if #recvs > 0 then
+        Task:GetRewardReq(recvs)
+    else
+        self:RefreshScoreAndSlider()
+    end
+end
+function ActivityLevelTaskLayer:SetUI()
+    self._imgFlower:LoadSprite(self._mathTypeCfg.taskType_1[2])
+    self.lastSorce = Stats:GetSixthSealTaskScore()
+    self:GetAward()
+end
+function ActivityLevelTaskLayer:RefreshScoreAndSlider()
+    local _subType = tonumber(self._mathTypeCfg.taskType_2[1])
+    local _taskIds = Task:SortTaskIds(Task:GetSubTasks(_subType))
+    local topScore = 0
+    for _, v in pairs(_taskIds) do
+        local task = Task:GetTask(v)
+        if topScore < task.Count_cmp then
+            topScore = task.Count_cmp
+        end
+    end
+    local sorce = Stats:GetSixthSealTaskScore()
+    self._imgAllScore.value = sorce / topScore
+    self._txtGrade:SetText(string.format(LanguageMgr:GetTextByID(901030), sorce))
+    if sorce > self.lastSorce then
+        if self.lastSorce >= topScore then
+            self._imgRealSlider.value = self.lastSorce / topScore
+            self._imgRealSliderFill:SetImageColor(221 / 255, 196 / 255, 148 / 255, 1)
+        else
+            self._txtAddSorce:SetText(string.format(LanguageMgr:GetTextByID(901037), (sorce - self.lastSorce)))
+            self._imgRealSlider.value = self.lastSorce / topScore
+            self._effectLvup:Stop()
+            self._effectLvup:Play()
+            self.flag = true
+        end
+    else
+        self._imgRealSlider.value = sorce / topScore
+        if self.lastSorce >= topScore then
+            self._imgRealSliderFill:SetImageColor(221 / 255, 196 / 255, 148 / 255, 1)
+        else
+            self._imgRealSliderFill:SetImageColor(206 / 255, 229 / 255, 245 / 255, 1)
+        end
+    end
+end
+function ActivityLevelTaskLayer:SetTaskTableView()
+    if self._init then
+        self._tvController:Reload(#self._taskIds, false)
+    else
+        self._tvController:Init(
+            #self._taskIds,
+            false,
+            function(cell, row, play)
+                self:SetTaskCell(cell, row + 1)
+            end,
+            0.3,
+            0.1
+        )
+        self._init = true
+    end
+    self._imgTaskRed:SetEnabled(Task:IsBetterOper(Task.TYPE_ACTIVIT, Task.ACTIVITY_TASK_POP))
+end
+function ActivityLevelTaskLayer:SetTaskCell(cell, row)
+    local cls = self._taskCells[cell]
+    if (cls == nil) then
+        cls = self:NewTaskCell(cell)
+        self._taskCells[cell] = cls
+    end
+    self:SetTaskCellData(cls, row)
+end
+function ActivityLevelTaskLayer:NewTaskCell(trans)
+    local cls = clsbase:new(trans)
+    cls.imgIcon = cls:GetImageComponent("img_icon")
+    cls.txtScore = cls:GetTextComponent("txt_score")
+    cls.txtTaskDes = cls:GetTextComponent("txt_taskDes")
+    cls.slider = cls:GetSliderComponent("slider")
+    cls.imgFill = cls:GetImageComponent("slider/img_fill")
+    cls.txtCount = cls:GetTextComponent("txt_count")
+    cls.txtAllCount = cls:GetTextComponent("txt_allcount")
+    return cls
+end
+function ActivityLevelTaskLayer:SetTaskCellData(cls, index)
+    cls.imgIcon:LoadSprite(self._mathTypeCfg.taskType_1[2])
+    local taskId = self._taskIds[index]
+    local recNum = Task:GetTaskCanRecvCount(taskId) or 1
+    local task = Task:GetTask(taskId)
+    cls.slider.minValue = 0
+    cls.slider.maxValue = task.showValue
+    cls.txtTaskDes:SetText(Language.LanguageTxt[task.Quest_des])
+    cls.txtScore:SetText(string.format(LanguageMgr:GetTextByID(901037), task.Activity_points[2]))
+    cls.txtAllCount:SetText(string.format(LanguageMgr:GetTextByID(901039), task.Quest_times))
+    if task.recv_number >= task.Quest_times then
+        cls.imgFill:SetImageColor(221 / 255, 196 / 255, 148 / 255, 1)
+        cls.txtCount:SetText(string.format(LanguageMgr:GetTextByID(901038), (task.Quest_times)))
+        cls.slider.value = 1
+    else
+        cls.imgFill:SetImageColor(206 / 255, 229 / 255, 245 / 255, 1)
+        cls.txtCount:SetText(string.format(LanguageMgr:GetTextByID(901038), (task.recv_number + recNum)))
+        cls.slider.value = (task.recv_number + recNum) / task.Quest_times
+    end
+end
+return ActivityLevelTaskLayer

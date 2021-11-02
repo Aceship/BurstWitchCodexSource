@@ -1,0 +1,7 @@
+导师ID,头像物品ID,立绘路径,头像路径,导师性别
+id,headitemid,Sublimation,headchoose,sexuality
+number,number,string,string,number
+1,11002003,source_avatar/npc/master_3,source_avatar/hero/11002003,1
+2,11002001,source_avatar/npc/master_1,source_avatar/hero/11002001,2
+3,11002004,source_avatar/npc/master_4,source_avatar/hero/11002004,1
+4,11002002,source_avatar/npc/master_2,source_avatar/hero/11002002,2

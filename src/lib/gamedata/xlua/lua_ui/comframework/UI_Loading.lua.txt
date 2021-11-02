@@ -1,0 +1,182 @@
+UI_Loading = UI_Loading or {}
+
+function UI_Loading:InitLoading(state)
+    self._Random_Tips = {}
+    for i = 1, 14 do
+        self._Random_Tips[i] = 170000 + i
+    end
+    self._LastBgIndex = 1
+    self._LoadingState = state
+end
+
+function UI_Loading:SetLoadingState(state)
+    self._LoadingState = state
+end
+
+--
+function UI_Loading:SetLoadingModule(subtype)
+    self.moduleId = subtype
+end
+
+function UI_Loading:EnterLoading(state)
+    self.loadingLayer = CanvasMgr:CreateCanvasChild("prefab_comframeWork/UI_Loading")
+    self.loadingLayer:AddAnimationBehaviour(self)
+
+    CS.UnityHelper.NotchfitY(self.loadingLayer:Get("img_title"), 20)
+    self.loadingLayer:GetTextComponent("txt_loading"):SetVisible(false)
+    
+    if self._LoadingState == uimgr.LOGIN_SCENE_ID then
+        self.loadingLayer:Get("img_txt_bg"):SetVisible(false)
+        self.loadingLayer:Get("txt_title"):SetVisible(false)
+        self.loadingLayer:Get("txt_title_en"):SetVisible(false)
+        self.loadingLayer:Get("img_bg"):SetVisible(false)
+        self.loadingLayer:GetTextComponent("txt_desc"):SetTextById(self._Random_Tips[math.random(#self._Random_Tips)])
+        --self.loadingLayer:Get("loading"):CreateChild("prefab_comframeWork/UI18_loading")
+    else
+        self.loadingLayer:Get("img_txt_bg"):SetVisible(true)
+        self.loadingLayer:Get("txt_title"):SetVisible(true)
+        self.loadingLayer:Get("txt_title_en"):SetVisible(true)
+        self.loadingLayer:Get("img_bg"):SetVisible(true)
+        self:SetLoadingBg(self.loadingLayer)
+    end
+    if(self._LoadingState ~= uimgr.FIGHT_SCENE_ID) then
+        self.loadingLayer:AnimationPlay("LoadingFadeIn")
+    end
+    self.loadingProgressBg      = self.loadingLayer:GetSliderComponent("progressBg")
+    self.loadingProgress        = self.loadingLayer:GetSliderComponent("progress")
+    self.loadingProgressText    = self.loadingLayer:GetTextComponent("progressText")
+    self.loadingProgress.value  = 0.0
+    self.loadingProgressBg.value= 0
+    self:SetValue(0)
+
+    self._preload = false
+    self.isLoading = true
+    if self._LoadingState == uimgr.LOGIN_SCENE_ID then
+        Groble_ResMgr:InitStaticRes()
+    elseif self._LoadingState == uimgr.FIGHT_SCENE_ID then
+        self._preload = true
+        self.isLoading = false
+        Groble_ResMgr:InitPreLoadFight()
+    end
+end
+
+function UI_Loading:SceneTransition(complateCall)
+    self._onComplateCall = complateCall
+    
+    self.loadingLayer = CanvasMgr:CreateCanvasChild("prefab_comframeWork/UI_Loading")
+    self.loadingLayer:AddAnimationBehaviour(self)
+    self.loadingLayer:GetSliderComponent("progressBg").transform:SetVisible(false)
+    self.loadingLayer:GetSliderComponent("progress").transform:SetVisible(false)
+    self.loadingLayer:GetTextComponent("progressText"):SetVisible(false)
+    self.loadingLayer:GetTextComponent("LoginTextHealthTips_1"):SetVisible(false)
+    self.loadingLayer:GetTextComponent("LoginTextHealthTips_2"):SetVisible(false)
+    CS.UnityHelper.NotchfitY(self.loadingLayer:Get("img_title"), 20)
+    self:SetLoadingBg(self.loadingLayer)
+    self.loadingLayer:AnimationPlay("LoadingFadeIn")
+end
+
+function UI_Loading:BackToLuaLoad()
+    self.isLoading = true
+end    
+
+function UI_Loading:UpdateLoading(dt)
+    if self.isLoading then        
+        local rate, loadFinish = Groble_ResMgr:GamePreLoad(dt, self._preload)
+
+        if loadFinish == false then
+            self:SetValue(rate/100);
+        else
+            self.isLoading = false;
+            if self._LoadingState == uimgr.LOGIN_SCENE_ID then
+                self.loginScene = core.require("xlua/lua_UI/LoginScene/LoginLayer.txt"):new()                
+            elseif self._LoadingState == uimgr.MAIN_SCENE_ID then
+
+            elseif self._LoadingState == uimgr.FIGHT_SCENE_ID then
+                -- 资源预加载完成
+                FightController:BeforeEnter()
+                -- 如果引导战斗关等待战斗加载完成
+                if TutorialController:IsFirstTutorial() then return end
+            end
+            self.loadingLayer:AnimationPlay("LoadingFadeOut")
+        end
+    end
+end
+
+function UI_Loading:SetValue(value)
+    if GameSdkMgr:IsVerifyVer() then
+        self.loadingProgressText.text = ""
+        self.loadingProgress.value = 0
+        self.loadingProgressBg.value = 0
+    else
+        self.loadingProgress.value = value
+        self.loadingProgressBg.value = value
+        local curValue = math.floor(value*100)
+        self.loadingProgressText.text = LanguageMgr:GetTextByID(10009)..curValue.."%"
+    end
+end
+
+function UI_Loading:SetLoadingBg(loadingLayer)
+    if self.moduleId == nil or not Player:HasModule(self.moduleId) then
+        self.moduleId = -1  --默认
+    end
+
+    local cfg = Player:GetBgCfgByIndex(1) --默认值
+    if self._LoadingState == uimgr.FIGHT_SCENE_ID and self._moduleList ~= nil then
+        cfg = self._moduleList[self._LastBgIndex]--Player:GetBgCfgByIndex(self._LastBgIndex)
+    else
+        self._LastBgIndex,self._moduleList = Player:GetRandomBySubtype(self.moduleId)
+        if self._moduleList ~= nil then
+            cfg = self._moduleList[self._LastBgIndex]--Player:GetBgCfgByIndex(self._LastBgIndex)
+        end
+    end
+
+    if cfg == nil then
+        AppMgr:LogError("！！！！！！！未找到对应模块的loading配置 moduleId = " .. self.moduleId)
+    end
+    loadingLayer:GetImageComponent("img_bg"):LoadSprite(cfg.icon)
+    fixed_obj_scale(loadingLayer.transform:Find("img_bg"))
+    loadingLayer:GetImageComponent("img_txt_bg"):SetImageColor(
+        cfg.colors[1]/255, cfg.colors[2]/255, cfg.colors[3]/255, cfg.colors[4]/255)
+    loadingLayer:GetTextComponent("txt_title"):SetText(Language.LanguageTxt[cfg.name])
+    loadingLayer:GetTextComponent("txt_title_en").text = cfg.name_en
+    loadingLayer:GetTextComponent("txt_desc"):SetText(Language.LanguageTxt[cfg.desc])
+end
+
+function UI_Loading:ReleaseLoadingLayer()
+    if self.loadingLayer ~= nil then
+        self.loadingLayer:AnimationPlay("LoadingFadeOut")
+    end
+end
+
+-- call by csharp(animation event) ------------------------------------- 
+function UI_Loading:onAnimationEvent(calltype, inttag)
+    if 99 == inttag then
+        if self._onComplateCall ~= nil then
+            self._onComplateCall()
+            self._onComplateCall = nil
+        end
+    else
+        if self.loadingLayer ~= nil then
+            self.loadingLayer:Release()
+        end
+        self.loadingLayer = nil
+        if self._LoadingState == uimgr.LOGIN_SCENE_ID then
+            if self.loginScene ~= nil then
+                self.loginScene:show()
+            end
+        elseif self._LoadingState == uimgr.FIGHT_SCENE_ID then
+            FightController:ReallyEnter()            
+        end
+    end
+end
+
+function UI_Loading:onAnimationDestroy()
+    self.loadingLayer           = nil
+    self.loadingProgress        = nil
+    self.loadingProgressText    = nil
+    self.loadingProgressBg      = nil
+    self.tipsText       = nil
+    self.isLoading      = nil
+    self.loginScene     = nil
+end
+

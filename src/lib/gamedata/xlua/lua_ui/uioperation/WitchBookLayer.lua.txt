@@ -1,0 +1,396 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-27 16:13:07
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchBookLayer = class("WitchBookLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBuy = "container/buy_btn",
+	--@ButtonEnd
+}
+
+--构造函数
+function WitchBookLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_WitchBookLayer",
+        trans = parent,
+        obj = true
+    }
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function WitchBookLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function WitchBookLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBuy)then
+	   self:OnBtnBuyClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function WitchBookLayer:Init()
+    self._activity = Operation:GetActiveCfgByUID(Operation.ActivityID.WitchBook);
+    self._allGetNum = 0;
+    self:InitUI();
+end
+
+--初始化UI
+function WitchBookLayer:InitUI()
+
+    self._imgTogRed1 = self.layer:GetImageComponent("container/trans_tog_bg/tog_pag_1/img_red");
+    self._imgTogRed2 = self.layer:GetImageComponent("container/trans_tog_bg/tog_pag_2/img_red");
+	self._imgMoneyTitle = self.layer:GetImageComponent("container/trans_top_title/img_money_title");
+	self._imgRmbTitle = self.layer:GetImageComponent("container/buy_btn/obj_buy/img_rmb_title");
+	self._imgGetIcon = self.layer:GetImageComponent("container/img_tips_bg/img_get_icon");
+	--@ImageEnd
+
+	self._txtRebate = self.layer:GetTextComponent("container/buy_btn/obj_buy/obj_rebate/txt_rebate");
+	self._txtRmb = self.layer:GetTextComponent("container/buy_btn/obj_buy/txt_rmb");
+    self._txtGetTitle = self.layer:GetTextComponent("container/buy_btn/txt_get_title");
+	self._txtGetNum = self.layer:GetTextComponent("container/img_tips_bg/txt_get_num");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objBuy= self.layer:Get("container/buy_btn/obj_buy").gameObject;
+	self._objRebate = self.layer:Get("container/buy_btn/obj_buy/obj_rebate").gameObject;
+	--@GameObjectEnd
+
+	self._mTogPag1 = self.layer:GetMToggleComponent("container/trans_tog_bg/tog_pag_1");
+	self._mTogPag2 = self.layer:GetMToggleComponent("container/trans_tog_bg/tog_pag_2");
+	--@MToggleEnd
+
+    self._btnBuy = self.layer:GetButtonComponent("container/buy_btn");
+
+	self._mTogPag1.onValueChanged:AddListener(function (isOn)
+	   self:OnTogPag1Click(isOn);
+   end);
+	self._mTogPag2.onValueChanged:AddListener(function (isOn)
+	   self:OnTogPag2Click(isOn);
+   end);
+    self._mTogPag1.isOn = true;
+	--@MToggleCallBackEnd
+
+    self._imgGetIcon:LoadSprite(Item:GetItemIconPath(Player.ITEM_VALUE_MONEY));
+    self:SetTogRed();
+end
+
+--显示UI
+function WitchBookLayer:show()
+    Activity:SetActivityBGImage("witch_book_bg_"..self._selectDataIndex);
+    self:SetTableView();
+    self:showLayer();
+end
+
+--退出按钮事件
+function WitchBookLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function WitchBookLayer:onExit()
+
+    self._mTogPag1 = nil;
+	self._mTogPag2 = nil;
+	self._imgMoneyTitle = nil;
+	self._objBuy = nil;
+	self._txtRebate = nil;
+	self._txtGetTitle = nil;
+	self._imgRmbTitle = nil;
+	self._objRebate = nil;
+	self._txtRmb = nil;
+	self._imgGetIcon = nil;
+	self._txtGetNum = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+--领取手册奖励按钮回调
+function WitchBookLayer:OnItemBtnClick(id, itype)
+    local data;
+    if(itype == Operation.HandBookType.buy)then
+        if(self.bagId <= 0)then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90196));
+            return;
+        end
+        data = {id = self.giftBagCfg.cfgid,ids = {},buyIds = {id}};
+    else
+        data = {id = self.giftBagCfg.cfgid,ids = {id},buyIds = {}};
+    end
+    Operation:SendMessage(Operation.ActivityID.WitchBook,data,c2s.CHARGE_GET_HB_LV_GIFT_REQ);
+end
+function WitchBookLayer:OnBtnBuyClick()
+    if(self.bagId > 0)then
+        local unBuyIds,buyIds = Operation:GetCanReceiveWitchBookIds(self.giftBagCfg.cfgid);
+        if(((#unBuyIds == 0)) and ((#buyIds == 0)))then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90110))
+            return;
+        end
+        local data = {id = self.giftBagCfg.cfgid,ids = unBuyIds,buyIds = buyIds};
+        Operation:SendMessage(Operation.ActivityID.WitchBook,data,c2s.CHARGE_GET_HB_LV_GIFT_REQ);
+        return;
+    end
+    Recharge:SetCurSelectGiftPagId(self.giftBagCfg.cfgid);
+    -- Recharge:OpenBuyTipsLayer();
+    Operation:Buy(self.giftBagCfg,function ()
+        Operation:SendMessage(Operation.ActivityID.WitchBook,{id = self.giftBagCfg.cfgid, num=1 });
+    end,nil, true);
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function WitchBookLayer:OnTogPag1Click(isOn)
+    if(isOn)then
+        if(self._selectDataIndex == 1)then
+            return;
+        end
+        self._selectDataIndex = 1;
+        self:CutData(self._activity.charges[1]);
+    end
+end
+function WitchBookLayer:OnTogPag2Click(isOn)
+    if(isOn)then
+        if(self._selectDataIndex == 2)then
+            return;
+        end
+        self._selectDataIndex = 2;
+        self:CutData(self._activity.charges[2]);
+    end
+end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function WitchBookLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:CutData(self.giftBagCfg.cfgid);
+        self:SetTableView();
+        self:SetTogRed();
+    end);
+    self:addEventListener(EVENT_TYPE.GET_HAND_BOOK,self.__cname,function()
+        self.handBook = Operation:GetHandBookById(self.giftBagCfg.cfgid);
+        self:SetTableView();
+        self:SetBuyBtnState();
+        self:SetTogRed();
+    end );
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WitchBookLayer:CutData(cfgId)
+    self._selectBookData = Operation:GetWitchBookIdsById(cfgId);
+    self.handBook = Operation:GetHandBookById(cfgId);
+    self.giftBagCfg = Recharge:GetData(cfgId);
+    self.bagId = Operation:GetGiftBagBoughtNum(cfgId);
+    set_com_enabled(self._txtGetTitle,self.bagId > 0);
+    self._objBuy:SetVisible(self.bagId <= 0);
+    if(self.bagId <= 0)then
+        self._imgRmbTitle.sprite = Item:LoadSprite(Player.ITEM_VALUE_WITCH_COIN);
+        self._txtRmb.text = Operation:GetPriceById(cfgId);
+        self._txtRebate.text = self.giftBagCfg.rebateRatio .. "%";
+    end
+    if(self._tvController ~= nil)then
+        self._tvController:ScrollToTop();
+    end
+    self:SetTableView();
+    Activity:SetActivityBGImage("witch_book_bg_"..self._selectDataIndex);
+    self._imgMoneyTitle:LoadSprite("source_common/ImageText/text_monvbiji_gaojijiangli_"..self._selectDataIndex);
+
+    ----小田说:奖励只会有钻石
+    self._allGetNum = 0;
+    for _, v in pairs(self._selectBookData) do
+        self._allGetNum = self._allGetNum + v.buyAward[1][3];
+    end
+    self._txtGetNum:SetText(self._allGetNum);
+
+end
+
+function WitchBookLayer:SetTableView()
+    local rows = #self._selectBookData;
+    local curId = Operation:GetCurCycleIndex(self.giftBagCfg.cfgid,Player:GetLevel()) - 1;
+    if(curId < 0)then
+        curId = 0;
+    end
+    local time = curId * 0.05 < 0.5 and curId * 0.05 or 0.5;
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self.layer.transform:Find("container/TableViewController"))
+        self._tvController:Init(rows, false,
+                function(cell, row)
+                    self:SetCell(cell, row)
+                end, 0.3, 0.1)
+        self._tvController:ScrollToTop();
+    else
+        self._tvController:Reload(#self._selectBookData,false)
+    end
+    if(curId > lua_table_len(self.cells) - 2)then--不在顶部附近,定位加动画
+        self._tvController:ScrollToRow(curId,time,false);
+    else
+        self._tvController:ScrollToTop();
+    end
+    self:SetBuyBtnState();
+end
+
+function WitchBookLayer:SetBuyBtnState()
+    local isGet = false;
+    if(self.bagId > 0)then
+        local unBuyIds,buyIds = Operation:GetCanReceiveWitchBookIds(self.giftBagCfg.cfgid);
+        if(((#unBuyIds ~= 0)) or ((#buyIds ~= 0)))then
+            isGet = true;
+        end
+        self._btnBuy.interactable = isGet;
+        if(isGet)then
+            self._txtGetTitle:SetTextById(90107);
+        else
+            self._txtGetTitle:SetTextById(90206);
+        end
+    else
+        self._btnBuy.interactable = true;
+    end
+end
+
+function WitchBookLayer:SetCell(cell, row)
+    if(self.cells == nil)then
+        self.cells = {};
+    end
+    if(self.cells[cell] == nil)then
+        self.cells[cell] = {};
+        self.cells[cell].index = row;
+        local item = clsbase:new(cell.transform:Find("item"));
+        item.leftBg = item:GetImageComponent("left_bg");
+        item.leftBtnClick = item:GetButtonComponent("left_bg/btn_click");
+        item.txtIndex = item:GetTextComponent("txt_index");
+        item.txtUnit = item:GetTextComponent("txt_unit");
+        item.imgBg = item:GetImageComponent("img_bg");
+        item.imgLock = item:GetImageComponent("left_bg/img_lock");
+        item.imgLeftRed = item:GetImageComponent("left_bg/img_red");
+        item.leftItems = {};
+        for j = 1, 2 do
+            local leftItem = Bag:CtorComSimpleGoodsUi(item.transform:Find("left_bg/left_item_bg/"..j),function ()
+                SingletonMgr:ShowItemTipsLayer(item.transform:Find("left_bg/left_item_bg/"..j), item.data.buyAward[j][1], item.data.buyAward[j][2], false);
+            end);
+            leftItem.isGet = leftItem:Find("img_get_bg");
+            item.leftItems[j] = leftItem;
+        end
+        item.rightBg = item:GetImageComponent("right_bg");
+        item.imgRightRed = item:GetImageComponent("right_bg/img_red");
+        item.rightBtnClick = item:GetButtonComponent("right_bg/btn_click");
+        item.rightItem = Bag:CtorComSimpleGoodsUi(item:Find("right_bg/right_item"),function()
+            SingletonMgr:ShowItemTipsLayer(item.transform:Find("right_bg/right_item"), item.data.freeAward[1][1], item.data.freeAward[1][2], false);
+        end);
+        item.rightItem.isGet = item.rightItem.transform:Find("img_get_bg");
+        item.leftBtnClick.onClick:AddListener(function ()
+            self:OnItemBtnClick(item.data.id,Operation.HandBookType.buy);
+        end);
+        item.rightBtnClick.onClick:AddListener(function ()
+            self:OnItemBtnClick(item.data.id,Operation.HandBookType.Unbuy);
+        end);
+        self.cells[cell].item = item;
+    end
+    self:SetItemData(self.cells[cell],row + 1);
+end
+
+--设置item数据
+function WitchBookLayer:SetItemData(cell, index)
+    local item = cell.item
+    item.index = index;
+    item.data = self._selectBookData[index];
+    item.txtIndex.text = item.data.exp;
+    for i = 1, 2 do
+        set_obj_active(item.leftItems[i].transform,item.data.buyAward[i] ~= nil);
+        if(item.data.buyAward[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(item.leftItems[i],item.data.buyAward[i][1],item.data.buyAward[i][2],item.data.buyAward[i][3],true);
+        end
+    end
+    --见习手册奖励
+    set_obj_active(item.rightItem.transform,item.data.freeAward ~= -1);
+    if(item.data.freeAward ~= -1)then
+        Bag:SetComSimpleGoodsUi(item.rightItem,item.data.freeAward[1][1],item.data.freeAward[1][2],item.data.freeAward[1][3],true);
+    end
+    self:UpdateItemStart(cell.item,Player:GetLevel() >= item.data.exp);--满足升级条件,激活对应等级的奖励
+end
+
+--更新item状态
+function WitchBookLayer:UpdateItemStart(item, isGet)
+    set_com_enabled(item.imgLock,self.bagId <= 0);
+    item.imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2","img_monvbiji_list_"..self._selectDataIndex);
+    if(isGet)then--激活奖励显示
+        item.txtIndex.color = COLOR_TYPE.White;
+        item.leftBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2","img_monvbiji_"..self._selectDataIndex);
+        item.txtUnit.color = COLOR_TYPE.White;
+        item.imgBg.material = nil;
+        if(self.bagId <= 0)then--未购买精英手册,关闭精英手册奖励
+            set_obj_active(item.leftBtnClick.transform,true);
+            for i, v in ipairs(item.leftItems) do
+                set_obj_active(v.isGet,false);
+            end
+            set_com_enabled(item.imgLeftRed,false);
+        else
+            --购买精英手册
+            if(self.handBook.sids[item.data.id] == nil)then--礼包未领取,激活精英手册奖励
+                set_com_enabled(item.imgLeftRed,true);
+                set_obj_active(item.leftBtnClick.transform,true);
+                item.leftBg.material = nil;
+                for i, v in ipairs(item.leftItems) do
+                    set_obj_active(v.isGet,false);
+                end
+            else
+                item.leftBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2","img_monvbiji_n_"..self._selectDataIndex);
+                set_com_enabled(item.imgLeftRed,false);
+                set_obj_active(item.leftBtnClick.transform,false);--已领取,关闭精英手册奖励
+                for i, v in ipairs(item.leftItems) do
+                    set_obj_active(v.isGet,true);
+                end
+            end
+        end
+        --设置见习手册奖励,逻辑同精英手册
+        if(self.handBook.nids[item.data.id] == nil and item.data.freeAward ~= -1)then
+            item.rightBg.color = COLOR_TYPE.White
+            set_obj_active(item.rightBtnClick.transform,true);
+            set_obj_active(item.rightItem.isGet,false);
+            set_com_enabled(item.imgRightRed,true);
+        else
+            item.rightBg.color = CS.UnityEngine.Color(36/255,36/255,36/255,1)
+            set_obj_active(item.rightBtnClick.transform,false);
+            set_com_enabled(item.imgRightRed,false);
+            set_obj_active(item.rightItem.isGet,true);
+        end
+    else
+        item.rightBg.color = CS.UnityEngine.Color(36/255,36/255,36/255,1)
+        --未满足等级,关闭所有奖励
+        set_com_enabled(item.imgLeftRed,false);
+        set_com_enabled(item.imgRightRed,false);
+        item.txtIndex.color = COLOR_TYPE.GrayBlack;
+        item.txtUnit.color = COLOR_TYPE.GrayBlack;
+        item.imgBg.material = AssetLoader:LoadGrayMaterial()
+        item.leftBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2","img_monvbiji_n_"..self._selectDataIndex);
+        set_obj_active(item.leftBtnClick.transform,false);
+        set_obj_active(item.rightBtnClick.transform,false);
+        set_obj_active(item.rightItem.isGet,false);
+        for i, v in ipairs(item.leftItems) do
+            set_obj_active(v.isGet,false);
+        end
+    end
+end
+
+function WitchBookLayer:SetTogRed()
+    set_com_enabled(self._imgTogRed1,Operation:GetWitchBookRedStateById(self._activity.charges[1]));
+    set_com_enabled(self._imgTogRed2,Operation:GetWitchBookRedStateById(self._activity.charges[2]));
+end
+
+return WitchBookLayer;

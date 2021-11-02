@@ -1,0 +1,414 @@
+--
+-- author: haosun
+-- date  : 2018-10-30 14:49:10
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local GmLayer = class("GmLayer", CBaseLayer)
+
+local s_showing = false
+local s_instance = nil
+function GmLayer.GetInstance()
+    if s_instance == nil then
+        s_instance = GmLayer:new()
+    end
+    return s_instance
+end
+
+function GmLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_GmLayer"
+    }
+    self:onEnter()
+end
+
+function GmLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent()
+end
+
+function GmLayer:onExit()
+    s_showing = false
+    s_instance = nil
+    CBaseLayer.onExit(self)
+end
+
+function GmLayer:show()
+    self._fading = false
+    if s_showing then
+        return
+    end
+    s_showing = true
+
+    self._index = 1
+    self.layer:GetToggleComponent("checkbutton_1").isOn = true
+    self.layer:GetToggleComponent("checkbutton_2").isOn = false
+    self.layer:GetToggleComponent("checkbutton_3").isOn = false
+    self.layer:GetToggleComponent("checkbutton_4").isOn = false
+    self.layer:GetToggleComponent("checkbutton_5").isOn = false
+
+    self:showLayer()
+end
+
+function GmLayer:registerButtonEvent()
+    self.layer:GetButtonComponent("button_close").onClick:AddListener(
+        function()
+            self:onExit()
+        end)
+    self.layer:GetButtonComponent("button_click").onClick:AddListener(
+        function()
+            self:onClick()
+        end)
+    self.layer:GetButtonComponent("button_plot").onClick:AddListener(
+        function()
+            self:onUnlockPlot()
+        end)
+    self.layer:GetButtonComponent("button_material").onClick:AddListener(
+        function()
+            self:onMaterial()
+        end)
+    self.layer:GetButtonComponent("button_music").onClick:AddListener(
+        function()
+            self:onMusic()
+        end)
+
+    self.layer:GetButtonComponent("button_chip").onClick:AddListener(
+        function()
+            self:onChip()
+        end)
+
+    self.layer:GetButtonComponent("button_hero").onClick:AddListener(
+        function()
+            self:onAddHero()
+        end)
+
+    self.layer:GetButtonComponent("button_lvup").onClick:AddListener(
+        function()
+            self:onPlayerLvUp()
+        end)
+
+
+    self.layer:GetButtonComponent("button_send_str").onClick:AddListener(
+        function()
+            self:sendStr()
+        end)
+    -- 深夜日结算
+    self.layer:GetButtonComponent("button_rank").onClick:AddListener(
+        function()
+            Network:CallServerScript({c2s.GM_DO_PLAYER_SCRIPT_REQ, "Gm:RankSettle(3,1)"})
+        end)
+    -- 深夜周结算
+    self.layer:GetButtonComponent("button_rank_week").onClick:AddListener(
+        function()
+            Network:CallServerScript({c2s.GM_DO_PLAYER_SCRIPT_REQ, "Gm:RankSettle(3,2)"})
+        end)
+
+    self.layer:GetButtonComponent("button_reload").onClick:AddListener(
+        function()
+            self:reloadScript()
+        end)
+
+    self.layer:GetButtonComponent("button_level").onClick:AddListener(
+        function()
+            local item = {
+                unit_type = Bag.TYPE_ITEM,
+                configid = Player.ITEM_VALUE_EXP,
+                num = 100000
+            }
+            Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, {item}})
+        end)
+
+    self.layer:GetButtonComponent("button_exp").onClick:AddListener(
+        function()
+            self:AddSubTypeItems(Item.SUBTYPE_HERO_EXP)
+        end)
+
+    self.layer:GetButtonComponent("button_look").onClick:AddListener(
+        function()
+            self:onLookPlayer()
+        end)
+
+    self.layer:GetButtonComponent("button_lottery").onClick:AddListener(
+        function()
+            self:AddSubTypeItems(Item.SUBTYPE_LOTTERY)
+        end)
+
+    self.layer:GetButtonComponent("button_guide").onClick:AddListener(
+        function()
+            self:doGmGuide()
+        end)
+
+    self.layer:GetButtonComponent("button_itemtype").onClick:AddListener(
+        function()
+            local input = self.layer:GetTextComponent("input_id/Text").text
+            self:AddSubTypeItems(tonumber(input))
+        end)
+
+    self.layer:GetButtonComponent("button_attr").onClick:AddListener(
+        function()
+            self:onCalcAttr()
+        end)
+    self.layer:GetButtonComponent("button_equipattr").onClick:AddListener(
+        function()
+            self:onCalcEquipAttr()
+        end)
+
+    self.layer:GetButtonComponent("button_oneequip").onClick:AddListener(
+        function()
+            self:addAllEquip()
+        end)
+
+    self.layer:GetButtonComponent("button_gmcheck").onClick:AddListener(
+        function()
+            self:onGmCheck()
+        end)
+    self.layer:GetButtonComponent("button_unlockLevel").onClick:AddListener(
+        function()
+            self:unlockLevel()
+        end)
+    self.layer:GetButtonComponent("button_triggerPackage"):AddButtonListener(
+        function()
+            self:onTriggerPackage()
+        end)
+end
+
+function GmLayer:onClick()
+    local inputs = self.layer:GetTextComponent("input_id/Text").text
+    local num = tonumber(self.layer:GetTextComponent("input_num/Text").text)
+    local ids = lua_str_split(inputs, ",")
+    local items = {}
+    for i = 1, 5 do
+        local isOn = self.layer:GetToggleComponent("checkbutton_" .. i).isOn
+        if isOn == true then
+            self._index = i
+            break
+        end
+    end
+    for i = 1, #ids do
+        local legal = true
+        if self._index == 1 then
+            legal = Hero:GetHero(ids[i]) ~= nil
+        end
+        if self._index == 3 then
+            legal = Equip:GetCfg(ids[i]) ~= nil
+        end
+        if self._index == 4 then
+            legal = Item:GetCfg(ids[i]) ~= nil
+        end
+        if self._index == 5 then
+            legal = Music:GetMusicCfg(tonumber(ids[i])) ~= nil
+        end
+        if legal then
+            local tab = {
+                unit_type = self._index,
+                configid = tonumber(ids[i]),
+                num = num
+            }
+            table.insert(items, tab)
+        end
+    end
+    local params = {c2s.GM_ADD_ITEM_REQ, items}
+    Network:CallServerScript(params)
+end
+
+function GmLayer:onUnlockPlot()
+    Network:CallServerScript({c2s.GM_PASS_DUNGEON_REQ})
+end
+function GmLayer:onMusic()
+
+    local ids = Item:GetCfgByType(Item.TYPE_MUSIC_BOOK)
+    local items = {}
+    for i = 1, #ids do
+        local tab = {
+            unit_type = Bag.TYPE_ITEM,
+            configid = tonumber(ids[i]),
+            num = 200
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+function GmLayer:onMaterial()
+    local ids = Item:GetCfgByType(Item.TYPE_MATERIAL)
+    local items = {}
+    for i = 1, #ids do
+        local tab = {
+            unit_type = Bag.TYPE_ITEM,
+            configid = tonumber(ids[i]),
+            num = 200
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+
+function GmLayer:onChip()
+    local items = {}
+    local heroes = Hero:GetHeroes()
+    for _, v in pairs(heroes) do
+        local tab = {
+            unit_type = Bag.TYPE_ITEM,
+            configid = tonumber(v.config.StarItemID),
+            num = 100
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+
+function GmLayer:onAddHero()
+    local heroes = {}
+    for _, v in pairs(Hero:GetHeroes()) do
+        if not v.owner then
+            local tab = {
+                unit_type = Bag.TYPE_HERO,
+                configid = v.id,
+                num = 1
+            }
+            table.insert(heroes, tab)
+        end
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, heroes})
+end
+
+function GmLayer:onPlayerLvUp()
+    local currExp, nextExp = Player:GetLevelExp()
+    local items = {}
+    local tab = {
+        unit_type = Bag.TYPE_ITEM,
+        configid = Player.ITEM_VALUE_EXP,
+        num = tonumber(nextExp)
+    }
+    table.insert(items, tab)
+    local params = {c2s.GM_ADD_ITEM_REQ, items}
+    Network:CallServerScript(params)
+end
+
+function GmLayer:onExp()
+    local items = {}
+    local ids = Item:GetCfgBySubType(Item.SUBTYPE_HERO_EXP)
+    for _, v in pairs(ids) do
+        local tab = {
+            unit_type = Bag.TYPE_ITEM,
+            configid = tonumber(v),
+            num = 1000
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+
+function GmLayer:sendStr()
+    local inputs = self.layer.transform:Find("input_id/Text"):GetComponent("Text").text
+    if inputs ~= "" then
+        Network:CallServerScript({c2s.GM_DO_PLAYER_SCRIPT_REQ, inputs});
+    end
+end
+
+function GmLayer:reloadScript()
+    Network:CallServerScript({10, "Gm:ReloadAll()"});
+end
+
+function GmLayer:onLookPlayer()
+    local playerid = self.layer.transform:Find("input_id/Text"):GetComponent("Text").text
+    playerid = tonumber(playerid)
+    Player:LookInfoReq(playerid)
+end
+
+function GmLayer:AddSubTypeItems(subtype)
+    local items = {}
+    local ids = Item:GetCfgBySubType(subtype)
+    for _, v in pairs(ids) do
+        local tab = {
+            unit_type = Bag.TYPE_ITEM,
+            configid = tonumber(v),
+            num = 100
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+
+function GmLayer:doGmGuide()
+    local input = self.layer.transform:Find("input_id/Text"):GetComponent("Text").text
+    local _array = lua_str_split(input, "&")
+    if _array[1] == nil or _array[2] == nil then return end
+    Guide:OnGmGuide(tonumber(_array[1]), tonumber(_array[2]))
+    self:onExit()
+    Guide:ContinueGuideEvent("doGmGuide")
+end
+
+function GmLayer:onCalcAttr()
+
+    local inputFieldCom = self.layer.transform:Find("input_attrinfo"):GetComponent("InputField")
+    local info = lua_str_split(inputFieldCom.text, "&")
+    local lvAttrs, starAttrs, stepAttrs, attrs = Hero:GmHeroAttr(tonumber(info[1]), tonumber(info[2]), tonumber(info[3]), tonumber(info[4]))
+    CAttr:AddPerAttrs(lvAttrs)
+    CAttr:AddPerAttrs(starAttrs)
+    CAttr:AddPerAttrs(stepAttrs)
+    CAttr:AddPerAttrs(attrs)
+    local showstr = ""
+    for attrtype, value in pairs(attrs or {}) do
+        local cfg = CAttr:GetCfg(attrtype)
+        if value > 0 then
+            showstr = showstr .. string.format("\n%10s : %0-8.2f, %0-8.2f, %0-8.2f, %0-8.2f", cfg.name, (lvAttrs[attrtype] or 0), (starAttrs[attrtype] or 0), (stepAttrs[attrtype] or 0), value)
+        end
+    end
+    self.layer.transform:Find("text_attr"):GetComponent("Text").text = showstr
+end
+
+function GmLayer:onCalcEquipAttr()
+    local inputFieldCom = self.layer.transform:Find("input_attrinfo"):GetComponent("InputField")
+    local info = lua_str_split(inputFieldCom.text, "&")
+    local attrs = Equip:CalcAttr(tonumber(info[1]), tonumber(info[2]))
+    local showstr = ""
+    for attrtype, value in pairs(attrs or {}) do
+        local cfg = CAttr:GetCfg(attrtype)
+        if value > 0 then
+            showstr = showstr .. string.format("\n%10s : %0-8.2f", cfg.name, value)
+        end
+    end
+    self.layer.transform:Find("text_attr"):GetComponent("Text").text = showstr
+end
+
+function GmLayer:addAllEquip()
+    local cfgids = Equip:GetAllCfgid()
+    local items = {}
+    for _, cfgid in pairs(cfgids) do
+        local tab = {
+            unit_type = Bag.TYPE_EQUIP,
+            configid = cfgid,
+            num = 1
+        }
+        table.insert(items, tab)
+    end
+    Network:CallServerScript({c2s.GM_ADD_ITEM_REQ, items})
+end
+
+function GmLayer:onGmCheck()
+    -- Chapter:GmCheckOper()
+    -- Item:CheckBlackMarket()
+    Item:CheckItemOrigin()
+end
+
+function GmLayer:unlockLevel()
+    local inputs = self.layer:GetTextComponent("input_id/Text").text
+    if inputs ~= "" then
+        local sendGmStr = string.format("Gm:ForceUnlockLevel(%s)", inputs)
+        Network:CallServerScript({c2s.GM_DO_PLAYER_SCRIPT_REQ, sendGmStr});
+    end
+end
+
+function GmLayer:onTriggerPackage()
+    local inputs = self.layer:GetTextComponent("input_id/Text").text
+    if inputs ~= "" then
+        local ids = lua_str_split(inputs, ",", true)
+        if #ids > 0 then
+            Operation:SendGetPopUpGiftBagReq(ids)
+        end
+    end
+end
+
+return GmLayer
+

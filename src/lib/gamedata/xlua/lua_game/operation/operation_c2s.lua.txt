@@ -1,0 +1,690 @@
+
+Operation = Operation or {};
+function Operation:SyncOperations(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步运营数据----------")
+    self:onInitTriggerPackage()
+    Operation:SetBoughtBags(data.boughts);
+    Operation:SetPrivilegePag(data.privileges);
+    Operation:SetHandBook(data.handbooks);
+    Operation:SetDayGiftPagData(data.bales_day);
+    Operation:SetMutualExclusion(data.bales);
+    Operation:SetPopUpGiftBagData(data.triggers);
+    Operation:SetFirstsData(data.bfirsts,data.f_mark);
+    Operation:SetRepeatData(data.repeat_gifts);
+    Operation._getDataFromServer = true;
+    if Activity:GetDataFromServer() then
+        Operation:PushSuperProperties()
+    end
+    --[[    local popData = self:GetPopUpDataById(cfgid);
+    if(popData ~= nil)then
+        popData.left = popData.left - buyNum;
+    end]]--
+    self:InitFirstPay()
+end
+
+function Operation:GetDataFromServer()
+	return Operation._getDataFromServer
+end
+
+function Operation:SetFirstsData(data,chargeResetId)
+    if(chargeResetId ~= Player:GetChargeResetId())then
+        data = {};
+    end
+    self._first = data or {};
+end
+
+function Operation:GetFirstsStartById(id)
+    id = tonumber(id);
+    return self._first[id] ~= nil;
+end
+
+function Operation:SetPopUpRedState(id,showState)
+    if(self._popUpData[id] ~= nil)then
+        self._popUpData[id].red = showState;
+    end
+end
+
+
+
+local showPopId;
+function Operation:SetPopUpGiftBagData(data)
+    self._popUpData = data or {};
+    for id, _ in pairs(self._popUpData) do
+        self._popUpData[id].red = true;
+    end
+end
+
+function Operation:GetPopUpDataById(id)
+    return self._popUpData[id];
+end
+------------------------------------------------------互斥礼包--------------------------------------------------
+
+function Operation:SetMutualExclusion(data)
+    self._mutualExclusion = {};
+    for id, info in pairs(data) do
+        self._mutualExclusion[id] = {};
+        self._mutualExclusion[id].id = id;
+        self._mutualExclusion[id].startDay = info.day_start;--开始日期
+        if(info.day_mark <= 0)then
+            self._mutualExclusion[id].curDay = info.day_start;--标记时间
+        else
+            self._mutualExclusion[id].curDay = info.day_mark;--标记时间
+        end
+        self._mutualExclusion[id].curDayNum = info.day_left;--剩余时间
+        local cfg = Operation:GetMutualExclusionCfgById(id);
+        self._mutualExclusion[id].pagIds = {};
+        --表示购买了打包礼包,并且不是第一天
+        if(self._dayGiftPagData[id] == nil)then--初始化免费礼包
+            self._dayGiftPagData[id] = {
+                free_id = -1,-- -1  获得的免费礼包需要自己计算
+                tcost = 0,
+            };
+        end
+        local charge;
+        for _, v in ipairs(cfg.chargeIds) do
+            if(v ~= cfg.chargeId)then
+                charge = Recharge:GetData(v);
+                self._dayGiftPagData[id].tcost = self._dayGiftPagData[id].tcost + charge.price;
+                table.insert(self._mutualExclusion[id].pagIds,v);
+            end
+        end
+        --计算免费礼包
+        if(self._dayGiftPagData[id].free_id < 0)then
+            for _, v in ipairs(cfg.freeIds) do
+                if(self._dayGiftPagData[id].tcost >= v[2])then
+                    self._dayGiftPagData[id].free_id = v[1];
+                end
+            end
+        end
+    end
+end
+
+function Operation:GetCurMutualExclusionGetStateById(cfgId)
+    cfgId = tonumber(cfgId);
+    local data = self._mutualExclusion[cfgId];
+    if(data == nil)then
+        CS.Logger.LogError("self._mutualExclusion[cfgId] is nil  ** pos = Operation:GetCurMutualExclusionGetStateById ** cfgId = "..cfgId);
+        return false;
+    end
+    if(data.curDayNum >= 0)then
+        local curDay = CTime:GetOffsetDay();
+        return curDay == data.curDay;
+    else
+        return false;
+    end
+end
+
+function Operation:GetMutualExclusionServerDataById(cfgId)
+    return self._mutualExclusion[cfgId];
+end
+
+function Operation:GetMutualExclusionServerDataByPagId(pagId)
+    for _, data in pairs(self._mutualExclusion) do
+        for i, v in ipairs(data.pagIds) do
+            if(v == pagId)then
+                return data;
+            end
+        end
+    end
+    return nil;
+end
+
+
+function Operation:GetMutualExclusionGiftPagBuyState(cfgId)
+    local cfg = Operation:GetMutualExclusionCfgById(cfgId);
+    if(cfg == nil)then
+        return Operation.MutualExclusionBuyType.Null;
+    end
+    if(Operation:GetMutualExclusionServerDataById(cfg.id) ~= nil)then
+        return Operation.MutualExclusionBuyType.Buy;--已购买
+    end
+    local charge;
+    for _, id in ipairs(cfg.chargeIds) do
+        charge = Recharge:GetData(id);
+        if(charge.price > 0)then
+            if(Operation:GetGiftBagBoughtNum(id) > 0)then
+                return Operation.MutualExclusionBuyType.Lock;--锁定
+            end
+        end
+    end
+    return Operation.MutualExclusionBuyType.UnBuy;--未购买
+end
+
+function Operation:SetDayGiftPagData(data)
+    self._dayGiftPagData = data or {};
+end
+
+function Operation:GetToDayGiftPagDataById(id)
+    local data = self._dayGiftPagData[id];
+    if(data == nil)then
+        local freeId = self._mutualExclusionCfg[id].freeIds[1][1];
+        data = {
+            free_id = freeId,
+            tcost = 0,
+        };
+    else
+        if(data.free_id <= 0)then
+            local freeId = self._mutualExclusionCfg[id].freeIds[1][1];
+            data.free_id = freeId;
+        end
+    end
+    return data;
+end
+------------------------------------------------------手书礼包--------------------------------------------------
+
+function Operation:SetHandBook(data)
+    self._handBook = {};
+    for i, v in pairs(data) do
+        self._handBook[i] = v;
+    end
+end
+
+function Operation:GetHandBookById(id)
+    id = tonumber(id)
+    return self._handBook[id] or {nids = {},sids = {},};
+end
+
+------------------------------------------------------月卡------------------------------------------------------
+
+function Operation:SetPrivilegePag(data)
+    self._privilegePag = {};
+    for i, v in pairs(data) do
+        self._privilegePag[i] = v;
+    end
+end
+
+function Operation:GetPrivilegePagServerDataById(id)
+    return self._privilegePag[id];
+end
+
+function Operation:HasCard(id)
+    local cardData = self:GetPrivilegePagServerDataById(id)
+    if cardData ~= nil then
+        if cardData.expiry < CTime:GetOffsetDay() then
+            return false
+        else
+            return true
+        end
+    else
+        return false
+    end
+end
+
+function Operation:PushSuperProperties()
+    local UID = Operation:GetOpenBloodCycleId();
+    if UID ~= -1 then
+        local _cfg = Operation:GetActiveCfgByUID(UID);
+        local bagId = Operation:GetGiftBagBoughtNum(_cfg.charges[1]);
+
+        local pushData = {
+            small_month_card_state = self:HasCard(Recharge.MonthCard.small),
+            large_month_card_state = self:HasCard(Recharge.MonthCard.big),
+            pass_state = (bagId > 0) and true or false
+        }
+        ThinkingMgr:SendSuperProperties("month_card_info", pushData)
+
+        ThinkingMgr:AddUserSet("large_month_card_state", self:HasCard(Recharge.MonthCard.big))
+        ThinkingMgr:AddUserSet("small_month_card_state", self:HasCard(Recharge.MonthCard.small))
+        ThinkingMgr:AddUserSet("pass_state", (bagId > 0) and true or false)
+        ThinkingMgr:UserSet()
+    end  
+end
+
+--获取开启的增加关卡挑战次数的特选礼包
+function Operation:GetOpenPrivilegePagId()
+    local retArr = {};
+    local cfg;
+    if(self._privilegePag ~= nil)then
+        for id, v in pairs(self._privilegePag) do
+            if(v ~= nil)then
+                if(v.expiry >= CTime:GetOffsetDay())then
+                    cfg = Operation:GetMonthDataById(id);
+                    if(cfg.addMapCount ~= -1)then
+                        table.insert(retArr,id);
+                    end
+                end
+            end
+        end
+    end
+    return retArr;
+end
+
+------------------------------------------------------礼包------------------------------------------------------
+function Operation:SetBoughtBags(data)
+    self._boughtBags = data or {};
+end
+
+function Operation:GetGiftBagBoughtNum(id)
+    id = tonumber(id);
+    if(self._boughtBags[id] == nil or self._boughtBags[id] <= 0)then
+        return 0;
+    end
+    return self._boughtBags[id];
+end
+
+function Operation:GetBoughtBags()
+    return self._boughtBags or {};
+end
+
+---------------------------------------------------------------------------------------------------------
+
+function Operation:GetMoney()
+    local retNum = Player:GetMoney() or 0;
+    local showInt = (retNum % Player.RECHAGE_COEF == 0);
+    if(showInt)then
+        return math.ceil(retNum / Player.RECHAGE_COEF) or 0;
+    else
+        return retNum / Player.RECHAGE_COEF or 0;
+    end
+end
+
+function Operation:GetHandBook()
+    return self._data.handbooks;
+end
+
+--发送消息
+--itype = 活动类型(用于判断活动是否开启)
+--data = 数据(id = id,isBuy = 魔女手册专用)
+--c2sType = 数据类型(区分发送的数据类型)
+function Operation:SendMessage(itype,data,c2sType)
+    if(c2sType == nil)then
+        c2sType = c2s.CHARGE_BUY_GIFT_BY_ID_REQ;
+    end
+    itype = tonumber(itype);
+    if(itype == nil and itype ~= Operation.ActivityID.None)then
+        print("--------------------------------------------------活动类型为空");
+        return;
+    end
+    if(itype ~= Operation.ActivityID.None)then
+        local cfgs = Operation:GetActiveCfgByUID(itype);
+        if(not Operation:GetActiveIsOpenByUid(cfgs.UID))then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
+            return;
+        end
+    end
+    Operation._itype = itype
+    if(c2sType == c2s.CHARGE_BUY_GIFT_BY_ID_REQ)then     --购买礼包
+        Operation:ChargedBagByIdReq(data.id,data.num);
+    elseif(c2sType == c2s.CHARGE_GET_RECHARGE_GIFT_REQ)then--领取累计充值
+    elseif(c2sType == c2s.CHARGE_GET_GROW_UP_PLAN_GIFT_REQ)then--领取成长计划
+
+    elseif(c2sType == c2s.CHARGE_GET_HB_LV_GIFT_REQ)then--领取魔女手册
+        Operation:HandBookReq(data,data.buyIds)
+    elseif(c2sType ==  c2s.CHARGE_GET_FIRST_CHARGE_GIFT_REQ)then--领取首充礼包
+        Operation:GetFirstTimePayReq()
+    end
+end
+
+--购买礼包
+function Operation:ChargedBagByIdReq(id,num)
+    Network:CallServerScript({c2s.CHARGE_BUY_GIFT_BY_ID_REQ, id, num, GameSdkMgr:GetPlatformId()});
+end
+
+--购买礼包返回
+---------------------------礼包REQ修正为服务器确认订单可以通过, 除充值礼包外不参与逻辑, 弱网环境下多次点击礼包报错不处理, 服务器<<良>>说的
+---充值礼包会返回2次, 第一次为调用SDK,第二次为购买成功
+function Operation:ChargedBagByIdRep(id,num,dorps)
+    if(type(num) == "table")then
+        Recharge:CreateOrderReq(num);
+        return;
+    end
+    id = tonumber(id)
+    local cfg = Recharge:GetData(id);
+    if(cfg.itype == Recharge.ChargeType.MutualExclusion)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        if(self._mutualExclusion == nil)then
+            self._mutualExclusion = {};
+        end
+
+        local mutualExclusionCfg = Operation:GetMutualExclusionCfgByPagId(id);
+        if(mutualExclusionCfg ~= nil)then
+            local freeId = mutualExclusionCfg.freeIds[1][1];
+            if(self._dayGiftPagData[mutualExclusionCfg.id] == nil)then--初始化免费礼包
+                self._dayGiftPagData[mutualExclusionCfg.id] = {
+                    free_id = freeId,
+                    tcost = 0,
+                };
+            end
+            if(mutualExclusionCfg.chargeId == id)then
+                self._mutualExclusion[mutualExclusionCfg.id] = {};
+                self._mutualExclusion[mutualExclusionCfg.id].id = mutualExclusionCfg.id;
+                self._mutualExclusion[mutualExclusionCfg.id].startDay = CTime:GetOffsetDay();
+                self._mutualExclusion[mutualExclusionCfg.id].curDay = CTime:GetOffsetDay();
+                self._mutualExclusion[mutualExclusionCfg.id].curDayNum = mutualExclusionCfg.days - 1;
+                self._mutualExclusion[mutualExclusionCfg.id].pagIds = {};
+                for _, v in ipairs(mutualExclusionCfg.chargeIds) do
+                    if(v ~= mutualExclusionCfg.chargeId)then
+                        table.insert(self._mutualExclusion[mutualExclusionCfg.id].pagIds,v);
+                    end
+                end
+                local charge;
+                for _, v in ipairs(mutualExclusionCfg.chargeIds) do
+                    charge = Recharge:GetData(v);
+                    self._dayGiftPagData[mutualExclusionCfg.id].tcost = self._dayGiftPagData[mutualExclusionCfg.id].tcost + charge.price;
+                end
+            else
+                local charge = Recharge:GetData(id);
+                self._dayGiftPagData[mutualExclusionCfg.id].tcost = self._dayGiftPagData[mutualExclusionCfg.id].tcost + charge.price;
+            end
+        end
+    elseif(cfg.itype == Recharge.ChargeType.PrivilegeGiftPag)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = 1;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        local pagCfg = Operation:GetMonthDataById(id);
+        if(self._privilegePag[id] == nil)then
+            self._privilegePag[id] = {
+                expiry = pagCfg.sustainDay + CTime:GetOffsetDay() - 1,
+            };
+            Chapter:AddCount();
+        else
+            self._privilegePag[id].expiry = self._privilegePag[id].expiry + pagCfg.sustainDay;
+        end
+    elseif(cfg.itype == Recharge.ChargeType.UpgradePackage)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.BUY_UPGRADE_PACKAGE_REP,dorps);
+    elseif(cfg.itype == Recharge.ChargeType.Limit)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+    elseif(cfg.itype == Recharge.ChargeType.Handbook)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+    elseif(cfg.itype == Recharge.ChargeType.Gift or cfg.itype == Recharge.ChargeType.Gold)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+    elseif(cfg.itype == Recharge.ChargeType.Gift or cfg.itype == Recharge.ChargeType.PopUp)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        self._popUpData[id].left = self._popUpData[id].left - 1;
+    elseif(cfg.itype == Recharge.ChargeType.Item or cfg.itype == Recharge.ChargeType.Skin)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        if(cfg.itype == Recharge.ChargeType.Skin)then
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.BUY_SKIN_REP);
+        end
+    elseif(cfg.itype == Recharge.ChargeType.Recharge)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        self._first[id] = true;
+    elseif(cfg.itype == Recharge.ChargeType.FreeChess)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+    elseif(cfg.itype == Recharge.ChargeType.Repeat)then
+        if(self._boughtBags[id] == nil)then
+            self._boughtBags[id] = num;
+        else
+            self._boughtBags[id]  = self._boughtBags[id] + num;
+        end
+        Operation:InitRepeatDataById(id);
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG);
+    GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS);
+
+    if Recharge._orderData then
+        ThinkingMgr:SendTrack("order_pay", {
+            order_id            = Recharge._orderData.game_order,
+            pay_id              = Recharge._orderData.productid,
+            recharge_amount     = tonumber(Recharge._orderData.money) / 100,
+            pay_way             = GameSdkMgr:GetSDKName()
+        })
+        Recharge._orderData = nil
+    end
+    local _price = 0
+    if -1 == cfg.chargeMoneyId then
+        _price = cfg.price
+    else
+        local config = Recharge:GetRechargeMoneyCfg(cfg.chargeMoneyId)
+        _price = config.price
+    end
+    if cfg.itype ~= Recharge.ChargeType.Recharge and cfg.itype ~= Recharge.ChargeType.Repeat then
+        ThinkingMgr:SendTrack("shop_buy", {
+            charge_id           = id,
+            get_item_number     = num,
+            cost_token_id       = cfg.priceId,
+            cost_token_number   = _price * num
+        })
+    end
+
+    if cfg.itype ~= Recharge.ChargeType.Recharge
+        and cfg.itype ~= Recharge.ChargeType.Recharge
+        and cfg.itype ~= Recharge.ChargeType.Item
+        and cfg.itype ~= Recharge.ChargeType.Skin
+        and cfg.itype ~= Recharge.ChargeType.Gift
+        and cfg.itype ~= Recharge.ChargeType.PopUp
+        and cfg.itype ~= Recharge.ChargeType.Gold
+        then
+
+        ThinkingMgr:SendTrack("join_activity", {
+            activity_id = cfg.itype
+        })
+
+        ThinkingMgr:SendTrack("get_activity_award", {
+            activity_id = cfg.itype,
+            award_id = id
+        })
+    end
+    --print("购买成功!",id);
+end
+
+--运营界面的日刷新事件在这里处理
+function Operation:OnUpdateOperationDay(isMonthChange,isWeekChanged)
+    if(self._privilegePag ~= nil)then
+        for i, v in pairs(self._privilegePag) do
+            if(v ~= nil)then
+                if(v.expiry < CTime:GetOffsetDay())then
+                    self._privilegePag[i] = nil;
+                    Chapter:RemoveCount();
+                end
+            end
+        end
+    end
+
+    local tempCharge;
+    if(self._popUpData ~= nil)then
+        for k, v in pairs(self._popUpData) do
+            tempCharge = Recharge:GetData(k)
+            if(tempCharge  ~= nil)then
+                if(tempCharge.buytype == Recharge.BuyType.day)then
+                    self._popUpData[k].count = 0;
+                elseif(tempCharge.buytype == Recharge.BuyType.Month)then
+                    if(isMonthChange)then
+                        self._popUpData[k].count = 0;
+                    end
+                elseif(tempCharge.buytype == Recharge.BuyType.Week)then
+                    if(isWeekChanged == CTime.WeekUpdateType.OneUpdate)then
+                        self._popUpData[k].count = 0;
+                    end
+                elseif(tempCharge.buytype == Recharge.BuyType.IsDoubleWeek)then
+                    if(isWeekChanged == CTime.WeekUpdateType.DoubleUpdate)then--14天(双周)刷新
+                        self._popUpData[k].count = 0;
+                    end
+                end
+            end
+        end
+    end
+    if(self._boughtBags ~= nil)then
+        for k, v in pairs(self._boughtBags) do
+            tempCharge = Recharge:GetData(k)
+            if(tempCharge  ~= nil)then
+                if(tempCharge.buytype == Recharge.BuyType.day)then
+                    self._boughtBags[k] = 0;
+                elseif(tempCharge.buytype == Recharge.BuyType.Month)then
+                    if(isMonthChange)then
+                        self._boughtBags[k] = 0;
+                    end
+                elseif(tempCharge.buytype == Recharge.BuyType.Week)then
+                    if(isWeekChanged == CTime.WeekUpdateType.OneUpdate)then
+                        self._boughtBags[k] = 0;
+                    end
+                elseif(tempCharge.buytype == Recharge.BuyType.IsDoubleWeek)then
+                    if(isWeekChanged == CTime.WeekUpdateType.DoubleUpdate)then--14天(双周)刷新
+                        self._boughtBags[k] = 0;
+                    end
+                end
+            end
+        end
+    end
+    for _, v in pairs(self._mutualExclusion) do
+        if(v.curDayNum <= 0)then
+            self._mutualExclusion[_] = nil;
+        else
+            v.curDay = 0;
+        end
+    end
+    for id, v in pairs(self._dayGiftPagData) do
+        local mutualExclusionCfg = Operation:GetMutualExclusionCfgById(id);
+        local buyState = Operation:GetMutualExclusionGiftPagBuyState(id);
+        local charge;
+        for _, data in ipairs(mutualExclusionCfg.freeIds) do
+            if(v.tcost >= data[2])then
+                v.free_id = data[1];
+            else
+                break;
+            end
+        end
+        v.tcost = 0;
+        if(buyState == Operation.MutualExclusionBuyType.Buy and self._mutualExclusion[id].curDayNum > 0)then
+            for _, id in ipairs(mutualExclusionCfg.chargeIds) do
+                charge = Recharge:GetData(id);
+                v.tcost = v.tcost + charge.price;
+            end
+        end
+    end
+    --重置重置额外奖励
+    if(isMonthChange)then
+        Operation:SetFirstsData();
+    end
+    Operation:UpdateRepeatServerData();
+    GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG,true);
+end
+
+--领取魔女手册
+function Operation:HandBookReq(data,buyIds)
+    Network:CallServerScript({c2s.CHARGE_GET_HB_LV_GIFT_REQ,data.id,data.ids,buyIds});
+end
+--领取魔女手册返回
+function Operation:HandBookRep(id,ids,buyIds)
+    if(self._handBook[id] == nil)then
+        self._handBook[id] = {nids = {},sids = {},};
+    end
+    if((ids ~= nil) and (ids ~= {}))then
+        for _, v in ipairs(ids) do
+            self._handBook[id].nids[tonumber(v)] = 1;
+        end
+    end
+    if((buyIds ~= nil) and (buyIds ~= {}))then
+        for _, v in ipairs(buyIds) do
+            self._handBook[id].sids[tonumber(v)] = 1;
+        end
+    end
+    GEvent:fireEvent(EVENT_TYPE.GET_HAND_BOOK);
+    GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+
+    ThinkingMgr:SendTrack("get_activity_award", {
+        activity_id = Operation.ActivityID.WitchBook,
+        award_id    = id
+    })
+end
+
+function Operation:AddHandBookExpReq(id)
+    Network:CallServerScript({c2s.CHARGE_UNLOCK_HB_LV_GIFT_REQ,id});
+end
+
+function Operation:AddHandBookRep(id)
+    GEvent:fireEvent(EVENT_TYPE.GET_HAND_BOOK,id);
+end
+
+--领取首充礼包请求
+function Operation:GetFirstTimePayReq()
+    Network:CallServerScript({c2s.CHARGE_GET_FIRST_CHARGE_GIFT_REQ});
+end
+
+--领取首充礼包返回
+function Operation:GetFirstTimePayRep()
+    Player:SetRechargeIsGetStart(true);
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GET_FIRSTTIMEPAY_OVER);
+end
+
+function Operation:GetMutualExclusionReq(id)
+    Network:CallServerScript({c2s.CHARGE_GET_WG_BALE_DAY_GIFT_REQ,id});
+end
+
+function Operation:GetMutualExclusionRep(id)
+    self._mutualExclusion[id].curDay = CTime:GetOffsetDay();
+    self._mutualExclusion[id].curDayNum = self._mutualExclusion[id].curDayNum - 1;
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG);
+    GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+end
+
+function Operation:SendGetPopUpGiftBagReq(rechargeIds)
+    ---弹出礼包暂时屏蔽
+    Network:CallServerScript({c2s.SHOP_CLIENT_TRIGGER_SHOP_REQ, rechargeIds});
+end
+
+function Operation:SendGetPopUpGiftBagRep(shopData)
+    local tbl = {};
+    for id, data in pairs(shopData) do
+        self._popUpData[id] = data;
+        self._popUpData[id].red = true;
+        table.insert(tbl,data);
+    end
+    table.sort(tbl,function (a,b)
+        return a.expire < b.expire;
+    end);
+    if next(tbl) ~= nil then
+        showPopId = tbl[1].id;
+        if(ShowTips)then
+            if(showPopId ~= nil or showPopId  > 0)then
+                -- Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90181));
+                ShowTips = false;
+            end
+        end
+        self._isNewTrigger = true
+        self._newTriggerId = tbl[1].id
+        GEvent:fireEvent(EVENT_TYPE.POP_UP_GIFT_BAG_SEND_REP);
+    end
+end
+
+------------------------------------注册回调---------------------------------
+c2s[c2s.CHARGE_DATA_SYNC]                    = {Operation, Operation.SyncOperations}
+c2s[c2s.CHARGE_BUY_GIFT_BY_ID_RES]           = {Operation, Operation.ChargedBagByIdRep}
+c2s[c2s.CHARGE_GET_HB_LV_GIFT_RES]           = {Operation, Operation.HandBookRep}
+c2s[c2s.CHARGE_GET_FIRST_CHARGE_GIFT_RES]    = {Operation, Operation.GetFirstTimePayRep}
+c2s[c2s.CHARGE_UNLOCK_HB_LV_GIFT_RES]        = {Operation, Operation.AddHandBookRep}
+c2s[c2s.CHARGE_GET_WG_BALE_DAY_GIFT_RES]     = {Operation, Operation.GetMutualExclusionRep}
+c2s[c2s.SHOP_CLIENT_TRIGGER_SHOP_RES]        = {Operation, Operation.SendGetPopUpGiftBagRep}

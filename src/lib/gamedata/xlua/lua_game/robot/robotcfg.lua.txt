@@ -1,0 +1,74 @@
+--
+-- author: lvqiang
+-- date  : 2021-09-06 11:48:49
+-- brief :
+--
+Robot = Robot or {}
+
+function Robot:LoadCfg()
+    Robot:_loadRobotCfg();
+end
+
+--加载机器人属性配置
+function Robot:_loadRobotCfg()
+    self._robotCfg = {};
+    local cfgs = CfgLoader:LoadCfg("MidnightRobot");
+    local data,id;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        data = {
+            id = id,
+            nameSection = lua_parse_cfg(cfg.NameLib,true),--名称区间
+            robotLvSection = lua_str_split(cfg.RobotLvRange,"&",true),--等级区间
+            robotScoreSection = lua_str_split(cfg.RobotScoreRange,"&",true),--分数区间
+            heroSection = lua_str_split(cfg.Hero,"&",true),--魔女区间
+            heroAttrSection = lua_parse_cfg(cfg.RobotAttr,true),--魔女属性区间
+            skillLv = tonumber(cfg.Skill),--技能等级
+            equipLvs = lua_parse_cfg(cfg.equipLv,true),--装备等级
+        };
+        if(cfg.Stone ~= "-1")then--装备
+            data.equips = lua_parse_cfg(cfg.Stone,true);
+        else
+            data.equips = -1;
+        end
+        if(cfg.Builds ~= "-1")then--构筑
+            local builds = lua_parse_cfg(cfg.Builds,true);
+            data.builds = {};
+            for _, v in pairs(builds) do
+                if(data.builds[v[1]] == nil)then
+                    data.builds[v[1]] = {};
+                end
+                data.builds[v[1]][v[2]] = {v[3],v[4]};
+            end
+        else
+            data.builds = -1;
+        end
+        if(cfg.equipMainAttr ~= "-1")then--装备主属性
+            data.equipMainAttr = lua_parse_cfg(cfg.equipMainAttr,true);
+        else
+            data.equipMainAttr = -1;
+        end
+        if(cfg.equipSubAttr ~= "-1")then--装备次属性
+            data.equipSubAttr = {};
+            local tempAttr = lua_parse_cfg(cfg.equipSubAttr,true);
+            for _, v in pairs(tempAttr) do
+                if(data.equipSubAttr[v[1]] == nil)then
+                    data.equipSubAttr[v[1]] = {};
+                end
+                table.insert(data.equipSubAttr[v[1]],{v[2],v[3],v[4]});
+            end
+        else
+            data.equipSubAttr = -1;
+        end
+        self._robotCfg[id] = data;
+    end
+end
+
+--获得机器人配置
+function Robot:GetRobotCfgById(cId)
+    local retCfg = self._robotCfg[cId];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = Robot:GetRobotCfgById()  ** cId = "..cId);
+    end
+    return retCfg;
+end

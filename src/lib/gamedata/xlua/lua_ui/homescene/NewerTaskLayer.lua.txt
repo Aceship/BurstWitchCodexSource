@@ -1,0 +1,377 @@
+--
+-- author: haosun
+-- date  : 2019-01-03 16:25:19
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local NewerTaskLayer = class("NewerTaskLayer", CBaseLayer)
+
+function NewerTaskLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_NewerTaskLayer",
+    }
+    self._dt = 0
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_NEWER_TASK,
+    }
+    self.dayItems   = {}
+    self._objlist   = {}
+    self._addStack  = true;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+function NewerTaskLayer:onEnter()
+    self:createPnl()
+    self:addUpdateDayListener();
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:onRecvRep()
+            self:refreshProgress()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY, function()
+        self._taskids = Task:SortTaskIds(self._taskids)
+        self:refreshTaskScrollview(false)
+        self:refreshProgress()
+    end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("pnl_spine"))
+    Hero:LoadSpineAsync(self.__cname, self.layer:Get("pnl_spine"), 10030002 , Hero.SPINE_UI_TYPE_NEWER_TASK,nil,true)
+    self._txtMaxScore = self.layer:GetTextComponent("container/cur_int_bg/txt_max_score");
+    self._content   = self.layer:Get("container/scrollview_tasks/viewport/content")
+    self._template  = self.layer:Get("container/item_task").gameObject
+    self._template:SetVisible(false)
+end
+
+function NewerTaskLayer:onUpdate(dt)
+    if self._isUpdate then
+        self._dt = self._dt + dt
+        if self._dt > 1.0 then
+            self._dt = self._dt - 1.0
+            self:refreshRemainTime()
+        end
+    end
+end
+
+function NewerTaskLayer:show()
+    self._has_days = Task:NewerTaskDays()
+    self._dayindex = -1
+    self._tasknum = 0
+    self._maxnum = 0
+    self:initDaysScrollview()
+    self:refreshScoreRewards()
+    self:showLayer()
+    self:playAni("NewerTaskLayerAni")
+end
+
+function NewerTaskLayer:showLayer()
+    self._isUpdate = Task:NewerTaskRemainTime() < CTime.HOUR_SEC
+    self:dataGen(true);
+    self:refreshRemainTime()
+    self:refreshRedTips()
+    self:refreshProgress()
+    CBaseLayer.showLayer(self);
+end
+
+function NewerTaskLayer:onBackClick()
+    --[[
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        self:onPopLayer()
+    end)
+    ]]--
+    self:onPopLayer()
+end
+
+function NewerTaskLayer:refreshRemainTime()
+    local remain = Task:NewerTaskRemainTime()
+    local str = ""
+    remain = math.max(remain, 0)
+    if remain < CTime.MIN_SEC  then
+        str = string.format(LanguageMgr:GetTextByID(90095), remain)
+    elseif remain < CTime.HOUR_SEC then
+        local min = math.ceil(remain /CTime.MIN_SEC)
+        str = string.format(LanguageMgr:GetTextByID(90094), min)
+    elseif remain < CTime.DAY_SEC then
+        local hour = math.ceil(remain /CTime.HOUR_SEC)
+        str = string.format(LanguageMgr:GetTextByID(90093), hour)
+    else
+        local day = math.floor(remain / CTime.DAY_SEC);
+        str = string.format(LanguageMgr:GetTextByID(90092), day)
+    end
+    self.layer:GetTextComponent("container/text_remain"):SetText(str)
+    if remain <= 0 then
+        self._isUpdate = false
+        GEvent:fireEvent(EVENT_TYPE.OPEN_FUNC)
+        Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(90099), function()
+            self:onBackClick()
+        end, nil, true)
+    end
+end
+
+function NewerTaskLayer:initDaysScrollview()
+    local content = self.layer:Get("container/scrollview_days/viewport/content")
+    local item_day = self.layer:Get("container/item_tog_day").gameObject
+    item_day:SetVisible(false)
+    local defaultIdx = 1
+    local recvs = Task:GetNewerRecv()
+    for i = 1, Task.NEWER_DAYS do
+        if self.dayItems[i] == nil then
+            local transform = content:AddChild(item_day)
+            self.dayItems[i] = {
+                transform   = transform,
+                imgRed      = transform:Get("image_red_tips"),
+                togDay      = transform:GetComponent("MToggle"),
+                btnLock     = transform:GetButtonComponent("button_lock"),
+                txtUnSelectName     = transform:GetTextComponent("unselect/text_name"),
+                txtUnSelectTitle    = transform:GetTextComponent("unselect/title_txt"),
+                imgArrows           = transform:GetImageComponent("unselect/img_arrows"),
+                txtSelectName       = transform:GetTextComponent("select/text_name"),
+                txtSelectTitle      = transform:GetTextComponent("select/title_txt"),
+            }
+            local sfx = {
+                Condition = "true",
+                EventPath = "event:/GameEffect/UIEffect/UItab_Common_Level-"..i
+            }
+            local togSFX = transform:GetComponent("UIButtonSFX");
+            togSFX.SFXList:Clear()
+            togSFX.SFXList:Add(sfx)
+
+            self.dayItems[i].togDay.onValueChanged:AddListener(function(isOn)
+                self:onDayClick(i,isOn)
+            end)
+            self.dayItems[i].btnLock:AddButtonListener(function()
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90098))
+            end)
+            transform:SetVisible(true)
+        end
+
+        local title = string.format(LanguageMgr:GetTextByID(90096), i)
+        self.dayItems[i].txtUnSelectName:SetText(title)
+        self.dayItems[i].txtSelectName:SetText(title)
+
+        if i == self._has_days then
+            self.dayItems[i].txtUnSelectName:SetTextColor(1, 1, 1, 1)
+            self.dayItems[i].txtUnSelectTitle:SetTextColor(1, 1, 1, 1)
+            self.dayItems[i].imgArrows:SetImageColor(1, 1, 1, 1)
+            self.dayItems[i].btnLock:SetVisible(false)
+        elseif i < self._has_days then
+            self.dayItems[i].txtUnSelectName:SetTextColor(1, 1, 1, 1)
+            self.dayItems[i].txtUnSelectTitle:SetTextColor(1, 1, 1, 1)
+            self.dayItems[i].imgArrows:SetImageColor(1, 1, 1, 1)
+            self.dayItems[i].btnLock:SetVisible(false)
+        else
+            self.dayItems[i].txtUnSelectName:SetTextColor(0.52, 0.52, 0.52, 1)
+            self.dayItems[i].txtUnSelectTitle:SetTextColor(0.52, 0.52, 0.52, 1)
+            self.dayItems[i].imgArrows:SetImageColor(0.52, 0.52, 0.52, 1)
+            self.dayItems[i].btnLock:SetVisible(true)
+        end
+        if true == recvs[i] then
+            defaultIdx = i
+        end
+        self.dayItems[i].imgRed:SetVisible(recvs[i])
+    end
+    -- self:onDayClick(defaultIdx, true)
+    self._dayindex = defaultIdx
+    self.dayItems[defaultIdx].togDay.isOn = true;
+    if self._dayindex > 6 then
+        local scroll = self.layer:GetScrollRectComponent("container/scrollview_days")
+        scroll.horizontalNormalizedPosition = 1
+    end
+end
+
+function NewerTaskLayer:onDayClick(dayindex,isOn)
+    if self._dayindex == dayindex then
+        return
+    end    
+    if(isOn)then
+        self._dayindex = dayindex
+        self:dataGen(false)
+    end
+end
+
+function NewerTaskLayer:dataGen(enter)
+    local subtype = self._dayindex + Task.DAY_TASK_INDEX
+    self._taskids = Task:SortTaskIds(Task:GetSubTasks(subtype))
+
+    if #self._taskids > self._maxnum then
+        self._maxnum = #self._taskids
+    end
+    self:refreshTaskScrollview(enter)
+end
+
+function NewerTaskLayer:refreshTaskScrollview(enter)
+    for i = 1, self._maxnum do
+        local obj = self._objlist[i]
+        if obj == nil then
+            local child = self._content:AddChild(self._template).transform
+            obj = Task:InitTaskCell(child, 2)
+            obj.transform = child
+            self._objlist[i] = obj
+            obj.btn_goto:AddButtonListener(
+                function()
+                    self:onGoClick(obj.taskcfgid)
+                end)
+            if enter then
+                obj.transform:SetScaleY(0)
+                obj.transform:DOScaleY(1, 0.2):SetDelay(0.1*i)
+            end
+        end
+        obj.transform:SetVisible(self._taskids[i] ~= nil)
+        if self._taskids[i] ~= nil then
+            Task:SetTaskCell(obj, self._taskids[i])
+        end
+    end
+    local scroll = self.layer.transform:GetScrollRectComponent("container/scrollview_tasks")
+    scroll.verticalNormalizedPosition = 1
+end
+
+function NewerTaskLayer:refreshScoreRewards()
+    local ids = Task:GetNewerScoreTask()
+    local container = self.layer:Get("container")
+    if self.scoreItems == nil then
+        self.scoreItems = {}
+        self.txtScore = self.layer:GetTextComponent("container/cur_int_bg/text_score")
+        self.scoreItemPrefab = container:Get("item_score_1").gameObject
+        self._awardBg = container:Get("trans_award_bg")
+    end
+    for i = 1, #ids do
+        if self.scoreItems[i] == nil then
+            local transform = self._awardBg:AddChild(self.scoreItemPrefab)
+            self.scoreItems[i] = {
+                transform   = transform,
+                effect      = transform:Get("ui_effect"),
+                txtScore    = transform:GetTextComponent("text_score"),
+                item        = Bag:CtorComSimpleGoodsUi(transform:Get("container/prefab_item"),function()
+                    self:onScoreRewardClick(i, ids[i])
+                end)
+            }
+            transform:SetVisible(true)
+            self.scoreItems[i].imgDark = self.scoreItems[i].item.transform:Get("image_dark")
+        end
+        local data = Task:GetTask(ids[i])
+        local str_score = data.cmpValue
+        Bag:SetComSimpleGoodsUi(self.scoreItems[i].item, data.rewards[1][1], data.rewards[1][2], data.rewards[1][3])
+        self.scoreItems[i].txtScore.text = str_score
+        if(i == #ids)then
+            if(self._maxScore == nil)then
+                self._maxScore = data.max_count;
+                self._txtMaxScore.text = "/"..self.scoreItems[#self.scoreItems].txtScore.text;
+            end
+        end
+        self.scoreItems[i].imgDark:SetVisible(data.state == Task.STATE_HAS_RECV);
+        self.scoreItems[i].effect:SetVisible(data.state == Task.STATE_HAS_DONE);
+    end
+    self:refershScore()
+end
+
+function NewerTaskLayer:refershScore()
+    local score = Task:GetNewerTaskScore()
+    self.txtScore.text = score;
+end
+
+function NewerTaskLayer:onScoreRewardClick(i, taskid)
+    local data = Task:GetTask(taskid)
+    if data.state == Task.STATE_NOT_DONE or data.state == Task.STATE_HAS_RECV then
+        local item = self.scoreItems[i].transform
+        SingletonMgr:ShowItemTipsLayer(item:Get("container"), data.rewards[1][1], data.rewards[1][2])
+    elseif data.state == Task.STATE_HAS_DONE then
+        -- recv reward
+        Task:GetRewardReq({taskid})
+    end
+end
+
+function NewerTaskLayer:onRecvClick(i)
+    play_button_recv()
+    Task:GetRewardReq({self._taskids[i]})
+end
+
+function NewerTaskLayer:onRecvRep()
+    self._taskids = Task:SortTaskIds(self._taskids)
+    self:refreshTaskScrollview(false)
+    self:refreshScoreRewards()
+    self:refreshRedTips()
+    self:onLayerFadeInEndCall()
+end
+
+function NewerTaskLayer:refreshRedTips()
+    local recvs = Task:GetNewerRecv()
+    for i, v in ipairs(self.dayItems) do
+        v.imgRed:SetVisible(recvs[i])
+    end
+end
+
+function NewerTaskLayer:onGoClick(taskid)
+    local task = Task:GetTask(taskid)
+    if task ~= nil then
+        JumpMgr:JumpCheck(task.dataJump)
+    end
+end
+
+function NewerTaskLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+--判断前置关卡是否通关
+function NewerTaskLayer:preLevelIsOpen(level)
+    if not Chapter:chapterOrLevelIsOpen(nil, level) then
+        return false
+    end
+    if  level.prev_levelid ~= 0 then
+        local prelevel = Chapter:GetLevel( level.prev_levelid)
+        return prelevel.open
+    else
+        local chapter = Chapter:GetChapter(level.chapterid)
+        return chapter.open
+    end
+end
+
+function NewerTaskLayer:refreshProgress()
+    for i = 1, Task.NEWER_DAYS do
+        local subtype = i + Task.DAY_TASK_INDEX
+        local taskids = Task:SortTaskIds(Task:GetSubTasks(subtype))
+        local finishNum = 0
+        for k, id in pairs(taskids) do
+            local data = Task:GetTask(id)
+            if data.state == Task.STATE_HAS_RECV then
+                finishNum = finishNum + 1
+            end
+        end
+        local p = string.format("%d%%", math.floor(finishNum * 100 / #taskids))
+        self.dayItems[i].txtUnSelectTitle.text  = p
+        self.dayItems[i].txtSelectTitle.text  = p
+    end
+end
+
+function NewerTaskLayer:onExit()
+    self._taskids       = nil
+    self._isUpdate      = nil
+    self._has_days      = nil
+    self._dayindex      = nil
+    self._tasknum       = nil
+    self._maxnum        = nil
+    self.dayItems       = nil
+    self._dayindex      = nil
+    self._objlist   = nil
+    self._content   = nil
+    self._template  = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function NewerTaskLayer:onUpdateDay()
+    self._has_days = Task:NewerTaskDays()
+    self:refreshRemainTime()
+    self:initDaysScrollview()
+    self:refreshScoreRewards()
+    self:dataGen(false)
+end
+
+return NewerTaskLayer
+

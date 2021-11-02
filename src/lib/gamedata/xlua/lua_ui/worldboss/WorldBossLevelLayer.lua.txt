@@ -1,0 +1,259 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-20 10:10:35
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WorldBossLevelLayer = class("WorldBossLevelLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnEnter = "trans_container/btn_enter",
+	BtnAttr = "trans_container/trans_hero_select/image_attr",
+	BtnCharacter = "trans_container/cur_character",
+	--@ButtonEnd
+}
+--构造函数
+function WorldBossLevelLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiWorldBoss/UI_WorldBossLevelLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.Null,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true
+    self._fading = false;
+    self._curHeroIds = {0, 0, 0}
+
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function WorldBossLevelLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_top_title"))
+end
+
+--按钮事件
+function WorldBossLevelLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnEnter)then
+	   self:OnBtnEnterClick();
+    elseif(itype == BTNS.BtnAttr)then
+	   self:OnBtnAttrClick();
+    elseif(itype == BTNS.BtnCharacter)then
+	   self:OnBtnCharacterClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+
+
+end
+
+--退出按钮事件
+function WorldBossLevelLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function WorldBossLevelLayer:Init()
+    self._curChapter = Chapter:GetChapter(WorldBoss:GetOpenChapterId());
+    self._curLevel = Chapter:GetLevel(self._curChapter.levelids[1]);
+    self._characterIcon,self._characterDes = WorldBoss:GetWorldBossFeaturesCfg(self._curChapter.levelids[1]);
+    self._heros = Chapter:GenFightTeam(self._curChapter.levelids[1]);
+    self:SetHeroData()
+    self:onInitWorldBossTeamCtrl()
+    self:InitUI();
+end
+
+function WorldBossLevelLayer:onInitWorldBossTeamCtrl()
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(
+    self.layer:Get("trans_container/trans_hero_select"))
+
+    local btnClick = function(index)
+        self:onHeroClick(index)
+    end;
+
+    local onEndDrag = function (heroIsNull, heroIds)
+        for i, v in pairs(heroIds) do
+            if not self._teams[i].plot then
+                if(v == 0)then
+                    self._heros[i].hero = nil;
+                else
+                    self._heros[i].hero = Hero:GetHero(v);
+                end
+            end
+        end
+        self:SetHeroData()
+    end;
+    self._heroSelectCtrl:Init(self._curHeroIds, btnClick, nil, onEndDrag);
+    self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds)
+end
+
+--初始化UI
+function WorldBossLevelLayer:InitUI()
+
+    self._imgAttr = self.layer:GetImageComponent("trans_container/boss_info/img_attr_bg/img_attr");
+    self._imgCharacterIcon = self.layer:GetImageComponent("trans_container/cur_character/img_character_icon");
+    --@ImageEnd
+
+    self._txtTitle = self.layer:GetTextComponent("trans_container/trans_top_title/txt_title");
+    self._txtTitleE = self.layer:GetTextComponent("trans_container/trans_top_title/txt_title_E");
+    self._txtIntroContent = self.layer:GetTextComponent("trans_container/boss_info/txt_intro_content");
+    self._txtName = self.layer:GetTextComponent("trans_container/boss_info/txt_name");
+    self._txtNameE = self.layer:GetTextComponent("trans_container/boss_info/txt_name_E");
+    --@TextEnd
+
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    WorldBoss:SetIcon(self._imgCharacterIcon,self._characterIcon);
+    self:SetUI();
+end
+
+--显示UI
+function WorldBossLevelLayer:show()
+    self:showLayer();
+end
+
+function WorldBossLevelLayer:showLayer()
+    WorldBoss:BossLevelInAnim();
+    self:playAni("WorldBossLevelLayerAnim");
+    CBaseLayer.showLayer(self)
+end
+
+--释放
+function WorldBossLevelLayer:onExit()
+
+    WorldBoss:BossLevelOutAnim();
+    self._txtTitle = nil;
+    self._txtTitleE = nil;
+    self._txtIntroContent = nil;
+    self._imgAttr = nil;
+    self._txtName = nil;
+    self._txtNameE = nil;
+    self._imgCharacterIcon = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WorldBossLevelLayer:OnBtnEnterClick()
+    self:onFightClick();
+ end
+function WorldBossLevelLayer:OnBtnAttrClick()
+    Groble_UIMgr:ShowAttrRuleTipsLayer(self._curLevel.id);
+ end
+function WorldBossLevelLayer:OnBtnCharacterClick()
+    core.require("xlua/lua_UI/Build/BuildDotTipsLayer.txt"):new():show(self._imgCharacterIcon.transform,LanguageMgr:GetTextByID(704013),Language:GetTxtBuyId(self._characterDes))
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function WorldBossLevelLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+            function(levelid)
+                self:onLevelBeginRep(levelid)
+            end)
+
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WorldBossLevelLayer:SetUI()
+    local bosscfg = FightModule:GetElementCfg(tonumber(self._curLevel.enemyids));
+    if bosscfg == nil or next(bosscfg) == nil then
+        return
+    end
+    self._txtTitle.text = self._curLevel.name
+    self._txtTitleE.text = self._curLevel.name_en
+    self._txtName.text = bosscfg.Name
+    self._txtNameE.text = bosscfg.EnglishName
+    Hero:LoadAttrIconSp(self._imgAttr.transform, bosscfg.attri_type)
+end
+
+function WorldBossLevelLayer:SetHeroData()
+    for i, v in ipairs(self._heros) do
+        self._curHeroIds[i] = 0
+        if(v.hero == nil)then
+            self._curHeroIds[i] = 0
+        else
+            self._curHeroIds[i] = v.hero.id
+        end
+    end
+end
+
+function WorldBossLevelLayer:onHeroClick(i)
+    if self._heros[i].plot or self._heros[i].locked then
+        return
+    end
+    local temp = lua_deep_copy(self._heros);
+    if(temp[i].hero ~= nil)then
+        temp[i].hero = nil;
+    end
+    Chapter:OpenWitchesLayer(temp, function(ids)
+         for _, info in pairs(self._heros) do
+             info.hero = nil
+         end
+         for id, v in pairs(ids) do
+             self._heros[v].hero = Hero:GetHero(id)
+         end
+        self:SetHeroData()
+        self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds)
+    end, self._curChapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD)
+end
+
+function WorldBossLevelLayer:onFightClick()
+    if(not CTime:IsOpen(self._curChapter.timeid))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(704021));
+        Groble_UIMgr:ClickOnReturnBtn();
+        return;
+    end
+    self._heroids = Chapter:OnCheckFightTeam(self._heros)
+    if Chapter:LevelIsWorldBoss(self._curLevel.id) then
+        local remain = self._curLevel.fight_count - self._curLevel.pass_count
+        if remain == 0 then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(31221))
+            return
+        end
+    end
+    if self._heroids ~= nil then
+        Chapter:ChapterLevelBeginReq(self._curLevel.id, self._heroids)
+    end
+end
+
+function WorldBossLevelLayer:onLevelBeginRep(levelid)
+    Chapter:GoFight(self._heroids, levelid)
+end
+
+function WorldBossLevelLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+return WorldBossLevelLayer;

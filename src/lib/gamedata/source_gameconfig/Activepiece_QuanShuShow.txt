@@ -1,0 +1,5 @@
+ID,圈数,icon显示,道具进度显示
+id,Turns,IconShow,ItemShow
+number,number,array_&,array_&
+1,50,1&1024,10&20&30&40&50
+2,80,4&10240002,-1

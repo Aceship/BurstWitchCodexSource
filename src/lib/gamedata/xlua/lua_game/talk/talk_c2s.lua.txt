@@ -1,0 +1,348 @@
+--
+-- author: haosun
+-- date  : 2019-07-02 14:36:45
+-- brief :
+--
+Talk = Talk or {}
+
+--玩家好友聊天信息同步
+function Talk:Data_sync(ban_talk)
+    if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步聊天数据----------")
+    self._sendworldtalktime = 0
+    self._newmsgflag        = {}
+    self._worldtalks        = {}
+    self._systemtalks       = {}
+    self._talkStart =       tonumber(ban_talk);
+end
+
+function Talk:SendTalkReq(str, sendtype, playerid)
+    if str == "" or str == nil  then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600083)
+        return
+    end
+    if Talk.TYPE_PRIVATE == sendtype then
+        if Friend:IsBlackList(playerid) then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1600062))
+            return
+        end
+        self.privateId = playerid;
+    end
+    self.sendStr = SensitiveWordUtil:StringFilter(str)
+    local sendLine = 0;
+    if(sendtype == Talk.TYPE_PRIVATE)then
+        sendLine = self.privateId;
+    elseif(sendtype == Talk.TYPE_WORLD)then
+        sendLine = Talk:GetCurTalkLine();
+    end
+    local isSend = true;
+    if(sendtype == Talk.TYPE_PRIVATE)then
+        if(Robot:IsRobot(sendLine))then
+            isSend = false;
+        end
+    end
+    if(isSend)then
+        Network:SendChatMsg(sendtype, sendLine, Player:GetId(), Player:GetHeadBorder(), Player:GetHeadIcon(), Player:GetName(), self.sendStr, CTime:GetServerTime());
+    end
+    local tempData = {
+        line = sendLine,
+        words_data = {
+            pt_words = self.sendStr,
+            pt_time = CTime:GetServerTime(),
+        },
+        player_data = {
+            id = Player:GetId(),
+            frameid = Player:GetHeadBorder() or 0,
+            name = Player:GetName(),
+            iconid = Player:GetHeadIcon(),
+        },
+    }
+    self:TalkNotify(sendtype,tempData);
+end
+
+
+--
+-- paramtype: 0普通类型 1公演邀请
+-- param {k=v}
+--
+function Talk:SendParamReq(talktype, paramtype, param)
+    local dis = 0
+    if self._interval[talktype] ~= nil then
+        if talktype == Talk.TYPE_PRIVATE then
+            self._inviteId = param.friendid
+            dis = MusicShow.INVITE_INTERVAL + self._interval[talktype][self._inviteId] - CTime:GetServerTime()
+        elseif talktype == Talk.TYPE_WORLD then
+            dis = MusicShow.INVITE_INTERVAL + self._interval[talktype] - CTime:GetServerTime()
+            self._inviteId = nil
+        end
+    end
+    if dis <= 0 then
+        Network:CallServerScript({c2s.PTALK_DATA_REQ, talktype, paramtype, param})
+    else
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(1600084), dis))
+    end
+end
+
+function Talk:TalkParamRep(talktype, hallid)
+    hallid = tonumber(hallid)
+    if(hallid == Talk.PARAM_TYPE_MUSIC)then
+        if self._inviteId == nil then
+            self._interval[talktype] = CTime:GetServerTime()
+        else
+            self._interval[talktype][self._inviteId] = CTime:GetServerTime()
+        end
+    elseif(hallid == Talk.PARAM_TYPE_NOR)then
+        if talktype == Talk.TYPE_PRIVATE then
+            --self:AddTalkMsg(self.privateId, self._selfid, self.sendStr, CTime:GetServerTime())
+            self:_OnProgressMsg(self.sendStr, self.privateId, self._selfid)
+        elseif talktype == Talk.TYPE_WORLD then
+            self._sendworldtalktime = CTime:GetServerTime()
+        end
+    end
+end
+
+--请求获取下一次 剩余时间
+function Talk:GetTalkTime(talktype)
+    if self._interval[talktype] == nil then
+       return 0
+    end
+    return MusicShow.INVITE_INTERVAL + self._interval[talktype] - CTime:GetServerTime()
+end
+
+--
+-- brief: halldata = {公演id,乐谱id,完成度,乐谱等级,应援数量,发布时间,是否热门}
+--
+function Talk:TalkNotifyByParam(talktype, datatype, pdata, halldata)
+    if datatype == Talk.PARAM_TYPE_MUSIC then
+        local cfg = MusicShow:GetMusicBookCfg(pdata.pshow_data[2])
+        local talk_data = {
+            talktype    = Talk.TYPE_MUSIC,
+            utctime     = 0,
+            sender      = pdata.player_data,
+            msgstr      = LanguageMgr:GetTextByID(1600085),
+            param       = {
+                pubid   = pdata.pshow_data[1],
+                bookid  = pdata.pshow_data[2],
+                bname   = cfg.Name,
+                per     = math.floor(pdata.pshow_data[3]/10) .. "%",
+                level   = Music.MusicScoreLV[pdata.pshow_data[4]],
+                helpers = pdata.pshow_data[5] .. "/" .. MusicShow.MAX_HELPER,
+                utime   = pdata.pshow_data[6],
+                ishot   = pdata.pshow_data[7],
+            }
+        }
+        if talktype == Talk.SHOW_TYPE_WORLD then
+            self:_OnProgressWorldMsg(talk_data)
+        elseif talktype == Talk.SHOW_TYPE_PRIVATE then
+            self:AddPrivateTalker(pdata.player_data.id, pdata.player_data.name, pdata.player_data.iconid, pdata.player_data.frameid)
+            if self._musicmsg[pdata.player_data.id] == nil then
+                self._musicmsg[pdata.player_data.id] = {}
+            end
+            -- table.insert(self._musicmsg[pdata2.id], talk_data)
+            self._musicmsg[pdata.player_data.id] = talk_data
+            self._newmsgflag[pdata.player_data.id] = true
+            self._last_talkmsg[pdata.player_data.id] = {msg = talk_data.msgstr, senderid = pdata.player_data.id}
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+        end
+    elseif(datatype == Talk.PARAM_TYPE_NOR)then
+        if(talktype == Talk.TYPE_SYSTEM_NOTICE)then  --系统通知
+            Talk:AddSystemNotice(pdata);
+        else
+            self:TalkNotify(talktype, pdata)
+        end
+    end
+end
+
+function Talk:TalkNotify(talktype, data,requestid,audioduration)
+    if talktype == Talk.TYPE_PRIVATE then
+        if Friend:IsBlackList(data.line) then
+            return
+        end
+        if(data.player_data.id ~= Player:GetId())then
+            self._newmsgflag[data.line] = true
+            self:AddPrivateTalker(data.line, data.player_data.name, data.player_data.iconid, data.player_data.frameid)
+            Player:RefreshHomeLayerData(HomeLayerMsgType.ChatPrivate)
+        end
+        self:AddTalkMsgByYoume(data.line, data.player_data.id, data["words_data"].pt_words, data["words_data"].pt_time,requestid,audioduration)
+        --储存
+        self:AddTalkMsg(data.line, data.player_data.id, data["words_data"].pt_words, data["words_data"].pt_time ,requestid)
+        self:_OnProgressMsg(data["words_data"].pt_words, data.line, data.player_data.id,requestid,audioduration)
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    elseif(talktype == Talk.TYPE_CUT_WORLD_LINE)then-- 切换世界聊天线路(策划需求, 需要添加到聊天队列中)
+        local talk_data = {
+            talktype    = talktype,
+            utctime     = 0,
+            sender      = data,
+        }
+        self:_OnProgressWorldMsg(talk_data);
+    else
+        local talk_data = {
+            talktype    = talktype,
+            msgstr      = data,
+            utctime     = 0,
+            sender      = {},
+        }
+        if talktype == Talk.TYPE_WORLD then
+            if Friend:IsBlackList(data["player_data"]["id"]) then
+                return
+            end
+            talk_data.sender = {
+                id      = data["player_data"].id,
+                name    = data["player_data"].name,
+                iconid  = data["player_data"].iconid,
+                frameid = data["player_data"].frameid,
+            }
+            talk_data.msgstr = data["words_data"].pt_words
+            talk_data.utctime = 0
+            talk_data.requestid = requestid
+            talk_data.audioduration = audioduration
+
+            self:_OnProgressWorldMsg(talk_data)
+        elseif talktype == Talk.TYPE_SYSTEM_CFG then
+            talk_data.sender = {
+                name    = LanguageMgr:GetTextByID(1600086),
+            }
+            if data.text_id == nil then
+                talk_data.msgstr = data.words
+            else
+                local msglist = lua_str_split(data.words,"&")
+                if #msglist > 1 then
+                    local rolename = Language:GetTxtBuyId(msglist[2])
+                    talk_data.msgstr = string.format(LanguageMgr:GetTextByID(tonumber(data.text_id)),msglist[1], rolename)
+                end
+            end
+            self:_OnProgressSystemMsg(talk_data, data.text_id)
+        end
+    end
+end
+
+function Talk:_OnProgressWorldMsg(msg)
+    if #self._worldtalks > Talk.MAX_LIST then
+        table.remove(self._worldtalks, 1)
+    end
+    table.insert(self._worldtalks, msg)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_WORLD_TALKS, msg)
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.REFRESH_HOME_MSG, msg)
+end
+
+function Talk:_OnProgressSystemMsg(msg, text_id)
+    if #self._systemtalks > Talk.MAX_LIST then
+        table.remove(self._systemtalks, 1)
+    end
+    table.insert(self._systemtalks, msg)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_SYSTEM_TALKS, msg)
+    if text_id and text_id == "100002" then
+        -- 获得SSR魔女 100002
+        -- 获得SSR符石 100003
+        Talk:SetLotteryResMsg(msg);
+        GEvent:fireEvent(EVENT_TYPE.NOTICE_SYSTEM_TASK, msg)
+    end
+
+end
+
+function Talk:AddSystemNotice(pdata)
+    if(pdata ~= nil)then
+        if(self._words == nil)then
+            self._words = {};
+        end
+        if(self._words[1] == nil)then
+            if(pdata.text_id == nil)then
+                table.insert(self._words,pdata.words);
+            else
+                table.insert(self._words,string.format(LanguageMgr:GetTextByID(tostring(pdata.text_id)), table.unpack(lua_str_split(pdata.words,"&"))));
+            end
+            if(uimgr._sceneid ~= uimgr.FIGHT_SCENE_ID)then
+                Talk:UpDataSystemNotice();
+            end
+        else
+            if(pdata.text_id == nil)then
+                table.insert(self._words,pdata.words);
+            else
+                table.insert(self._words,string.format(LanguageMgr:GetTextByID(tostring(pdata.text_id)), table.unpack(lua_str_split(pdata.words,"&"))));
+            end
+        end
+    end
+end
+
+function Talk:UpDataSystemNotice()
+    if( self._words == nil or self._words[1] == nil)then
+        uimgr:CloseSystemNoticeLayer();
+        return;
+    end
+    if(Talk.IsLoadSceneOver == false)then
+        return;
+    end
+    uimgr:OpenSystemNoticeLayer(self._words[1])
+end
+
+function Talk:DelectSystemNotice()
+    table.remove(self._words,1);
+end
+
+function Talk:SetTalkStart(talkStart)
+    CS.Logger.LogInfo("~~~~~~~~~~~~~~~账号已被禁言{0}",talkStart)
+    talkStart = tonumber(talkStart)
+    self._talkStart = talkStart;
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TALK_FORBID);
+end
+
+--新增聊天信息
+function Talk:SetChatMsgNotify(data)
+    for _, v in ipairs(data.msgs) do
+        local msg = ProtoMgr:Decode(Talk.ChatContent,v);
+        if(msg.charid ~= Player:GetId())then
+            local line = data.line;
+            if data.type == Talk.TYPE_PRIVATE then--私聊线路有客户端自己处理
+                line = msg.charid;
+            end
+            local tempData = {
+                line = line,
+                words_data = {
+                    pt_words = msg.content,
+                    pt_time = msg.chattime,
+                },
+                player_data = {
+                    id = msg.charid,
+                    frameid = msg.frameid or 0,
+                    name = msg.name,
+                    iconid = msg.iconid,
+                },
+            }
+            self:TalkNotify(data.type,tempData);
+        end
+    end
+end
+
+function Talk:SetLineData(data)
+    if(data.errcode == Talk.SUCCESS)then
+        local curLine = Talk:GetCurTalkLine();
+        Talk:SetCurTalkLine(data.line);
+        Talk:SetCurLineManNum(data.num);
+        if(curLine >= 0)then
+            --非第一次换线, 添加到聊天中
+            AppMgr:LogInfo("当前人数为 "..data.num.."       最大数量为   "..Talk.OneLineMaxNum);
+            if(data.num <= Talk.LineStateValue.UnblockedValue)then--畅通
+                data.lintState = Talk.LineState.Unblocked;
+            elseif(data.num <= Talk.LineStateValue.CommonValue)then--普通
+                data.lintState = Talk.LineState.Common;
+            elseif(data.num <= Talk.LineStateValue.CrowdValue)then--拥挤
+                data.lintState = Talk.LineState.Crowd;
+            else
+                --饱满
+                data.lintState = Talk.LineState.Full;
+            end
+            self:TalkNotify(Talk.TYPE_CUT_WORLD_LINE,data);
+        end
+    elseif(data.errcode == Talk.LOAD_ERROR)then
+        --达到人数上限
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_WORLD_TALKS);
+    end
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.PTALK_DATA_SYNC]                = {Talk, Talk.Data_sync}
+c2s[c2s.PTALK_DATA_RES]                 = {Talk, Talk.TalkParamRep}
+c2s[c2s.PTALK_DATA_NTF]                 = {Talk, Talk.TalkNotifyByParam}
+c2s[c2s.PTALK_BAN_NTF]                  = {Talk, Talk.SetTalkStart}
+

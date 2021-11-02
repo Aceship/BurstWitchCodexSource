@@ -1,0 +1,110 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-04 15:50:57
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HandBookLayer = class("HandBookLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function HandBookLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_HandBookLayer",
+    }
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function HandBookLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function HandBookLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--退出按钮事件
+function HandBookLayer:onBackClick()
+    if(self.callback)then
+        self:callback();
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function HandBookLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function HandBookLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@GameObjectEnd
+
+	self._mTogR = self.layer:GetMToggleComponent("container/tog_bg/tog_R");
+	self._mTogSR = self.layer:GetMToggleComponent("container/tog_bg/tog_SR");
+	self._mTogSSR = self.layer:GetMToggleComponent("container/tog_bg/tog_SSR");
+	--@MToggleEnd
+
+	self._mTogR.onValueChanged:AddListener(function (isOn)
+	   self:OnTogRClick(isOn);
+   end);
+	self._mTogSR.onValueChanged:AddListener(function (isOn)
+	   self:OnTogSRClick(isOn);
+   end);
+	self._mTogSSR.onValueChanged:AddListener(function (isOn)
+	   self:OnTogSSRClick(isOn);
+   end);
+	--@MToggleCallBackEnd   
+end
+
+--显示UI
+function HandBookLayer:show(callback)
+    self:showLayer();
+    self.callback = callback;
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function HandBookLayer:OnTogRClick(isOn)
+
+ end
+function HandBookLayer:OnTogSRClick(isOn)
+
+ end
+function HandBookLayer:OnTogSSRClick(isOn)
+
+ end
+--@MToggleFunctionEnd
+
+--释放
+function HandBookLayer:Close()
+
+    self._mTogR = nil;
+	self._mTogSR = nil;
+	self._mTogSSR = nil;
+	--@CloseEnd
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return HandBookLayer;

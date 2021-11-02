@@ -1,0 +1,367 @@
+SoundMgr = class("SoundMgr")
+fmod = CS.FmodInterface:GetInstance();
+debug.sethook(profiler_hook,'c',0)
+audioInterface = {}
+audioInterface["StopByPath"] = true
+audioInterface["StopByInstnace"] = true
+audioInterface["StopBgm"] = true
+audioInterface["PlayFightEvent"] = true
+audioInterface["PlayEffectByEvent"] = true
+audioInterface["PlayBgm"] = true
+audioInterface["SetEventParamByPath"] = true
+audioInterface["StopOnceEffect"] = true
+audioInterface["SetBGMVolume"] = true
+audioInterface["SetEffectVolume"] = true
+audioInterface["GetBgmVolume"] = true
+audioInterface["GetSoundVolume"] = true
+audioInterface["IsBgmOpen"] = true
+audioInterface["PlayHeroSound"] = true
+audioInterface["StopHeroSound"] = true
+audioInterface["PlayByDiaID"] = true
+audioInterface["PlayNewHeroSound"] = true
+audioInterface["PlaySnapshot"] = true
+audioInterface["StopSnapshot"] = true
+
+function profiler_hook(event,line)
+
+	local ar = debug.getinfo(2,'Snl')
+	local method = ar.name
+	if audioInterface[method] then
+		ar2 = debug.getinfo(3,'Snl')
+		if ar2.name == nil then
+			ar2.name = "empty";
+		end
+
+		CS.Logger.LogInfo("##[BBstudio AudioDbg]## " .. method .. " called in " .. ar2.source .. ".lua " .. ar2.name .. "() line:" .. ar2.currentline)
+	end
+end
+function SoundMgr:PlaySnapshot(path)
+	if path ~= nil then
+		fmod:PlaySnapshot(path);
+	else
+		AppMgr:LogInfo("Empty EventPath");
+	end
+end
+function SoundMgr:StopSnapshot(path)
+
+	if path ~= nil then
+		fmod:StopSnapshot(path);
+	else
+		CS.Logger.Log("Empty EventPath");
+	end
+end
+function SoundMgr:ctor()
+
+	--debug.sethook(profiler_hook,'c',0)
+	fmod:Load("source_sound/fmodAsset/Master.strings");
+	fmod:Load("source_sound/fmodAsset/Master");
+	fmod:Load("source_sound/fmodAsset/battle");
+	fmod:Load("source_sound/fmodAsset/music");
+	fmod:Load("source_sound/fmodAsset/static");
+	fmod:Load("source_sound/fmodAsset/ui");
+	fmod:Load("source_sound/fmodAsset/vo");
+	fmod:Load("source_sound/fmodAsset/VO_JP");
+	fmod:Load("source_sound/fmodAsset/CGScene");
+	fmod:Load("source_sound/fmodAsset/BackgroundEffect");
+	fmod:Load("source_sound/fmodAsset/Patch0923");
+
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1001");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1002");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1003");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1004");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1005");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1006");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1007");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1008");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1009");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1010");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1011");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1012");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1013");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1014");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1015");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1016");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1017");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1018");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1019");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1020");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1021");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1022");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1023");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1024");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1025");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1028");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1030");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1035");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1036");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1038");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1039");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1042");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1044");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1045");
+	fmod:preloadSampleData("event:/GameEffect/UIEffect/lottery_2-OnMouseDown");
+	self.curSceneBgm  = nil;
+	self.curOnceEffect = {}
+	self.bgmVolume 	  = 1;
+	self.effectVolume = 1;
+	self.bgmOpen	  = true;--音乐开关
+	self.effectOpen   = true;--音量开关
+	local musicOpen = Groble_SceneMgr:PrefsGetString("musicOpen");
+	local soundOpen = Groble_SceneMgr:PrefsGetString("soundOpen");
+	local musicVolume = Groble_SceneMgr:PrefsGetString("musicVolume");
+	local soundVolume = Groble_SceneMgr:PrefsGetString("soundVolume");
+
+	AppMgr:LogInfo("musicOpen:"..tostring(musicOpen).." musicVolume:"..tostring(musicVolume))
+	AppMgr:LogInfo("soundOpen:"..tostring(soundOpen).." soundVolume:"..tostring(soundVolume))
+	
+	self.bgmVCA = fmod:GetVCA("vca:/bgm");
+	self.bgmBus = fmod:GetBus("bus:/bgm");
+	self.sfxVCA = fmod:GetVCA("vca:/sfx");
+	self.sfxBus = fmod:GetBus("bus:/sfx");
+	self.voBus  = fmod:GetBus("bus:/sfx/VO");
+
+	if musicOpen == nil or musicOpen == "" then
+		Groble_SceneMgr:PrefsSetString("musicOpen","true");
+	else
+		if musicOpen == "true" then
+			self.bgmOpen = true;
+			self.bgmBus:setMute(false);
+		else
+			self.bgmOpen = false;
+			self.bgmBus:setMute(true);
+		end
+
+	end
+	if soundOpen == nil or soundOpen == "" then
+		Groble_SceneMgr:PrefsSetString("soundOpen","true");
+	else
+		if soundOpen == "true" then
+			self.effectOpen = true
+			self.sfxBus:setMute(false);
+		else
+			self.effectOpen = false
+			self.sfxBus:setMute(true);
+		end
+	end
+
+	if musicVolume == nil or musicVolume == "" then
+		Groble_SceneMgr:PrefsSetString("musicVolume",1);
+		self.bgmVCA:setVolume(1);
+	else
+		self.bgmVolume = tonumber(musicVolume);
+		self.bgmVCA:setVolume(self.bgmVolume);
+	end
+	if soundVolume == nil or soundVolume == "" then
+		Groble_SceneMgr:PrefsSetString("soundVolume",1);
+		self.sfxVCA:setVolume(1);
+	else
+		self.effectVolume = tonumber(soundVolume );
+		self.sfxVCA:setVolume(self.effectVolume);
+	end
+
+	self._cfgSound = {}
+	for i, cfg in pairs(CfgLoader:LoadCfg("Sound")) do
+		self._cfgSound[tonumber(cfg.id)] = {
+			fmodpath = cfg.fmodpath
+		}
+	end
+end
+
+function SoundMgr:StopByPath(path)
+	fmod:stopByPath(path)
+end
+
+function SoundMgr:test(path)
+	if path ~= nil then
+		AppMgr:LogInfo(tostring(path))
+	else
+		AppMgr:LogInfo("[AudioDbg]")
+	end
+end
+
+function SoundMgr:StopBgm()
+	fmod:StopBgm()
+end
+
+function SoundMgr:PlayFightEvent(EventPath)
+	--profiler_hook()
+	Groble_SceneMgr:playFmodEvent(EventPath);
+end
+
+function SoundMgr:getFmodEinstance(EventPath)
+	return Groble_SceneMgr:getFmodEinstance(EventPath);
+end
+
+function SoundMgr:PlayEffectByEvent(EventPath,isLoop,callback)
+	local inst = nil;
+	--profiler_hook()
+	if EventPath ~= nil then
+		if callback ~= nil then
+            inst = fmod:playEventCallback(EventPath,callback);
+		else
+            inst = fmod:playEvent(EventPath);
+		end
+		if isLoop == true then
+			table.insert(self.curOnceEffect,inst);
+		end
+	else
+		AppMgr:LogInfo("Empty EventPath");
+	end
+	--CS.Logger.LogInfo("try play path : " .. EventPath);
+	return inst;
+end
+
+function SoundMgr:SetEventParamByInst(instance,ParamName,value)
+	if instance ~= nil then
+		fmod:setEventInstanceParam(instance,ParamName,value);
+	else
+		AppMgr:LogInfo("Empty EventPath");
+	end
+end
+
+function SoundMgr:SetEventParamByPath(EventPath,ParamName,value)
+	if EventPath ~= nil then
+		fmod:setEventInstanceParamByPath(EventPath,ParamName,value);
+	else
+		AppMgr:LogInfo("Empty EventPath");
+	end
+end
+
+function SoundMgr:PlayBgm(id)
+	--profiler_hook()
+	local isFmodPath = string.find(tostring(id),"event:/",1);
+	if isFmodPath then
+		fmod:PlayBgm(tostring(id));
+	else
+		local cfg = self._cfgSound[tonumber(id)]
+		if cfg ~= nil and cfg.fmodpath ~= nil then
+			fmod:PlayBgm("event:/" .. cfg.fmodpath)
+		end
+	end
+end
+
+function SoundMgr:PlayEffect(id,callback)
+	local cfg = self._cfgSound[tonumber(id)]
+	local fmodpath ;
+	--CS.Logger.Log(tostring(id));
+	if cfg ~= nil then
+		fmodpath = cfg.fmodpath;
+	else
+		fmodpath = "";
+	end
+
+	if fmodpath == "" or fmodpath == nil then
+		AppMgr:LogInfo("SoundMgr:PlayEffect fmodpath is empty or nil");
+	else
+		return Groble_SoundMgr:PlayEffectByEvent("event:/" .. fmodpath,false,callback)
+	end
+end
+
+function SoundMgr:StopOnceEffect(inst)
+	if inst ~= nil then
+		fmod:stopEventInstance(inst);
+	end
+end
+
+function SoundMgr:SetBGMVolume(volume)
+
+	self.bgmVolume = volume;
+	Groble_SceneMgr:PrefsSetString("musicVolume",tostring(self.bgmVolume))
+	self.bgmVCA:setVolume(self.bgmVolume);
+end
+
+function SoundMgr:SetEffectVolume(volume)
+	self.effectVolume = volume;
+	Groble_SceneMgr:PrefsSetString("soundVolume",tostring(self.effectVolume));
+	self.sfxVCA:setVolume(self.effectVolume);
+end
+
+function SoundMgr:GetBgmVolume()
+	return self.bgmVolume;
+end
+
+function SoundMgr:GetSoundVolume()
+	return self.effectVolume;
+end
+
+function SoundMgr:IsBgmOpen()
+	return self.bgmOpen;
+end
+
+function SoundMgr:IsEffectOpen()
+	return self.effectOpen;
+end
+
+function SoundMgr:SetBgmOpen(isOpen)
+	self.bgmOpen = isOpen;
+	Groble_SceneMgr:PrefsSetString("musicOpen",tostring(self.bgmOpen));
+
+	if self.bgmOpen == true then
+		self.bgmBus:setMute(false)
+	else
+		self.bgmBus:setMute(true)
+	end
+end
+
+function SoundMgr:SetEffectOpen(isOpen)
+	self.effectOpen = isOpen;
+	Groble_SceneMgr:PrefsSetString("soundOpen",tostring(self.effectOpen));
+
+	if self.effectOpen == true then
+		self.sfxBus:setMute(false)
+	else
+		self.sfxBus:setMute(true)
+	end
+end
+
+function SoundMgr:PlayHeroSound(soundid)
+    self.voBus:stopAllEvents('ALLOWFADEOUT');
+    --CS.Logger.Log("try stop vo in PlayHeroSound");
+    if self._heroSound ~= nil then
+        self._heroSound:Stop();
+        self._heroSound = nil;
+    end
+    if soundid ~= nil then
+        self._heroSound = self:PlayEffect(soundid)
+    end
+end
+
+function SoundMgr:StopHeroSound()
+    self.voBus:stopAllEvents('ALLOWFADEOUT');
+end
+
+--根据对话id 播放语音
+function SoundMgr:PlayByDiaID(dID,callback)
+
+    local dialogue = Hero:GetDiaCfgByID(dID)
+    if dialogue == nil then
+        return
+    end
+    local inst
+    if PrefsController:GetVoiceLanguage() == G_VoiceLanguageJp then
+        if dialogue.voice_jp ~= nil and dialogue.voice_jp ~= "-1" then
+            inst = Groble_SoundMgr:PlayEffectByEvent(dialogue.voice_jp,false,callback)
+        end
+    else
+        if dialogue.voice_cn ~= nil and dialogue.voice_cn ~= "-1" then
+            inst = Groble_SoundMgr:PlayEffectByEvent(dialogue.voice_cn,false,callback)
+        end
+    end
+    return inst
+end
+
+function SoundMgr:PlayNewHeroSound(heroid)
+    local voicePath = FightModule:GetWitchFightSound(heroid)
+	if voicePath ~= nil then
+    	Groble_SoundMgr:PlayEffectByEvent(voicePath)
+	end
+end
+
+function SoundMgr:PlayGuideBattleVoice(battlevoice_id)
+    local inst
+    local voicePath = FightModule:GetBattleVoicePath(battlevoice_id)
+    if voicePath ~= nil and voicePath ~= "" then
+        inst = fmod:playEvent(voicePath)
+    end
+    return inst
+end

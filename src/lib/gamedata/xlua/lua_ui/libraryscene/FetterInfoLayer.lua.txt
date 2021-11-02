@@ -1,0 +1,191 @@
+--
+-- author: liangxt
+-- date  : 2019年10月16日11:25:14
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FetterInfoLayer = class("FetterInfoLayer", CBaseLayer)
+local txtActive = "<color=#8CB9D2>%s</color>"
+local txtInActive = "<color=#8d8d8d>%s</color>"
+local txtNum = "[%s/%s]"
+
+local BUTTON_TYPE = {
+    story = "container/btn_story"
+}
+function FetterInfoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_FetterInfoLayer"
+    }
+    self._topData = {
+        showBtnBack = true,
+        showPlayerInfo = false,
+        showTopInfo = false,
+        topInfo = {}
+    }
+    self._addStack = true
+
+    self._fading = false
+    self._haveColor = CS.UnityEngine.Color(1, 1, 1, 1)
+    self._unHaveColor = CS.UnityEngine.Color(54 / 255, 54 / 255, 54 / 255, 1)
+    self:onEnter()
+end
+
+function FetterInfoLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/btn_story"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/img_fetterbg"))
+    self:registerButtonEvent(BUTTON_TYPE)
+    self._heroObj = self.layer:Get("container/hero")
+end
+
+function FetterInfoLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function FetterInfoLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.story then
+        core.require("xlua/lua_UI/LibraryScene/FetterStoryTipsLayer.txt"):new():show(
+            self._fetter.fetter_relationship_des
+        )
+    end
+end
+
+function FetterInfoLayer:show(fetterid)
+    self:showLayer()
+    self._fetter = Fetter:GetFetterCfg(fetterid)
+    self:showWitch(fetterid)
+    self.layer:GetTextComponent("container/img_fetterbg/txt_name").text = self._fetter.fetter_name
+    self.layer:GetTextComponent("container/img_fetterbg/txt_name_en").text = self._fetter.fetter_name_en
+    Fetter:SetFetterIcon(
+        self.layer:GetImageComponent("container/img_fetterbg/img_icon"),
+        self._fetter.fetter_relationship
+    )
+    local atts = Fetter:GetFetterAtts(fetterid)
+    local isactive = true
+    isactive = atts.owned
+    for i = 1, 5 do
+        if i == 1 then
+            self:setStepInfo(i, atts.collects, atts.num, self._fetter.fetter_num, isactive)
+        else
+            isactive = atts.stars[i - 1].active
+            self:setStepInfo(i, atts.stars[i - 1], atts.starNum, atts.stars[i - 1].level, isactive)
+        end
+    end
+    play_effect_show()
+    self._fading = false
+    self:playAni("FetterInfoLayerFadeIn")
+end
+function FetterInfoLayer:showWitch()
+    local hero
+    local obj
+    local cls
+    for index, heroid in ipairs(self._fetter.fetter_card) do
+        hero = Hero:GetHero(heroid)
+        obj = Groble_ResMgr:Instantiate("prefab_uiArchive/prefab_bookhero", self._heroObj)
+        cls = Fetter:CtorWitch(obj)
+        obj.name = "hero_" .. index
+        --设置立绘
+        Archive:SetPhotoImage(cls.img, heroid)
+        Archive:SetPhotoPos(cls.obj.transform, Hero.BOOK_FETTER_IN, heroid, self._fetter.id, cls.img)
+        self:SetColor(cls.img, heroid)
+        Bag:SetStarSprite(cls.starChilds, hero.star)
+    end
+end
+
+local rowMaxNum = 3
+function FetterInfoLayer:setStepInfo(index, data, curnum, totalnum, isactive)
+    local text_attr
+    local texttitle
+    local titlnum
+    local str1, str2 = "", ""
+    if index == 1 then
+        texttitle = LanguageMgr:GetTextByID(31224)
+        titlnum = self._fetter.fetter_num
+    else
+        texttitle = LanguageMgr:GetTextByID(31215)
+        titlnum = data.level
+    end
+    if isactive then
+        text_attr = txtActive
+    else
+        text_attr = txtInActive
+    end
+    local txt_1 = ""
+    local txt_2 = ""
+    local txt_3 = ""
+    local txt_4 = ""
+    local txt_5 = ""
+    local txt_6 = ""
+    if index == 1 then
+        for i, v in ipairs(data) do
+            if (i <= 3) then
+                 -- str1 = str1 .. string.format("%s +%s    ",v.name,v.num);
+                txt_1 =  string.format("%s +%s    ", data[1].name, data[1].num)
+                txt_2 =  string.format("%s +%s    ", data[2].name, data[2].num)
+                txt_3 =  string.format("%s +%s    ", data[3].name, data[3].num)
+            else
+                --str2 = str2 .. string.format("%s +%s    ",v.name,v.num);
+                txt_4 =  string.format("%s +%s    ", data[4].name, data[4].num)
+                txt_5 =  string.format("%s +%s    ", data[5].name, data[5].num)
+               -- txt_6 = txt_6 .. string.format("%s +%s    ", data[6].name, data[6].num)
+            end
+        end
+    else
+        for i, v in ipairs(data.attr) do
+            if (i <= 3) then
+                -- str1 = str1 .. string.format("%s +%s    ",v.name,v.num);
+                txt_1 =  string.format("%s +%s    ", data.attr[1].name, data.attr[1].num)
+                txt_2 =  string.format("%s +%s    ", data.attr[2].name, data.attr[2].num)
+                txt_3 = string.format("%s +%s    ", data.attr[3].name, data.attr[3].num)
+            else
+                --  str2 = str2 .. string.format("%s +%s    ",v.name,v.num);
+                txt_4 =  string.format("%s +%s    ", data.attr[4].name, data.attr[4].num)
+                txt_5 =  string.format("%s +%s    ", data.attr[5].name, data.attr[5].num)
+               -- txt_6 = txt_6 .. string.format("%s +%s    ", data.attr[6].name, data.attr[6].num)
+            end
+        end
+    end
+
+    -- print(" index==========" .. index)
+    Fetter:SetFetterActive(
+        self.layer:GetImageComponent("container/attrs/content/attr" .. index .. "/img_tog"),
+        isactive
+    )
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_title").text =
+        string.format(texttitle, titlnum)
+
+
+
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_1").text =
+        string.format(text_attr, txt_1)
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_2").text =
+        string.format(text_attr, txt_2)
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_3").text =
+        string.format(text_attr, txt_3)
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_4").text =
+        string.format(text_attr, txt_4)
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_5").text =
+        string.format(text_attr, txt_5)
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_attr_6").text =
+        string.format(text_attr, txt_6)
+
+
+
+    self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_count").text =
+        string.format(txtNum, curnum, totalnum)
+    if not isactive then
+        self.layer:GetTextComponent("container/attrs/content/attr" .. index .. "/txt_count").color = COLOR_TYPE.Gray55
+    end
+end
+
+function FetterInfoLayer:SetColor(img, heroid)
+    if Hero:GetHero(heroid).owner then
+        img.color = self._haveColor
+    else
+        img.color = self._unHaveColor
+    end
+end
+
+return FetterInfoLayer

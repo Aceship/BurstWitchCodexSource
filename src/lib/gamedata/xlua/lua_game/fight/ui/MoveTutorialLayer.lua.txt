@@ -1,0 +1,82 @@
+--
+-- author: haosun
+-- date  : 2020-12-22 19:48:43
+-- brief : 
+--
+local MoveTutorialLayer = class("MoveTutorialLayer")
+
+function MoveTutorialLayer:ctor(super)
+    self.layer = CanvasMgr:CreateCanvasChild("tutorial_dir/tutorial_move")
+    self._hand  = self.layer:Get("hand")
+    self._arrow = self.layer:Get("arrow")
+    self._circle1 = self.layer:Get("curQuan")
+    self._circle2 = self.layer:Get("quan1")
+    self._circle3 = self.layer:Get("quan2")
+
+    self._vector3 = CS.UnityEngine.Vector3(0, 0, 0)
+end
+
+function MoveTutorialLayer:MoveTutorialLayerDestructor()
+    self._hand  = nil
+    self._arrow = nil
+    self._circle1 = nil
+    self._circle2 = nil
+    self._circle3 = nil
+
+    self._fromPosX  = nil
+    self._fromPosY  = nil
+    self._toPosX    = nil
+    self._toPosY    = nil
+
+    self.layer:Release()
+    self.layer = nil
+end
+
+function MoveTutorialLayer:MoveTutorialLayerEnter(posinfo)
+    self._fromPosX, self._fromPosY = LuaScriptController:GetHeroPos()
+    self._circle1:SetPosition(self._fromPosX, self._fromPosY, 0, true)
+    self._hand:SetPosition(self._fromPosX, self._fromPosY, 0, true)
+    self._arrow:SetPosition(self._fromPosX, self._fromPosY, 0, true)
+
+    if posinfo[1] == 1 then
+        local point = CameraController:WorldToScreenPoint(posinfo[2], 0, posinfo[3])
+        self._toPosX, self._toPosY = CameraController:Vector2ToRectPos(point.x, point.y)
+        LuaScriptController:CreateGuidePoint(posinfo[2], posinfo[3], 1)
+    else
+    end
+    self._circle2:SetPosition(self._toPosX, self._toPosY, 0, true)
+    self._circle3:SetPosition(self._toPosX, self._toPosY, 0, true)
+
+    self._vector3.x = self._toPosX
+    self._vector3.y = self._toPosY
+
+    local hander = self._hand.transform:DOLocalMove(self._vector3, 1)
+    hander:SetLoops(10000)
+
+    local disx = self._toPosX - self._fromPosX
+    if math.abs(disx) <= 2 then
+        self._vector3.x = self._toPosX
+        self._vector3.y = self._toPosY - 300
+        self._arrow:SetRotation(0, 0, 0, true)
+    else
+        local disy = math.abs(self._toPosY - self._fromPosY)
+        local angle = math.atan(math.abs(disx) / disy) /3.14 * 180
+        if self._toPosX > self._fromPosX then
+            angle = 0 - angle
+        end
+        self._arrow:SetRotation(0, 0, angle, true)
+
+        self._vector3.x = self._toPosX - disx * 300 / disy
+        self._vector3.y = self._toPosY - 300
+    end
+    local hander = self._arrow.transform:DOLocalMove(self._vector3, 1)
+    hander:SetLoops(10000)
+
+    self.layer:SetVisible(true)
+end
+
+function MoveTutorialLayer:MoveTutorialLayerExit()
+    self.layer:SetVisible(false)
+end
+
+return MoveTutorialLayer

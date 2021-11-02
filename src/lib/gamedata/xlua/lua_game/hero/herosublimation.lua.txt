@@ -1,0 +1,45 @@
+--
+-- author: haosun
+-- date  : 2021-07-04 16:27:10
+-- brief : 升华模块
+--
+Hero = Hero or {}
+
+function Hero:InitSublimation()
+end
+
+-- 
+-- brief:是否解锁升华
+-- 
+function Hero:IsUnlockSublimation(heroId)
+    local hero = self:GetHero(heroId)
+    if hero.intimacy_data.raise == -1 then return true end
+
+    local cfg = self:GetCurSublimationCfgByHeroId(heroId)
+    return hero.intimacy_data.level >= cfg.unLockLv
+end
+
+function Hero:IsBatterSublimationOper(heroId)
+    local unlock = self:IsUnlockSublimation(heroId)
+    if not unlock then return false end
+    
+    -- 是否已经激活升华
+    local hero = self:GetHero(heroId)
+    if hero.intimacy_data.raise == 0 then
+        local herocfg = self:GetCfg(heroId)
+        if herocfg.Dialogue ~= "-1" then
+            return true
+        end
+    end
+
+    if hero.intimacy_data.raise == hero.intimacy_data.maxraise then return false end
+
+    -- 升华是否可以升级
+    local costs = self:GetCurSublimationCfgByHeroId(heroId).RaiseUpCosts
+    for i, v in ipairs(costs) do
+        if Item:GetCount(v[1]) < v[2] then
+            return false
+        end
+    end
+    return true
+end

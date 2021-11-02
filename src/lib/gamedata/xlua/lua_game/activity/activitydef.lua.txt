@@ -1,0 +1,88 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:44
+-- brief : 
+--
+Activity = Activity or {}
+
+
+
+Activity.DaySignInCycNum = 3;--每日签到配置表周期数
+Activity.DialCycleAwardMaxNum = 5;
+
+Activity.GIFT_CODE_LEN = 11;--兑换码长度
+Activity.GIFT_CODE_HEAD   = 3         --礼包码头长度
+
+
+Activity.Code = {
+	'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'p',
+	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k',
+	'z', 'x', 'c', 'v', 'b', 'n', 'm',
+	'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'P',
+	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K',
+	'Z', 'X', 'C', 'V', 'B', 'N', 'M',
+	'2', '3', '4', '5', '6', '7', '8', '9',
+}
+
+Activity.CodeNum = {}
+Activity.StartTime = 1451577601   --2016/01/01 00:00:01
+Activity.TimeLen = 4      --
+Activity.CodePool = {}
+Activity.TimeCode = ""
+Activity.BitSize = #Activity.Code
+Activity.SPINE_ORDER = 2015
+
+Activity.FirstBox = 50
+
+Activity.JobType = {
+	JobActivity = 1,-- 活动
+	JobOperation = 2,--商城
+	JobNewerTask = 3,--暮光礼赞
+	JobChapter = 4,--关卡
+}
+
+Activity.MainType = {
+	Activity = 10001,		--活动
+	Gather = 10002,			--玩法
+}
+
+--巡查界面类型
+Activity.ChessBoardLayerType = {
+	Main = 1,--主类型(投掷界面)
+	Task = 2,--任务
+	Buy = 3,--购买
+	Welfare = 4,--福利
+}
+
+--巡查格子类型
+Activity.ChessBoardGridType = {
+	Null = 0,--无
+	Double = 1,--双倍奖励
+	Next = 2,--下一圈
+	BigGift = 3,--大礼包
+}
+
+--骰子类型
+Activity.DiceType = {
+	Common = 1,--普通
+	Special = 2,--特殊
+	CommonFree = 3,--普通免费
+}
+
+Activity.PushType = {
+	Picture = 1,		--纯图片
+	PictureItems = 2, 	--图片道具
+}
+
+Activity.NewWelfareMaxDay = 7;--7人签到最大天数
+
+
+Activity.ActivityLevelType_Main = 1;
+Activity.ActivityLevelType_Shop = 2;
+Activity.ActivityLevelType_Task = 3;
+
+Activity.ActivityLevelType_Sign = 4
+Activity.ActivityLevelType_Common = 5;
+Activity.ActivityLevelType_Hard = 6;
+Activity.ActivityLevelType_Special = 7;
+Activity.ActivityLevelType_Video = 8;

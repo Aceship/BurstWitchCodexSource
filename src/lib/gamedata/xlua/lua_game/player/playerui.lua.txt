@@ -1,0 +1,210 @@
+--
+-- author: haosun
+-- date  : 2019-02-18 11:06:42
+-- brief :
+--
+
+Player = Player or {}
+
+function Player:SetPlayerCard(carddata, isRank, backcall)
+    self._cardLayerData     = carddata
+    self._cardLayerIsRank   = isRank
+    -- 数据修复    
+    for k,v in pairs(Friend:GetFriends()) do
+        if v.id == self._cardLayerData.id then
+            self._cardLayerData.name = v.name
+        end
+    end
+
+    if self._cardLayerData.id == self:GetId() then
+        self._cardLayerData.name    = self:GetName()
+        self._cardLayerData.iconid  = self:GetHeadIcon()
+        self._cardLayerData.frameid = self:GetHeadBorder()
+    end
+    self._exitCardLayerCall = backcall
+end
+
+function Player:GetPlayerCardData()
+    return self._cardLayerData, self._cardLayerIsRank
+end
+
+-- 显示玩家名片
+function Player:ShowPlayerCardLayer()
+    core.require("xlua/lua_UI/PlayerInfo/PlayerCardLayer.txt"):new():show()
+end
+
+-- 显示玩家名片
+function Player:ShowPlayerReportLayer()
+    core.require("xlua/lua_UI/PlayerInfo/PlayerReportLayer.txt"):new():show()
+end
+
+function Player:ExitPlayerCardLayer()
+    self._cardLayerData = nil
+    self._cardLayerIsRank = false
+    Player:ClosePlayerCardType();
+    if self._exitCardLayerCall ~= nil then
+        self._exitCardLayerCall()
+        self._exitCardLayerCall = nil
+    end
+end
+
+function Player:ShowLevelUpLayer(backCall)
+    local bexist = self:SetUnlockSys(Player.UnlockType.level ,self:GetLevel())
+    if backCall ~= nil then
+        LayerMgr:AddLvUpLayer(core.require("xlua/lua_UI/PlayerInfo/PlayerUpLayer.txt"):new(), backCall)
+    else
+        LayerMgr:AddLvUpLayer(core.require("xlua/lua_UI/PlayerInfo/PlayerUpLayer.txt"):new(), function() self:ShowUnlockLayer() end)
+    end
+
+    self._flag = false
+    self:SetOldInfo()
+end
+
+function Player:IsExistUnlock()
+    local sysids = self:GetUnlockSys()
+    return lua_table_len(sysids) > 0
+end
+
+--解锁功能弹窗
+function Player:ShowUnlockLayer(callback)
+    local sysids = self:GetUnlockSys()
+    if lua_table_len(sysids) > 0 then
+        core.require("xlua/lua_UI/Comframework/UnlockEffectLayer.txt"):new():show(sysids,
+            function()
+                self:CheckGuideEvent(sysids)
+                if callback then
+                    callback()
+                end
+            end)
+    else
+        Guide:CheckGuideEvent()
+        if callback then
+            callback()
+        end
+    end
+end
+
+function Player:CheckGuideEvent(sysids)
+    for _, sysid in ipairs(sysids) do
+        local sys = self:GetSysFunc(sysid)
+        if sys.guide_gid ~= 0 and (Guide.GUIDE_TYPE_LEVEL == sys.cfg.guide or Guide.GUIDE_TYPE_MAP == sys.cfg.guide) then
+            Guide:OpenGuideEvent(sys.guide_gid, true)
+            ThinkingMgr:SendTrack("function_unlock", {
+                function_id = sys.guide_gid
+            })
+            break
+        end
+    end
+end
+
+function Player:SetPlayerExpPer(uitext, slider, sliderBg, currExp, nextExp)
+    slider.value = self:GetLevelExpPer()
+    if sliderBg ~= nil then
+        sliderBg.value = self:GetLevelExpPer()
+    end
+    if currExp == nil then
+        currExp, nextExp = self:GetLevelExp()
+    end
+    local expstr = string.format(LanguageMgr:GetTextByID(99000078), currExp, nextExp)
+    if(nextExp <= 0 or self:IsMaxLevel())then
+        expstr = LanguageMgr:GetTextByID(99000079)
+    end
+    uitext.text = expstr
+end
+
+function Player:CtorPlayerIconBorder(obj,callBack)
+    local cls       = clsbase:new(obj)
+    cls.imgIcon     = obj:GetImageComponent("img_icon")
+    cls.frameCom    = obj:GetImageComponent("img_frame")
+    cls.borderCom   = obj:GetImageComponent("img_border")
+    local click     = obj:GetButtonComponent("button_click")
+    if click ~= nil then
+        if(callBack ~= nil)then
+            click:AddButtonListener(
+                    function()
+                        callBack(cls);
+                    end);
+        else
+            click:AddButtonListener(
+                    function()
+                        if cls.pid ~= -1 and cls.pid ~= Player:GetId() then
+                            if cls.rank then
+                                Rank:RankCardReq(cls.pid)
+                            else
+                                Player:LookInfoReq(cls.pid)
+                            end
+                        end
+                    end)
+        end
+    end
+    cls.rank        = false
+    cls.pid         = -1
+    return cls
+end
+
+function Player:SetPlayerIconBorderObj(cls, iconid, frameid, pid, rank)
+
+	--错误处理
+    if(iconid == nil or iconid <= 0)then
+            iconid = 11002000;
+    end
+    local itemDB = Item:GetCfg(iconid)
+    local _filepath = nil
+    if tonumber(itemDB.itemType) == Item.TYPE_HEAD_BORDER then
+        _filepath = "source_icon/item/" .. iconid
+    else
+        _filepath = "source_avatar/hero/head_" .. iconid
+    end
+    -- local  _filepath = "source_avatar/hero/head_" .. iconid
+    if(cls.imgIcon ~= nil)then
+        cls.imgIcon:LoadSprite(_filepath)
+    end
+
+    frameid = frameid or 0;
+    cls.frameCom:SetEnabled(frameid > Player.DEFAULT_ICON_INDEX)
+    cls.borderCom:SetVisible(frameid <= Player.DEFAULT_ICON_INDEX)
+    if frameid <= Player.DEFAULT_ICON_INDEX then
+        -- 默认品质边框
+        Bag:SetGoodsBorderByQlty(cls, frameid)
+    else
+        cls.frameCom.sprite = Item:LoadSpriteByCfgid(frameid)
+    end
+    cls.pid     = pid or -1
+    cls.rank    = rank
+end
+
+
+-- 主页快速处理消息按钮数据
+function Player:GetHomeLayerInfoData()
+    local list = {}
+    for k, v in pairs(self._homeMsgData) do
+        if v > 0 then
+            table.insert(list, {itype = k, num = v})
+        end
+    end
+    table.sort(list, function(a, b)
+        return a.itype < b.itype
+    end)
+    return list
+end
+
+function Player:IgnoreHomeLayerInfo(itype)
+    self._homeMsgData[itype] = 0
+    self:ChageHomeLayerInfo()
+end
+
+function Player:GetHomeMsgCount()
+    local count = 0
+    for k, v in pairs(self._homeMsgData) do
+        count = count + v
+    end
+    return count
+end
+
+function Player:IgnoreHomeLayerBtnData(itype)
+    self._homeBtnData[itype] = nil
+end
+
+function Player:GetHomeLayerBtnData()
+    return self._homeBtnData
+end

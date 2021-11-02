@@ -1,0 +1,164 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-06 11:43:29
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightUpLayer = class("FightUpLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function FightUpLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_FightUpLayer",
+        --trans = "Canvas"
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function FightUpLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function FightUpLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function FightUpLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function FightUpLayer:InitUI()
+    self._transContainer = self.layer:Get("trans_container");
+    self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+    self._rectContent = self.layer:GetRectTransformComponent("trans_container/trans_TableViewController/TableView/rect_Content");
+    self._objCommentItem = self.layer:Get("trans_container/trans_TableViewController/prefab_cell").gameObject;
+
+    --@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function FightUpLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function FightUpLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function FightUpLayer:Close()
+    self._rectContent = nil;
+    self._transContainer = nil;
+    self._objCommentItem = nil;
+    self._transTableviewcontroller = nil;
+    --@CloseEnd
+end
+
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function FightUpLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function FightUpLayer:SetLayerContent()
+    self._commentData = {}
+
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self._transTableviewcontroller);
+        self._tvController:Init(#self._commentData, true,
+                function(cell, row)
+                    self:SetCellItem(cell, row + 1)
+                end, 0.2, 0.1)
+    else
+        self._tvController:Reload(#self._commentData,false);
+    end
+end
+
+function FightUpLayer:SetCellItem(cell,row)
+    if(self._cellItems == nil)then
+        self._cellItems = {};
+    end
+    local cls = self._cellItems[cell];
+    if(cls == nil)then
+        cls = self:NewCellItem(cell.transform);
+        self._cellItems[cell] = cls;
+    end
+    self:SetCellItemData(cls,row);
+end
+
+function FightUpLayer:NewCellItem(trans)
+    local cls = clsbase:new(trans);
+    --[[
+    cls.objComment = cls:Find("trans_comment").gameObject;
+    cls.imgHot = cls:GetImageComponent("trans_comment/img_hot");
+    cls.txtName = cls:GetTextComponent("trans_comment/txt_name");
+    cls.btnGetInfo = cls:GetButtonComponent("trans_comment/btn_get_info");;
+    cls.btnGetInfo.onClick:AddListener(function ()
+        print("点击按钮")
+        end
+    end);]]--
+end
+
+function FightUpLayer:SetCellItemData(cls,row)
+    --[[
+    cls.dataId = self._commentData[row].commentid;
+    cls.index = row;
+    cls.data = self._commentData[row]
+    local data = cls.data;
+    set_com_enabled(cls.imgHot,row <= 3);
+    set_com_enabled(cls.imgLike,Comment:GetLikeStateById(cls.dataId));
+    cls.txtName.text = data.comment.name;
+    cls.txtLv.text = "Lv."..data.comment.level;
+    cls.txtDes.text = data.comment.content;
+    cls.txtLikeNum.text = data.like_num;]]--
+end
+
+return FightUpLayer;

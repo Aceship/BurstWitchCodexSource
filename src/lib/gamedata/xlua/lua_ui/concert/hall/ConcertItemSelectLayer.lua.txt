@@ -1,0 +1,275 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-23 10:35:05
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertItemSelectLayer = class("ConcertItemSelectLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    Cancel              = "uibtn_cancel",
+}
+--构造函数
+function ConcertItemSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertItemSelectLayer",
+    }
+    self._topData = {
+        showBtnBack     = false,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertItemSelectLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+function ConcertItemSelectLayer:onButtonClick(itype)
+    if (itype == BTNS.Cancel) then
+        self:onCancel();
+    else
+
+    end
+end
+
+--初始化
+function ConcertItemSelectLayer:Init()
+    self.curSortId = -1
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertItemSelectLayer:InitUI()
+    local NODE_CLASS = {
+    };
+    self._uibtnCancel = self.layer:GetUIButtonComponent("uibtn_cancel");
+    self._rectToggles = self.layer:GetRectTransformComponent("top/subtype/rect_toggles");
+    self._cellTemplate = self.layer:GetRectTransformComponent("cell_template").gameObject;
+    self._tvTableViewController = UIController:CtorTableView(self.layer:Get("tv_TableViewController"));
+    self._cellItem = self.layer:GetRectTransformComponent("tv_TableViewController/cell_item").gameObject;
+
+    self._objEmpty = self.layer:Get("obj_empty")
+end
+
+--显示UI
+function ConcertItemSelectLayer:show(heros,dropItems,callback)
+    self._heros = heros
+    self._dropItems = dropItems
+    self._callBack = callback
+
+    self._showtype = Concert.ALL
+    self._allItems = Concert:GetItemsByType(Concert.ALL,self._dropItems,self._heros)
+
+    self:InitItemTableView();
+
+    self:InitItemTypeToggles();
+    self:showLayer();
+end
+
+--退出按钮事件
+function ConcertItemSelectLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function ConcertItemSelectLayer:onExit()
+    if self._sortItems ~= nil then
+        for i, v in pairs(self._sortItems) do
+            v:clear()
+        end
+        self._sortItems = nil
+    end
+
+    if self._itemCells ~= nil then
+        for i, v in pairs(self._itemCells) do
+            v:clear()
+        end
+        self._itemCells = nil
+    end
+    self._allItems = nil
+-----------生成----------------------
+    self._uibtnCancel = nil;
+    self._rectToggles = nil;
+    self._cellTemplate = nil;
+    self._tvTableViewController:Clear();
+    self._tvTableViewController = nil;
+    self._cellItem = nil;
+    self._objEmpty = nil;
+
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ConcertItemSelectLayer:onCancel()
+    self:onPopLayer()
+end
+
+function ConcertItemSelectLayer:btnUseClick(cls)
+    print("点击使用按钮")
+    local count = Item:GetCount(cls.itemId)
+    if count <= 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809021))
+        return
+    end
+    if self._callBack ~= nil then
+    self._callBack(cls.itemId)
+    end
+    self:onPopLayer()
+    end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+function ConcertItemSelectLayer:OnAddItemTogClick(isOn,cls)
+    if isOn then
+        if(self.curSortId == cls.sortId)then
+            return;
+        end
+        self.curSortId = cls.sortId
+        print("当前道具类型  ： "..cls.sortId)
+        self:SetTableView()
+        --[[
+        cls.txtName.color = COLOR_TYPE.Black;
+        local param = {}
+        param.sortType = Hero.Select_TYPE_HERO.sort;
+        param.subType = self.curSortId
+        if self._callBack ~= nil then
+            self._callBack(param,true) --参数，sortData，true
+        end]]--
+    else
+        --cls.txtName.color = COLOR_TYPE.White_Gray;
+    end
+end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertItemSelectLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertItemSelectLayer:InitItemTableView()
+    local num = lua_table_len(self._allItems)
+    self._tvTableViewController:Init(num, true, function(cell, row)
+        self:SetItemCell(cell, row)
+    end, 0.1, 0.03)
+end
+
+function ConcertItemSelectLayer:InitItemTypeToggles()
+    self._sortItems = {}
+
+    for i,v in ipairs(Concert.SHOW_SUB_TYPE) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._cellTemplate,self._rectToggles));
+
+        cls.selText = cls:GetTextComponent("select/txt_tite");
+        cls.unSelText = cls:GetTextComponent("unselect/txt_tite")
+
+        cls.selText.text = LanguageMgr:GetTextByID(809100 + i)
+        cls.unSelText.text = LanguageMgr:GetTextByID(809100 + i)
+
+        cls.sortId = i
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnAddItemTogClick(isOn,cls);
+        end);
+        cls.obj:SetVisible(true)
+        self._sortItems[i] = cls
+    end
+    self._sortItems[1].tog.isOn = true
+end
+
+function ConcertItemSelectLayer:SetTableView()
+    self._allItems = Concert:GetItemsByType(self.curSortId - 1,self._dropItems,self._heros)
+    local num = lua_table_len(self._allItems)
+    self._objEmpty:SetVisible(num <= 0)
+    self._tvTableViewController:Reload(num,true)
+    self._tvTableViewController:ScrollToTop()
+end
+
+function ConcertItemSelectLayer:SetItemCell(cell,row)
+    if(self._itemCells == nil)then
+        self._itemCells = {};
+    end
+
+    local cls = self._itemCells[cell];
+    local itemAdd = self._allItems[row + 1]
+    local item = Item:GetCfg(itemAdd.id)
+    local itemAddCfg = Concert:GetItemAddByCfgId(itemAdd.id)
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.name = cls:GetTextComponent("level_up/level_up_title");
+        cls.des = cls:GetTextComponent("txt_item_des");
+        cls.addNum = cls:GetTextComponent("prefab_Icon/txt_num");
+        cls.icon = cls:GetImageComponent("prefab_Icon/img_icon");
+        cls.txtTips = cls:GetTextComponent("obj_tips");
+        cls.objMask = cls:Find("obj_mask");
+        cls.objTips = cls:Find("obj_tips");
+        cls.btnUse = cls:Find("uibtn_use"):GetComponent("Button")
+        cls.btnUse.onClick:AddListener(function()
+            self:btnUseClick(cls)
+        end);
+        cls.items = {}
+        local item
+        for i = 1, Concert.MUSIC_TAG_NUM do
+            item =  Concert:CtorHeroMusicTags(cls.transform:Find("obj_music_tags/cell_tag"..i).gameObject)
+            cls.items[i] = item
+        end
+        self._itemCells[cell] = cls;
+    end
+    cls.itemId = itemAdd.id
+    cls.icon.sprite = Item:LoadSprite(item.itemPath)
+    cls.name.text = item.Name
+    cls.des.text = item.itemInfo
+    cls.addNum.text = "x"..Item:GetCount(itemAdd.id)
+
+    local isAdd = Concert:IsAddItemToTarget(itemAdd.id,self._dropItems)
+
+    Concert:SetAddItemIcons(cls.items,itemAdd.id)
+
+    local addNum = Concert:GetAddRateId(self._heros,itemAdd)
+
+    local addType = itemAddCfg.AppearanceGift[1]
+    if addType == Concert.AddType.Rate then  --比率
+        self:SetItemState(cls,isAdd)
+    else --掉落
+        self:SetItemState(cls,addNum > 0)
+    end
+    local addCfg = Concert:GetItemAddByCfgId(itemAdd.id)
+    if addCfg.AppearanceGift[1] == Concert.AddType.Rate then
+        cls.txtTips.text = LanguageMgr:GetTextByID(809039)
+    else
+        local tagCfg = Concert:GetAddTagByCfgId(addCfg.Appearance[1])
+        cls.txtTips.text = string.format(LanguageMgr:GetTextByID(809038),tagCfg.name)
+    end
+    cls.name.color = Concert:GetTextColor(addNum)
+end
+
+function ConcertItemSelectLayer:SetItemState(cls,state)
+    cls.objMask:SetVisible(not state)
+    cls.objTips:SetVisible(not state)
+    --[[
+    if not state then
+        cls.txtTips.text = LanguageMgr:GetTextByID()
+    end]]--
+    cls.btnUse.gameObject:SetVisible(state)
+end
+--
+
+return ConcertItemSelectLayer;

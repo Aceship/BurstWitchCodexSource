@@ -1,0 +1,161 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-23 20:14:17
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherFightWinLayer = class("EtherFightWinLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "trans_container/btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function EtherFightWinLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_EtherFightWinLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherFightWinLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherFightWinLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function EtherFightWinLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function EtherFightWinLayer:Init()
+    self._strategyAffixs = Ether:GetCurAffixDataByType(Ether.Affix_Strategy,true);
+    self._supportAffixs = Ether:GetCurAffixDataByType(Ether.Affix_Support,true);
+    self._tmpdata       = GTemp:GetFightTmpData()
+    self._usingtime = self._tmpdata.usingtime;
+    self:InitUI();
+end
+
+--初始化UI
+function EtherFightWinLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtAllLv = self.layer:GetTextComponent("trans_container/trans_lv_info/txt_all_lv");
+	self._txtTime = self.layer:GetTextComponent("trans_container/txt_time");
+	--@TextEnd
+
+	self._transSpineBg = self.layer:Get("trans_spine_bg");
+	--@TransformEnd
+    self._affixBg = self.layer:Get("trans_container/affix_bg");
+	--@RectTransformEnd
+    self._objStrategyNull = self.layer:Get("trans_container/affix_bg/tactic_item_bg/obj_affix_null");
+    self._objSupportNull = self.layer:Get("trans_container/affix_bg/support_item_bg/obj_affix_null");
+	--@GameObjectEnd
+    self._togAffix = self.layer:GetMToggleComponent("trans_container/tog_affix");
+	--@MToggleEnd
+    self._togAffix.onValueChanged:AddListener(function (isOn)
+        self:OnTogAffixClick(isOn);
+    end);
+	--@MToggleCallBackEnd
+    self._txtAllLv.text = Ether:GetLvNumByType(Ether.Affix_Strategy);
+    self._txtTime.text = lua_str2time(self._usingtime);
+    self._strategyItems = {};
+    for i = 1, 15 do
+        self._strategyItems[i] = self:NewAffixItem(self.layer:Get("trans_container/affix_bg/tactic_item_bg/item_"..i));
+        self:SetAffixItem(self._strategyItems[i],self._strategyAffixs[i]);
+    end
+    self._objStrategyNull:SetVisible(#self._strategyAffixs <= 0);
+    self._supportItems = {};
+    for i = 1, 5 do
+        self._supportItems[i] = self:NewAffixItem(self.layer:Get("trans_container/affix_bg/support_item_bg/item_"..i));
+        self:SetAffixItem(self._supportItems[i],self._supportAffixs[i]);
+    end
+    self._objSupportNull:SetVisible(#self._supportAffixs <= 0);    
+    local heroId = HeroController:GetShowHeroId()
+    Hero:LoadSpineAsync(self.__cname,self._transSpineBg, heroId, Hero.SPINE_UI_TYPE_EVERYDAY, nil)
+end
+
+function EtherFightWinLayer:NewAffixItem(trans)
+    local cls = clsbase:new(trans);
+    cls.item = clsbase:new(cls:Find("item_affix"));
+    cls.item.imgIcon = cls.item:GetImageComponent("img_icon");
+    cls.item.txtIndex = cls.item:GetTextComponent("txt_index");
+    return cls;
+end
+
+function EtherFightWinLayer:SetAffixItem(cls,data)
+    cls.item.obj:SetVisible(data ~= nil);
+    if(data ~= nil)then
+        local cfg = Ether:GetAffixCfgById(data.id);
+        cls.item.txtIndex.text = data.curLv;
+        Ether:SetAffixImage(cls.item.imgIcon,cfg.icon);
+    end
+end
+
+--显示UI
+function EtherFightWinLayer:show()
+    self:playAni("EtherFightWinLayerAnim");
+    self:showLayer();
+    
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_ETHER_CUR_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_ETHER)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_AFFIX_MAX_LV)
+end
+
+--释放
+function EtherFightWinLayer:onExit()
+
+    self._txtAllLv = nil;
+	self._txtTime = nil;
+	self._transSpineBg = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherFightWinLayer:OnBtnReturnClick()
+    self:onPopLayer()
+    uimgr:onMainScene()
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function EtherFightWinLayer:OnTogAffixClick(isOn)
+    if(isOn)then
+        self._affixBg:DOScaleY(1,0.07);
+    else
+        self._affixBg:DOScaleY(0,0.07);
+    end
+end
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherFightWinLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return EtherFightWinLayer;

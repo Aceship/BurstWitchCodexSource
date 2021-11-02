@@ -1,0 +1,14 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 16:04:08
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mail/mail.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mail/mail_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mail/maildef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mail/mailui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mail/mailcfg.txt")
+
+Mail:Ctor()
+Mail:LoadCfg();

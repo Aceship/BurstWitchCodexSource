@@ -1,0 +1,442 @@
+--
+-- author: haosun
+-- date  : 2019-02-26 21:15:39
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LotteryEffectLayer = class("LotteryEffectLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    skip = "button_skip",
+    goOn = "goOn_btn",
+    share = "button_skip/share_obj/button_share"
+}
+
+function LotteryEffectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_LotteryEffectLayer"
+    }
+    self._topData = {
+        showBtnBack = false,
+        showPlayerInfo = false,
+        showTopInfo = false,
+        topInfo = {}
+    }
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF
+    }
+    self.soundplayer = {}
+    self:onEnter()
+end
+
+function LotteryEffectLayer:onEnter()
+    self._oneShow = true
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+     self:RegisterHandler()
+    self._aniPanelFadeInEndCallback = function()
+        self:showGetInfo()
+    end
+end
+
+function LotteryEffectLayer:onExit()
+    self._callback = nil
+    if self._herospine ~= nil then
+        self._herospine:Release()
+        self._herospine = nil
+    end
+    self._imgQltCom = nil
+    self._bgEffectObj = nil
+    self._fontEffectObj = nil
+    self._imgBgObj = nil
+    self._conItem = nil
+    self._conHero = nil
+    self._conSpine = nil
+    self._effectNrObj = nil
+    self._effectSrObj = nil
+    self._effectSsrObj = nil
+    self._imgWhiteEffect = nil
+
+    self._stars = nil
+
+    self._attrib = nil
+    self._heroNameCom = nil
+    self._heroNameEnCom = nil
+    self._herodescCom = nil
+
+    self._jobIcon = nil
+    self._jobName = nil
+    self._jobDesc = nil
+
+    self._jobBg = nil
+    self._jobObj = nil
+    self._atkObj = nil
+    self._atkIcon = nil
+    self._atkDesc = nil
+    self._newIcon = nil
+
+    -- item
+    self._itemIcon = nil
+    self._itemQlty = nil
+    self._itemBorder = nil
+    self._btnSkip = nil
+    self._screen = nil
+    self._shareObj = nil
+    self._shareTips = nil
+
+    self.img_icon = nil
+    self.txt_name = nil
+    self.txt_name_tag = nil
+    self.img_icon1 = nil
+    self.img_icon2 = nil
+    self.img_icon3 = nil
+    self.img_icon4 = nil
+    self.share_stars = nil
+
+    self.img_tip = nil
+
+   -- self.img_ = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function LotteryEffectLayer:initObj()
+    self._imgQltCom = self.layer:GetImageComponent("container_item/image_qlty")
+    self.image_qlty = self.layer:GetImageComponent("container_hero/image_qlty")
+    self._bgEffectObj = self.layer:Get("bg_effect")
+    self._fontEffectObj = self.layer:Get("image_font_effect")
+    self._imgBgObj = self.layer:Get("image_bg")
+    self._conItem = self.layer:Get("container_item")
+    self._conHero = self.layer:Get("container_hero")
+    self._conSpine = self.layer:Get("container_hero/spine_hero")
+    self._effectNrObj = self.layer:Get("bg_effect/effect_nr")
+    self._effectSrObj = self.layer:Get("bg_effect/effect_sr")
+    self._effectSsrObj = self.layer:Get("bg_effect/effect_ssr")
+    self._imgWhiteEffect = self.layer:GetImageComponent("white_effect")
+    self.button_share = self.layer:Get("button_skip/share_obj/button_share")
+    self.shear_Use = self.layer:Get("shear_Use")
+    self.img_line = self.layer:Get("container_hero/img_line")
+
+    self.img_icon = self.layer:GetImageComponent("shear_Use/img_icon")
+    self.txt_name = self.layer:GetTextComponent("shear_Use/txt_name")
+    self.txt_name_tag = self.layer:GetTextComponent("shear_Use/txt_name_tag")
+    self.img_icon1 = self.layer:GetImageComponent("shear_Use/img_icon1")
+    self.img_icon2 = self.layer:GetImageComponent("shear_Use/img_icon2")
+    self.img_icon3 = self.layer:GetImageComponent("shear_Use/img_icon3")
+    self.img_icon4 = self.layer:GetImageComponent("shear_Use/img_icon4")
+    self.share_stars = {self.img_icon2, self.img_icon3, self.img_icon4}
+    --hero
+    self._stars = {}
+    for i = 1, 3 do
+        self._stars[i] = self.layer:Get("container_hero/stars/img_star_" .. i)
+    end
+    self._heroNameCom = self.layer:GetTextComponent("container_hero/text_name")
+    -----------名称
+    self._heroNameEnCom = self.layer:GetTextComponent("container_hero/text_name/name_txt_E") ---tag
+    self._attrib = self.layer:GetImageComponent("container_hero/text_name/img_attrib")
+    ----图标
+    self._herodescCom = self.layer:GetTextComponent("container_hero/text_desc")
+    self._jobIcon = self.layer:GetImageComponent("container_hero/jobinfo/img_icon")
+    self._jobName = self.layer:GetTextComponent("container_hero/jobinfo/txt_name")
+    self._jobDesc = self.layer:GetTextComponent("container_hero/jobinfo/txt_desc")
+    self._jobBg = self.layer:Get("container_hero/jobinfo/img_descbg")
+    self._jobObj = self.layer:Get("container_hero/jobinfo")
+    self._atkObj = self.layer:Get("container_hero/img_atk_type")
+    self._atkIcon = self.layer:GetImageComponent("container_hero/img_atk_type")
+    self._atkDesc = self.layer:GetTextComponent("container_hero/img_atk_type/txt_desc")
+    self._newIcon = self.layer:Get("container_hero/img_new")
+    -- item
+    self._itemIcon = self.layer:Get("container_item/image_icon")
+    self._itemQlty = self.layer:Get("container_item/image_qlty")
+    self._itemBorder = self.layer:Get("container_item/image_border") --仅边框用
+    self._btnSkip = self.layer:Get("button_skip")
+    self._shareObj = self.layer:Get("button_skip/share_obj")
+    self._shareTips = self.layer:Get("button_skip/share_obj/txt_tips")
+    --首次分享或者第一次分享
+    self.img_tip = self.layer:Get("button_skip/share_obj/button_share/img_tip")
+    self.txt_tipinfo = self.layer:GetTextComponent("button_skip/share_obj/button_share/img_tip/txt_tipinfo")
+    self.txt_tipnum = self.layer:GetTextComponent("button_skip/share_obj/button_share/img_tip/txt_tipnum")
+    self.img_ = self.layer:GetImageComponent("button_skip/share_obj/button_share/img_tip/img_")
+   self:FirstShareOrWeekFirstShare()
+    --分享提示內容
+    -- self._screenUI
+    self._screen = UIShareCtrl:new(self.layer)
+    self._screenUI = {
+        --截屏时需要隐藏的ui元素
+        [1] = self._btnSkip,
+        [2] = self._shareObj,
+        [3] = self._stars[1],
+        [4] = self._stars[2],
+        [5] = self._stars[3],
+        [6] = self._shareTips,
+        [7] = self._jobObj,
+        [8] = self._atkObj,
+        [9] = self._btnSkip,
+        [10] = self._heroNameCom,
+        [11] = self._imgQltCom,
+        [12] = self._newIcon,
+        [13] = self.layer:Get("container_hero/item_txt"),
+        [14] = self.button_share,
+        [15] = self.image_qlty,
+        [16] = self.img_line,
+       [17] = self.img_tip
+        --  self._shareTips:SetVisible(false)
+        --not Player:HasShared())
+    }
+    if GameSdkMgr:IsVerifyVer() then
+        self._shareObj:SetVisible(false)
+    end
+    if not GameSdkMgr:IsHasShare() then
+        self._shareObj:SetVisible(false)
+    end
+end
+
+function LotteryEffectLayer:RegisterHandler()
+    self:addEventListener(
+        EVENT_TYPE.SHOW_SHARE_CALLBACK,
+        self.__cname,
+        function()
+            -- print("刷新ui显示十连抽")
+            self.img_tip:SetVisible(false)
+        end)
+end
+function LotteryEffectLayer:show(data, callback)
+    Groble_SoundMgr:PlayBgm(301002)
+
+    self._fading = true
+    self:showui(data)
+    self._callback = callback
+    self._imgQltCom.color = CS.UnityEngine.Color(1, 1, 1, 0)
+    self._bgEffectObj:SetVisible(false)
+    self._fontEffectObj:SetVisible(false)
+    self._btnSkip:SetVisible(Guide:ForceGuideIsEnd())
+    self.soundPlayer = self.layer:Get("sound_player"):GetComponent("FmodEmitterLite")
+    self:showLayer()
+    if (self._oneShow) then
+        self._imgWhiteEffect.color = COLOR_TYPE.White
+        self._oneShow = false
+    else
+        if (self._imgWhiteEffect.color.g == 1) then
+            self._imgWhiteEffect.color = CS.UnityEngine.Color(24 / 255, 24 / 255, 24 / 255, 1)
+        end
+    end
+    self:playAni("LotteryEffectLayerAni")
+    if (data.u_type == Bag.TYPE_HERO) then
+        local cfg = Hero:GetCfg(data.id)
+        if self.soundPlayer ~= nil then
+            self.soundPlayer:Stop()
+            if cfg.SpineFmodPath ~= nil then
+                self.soundPlayer.Event = cfg.SpineFmodPath
+            else
+                self.soundPlayer.Event = ""
+            end
+        end
+    end
+end
+local is_Share = false
+function LotteryEffectLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.skip then
+        Groble_SoundMgr:StopHeroSound()
+        if (self._callback ~= nil) then
+            self._callback(true)
+        end
+    elseif itype == BUTTON_TYPE.goOn then
+        self._imgBgObj:SetVisible(false)
+        self._herodescCom.text = ""
+        if not self._fading then
+            Groble_SoundMgr:StopHeroSound()
+            if (self._callback ~= nil) then
+                self._callback(false)
+            end
+        end
+    elseif itype == BUTTON_TYPE.share and is_Share then --分享按钮
+        self._btnSkip.gameObject:SetActive(false)
+        self._fading = true;
+        self.layer:DelayInvoke(0.5, function()
+            UIShareCtrl:UIShareCtrDtor()
+            self:SetShareInfo()
+            self:showScreenUI(false)
+            self._fading = false;
+            Groble_UIMgr:ShowShareLayer(
+                function()
+                    self:showScreenUI(true)
+                    if Player:HasShared() then
+                        self.img_tip:SetVisible(false)
+                    end
+                    local cfg = Hero:GetCfg(self._cfgid)
+                    for i = 1, 3 do
+                        self._stars[i]:SetVisible(tonumber(cfg.Star) >= i)
+                    end
+                end,
+                true
+                )
+        end)
+       -- Player:ShareGiftReq()
+    end
+end
+--分享截图界面信息赋值
+function LotteryEffectLayer:SetShareInfo()
+    local cfg = Hero:GetCfg(self._cfgid)
+    self.txt_name.text = cfg.Name
+    self.txt_name_tag.text = Hero:GetCfg(self._cfgid).Name_after
+    self.img_icon:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(cfg.attri_type)])
+    Hero:SetHeroQlty(self.img_icon1.transform, self._nqlty)
+    for i = 1, 3 do
+        self.share_stars[i]:SetVisible(tonumber(cfg.Star) >= i)
+    end
+end
+
+function LotteryEffectLayer:showScreenUI(show)
+    for _, obj in pairs(self._screenUI) do
+        obj:SetVisible(show)
+    end
+    self._screen:SetVisible(not show)
+    self.img_tip:SetVisible(not Player:HasShared())
+    --接收分享奖励内容
+    -- if Lottery_number then
+    --     self.button_share.gameObject:SetActive(false);
+    -- end
+
+    self.shear_Use.gameObject:SetActive(not show)
+end
+
+function LotteryEffectLayer:showui(data)
+    -- u_type/id/count/bnew
+    self._conItem:SetVisible(false)
+    self._conHero:SetVisible(false)
+    self._conSpine:SetVisible(false)
+    self._nqlty = 0
+    self._ishero = data.u_type == Bag.TYPE_HERO
+    self._isnew = data.bnew
+    self._cfgid = data.id
+    if data.u_type == Bag.TYPE_HERO then
+        self._scalemax = 0
+        local info = Hero.SPINE_INFO[data.id][Hero.SPINE_UI_TYPE_LOTERY]
+        if info ~= nil and info.localScale ~= nil then
+            self._scalemax = info.localScale.x
+        end
+        local spine = self.layer:Get("container_hero/spine_hero/spine_" .. data.id)
+        if spine == nil then
+            Hero:LoadSpineAsync(
+                self.__cname,
+                self._conSpine,
+                data.id,
+                Hero.SPINE_UI_TYPE_LOTERY,
+                function(spine)
+                    self._herospine = spine
+                end,
+                true
+            )
+        end
+        local cfg = Hero:GetCfg(data.id)
+        self._hero = Hero:GetHero(data.id)
+        self._nqlty = tonumber(cfg.Quality)
+        -- ssr才有分享
+        --self._shareObj:SetVisible(false)
+        --self._nqlty >= Bag.QLTY_SSR)
+
+        -- star
+        for i = 1, 3 do
+            self._stars[i]:SetVisible(tonumber(cfg.Star) >= i)
+            --Hero:GetCfg(self._cfgid )
+        end
+        -- name & desc
+        self._attrib:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(cfg.attri_type)])
+
+        self._heroNameCom.text = cfg.Name
+        self._heroNameEnCom.text = cfg.Name_after
+        local dialogs = lua_str_split(cfg.dialog, "|")
+        self._herodescCom.text = dialogs[1]
+        --定位
+        Hero:SetHeroJob(self._jobIcon, self._jobName, self._hero, self._jobDesc)
+        self._jobBg:SetSizeX((lua_str_utf8len(self._hero.job_des) - 4) * 60 + 260)
+        --枪形
+        Hero:SetHeroAtkType(self._atkIcon, tonumber(cfg.AtkType))
+        local atkcfg = Build:GetAtkTypeCfgById(cfg.AtkType)
+        self._atkDesc.text = atkcfg.name
+        self._jobObj:SetVisible(true)
+        self._atkObj:SetVisible(true)
+        self._newIcon:SetVisible(self._isnew)
+        --[[
+         local ret = Hero:Hero2Chip(data.id)
+         Item:SetItemUi(self.layer.transform:Find("container_hero/prefab_item"), ret.cfgid)
+        self.layer.transform:Find("container_hero/prefab_item/text_num").gameObject:SetActive(true)
+        self.layer.transform:Find("container_hero/prefab_item/text_num"):GetComponent("Text").text = "x" .. ret.count
+        self.layer.transform:Find("container_hero/prefab_item").gameObject:SetActive(false)
+        ]]
+        self.layer:Get("container_hero/item_txt"):SetVisible(false)
+        Hero:SetHeroQlty(self.layer:Get("container_hero/image_qlty"), self._nqlty)
+    else
+        --
+    end
+end
+
+function LotteryEffectLayer:showGetInfo()
+    self._bgEffectObj:SetVisible(true)
+    self._effectNrObj:SetVisible(false)
+    self._effectSrObj:SetVisible(false)
+    self._effectSsrObj:SetVisible(false)
+    if self._nqlty <= 2 then
+        self._effectNrObj:SetVisible(true)
+    elseif self._nqlty == 3 then
+        self._effectSrObj:SetVisible(true)
+    else
+        self._effectSsrObj:SetVisible(true)
+    end
+    if self._ishero then
+        self._heroNameCom:SetVisible(true)
+        self._herodescCom:SetVisible(true)
+        self._conHero:SetVisible(true)
+
+        Groble_SoundMgr:PlayNewHeroSound(self._cfgid)
+        self:playAni("LotteryEffectLayerHeroAni")
+    else
+        self._conItem:SetVisible(true)
+        self:playAni("LotteryEffectLayerItemAni")
+    end
+    ------------------------------------------------
+    if self.soundPlayer ~= nil then
+        self.soundPlayer:Stop()
+        if self.soundPlayer.Event ~= nil then
+            self.soundPlayer:Play()
+            is_Share = true --分享按钮激活
+        end
+    end
+end
+--分享Tip内容赋值
+function LotteryEffectLayer:FirstShareOrWeekFirstShare()
+    if Player:IsFirstShare() then
+        self.img_tip:SetVisible(true)
+        print("十连抽游戏首次分享")
+        self.img_:LoadSprite("source_icon/item/" .. Player.FirstShare[1])
+        self.txt_tipinfo:SetText(LanguageMgr:GetTextByID(888033))
+        self.txt_tipnum.text = Player.FirstShare[2]
+       -- Player._shareNum =1
+    else
+        if Player:HasShared() then
+            self.img_tip:SetVisible(false)
+        else
+            print("十连抽游戏每周分享")
+            self.img_tip:SetVisible(true)
+            self.img_:LoadSprite("source_icon/item/" .. Player.WeekFirstShare[1])
+            self.txt_tipinfo:SetText(LanguageMgr:GetTextByID(888034))
+            self.txt_tipnum.text = Player.WeekFirstShare[2]
+        end
+    end
+end
+-- 魔女碎片显示
+function LotteryEffectLayer:UI_MainBoxFadeOutEnd()
+end
+
+function LotteryEffectLayer:KeyFrameCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function LotteryEffectLayer:PlayerOneAnim()
+    self:playAni("LotteryEffectLayerOneAnim")
+end
+
+return LotteryEffectLayer

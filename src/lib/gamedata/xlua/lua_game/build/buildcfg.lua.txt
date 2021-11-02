@@ -1,0 +1,398 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Build = Build or {}
+
+function Build:LoadCfg()
+    self:__LoadBuildData()
+    self:LoadBuildDotCfg();
+    self:LoadBuildLevelUpCfg();
+    self:LoadBuildAttrCfg();
+    self:LoadAtkTypeCfg();
+end
+
+function Build:LoadBuildAttrCfg()
+    self._buildAttrCfg = {};
+    local cfgs = CfgLoader:LoadCfg("BuildAtt");
+    for _, cfg in pairs(cfgs) do
+        local id = tonumber(cfg.id);
+        local data = {
+            id = id,
+            iconPath = cfg.icon,
+            name = Language:GetTxtBuyId(cfg.name),
+            desc = Language:GetTxtBuyId(cfg.des),
+        }
+        self._buildAttrCfg[id] = data;
+    end
+end
+
+function Build:LoadBuildDotCfg()
+    self._buildDotCfg = {};
+    local cfgs = CfgLoader:LoadCfg("BuildDot");
+    for k, cfg in pairs(cfgs) do
+        local id = tonumber(cfg.id);
+        local levelGroup = {};
+        for i, v in ipairs(lua_str_split(cfg.levelGroup,"|")) do
+            levelGroup[i] = tonumber(v);
+        end
+        local data = {
+            id = id,
+            atkType = tonumber(cfg.buildType),
+            name = Language:GetTxtBuyId(cfg.name),
+            des = Language:GetTxtBuyId(cfg.des),
+            skillId = tonumber(cfg.skill),
+            pos = tonumber(cfg.pos),
+            effectID = tonumber(cfg.effectID),
+            levelGroup = levelGroup,
+            dotAddValues = lua_str_split(cfg.dotAddValue,"|"),
+            videoNames = lua_str_split(cfg.videoNames,"|",true);
+        }
+        self._buildDotCfg[id] = data;
+    end
+end
+
+function Build:LoadBuildLevelUpCfg()
+    self._buildLevelUpCfg = {};
+    self._changeSkillIds = {};
+    self._pointAddData = {};
+    local cfgs = CfgLoader:LoadCfg("BuildLevelUp");
+    for k, cfg in pairs(cfgs) do
+        local id = tonumber(cfg.id);
+        local costs = {};
+        if(cfg.cost1 ~= "-1")then
+            costs[1] = lua_str_split(cfg.cost1,"&");
+            for i, v in ipairs(costs[1]) do
+                costs[1][i] = tonumber(v);
+            end
+        end
+        if(cfg.cost2 ~= "-1")then
+            costs[2] = lua_str_split(cfg.cost2,"&");
+            for i, v in ipairs(costs[2]) do
+                costs[2][i] = tonumber(v);
+            end
+        end
+        if(cfg.cost3 ~= "-1")then
+        costs[3] = lua_str_split(cfg.cost3,"&");
+        for i, v in ipairs(costs[3]) do
+            costs[3][i] = tonumber(v);
+        end
+    end
+
+        local data = {
+            id = id,
+            lv = tonumber(cfg.level),
+            atkType = tonumber(cfg.buildType),
+            costs = costs,
+            changeSkillType = lua_str_split(cfg.SkillLevel,"&",true)[1] or 0,
+            changeSkillId = lua_str_split(cfg.SkillLevel,"&",true)[2] or 0,
+            pointOutFight = lua_parse_cfg(cfg.pointOutFight,true),
+            pointInFight = tonumber(cfg.pointInFight),
+            pointAdd = tonumber(cfg.point),
+            des = Language:GetTxtBuyId(cfg.inFightDes);
+        };
+        --切换技
+        if(self._changeSkillIds[data.atkType] == nil)then
+            self._changeSkillIds[data.atkType] = {};
+        end
+        if(data.changeSkillId > 0)then
+            table.insert(self._changeSkillIds[data.atkType],{lv = data.lv,skillId = data.changeSkillId,skillType = data.changeSkillType});
+        end
+        for _, v in pairs(self._changeSkillIds) do
+            table.sort(v,function (a,b)
+                return a.lv < b.lv;
+            end);
+        end
+
+        if(self._pointAddData[data.atkType] == nil)then
+            self._pointAddData[data.atkType] = {};
+        end
+        table.insert(self._pointAddData[data.atkType],{lv = data.lv,addNum = data.pointAdd});
+        for _, v in pairs(self._pointAddData) do
+            table.sort(v,function (a,b)
+                return a.lv < b.lv;
+            end);
+        end
+        self._buildLevelUpCfg[id] = data;
+    end
+end
+
+function Build:GetBuildLevelUpIdsByAtkType(atkType)
+    local retArr,tempArr = {},{};
+    for i, cfg in pairs(self._buildLevelUpCfg) do
+        if(cfg.atkType == atkType)then
+            table.insert(tempArr,cfg);
+        end
+    end
+    table.sort(tempArr,function (a,b)
+        return a.lv < b.lv
+    end);
+    for _, v in ipairs(tempArr) do
+        table.insert(retArr,v.id);
+    end
+    return retArr;
+end
+
+function Build:GetBuildLevelUpCfgById(cfgId)
+    local cfg = self._buildLevelUpCfg[cfgId];
+    if(cfg == nil)then
+        CS.Logger.LogError("buildLevelUpCfg is null   cfgId = "..cfgId);
+    end
+    return cfg;
+end
+
+function Build:GetBuildLevelUpCfgByLv(atkType,lv)
+    if(lv <= 0)then
+        CS.Logger.LogError("lv  is  0!!!");
+    end
+    local cfgId = Build:GetBuildLevelUpIdsByAtkType(atkType)[lv];
+    if(cfgId == nil)then
+        return -1;
+    end
+    return Build:GetBuildLevelUpCfgById(cfgId);
+end
+
+function Build:GetPreviewBuildLevelIdsByAtkType(atkType)
+    local retArr,tempArr = {},{};
+    for i, cfg in pairs(self._buildLevelUpCfg) do
+        if(cfg.atkType == atkType)then
+            if(cfg.pointAdd > 0 or cfg.pointInFight > 0 or cfg.changeSkillId > 0)then
+                table.insert(tempArr,cfg);
+            end
+        end
+    end
+    table.sort(tempArr,function (a,b)
+        return a.lv < b.lv
+    end);
+    for _, v in ipairs(tempArr) do
+        table.insert(retArr,v.id);
+    end
+    return retArr;
+end
+
+function Build:GetBuildDotIdsByAtkType(atkType)
+    local retArr,tempArr = {},{};
+    for i, cfg in pairs(self._buildDotCfg) do
+        if(cfg.atkType == atkType)then
+            table.insert(tempArr,cfg);
+        end
+    end
+    table.sort(tempArr,function (a,b)
+        return a.pos < b.pos
+    end);
+    for _, v in ipairs(tempArr) do
+       table.insert(retArr,v.id);
+    end
+    return retArr;
+end
+
+function Build:GetAtkTypeHaveEffectIds(atkType)
+    local retArr = {};
+    for i, cfg in pairs(self._buildDotCfg) do
+        if(cfg.atkType == atkType)then
+            retArr[cfg.effectID] = 1;
+        end
+    end
+    return retArr;
+end
+
+function Build:GetBuildDotCfgById(cfgId)
+    local cfg = self._buildDotCfg[cfgId];
+    if(cfg == nil)then
+        CS.Logger.LogError("buildCfg is null   cfgId = "..cfgId);
+    end
+    return cfg;
+end
+
+function Build:GetBuildDotCfgByEffectId(atkType,effectID)
+    local cfg;
+    local dotIds = Build:GetBuildDotIdsByAtkType(atkType);
+    for i, v in pairs(dotIds) do
+        local dotCfg = Build:GetBuildDotCfgById(v);
+        if(dotCfg.effectID == effectID)then
+            cfg = dotCfg;
+            break;
+        end
+    end
+    return cfg;
+end
+
+function Build:GetBuildDotLvNumById(cfgId)
+    local cfg = Build:GetBuildDotCfgById(cfgId);
+    local num = 0;
+    if(cfg ~= nil)then
+        for _, v in ipairs(cfg.levelGroup) do
+            num = num + v;
+        end
+    end
+    return num;
+end
+
+function Build:GetBuildAttrCfgByCfgId(cfgId)
+    local cfg = self._buildAttrCfg[cfgId];
+    if(cfg == nil)then
+        CS.Logger.LogError("buildAttrCfg is null cfgId = "..cfgId);
+    end
+    return cfg;
+end
+
+function Build:GetBuildAttrIds(atkType)
+    local retArr,tempArr = {},{};
+    if(atkType ~= nil and atkType ~= 0)then
+        local effectIds = Build:GetAtkTypeHaveEffectIds();
+        local sortId = 0;
+        for k, v in pairs(self._buildAttrCfg) do
+            sortId = 0;
+            if(effectIds[k] ~= nil)then
+                sortId = 1000 + v.id;
+            else
+                sortId = v.id;
+            end
+            table.insert(tempArr,{id = k,sortId = sortId});
+        end
+    else
+        for k, v in pairs(self._buildAttrCfg) do
+            table.insert(tempArr,{id = k,sortId = v.id});
+        end
+    end
+    table.sort(tempArr,function (a,b)
+        return a.sortId < b.sortId;
+    end);
+    for _, v in ipairs(tempArr) do
+        table.insert(retArr,v.id);
+    end
+    return retArr;
+end
+
+------------------------------------------------------------------------------------------------------
+
+function Build:__LoadBuildData()
+    self._builddata = {}
+    local cfgs = CfgLoader:LoadCfg("BuildData")
+    local id = 0
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        self._builddata[id] = {
+            id          = id,
+            buildtype   = tonumber(v.buildtype),
+            maxLevel    = tonumber(v.buildlevel),
+            param1      = v.param1,
+            param2      = v.param2,
+            param3      = v.param3,
+            param4      = v.param4,
+            param5      = v.param5,
+            param6      = v.param6,
+            param7      = v.param7,
+            dps_add     = v.dps_add,
+        }
+    end
+end
+
+function Build:GetBuildDataCfg(cfgid)
+    if self._builddata[cfgid] == nil then
+        CS.Logger.LogError("can't find BuildData!!! cfgid = " .. cfgid)
+    end
+    return self._builddata[cfgid]
+end
+
+function Build:CalcDotLevel(point, cfg)
+    for i, v in ipairs(cfg.levelGroup) do
+        if point >= v then
+            point = point - v
+        else
+            return i - 1
+        end
+    end
+    return #cfg.levelGroup
+end
+
+function Build:GetBuildLevelByAtktype(atktype)
+    local cfgids = self:GetBuildDotIdsByAtkType(atktype) -- BuildDot表中的唯一ID
+    local cfg, point = nil, 0 
+    local rst = {}
+    for i, cfgid in ipairs(cfgids) do
+        cfg = self:GetBuildDotCfgById(cfgid)
+        if cfg ~= nil then
+            local data = self:GetDotAddLvById(cfgid)
+            point = data.heroAddLv + data.addLv
+            -- calc point level
+            rst[cfg.skillId] = self:CalcDotLevel(point, cfg)
+        end
+    end
+    -- table.print(rst)
+    return rst
+end
+
+function Build:LoadAtkTypeCfg()
+    self._atkTypeCfg = {};
+    local cfgs = CfgLoader:LoadCfg("BuildTypeAtt");
+    for _, cfg in pairs(cfgs) do
+        local id = tonumber(cfg.id);
+        local data = {
+            id = id,
+            iconPath = cfg.icon,
+            name = Language:GetTxtBuyId(cfg.name),
+            desc = Language:GetTxtBuyId(cfg.des),
+            defSkillId = tonumber(cfg.change_skill),
+            previewHeroId = tonumber(cfg.monv_id),
+            initPointNum = tonumber(cfg.initial_points),
+            buildUnlockLv = lua_str_split(cfg.buildLevel_unlock,"|",true),
+        }
+        self._atkTypeCfg[id] = data;
+    end
+end
+function Build:GetAtkTypeCfgById(cfgid)
+    cfgid = tonumber(cfgid)
+
+    if(self._atkTypeCfg[cfgid] == nil)then
+        CS.Logger.LogError(" cant find atktype ,cfgId is {0}!!",cfgid);
+        return
+    end
+    return self._atkTypeCfg[cfgid]
+end
+
+function Build:GetChangerSkillIdByAtkType(atkType,lv)
+    local retId = 0;
+    local lv = lv;
+    if(lv == nil)then
+        lv = Build:GetBuildServerDataByAtkType(atkType).lv;
+    end
+    local skillLv = 0;
+    local skills = self._changeSkillIds[atkType];
+    local retBuildLv,retType = 0,0;
+    for _, v in ipairs(skills) do
+        if(v.lv > lv)then
+            retBuildLv = v.lv;
+            retType = v.skillType;
+            break;
+        end
+        skillLv = skillLv + 1;
+        retId = v.skillId;
+    end
+    if(retId <= 0)then
+        retId = Build:GetAtkTypeCfgById(atkType).defSkillId;
+    end
+    return retId,skillLv,retBuildLv,retType;
+end
+
+function Build:GetAllChangerSkillIdsByAtkType(atkType)
+    return self._changeSkillIds[atkType] or {};
+end
+
+--获取下一次获得构筑点的等级和获得数量
+function Build:GetNextPointAddLvAndNum(atkType,lv)
+    local lv = lv;
+    if(lv == nil)then
+        lv = Build:GetBuildServerDataByAtkType(atkType).lv;
+    end
+    local retLv,retNum = 0,0;
+    local data = self._pointAddData[atkType];
+    for _, v in ipairs(data) do
+        if(v.lv > lv and v.addNum > 0)then
+            retLv = v.lv;
+            retNum = v.addNum;
+            break;
+        end
+    end
+    return retLv,retNum;
+end

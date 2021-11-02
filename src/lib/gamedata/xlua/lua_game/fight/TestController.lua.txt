@@ -1,0 +1,97 @@
+--
+-- author: haosun
+-- date  : 2020-10-29 11:15:03
+-- brief : 
+--
+
+TestController = {}
+
+function TestController:InitTestController()
+    self._debug = GameSdkMgr:IsTestApk() or AppMgr:IsEditor()
+    self._inited = false
+end
+
+function TestController:UnInitTestController()
+    self._inited = false
+
+    self.petText    = nil
+    self.enemyText  = nil
+    self.playerText = nil 
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function TestController:ShowTestInfoLayer(enabled)
+    if not self._debug then return end
+    if not self._inited then
+        self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/TestInfoLayer")
+        self.petText    = self.layer:GetTextComponent("pet")
+        self.enemyText  = self.layer:GetTextComponent("enemy")
+        self.playerText = self.layer:GetTextComponent("player")
+
+        self._inited = true
+    end
+    self.layer:SetVisible(enabled)
+end
+
+function TestController:HandlerTestInfoLayer(heroAttr, enemyAttr)
+    local TestDataIndex = FightArrController.TestBattleDataIndex
+
+    local bwIndex = FightArrController:GetRenderBattleData()[FightArrController.RenderBattleDataIndex.iBwIndex]
+
+    if not self._debug  then return end
+    if not self._inited then return end
+
+    self.enemyText.text = 
+        "\n血量最大值："..enemyAttr[TestDataIndex.fHpMax]..
+        "\n血量："..enemyAttr[TestDataIndex.fHp]..
+        "\n攻击："..enemyAttr[TestDataIndex.fAtk]..
+        "\n防御："..enemyAttr[TestDataIndex.fDef]..
+        "\n暴击："..enemyAttr[TestDataIndex.fHit]..
+        "\n暴伤："..enemyAttr[TestDataIndex.fDmg]..
+        "\n增伤："..enemyAttr[TestDataIndex.fDmgAdd]..
+        "\n易伤："..enemyAttr[TestDataIndex.fDmgSub]..
+        "\n治疗："..enemyAttr[TestDataIndex.fCureRate]..
+        "\n被治疗："..enemyAttr[TestDataIndex.fBeCureRate]..
+        "\n神火消耗："..enemyAttr[TestDataIndex.fGfCostRate]..
+        "\n神火恢复："..enemyAttr[TestDataIndex.fGfRate]..
+        "\n分数加成1："..enemyAttr[TestDataIndex.fScoreRate1]..
+        "\n分数加成2："..enemyAttr[TestDataIndex.fScoreRate2]..
+        "\n攻速："..enemyAttr[TestDataIndex.fSpd]..
+        "\n光攻："..enemyAttr[TestDataIndex.fLAtk]..
+        "\n光防："..enemyAttr[TestDataIndex.fLDef]..
+        "\n暗攻："..enemyAttr[TestDataIndex.fDAtk]..
+        "\n暗防："..enemyAttr[TestDataIndex.fDDef]..
+        "\n混攻："..enemyAttr[TestDataIndex.fCAtk]..
+        "\n混防："..enemyAttr[TestDataIndex.fCDef]
+
+    self.playerText.text = 
+        "\n血量："..heroAttr[TestDataIndex.fHp]..
+        "\n攻击："..heroAttr[TestDataIndex.fAtk]..
+        "\n防御："..heroAttr[TestDataIndex.fDef]..
+        "\n暴击："..heroAttr[TestDataIndex.fHit]..
+        "\n暴伤："..heroAttr[TestDataIndex.fDmg]..
+        "\n精力："..heroAttr[TestDataIndex.fEnergy]..
+        "\n精力当前："..heroAttr[TestDataIndex.fCurEnergy]..
+        "\n暴击率："..heroAttr[TestDataIndex.fHitRate]..
+        "\n暴伤率："..heroAttr[TestDataIndex.fDmgRate]..
+        "\n增伤："..heroAttr[TestDataIndex.fDmgAdd]..
+        "\n易伤："..heroAttr[TestDataIndex.fDmgSub]..
+        "\n治疗："..heroAttr[TestDataIndex.fCureRate]..
+        "\n被治疗："..heroAttr[TestDataIndex.fBeCureRate]..
+        "\n神火消耗："..heroAttr[TestDataIndex.fGfCostRate]..
+        "\n神火恢复："..heroAttr[TestDataIndex.fGfRate]..
+        "\n分数加成1："..heroAttr[TestDataIndex.fScoreRate1]..
+        "\n分数加成2："..heroAttr[TestDataIndex.fScoreRate2]..
+        "\n攻速："..heroAttr[TestDataIndex.fSpd]..
+        "\n光攻："..heroAttr[TestDataIndex.fLAtk]..
+        "\n光防："..heroAttr[TestDataIndex.fLDef]..
+        "\n暗攻："..heroAttr[TestDataIndex.fDAtk]..
+        "\n暗防："..heroAttr[TestDataIndex.fDDef]..
+        "\n混攻："..heroAttr[TestDataIndex.fCAtk]..
+        "\n混防："..heroAttr[TestDataIndex.fCDef]..
+        "\n盾值：".. FightArrController:GetUIAttr(bwIndex)[FightArrController.UIAttrIndex.fShieldValue]
+
+end

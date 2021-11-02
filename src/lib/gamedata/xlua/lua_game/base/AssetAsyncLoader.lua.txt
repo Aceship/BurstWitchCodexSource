@@ -1,0 +1,94 @@
+--
+-- author: haosun
+-- date  : 2020-03-26 15:26:45
+-- brief : 
+--
+
+AssetAsyncLoader = AssetAsyncLoader or {}
+
+local _ins = CS.AssetAsyncLoader.Instance
+
+function AssetAsyncLoader:LoadResourceAsync(filepath, callback)
+    _ins:LoadResourceAsync(filepath, callback)
+end
+
+local _paths    = {}
+local _spinesCite = {};--spine引用计数
+local _spines = {};
+local _maxCount = 5;
+
+function AssetAsyncLoader:LoadSpineAsync(cname,heroid, callback)
+    if _paths[heroid] == nil then
+        _paths[heroid] = "prefab_uiplayermodel/playerspine/character_" .. heroid
+    end
+    self:LoadResourceAsync(_paths[heroid], function (obj)
+        if(callback ~= nil)then
+            callback(obj);
+        end
+        if(_spinesCite[heroid] == nil)then
+            _spinesCite[heroid] = {
+                layerName = {},
+                citeNum = 0,
+            };
+            table.insert(_spines,heroid);
+        end
+        for id, v in pairs(_spinesCite) do
+            if(id == heroid)then
+                if(v.layerName[cname] == nil)then
+                    v.layerName[cname] = 1;
+                    v.citeNum = v.citeNum + 1;
+                else
+                    v.layerName[cname] = v.layerName[cname] + 1;
+                    v.citeNum = v.citeNum + 1;
+                end
+            else
+                if(v.layerName[cname] ~= nil)then--此处移除引用(每个界面只能有一个spine)
+                    v.layerName[cname] = v.layerName[cname] - 1;
+                    if(v.layerName[cname] <= 0)then
+                        v.layerName[cname] = nil;
+                        v.citeNum = v.citeNum - 1;
+                    end
+                end
+            end
+        end
+        if(#_spines > _maxCount)then--此处要删除部分缓存的数据引用,释放空间
+            AssetAsyncLoader:UnLoadSpineAsset();
+        end
+    end);
+end
+
+function AssetAsyncLoader:ReduceSpineAssetCiteNum(cname)
+    for _, v in pairs(_spinesCite) do
+        if(v.layerName[cname] ~= nil)then--此处移除引用(每个界面只能有一个spine)
+            v.layerName[cname] = v.layerName[cname] - 1;
+            if(v.layerName[cname] <= 0)then
+                v.layerName[cname] = nil;
+                v.citeNum = v.citeNum - 1;
+            end
+        end
+    end
+    if(#_spines > _maxCount)then--此处要删除部分缓存的数据引用,释放空间
+        AssetAsyncLoader:UnLoadSpineAsset();
+    end
+end
+
+function AssetAsyncLoader:UnLoadSpineAsset()
+    local removeIndex = 0;
+    for i = 1,#_spines - _maxCount do
+        removeIndex = 0;
+        for _, id in ipairs(_spines) do
+            if(_spinesCite[id] ~= nil)then
+                if(_spinesCite[id].citeNum < 1)then
+                    removeIndex = _;
+                    break;
+                end
+            end
+        end
+        if(removeIndex > 0)then
+            AssetLoader:UnloadAssetForSpine(_paths[_spines[removeIndex]],true);
+            _spinesCite[_spines[removeIndex]] = nil;
+            table.remove(_spines,removeIndex);
+            AppMgr:LogInfo("spine 数量是    "..lua_table_len(_spinesCite));
+        end
+    end
+end

@@ -1,0 +1,132 @@
+--
+-- author: haosun
+-- date  : 2021-02-02 18:56:01
+-- brief : 
+--
+SensitiveWordUtil = SensitiveWordUtil or {}
+
+function SensitiveWordUtil:InitSensitiveWordUtil()
+    self._words = {}
+    local asset = AssetLoader:LoadTextFromTextAsset("source_gameConfig/pb_words")
+    local lines = lua_str_split(asset, "\n")
+    local words, index
+    for i = 4, #lines do
+        words = self:Split2Words(lines[i])
+        index = 1
+        local t = self._words
+        while index <= #words do
+            if not t[words[index]] then
+                t[words[index]] = {}
+            end
+            t = t[words[index]]
+            index = index + 1
+        end
+        t["__len"] = #words
+    end
+    asset = nil
+    lines = nil
+end
+
+function SensitiveWordUtil:Split2Words(str)
+    local words = {}
+    for uchar in string.gmatch(str, "[%z\1-\127\194-\244][\128-\191]*") do
+        words[#words+1] = uchar
+    end
+    return words
+end
+
+local pass_words = { 
+    ["。"] = true, ["，"] = true, ["、"] = true, ["；"] = true, ["："] = true, ["“"] = true, ["”"] = true, ["！"] = true, 
+    ["？"] = true, ["（"] = true, ["）"] = true, 
+    ["~"] = true, ["`"] = true, ["!"] = true, ["@"] = true, ["#"] = true, ["$"] = true, ["%"] = true, ["^"] = true, ["&"] = true, 
+    ["*"] = true, ["("] = true, [")"] = true, ["-"] = true, ["_"] = true, ["="] = true, ["+"] = true, ["\\"] = true, 
+    ["|"] = true, ["{"] = true, ["["] = true, ["}"] = true, ["]"] = true, ["?"] = true,
+    [" "]   = true, ["’"]  = true, ["‘"]  = true, ["."]  = true, [","]  = true, ["/"] = true, [";"] = true, [":"] = true, ["'"] = true
+}
+
+function SensitiveWordUtil:CheckIsLegal(str)
+    if str == nil or str == "" then return false end
+    local words = self:Split2Words(str)
+    -- print("input words = ", lua_table_serialize(words))
+    local index, pos, count = 1, 1, count
+    while index <= #words do
+        pos = index
+        count = 0
+        local t = self._words[words[index]]
+        while t ~= nil do
+            if next(t) then
+                pos = pos + 1
+                count = count + 1
+                if t["__len"] == count and count > 1 then return false end
+
+                while pass_words[words[pos]] do pos = pos + 1 end
+
+                t = t[words[pos]]
+            else
+                return false
+            end
+        end
+        if pos ~= index then
+            index = pos
+        else
+            index = index +1
+        end
+    end
+    return true    
+end
+
+function SensitiveWordUtil:StringFilter(str)
+    if str == nil or str == "" then return str end
+    local words = self:Split2Words(str)
+    -- print("input words = ", lua_table_serialize(words))
+    local index, pos, count, legal = 1, 1, 0, true
+    while index <= #words do
+        pos = index
+        count = 0
+        local t = self._words[words[index]]
+        while t ~= nil do
+            if next(t) then
+                count = count + 1
+                if t["__len"] == count and count > 1 then 
+                    legal = false
+                    for i = index, pos do
+                        if pass_words[words[i]] ~= true then
+                            words[i] = "*"
+                        end
+                    end
+                    pos = pos + 1
+                    break 
+                end
+
+                pos = pos + 1
+                while pass_words[words[pos]] do  pos = pos + 1 end
+                t = t[words[pos]]
+            end
+        end
+
+        if pos ~= index then
+            index = pos
+        else
+            index = index +1
+        end
+    end
+    
+    if legal then return str end
+
+    local newStr = ""
+    for i=1, #words do
+        newStr = newStr .. words[i]
+    end
+    -- print("newStr = ", newStr)
+    return newStr
+end
+
+function SensitiveWordUtil:CheckWordsIsLegal(words)
+    for i, word in ipairs(words) do
+        if not SensitiveWordUtil:CheckIsLegal(word) then
+            print(word .. "-------不合法-------")
+        end
+    end
+end
+
+SensitiveWordUtil:InitSensitiveWordUtil()

@@ -1,0 +1,39 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief : 
+--
+
+MidNight = MidNight or {}
+
+function MidNight:InitData()
+    self._smallStageSettleStep = {};--小阶段结算步骤
+    self._selectLayerType = MidNight.LayerTypeMain;
+end
+
+function MidNight:SetSelectLayerType(selectLayerType)
+    self._selectLayerType = MidNight.LayerTypeMain
+    -- self._selectLayerType = selectLayerType;
+end
+
+function MidNight:GetSelectLayerType()
+    return self._selectLayerType or MidNight.LayerTypeMain;
+end
+
+function MidNight:AddSmallStageSettleStep(stepType,data)
+    table.insert(self._smallStageSettleStep,{stepType = stepType,data = data});
+end
+
+function MidNight:GetSmallStageSettleStepNum()
+    return #self._smallStageSettleStep;
+end
+
+function MidNight:GetCurSmallStageSettleStep()
+    return self._smallStageSettleStep[1];
+end
+
+function MidNight:RemoveSmallStageSettleStep()
+    if(#self._smallStageSettleStep > 0)then
+        table.remove(self._smallStageSettleStep,1);
+    end
+end

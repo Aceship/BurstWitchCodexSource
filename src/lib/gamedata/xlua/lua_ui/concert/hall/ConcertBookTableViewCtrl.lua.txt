@@ -1,0 +1,109 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-19 17:51:39
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertBookTableViewCtrl = class("ConcertBookTableViewCtrl", CBaseLayer)
+
+local MIN_BOOK_SCALE    = 1
+local MAX_BOOK_SCALE    = 1.1
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function ConcertBookTableViewCtrl:ctor(super,layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMusic/UI_ConcertBookTableViewCtrl",
+        trans = layer,
+        obj = true,
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = true,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertBookTableViewCtrl:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertBookTableViewCtrl:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ConcertBookTableViewCtrl:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertBookTableViewCtrl:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function ConcertBookTableViewCtrl:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function ConcertBookTableViewCtrl:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function ConcertBookTableViewCtrl:onExit()
+    
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertBookTableViewCtrl:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return ConcertBookTableViewCtrl;

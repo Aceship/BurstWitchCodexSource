@@ -1,0 +1,88 @@
+--
+-- author: haosun
+-- date  : 2021-08-05 19:48:46
+-- brief : 
+--
+UICostCtrl = class("UICostCtrl")
+
+function UICostCtrl:ctor(super, transform, number)
+    self._items     = {}
+    self._number    = number
+    self._transform = transform
+
+    for i = 1, number, 1 do
+        transform:GetButtonComponent("item_cost_"..i):AddButtonListener(
+            function()
+                self:onCostItemClick(i)
+            end)
+    end
+    self._lackId = 0
+end
+
+function UICostCtrl:UICostCtrlDtor()
+    if self._items ~= nil then
+        for _, v in ipairs(self._items) do
+            v:clear()
+        end
+        self._items = nil
+    end
+    self._transform = nil
+end
+
+function UICostCtrl:UpdateUICostCtrl(datas, costTbl, cacheTbl)
+    self._lackId = 0
+    for i = 1, self._number, 1 do
+        if self._items[i] == nil then
+            self:onItemCtor(i)
+        end
+        self:onItemSet(i, datas[i], costTbl, cacheTbl)
+    end
+    return self._lackId
+end
+
+function UICostCtrl:onCostItemClick(index)
+    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item, self._items[index].cfgId, Bag.TYPE_ITEM, self._items[index].costCnt)
+end
+
+function UICostCtrl:onItemCtor(index)
+    if self._items[index] ~= nil then return end
+
+    self._items[index] = clearbase:new()
+
+    self._items[index].cfgId    = 0
+    self._items[index].costCnt  = 0
+
+    local trans = self._transform:Get("item_cost_" .. index)
+    self._items[index].trans    = trans
+    self._items[index].img_icon = trans:GetImageComponent("img_icon")
+    self._items[index].txt_num  = trans:GetTextComponent("txt_num")
+end
+
+function UICostCtrl:onItemSet(index, data, costTbl, cacheTbl)
+    local item = self._items[index]
+    if data ~= nil then
+        Item:SetItemIconEx(item.img_icon, data[1])
+
+        local hasNumber = Item:GetCount(data[1])
+        if cacheTbl ~= nil and cacheTbl[data[1]] ~= nil then
+            hasNumber = hasNumber - cacheTbl[data[1]]
+        end
+
+        item.hasNumber = hasNumber
+        local str, amply = uistr:CostStr(tonumber(Item:GetCfg(data[1]).itemType), hasNumber, data[2])
+        if not amply then
+            self._lackId = data[1]
+        end
+        item.txt_num:SetText(str)
+        
+        item.cfgId = data[1]
+        item.costCnt = data[2]
+        item.trans:SetVisible(true)
+        if costTbl ~= nil then
+            costTbl[data[1]] = item.costCnt
+        end
+    else
+        item.costCnt = 0
+        item.trans:SetVisible(false)
+    end
+end

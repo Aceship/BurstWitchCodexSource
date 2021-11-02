@@ -1,0 +1,299 @@
+--
+-- author: haosun
+-- date  : 2021-05-25 11:38:27
+-- brief : 
+--
+JumpMgr = JumpMgr or {}
+
+JumpMgr.Jump_Nil        = 0     -- 无需跳转
+JumpMgr.Jump_Level      = 1     -- 剧情关卡
+JumpMgr.Jump_Chapter    = 2     -- 剧情大章
+JumpMgr.Jump_Fight      = 3     -- 战斗分页
+JumpMgr.Jump_Shop       = 4     -- 商城
+JumpMgr.Jump_Lottery    = 5     -- 召唤
+JumpMgr.Jump_Rank       = 6     -- 深夜
+JumpMgr.Jump_Music      = 7     -- 音乐厅
+JumpMgr.Jump_Friend     = 9     -- 好友
+JumpMgr.Jump_WorldBoss  = 10    -- 圣光
+JumpMgr.Jump_Ether      = 11    -- 以太
+JumpMgr.Jump_Witch      = 12    -- 魔女主页
+JumpMgr.Jump_Build      = 13    -- 法典
+JumpMgr.Jump_DayChapter = 14    -- 日常副本
+JumpMgr.Jump_BuyPower   = 15    -- 体力购买
+JumpMgr.Jump_Bag        = 16    -- 背包
+JumpMgr.Jump_Task       = 17    -- 任务
+JumpMgr.Jump_NewerTask  = 18    -- 暮光礼赞
+JumpMgr.Jump_Inspection = 19    -- 夜莺巡查
+JumpMgr.Jump_BloodCycle = 20    -- 血之轮回
+JumpMgr.Jump_DaliySign  = 21    -- 每日签到
+JumpMgr.Jump_Activity   = 22    -- 活动跳转
+JumpMgr.Jump_HeroEquip  = 23    -- 魔女符石
+JumpMgr.Jump_HeroFavor  = 24    -- 魔女好感
+JumpMgr.Jump_Text       = 99    -- 文字描述
+
+JumpMgr.Jump_Witch_Main     = 0
+JumpMgr.Jump_Witch_Level    = 1
+JumpMgr.Jump_Witch_Skill    = 2
+JumpMgr.Jump_Witch_Mark     = 3
+JumpMgr.Jump_Witch_Skin     = 4
+
+function JumpMgr:JumpCheck(jumpData)
+    if jumpData[1] == JumpMgr.Jump_Nil then
+        -- no-jump
+        return false
+    elseif jumpData[1] == JumpMgr.Jump_Level then
+        if not Chapter:PreLevelIsOpen(jumpData[2]) then
+            Groble_UIMgr:ShowGameWordTipsLayer(20032)
+            return false
+        end
+        local level = Chapter:GetLevel(jumpData[2])
+        if Player:GetLevel() < level.open_level then
+            Groble_UIMgr:ShowGameWordTipsLayer(21004)
+            return false
+        end
+        if level.fight_count > 0 and level.remain <= 0 then
+            Groble_UIMgr:ShowGameWordTipsLayer(21005)
+            return false
+        end
+        Chapter:SetJumpChapterLevel(nil, jumpData[2])
+        Chapter:ShowLevelLayer(jumpData[2], 76000049)
+    elseif jumpData[1] == JumpMgr.Jump_Chapter then
+        local chapter = Chapter:GetChapter(jumpData[2])
+        local open, desc = Chapter:chapterOrLevelIsOpen(chapter, nil)
+        if not open then
+            Groble_UIMgr:ShowTipsLayer(desc)
+            return false
+        end
+        if false == chapter.open or Player:GetLevel() < chapter.open_level then
+            Groble_UIMgr:ShowGameWordTipsLayer(20033)
+            return 
+        end
+        if chapter.timeid ~= 0 and false == CTime:IsOpen(chapter.timeid) then
+            return false
+        end
+        Chapter:ShowChapterLayer(jumpData[2])
+    elseif jumpData[1] == JumpMgr.Jump_Fight then
+        if jumpData[2] == Chapter.SHOW_TYPE_DAILY then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_daily) then return false end
+        elseif jumpData[2] == Chapter.SHOW_TYPE_ACTIVITY then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_activity) then return false end
+        end        
+        Chapter:SetLastInFightType(jumpData[2])
+        uimgr:showPlotLayer()
+    elseif jumpData[1] == JumpMgr.Jump_Shop then
+        Operation:OpenOperationMainLayer(nil, jumpData[2])
+    elseif jumpData[1] == JumpMgr.Jump_Lottery then
+        Lottery:EnterLotteryLayer(jumpData[2] or 0)
+    elseif jumpData[1] == JumpMgr.Jump_Rank then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_night) then return false end
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+            return false
+        end
+        MidNight:SetSelectLayerType(jumpData[2]);
+        MidNight:EnterRankLayer();
+    elseif jumpData[1] == JumpMgr.Jump_Music then
+        -- todo:
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_concert) then return false end
+        Concert:EnterConcertHall()
+    elseif jumpData[1] == JumpMgr.Jump_Friend then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_friend) then return false end
+        Friend:OpenFriendLayer()
+    elseif jumpData[1] == JumpMgr.Jump_WorldBoss then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_wolrd) then return false end 
+        WorldBoss:EnterWorldBossLayer()
+    elseif jumpData[1] == JumpMgr.Jump_Ether then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_ether) then return false end
+        Ether:EnterEtherLayer()
+    elseif jumpData[1] == JumpMgr.Jump_Witch then
+        local subjump = tonumber(jumpData[3])
+        if JumpMgr.Jump_Witch_Level == subjump then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_herolevel) then return false end
+        elseif JumpMgr.Jump_Witch_Skill == subjump then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_skill) then return false end
+        elseif JumpMgr.Jump_Witch_Mark == subjump then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_top) then return false end
+        elseif JumpMgr.Jump_Witch_Skin == subjump then
+            if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_skin) then return false end
+        end
+        uimgr:SetMainWitchEnterType(subjump)
+        if(jumpData[2] > 0)then
+            uimgr:showMainWitchLayerWithHid(jumpData[2]);
+        else
+            uimgr:showMainWitchLayer()
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Build then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_bulid) then return false end
+        Build:OpenBuildMainLayer()
+    elseif jumpData[1] == JumpMgr.Jump_DayChapter then
+        if jumpData[2] == Chapter.MODE_COIN then
+            return Chapter:ShowDailyLayer(Chapter.MODE_COIN_CID)
+        elseif jumpData[2] == Chapter.MODE_MATERIAL then
+            return Chapter:ShowDailyLayer(Chapter.MODE_MATERIAL_CID)
+        elseif jumpData[2] == Chapter.MODE_DRUG then
+            return Chapter:ShowDailyLayer(Chapter.MODE_DRUG_CID)
+        elseif jumpData[2] == Chapter.MODE_HEART then
+            return Chapter:ShowDailyLayer(Chapter.MODE_HEART_CID)
+        elseif jumpData[2] == Chapter.MODE_TOWER then
+            return Tower:ShowTowerLayer()
+        elseif jumpData[2] == Chapter.MODE_MYSTERY then
+            return Mystery:ShowMysteryLayer()
+        elseif jumpData[2] == Chapter.MODE_EQUIP then
+            Chapter:CheckEquipChapter()
+            return Chapter:ShowDailyLayer(Chapter.MODE_EQUIP_CID)
+        end
+    elseif jumpData[1] == JumpMgr.Jump_BuyPower then
+        Groble_UIMgr:ShowBuyPowerLayer()
+        return true
+    elseif jumpData[1] == JumpMgr.Jump_Bag then
+        Bag:OpenBagLayer(jumpData[2])
+    elseif jumpData[1] == JumpMgr.Jump_Task then
+        Task:SetTaskSubType(jumpData[2])
+        Task:OpenTaskUi(Task.UI_TYPE_TASK)        
+    elseif jumpData[1] == JumpMgr.Jump_NewerTask then
+        if not Task:NewerIsOpen() then
+            LanguageMgr:ShowGameWordTipsLayer(90099)
+            return false
+        end
+        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW)
+    elseif jumpData[1] == JumpMgr.Jump_Inspection then
+        return Activity:OpenChessBoardMainLayer()
+    elseif jumpData[1] == JumpMgr.Jump_BloodCycle then
+        Operation:OpenBloodCycleLayer()
+    elseif jumpData[1] == JumpMgr.Jump_DaliySign then
+        Activity:OpenDaliySignLayer()
+    elseif jumpData[1] == JumpMgr.Jump_Activity then
+        if(jumpData[2] > 0)then
+            if(Operation:GetActiveIsOpenByUid(jumpData[2]))then
+                Activity:SetActivityId(jumpData[2]);
+            else
+                Groble_UIMgr:ShowTipsLayer(90086);
+                return false;
+            end
+        end
+        Activity:OpenActivityMainLayer();
+    elseif jumpData[1] == JumpMgr.Jump_HeroEquip then
+        Equip:EnterWitchEquipLayer(tonumber(jumpData[2]))
+    elseif jumpData[1] == JumpMgr.Jump_HeroFavor then
+        Fetter:OpenLibraryLayer(tonumber(jumpData[2]))        
+    else
+        AppMgr:LogError("===================未处理的跳转类型===================" .. jumpData[1])
+        return false
+    end
+    return true
+end
+
+--是否可以跳转
+function JumpMgr:IsJump(jumpData)
+    if jumpData[1] == JumpMgr.Jump_Nil then
+        -- no-jump
+        return false
+    elseif jumpData[1] == JumpMgr.Jump_Level then
+        if not Chapter:PreLevelIsOpen(jumpData[2]) then
+            return false
+        end
+        local level = Chapter:GetLevel(jumpData[2])
+        if Player:GetLevel() < level.open_level then
+            return false
+        end
+        if level.fight_count > 0 and level.remain <= 0 then
+            return false
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Chapter then
+        local chapter = Chapter:GetChapter(jumpData[2])
+        local open = Chapter:chapterOrLevelIsOpen(chapter, nil)
+        if not open then
+            return false
+        end
+        if false == chapter.open or Player:GetLevel() < chapter.open_level then
+            return false
+        end
+        if chapter.timeid ~= 0 and false == CTime:IsOpen(chapter.timeid) then
+            return false
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Fight then
+        if jumpData[2] == Chapter.SHOW_TYPE_DAILY then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_daily) then return false end
+        elseif jumpData[2] == Chapter.SHOW_TYPE_ACTIVITY then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_activity) then return false end
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Shop then
+    elseif jumpData[1] == JumpMgr.Jump_Lottery then
+    elseif jumpData[1] == JumpMgr.Jump_Rank then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_night) then
+            return false
+        end
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            return false
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Music then
+        -- todo:
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_concert) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_Friend then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_friend) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_WorldBoss then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_wolrd) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_Ether then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.fight_ether) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_Witch then
+        local subjump = tonumber(jumpData[3])
+        if JumpMgr.Jump_Witch_Level == subjump then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_herolevel) then return false end
+        elseif JumpMgr.Jump_Witch_Skill == subjump then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_skill) then return false end
+        elseif JumpMgr.Jump_Witch_Mark == subjump then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_top) then return false end
+        elseif JumpMgr.Jump_Witch_Skin == subjump then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_skin) then return false end
+        end        
+    elseif jumpData[1] == JumpMgr.Jump_Build then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_bulid) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_DayChapter then
+        if jumpData[2] == Chapter.MODE_COIN then
+            return Chapter:ChapterIsOpen(Chapter.MODE_COIN_CID)
+        elseif jumpData[2] == Chapter.MODE_MATERIAL then
+            return Chapter:ChapterIsOpen(Chapter.MODE_MATERIAL_CID)
+        elseif jumpData[2] == Chapter.MODE_DRUG then
+            return Chapter:ChapterIsOpen(Chapter.MODE_DRUG_CID)
+        elseif jumpData[2] == Chapter.MODE_HEART then
+            return Chapter:ChapterIsOpen(Chapter.MODE_HEART_CID)
+        elseif jumpData[2] == Chapter.MODE_TOWER then
+            return false
+        elseif jumpData[2] == Chapter.MODE_MYSTERY then
+            return false
+        elseif jumpData[2] == Chapter.MODE_EQUIP then
+            Chapter:CheckEquipChapter()
+            return Chapter:ChapterIsOpen(Chapter.MODE_EQUIP_CID)
+        end
+    elseif jumpData[1] == JumpMgr.Jump_BuyPower then
+    elseif jumpData[1] == JumpMgr.Jump_Bag then
+    elseif jumpData[1] == JumpMgr.Jump_Task then
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_task) then return false end
+    elseif jumpData[1] == JumpMgr.Jump_NewerTask then
+        if not Task:NewerIsOpen() then
+            return false
+        end
+    elseif jumpData[1] == JumpMgr.Jump_Inspection then
+        return Operation:GetActiveIsOpenByUid(Operation.ActivityID.ChessBoard);
+    elseif jumpData[1] == JumpMgr.Jump_BloodCycle then
+    elseif jumpData[1] == JumpMgr.Jump_DaliySign then
+    elseif jumpData[1] == JumpMgr.Jump_Activity then
+        if(jumpData[2] > 0)then
+            if(Operation:GetActiveIsOpenByUid(jumpData[2]))then
+                return true
+            else
+                return false
+            end
+        end
+    elseif jumpData[1] == JumpMgr.Jump_HeroEquip then
+        return Player:IsSysFuncOpen(Player.SYS_FUNC.sys_equip)
+    elseif jumpData[1] == JumpMgr.Jump_HeroFavor then
+        return Player:IsSysFuncOpen(Player.SYS_FUNC.sys_favour)
+    elseif jumpData[1] == JumpMgr.Jump_Text then
+        return false
+    else
+        AppMgr:LogError("===================未处理的跳转类型===================" .. jumpData[1])
+        return false
+    end
+    return true
+end

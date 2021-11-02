@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2018-10-12 11:38:24
+-- brief : init net module
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/httpdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/error_code.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/network.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/NetworkLogin.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Net/NetworkGame.txt")
+
+Network:InitLuaTable()

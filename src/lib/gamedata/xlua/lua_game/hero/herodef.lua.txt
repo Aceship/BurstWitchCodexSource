@@ -1,0 +1,314 @@
+--
+-- author: haosun
+-- date  : 2018-10-27 16:02:07
+-- brief :
+--
+
+Hero.CONFIG_INDEX       = 1000      -- 表中大于该索引的为英雄
+
+Hero.ATTR_TYPE_ALL             = 0    -- 所有
+Hero.ATTR_TYPE_LIGHT           = 1    -- 光系
+Hero.ATTR_TYPE_DARK            = 2    -- 暗系
+Hero.ATTR_TYPE_CHAOS           = 3    -- 混沌系
+
+Hero.MAX_STAR_NUM       = 6         -- 最大星级
+Hero.MAX_QLTY_NUM       = 0         -- 最大品质
+Hero.MAX_STEP_NUM       = 0         -- 最大品质
+Hero.MAX_MARK_NUM       = 8         -- 最大刻印级别
+Hero.MIN_MARK_NUM       = 0         -- 最小刻印级别
+
+Hero.GROWUP_TYPE_LEVEL  = 1     -- 升级
+Hero.GROWUP_TYPE_STEP   = 2     -- 升阶
+
+Hero.CALC_TYPE_STAR     = 1     -- 星
+Hero.CALC_TYPE_STEP     = 2     -- 阶
+
+Hero.DESKILL_OUT        = 1     -- 外围使用被动
+Hero.DESKILL_FIGHT      = 2     -- 战斗使用被动
+
+Hero.SKILL_SLOT_1       = 1     -- 普攻
+Hero.SKILL_SLOT_2       = 2     -- 大招
+Hero.SKILL_SLOT_3       = 3     -- 蓄力技
+
+Hero.SKILL_SLOT         = {
+    Hero.SKILL_SLOT_1,
+    Hero.SKILL_SLOT_2,
+    Hero.SKILL_SLOT_3,
+}
+
+--皮肤获取方法枚举
+Hero.SKIN_BUY_TYPE = {
+    NIL = -1,
+    GOID = 1,
+    ACTIVITY = 2,
+}
+
+-- 被克关系
+Hero.DUKE_TYPES = {
+    [Hero.ATTR_TYPE_LIGHT]  = Hero.ATTR_TYPE_CHAOS,
+    [Hero.ATTR_TYPE_DARK]   = Hero.ATTR_TYPE_LIGHT,
+    [Hero.ATTR_TYPE_CHAOS]  = Hero.ATTR_TYPE_DARK,
+}
+
+-- 克制关系
+Hero.RESTRAIN_TYPES = {
+    [Hero.ATTR_TYPE_LIGHT]  = Hero.ATTR_TYPE_DARK,
+    [Hero.ATTR_TYPE_DARK]   = Hero.ATTR_TYPE_CHAOS,
+    [Hero.ATTR_TYPE_CHAOS]  = Hero.ATTR_TYPE_LIGHT,
+}
+
+Hero.SORT_TYPE = {
+    qlty            = 1,    -- 品质
+    attri           = 2,    -- 属性
+    level           = 3,    -- 等级
+    favour          = 4,    -- 好感
+}
+
+Hero.Select_TYPE_HERO = {
+    attri       = 1,        --属性筛选
+    gunType     = 2,        --枪型筛选
+    sort        = 3,        --各类排序
+}
+
+Hero.SORT_TYPE_HERO = {
+    default = 0,
+    power   = 1,
+    star    = 2,
+    wakeup  = 3,
+}
+
+Hero.SORT_TYPE_MUSIC = {
+    qlty            = 1,    -- 品质
+    attri           = 2,    -- 属性
+    level           = 3,    -- 等级
+}
+
+Hero.SORT_TYPE_FAVOUR = {
+    qlty    = 1,
+    level   = 3,
+    favour  = 4,       --好感
+}
+
+Hero.Attr6   = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+ --   CAttr.TYPE_PRODUCT_DIS,
+    CAttr.TYPE_DEF,
+    CAttr.TYPE_HIT,
+    CAttr.TYPE_DMG,
+}
+
+--计算战斗力的属性
+Hero.Fighting   = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+ --   CAttr.TYPE_PRODUCT_DIS,
+    CAttr.TYPE_DEF,
+--    CAttr.TYPE_HIT,
+--    CAttr.TYPE_DMG,
+}
+--战斗力计算系数
+Hero.FightingCoef = {
+    [CAttr.TYPE_HP] = 0.2,
+    [CAttr.TYPE_ATK] = 1,
+ --   [CAttr.TYPE_PRODUCT_DIS] = 6,
+    [CAttr.TYPE_DEF] = 1,
+--    [CAttr.TYPE_HIT] = 5,
+--    [CAttr.TYPE_DMG] = 5,
+}
+
+Hero.DEFAULT_HEROID     = 1001
+
+--TODO 魔女突破spine位置
+Hero.heroSpineInfos = {
+    [1001] = {-350, -628, 0},
+    [1002] = {-210, -740, 0},
+    [1003] = {-254, -565, 0},
+    [1004] = {-280, -680, 0},
+    [1005] = {-210, -820, 0},
+    [1006] = {-200, -617, 0},
+    [1007] = {-250, -700, 0},
+    [1008] = {-200, -824, 0},
+    [1009] = {-265, -801, 0},
+    [1010] = {-200, -678, 0},
+    [1011] = {-210, -613, 0},
+    [1012] = {-170, -900, 0},
+    [1013] = {-200, -790, 0},
+    [1014] = {-120, -720, 0},
+    [1015] = {-330, -633, 0},
+    [1016] = {-280, -618, 0},
+    [1017] = {-140, -636, 0},
+    [1018] = {-249, -477, 0},
+    [1019] = {-210, -603, 0},
+    [1020] = {-290, -333, 0},
+    [1021] = {-230, -600, 0},
+    [1022] = {-235, -820, 0},
+    [1023] = {-183, -688, 0},
+    [1024] = {-282, -769, 0},
+    [1025] = {-460, -519, 0},
+
+
+    [1028] = {-229, -474, 0},
+
+    [1030] = {-100, -375, 0},
+
+
+
+
+    [1035] = {-249, -506, 0},
+    [1036] = {-222, -714, 0},
+
+    [1038] = {-273, -549, 0},
+    [1039] = {-200, -647, 0},
+
+
+    [1042] = {-221, -674, 0},
+
+    [1044] = {-200, -886, 0},
+    [1045] = {-251, -778, 0},
+}
+
+Hero.Talk_Type = {
+    locked     =  -1, --未开放类型
+    normal     =  0,  --一般类型
+    talk       =  1,  -- 交谈
+    favour     =  2,  -- 好感
+}
+
+--攻击类型
+Hero.AtkTypes =
+{
+    Musket              = 1,    --步枪
+    LightBeam           = 2,    --光束
+    LightCross          = 3,    --光柱
+    Grapeshot           = 4,    --霰弹
+    Howitzer            = 5,    --榴弹炮
+    SniperRifle         = 6,    --狙击枪
+}
+
+--相册
+Hero.PhotoAtk = {Hero.AtkTypes.Musket,Hero.AtkTypes.LightBeam,Hero.AtkTypes.LightCross,Hero.AtkTypes.Grapeshot,Hero.AtkTypes.Howitzer,Hero.AtkTypes.SniperRifle,}
+--构筑
+Hero.BuildAtk = {Hero.AtkTypes.Musket,Hero.AtkTypes.LightBeam,Hero.AtkTypes.LightCross,Hero.AtkTypes.Grapeshot,Hero.AtkTypes.Howitzer,Hero.AtkTypes.SniperRifle,}
+
+Hero.DefAttr   = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+    CAttr.TYPE_DEF,
+    CAttr.TYPE_HIT,
+    CAttr.TYPE_DMG,
+}
+
+Hero.ArchiveAttr = {
+    CAttr.TYPE_PER_HP,
+    CAttr.TYPE_PER_ATK,
+    CAttr.TYPE_PER_DEF,
+    CAttr.TYPE_PER_HIT,
+    CAttr.TYPE_PER_DMG,
+}
+
+
+
+--图鉴界面攻击类型排序
+Hero.ArchiveAtkTypeSort = {Hero.AtkTypes.Musket,Hero.AtkTypes.LightBeam,Hero.AtkTypes.LightCross,Hero.AtkTypes.Grapeshot,Hero.AtkTypes.Howitzer,Hero.AtkTypes.SniperRifle};
+
+
+Hero.BuildAddNum = 3;
+
+--乐器标签类型
+Hero.TAG_MUSICAL   = 1; --乐器
+Hero.TAG_APPREANCE = 2; --外表
+Hero.TAG_ATTR      = 3; --属性
+Hero.TAG_RACE      = 4; --种族
+Hero.TAG_LEVEL     = 5; --等级
+Hero.TAG_STAR      = 6; --星级
+--魔女外貌
+Hero.APPR_WHITE    = 1; --白发（外貌，种族）
+Hero.APPR_RED      = 2; --红发
+Hero.APPR_WING     = 3; --翅膀
+Hero.APPR_GOLD     = 4; --金发
+
+--魔女种族
+Hero.RACE_WITCH    = 1; --魔女
+Hero.RACE_ORACLE   = 2; --神使
+Hero.RACE_HUMAN    = 3; --人类
+Hero.RACE_VAMPIRE  = 4; --血族
+Hero.RACE_UDEAD    = 5; --亡灵
+
+--种族（新）
+Hero.RACE_PEOPLE   = 1; --人类
+Hero.RACE_UNKNOW   = 2; --未知
+Hero.RACE_MONSTER  = 3; --恶魔
+Hero.RACE_OLDGOD   = 4; --古神
+Hero.RACE_DEVIL    = 5; --魔鬼
+Hero.RACE_AVATAR   = 6; --神使
+Hero.RACE_SOUL     = 7; --亡灵
+Hero.RACE_PROFHET  = 8; --先知
+Hero.RACE_BLOOD    = 9; --血族
+
+
+Hero.ALL_ATTR = 1001;   --全属性
+
+
+
+
+--解锁功能类型
+Hero.UNLOCK_TYPE_QLTY   = 1
+Hero.UNLOCK_TYPE_TALENT = 2
+Hero.UNLOCK_TYPE_BUILD  = 3
+
+--魔女定位
+Hero.JOB_ATK = 1 --输出
+Hero.JOB_DEF = 2 --防御
+Hero.JOB_SUP = 3 --辅助
+
+--出战界面长按时间间隔
+Hero.PRESS_DELAY = 1
+
+--升级界面显示类型
+Hero.LvUpShowType = {
+    Lv = 1,--升级界面
+    Step = 2,--升阶界面
+    WakeUp = 3,--觉醒
+}
+
+Hero.SublimationType = {
+    lock1 = -1,
+    Unlock = 0,
+}
+Hero.SublimationBtnType = {
+    LockBack = 0,
+    Sublimation = 1,
+    Close = -1,
+}
+
+Hero.AtkTypeHeroId = {
+    [Hero.AtkTypes.Musket]      = 1001,
+    [Hero.AtkTypes.LightBeam]   = 1003,
+    [Hero.AtkTypes.LightCross]  = 1010,
+    [Hero.AtkTypes.Grapeshot]   = 1007,
+    [Hero.AtkTypes.Howitzer]    = 1024,
+    [Hero.AtkTypes.SniperRifle] = 1006,
+}
+
+--显示战斗力弹窗类型
+Hero.ShowFightingUpType =
+{
+    One = 1,--单个
+    All = 2,--所有
+}
+
+Hero.sortData = {
+    [1] = 880078,    --战力
+    [2] = 702037,    --星级
+    [3] = 70024,    --觉醒
+}
+
+Hero.SpineResPath_Call = "prefab_item_spine/spine_call"
+
+Hero.SKIN_RARE_0    = 0
+Hero.SKIN_RARE_1    = 1     -- 初级
+Hero.SKIN_RARE_2    = 2     -- 中级
+Hero.SKIN_RARE_3    = 3     -- 高级
+Hero.SKIN_RARE_4    = 4     -- 顶级
+Hero.SKIN_RARE_5    = 5     -- 限定

@@ -1,0 +1,114 @@
+
+--
+-- author: haosun
+-- date  : 2019-02-26 14:02:07
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuyPowerInfoLayer = class("BuyPowerInfoLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    use     = "container/use_power/button_use",
+    buy     = "container/buy_power/button_buy",
+}
+
+local OperType = {
+    USE = 1,
+    BUY = 2
+}
+
+function BuyPowerInfoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._destory = true
+    self._prefab = {
+        path = "prefab_comframeWork/UI_BuyPowerInfoLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function BuyPowerInfoLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+end
+
+function BuyPowerInfoLayer:onPerSecondUpdate()
+    self:refreshTime()
+end
+
+function BuyPowerInfoLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.use then
+        self:onOper(OperType.USE)
+    elseif itype == BUTTON_TYPE.buy then
+        if Player:GetBuyPowerTimes() < Player.MAX_POWER_BUY then
+            self:onOper(OperType.BUY)
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(2000012))
+        end
+    end
+end
+
+function BuyPowerInfoLayer:show()
+    play_effect_show()
+    self._fading = true
+    self._infos = {
+        [OperType.USE] = {uiname = "use_power", buy_num = 50,  cost_id = Item.ITEM_POWER_ID,    cost_num = 1, showhas = true, lack = false},
+        [OperType.BUY] = {uiname = "buy_power", buy_num = 120, cost_id = Player.ITEM_VALUE_MONEY, cost_num = 1, showhas = false, lack = false},
+    }
+
+    self:initLayer()
+    self:refreshTime()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function BuyPowerInfoLayer:initLayer()
+    -- 使用道具可获得体力
+    local drops = Item:GetDrops(self._infos[1].cost_id)
+    self._infos[OperType.USE].buy_num = tonumber(drops[1][3])
+    self._infos[OperType.BUY].cost_num = Player:GetBuyPowerCost()
+    for _, v in pairs(self._infos) do
+        local obj = self.layer:Get("container/" .. v.uiname)
+        obj:GetTextComponent("text_count").text = v.buy_num
+        v.lack = set_cost_color(obj:Get("text_cost_count"), v.cost_id, v.cost_num, v.showhas)
+        Item:SetItemIcon(obj:Get("image_icon"), Player.ITEM_VALUE_POWER)
+        Item:SetItemIcon(obj:Get("image_cost_icon"), v.cost_id)
+    end
+    local maxbuy = Player:GetBuyPowerTimes() < Player.MAX_POWER_BUY
+    set_obj_active(self.layer:Get("container/buy_power/txt_max_buy"),not maxbuy)
+    set_obj_active(self.layer:Get("container/buy_power/image_cost_icon"), maxbuy)
+    set_obj_active(self.layer:Get("container/buy_power/text_cost_count"), maxbuy)
+
+    self.layer:GetTextComponent("container/buy_power/text_leftbc").text = LanguageMgr:GetTextByID(704012).."  "..(Player.MAX_POWER_BUY - Player:GetBuyPowerTimes()).."/"..Player.MAX_POWER_BUY
+end
+
+function BuyPowerInfoLayer:onOper(opertype)
+    if self._infos[opertype].lack then
+        Groble_UIMgr:ShowLackCurrencyTips(self._infos[opertype].cost_id,
+            function(currency)
+                self:clickTopCurrency(currency)
+            end)
+    else
+        if opertype == OperType.USE then
+            Item:ItemUseReq(self._infos[opertype].cost_id, 1)
+            self:onPopLayer()
+        else
+            Player:BuyPowerReq()
+            self:onPopLayer()
+        end
+    end
+end
+
+function BuyPowerInfoLayer:refreshTime()
+    -- local serverTime = CTime:GetServerTime()
+    -- self.layer:GetTextComponent("container/obj_time/text_curr_time").-- text = CTime:UTime2DayStr(serverTime)
+
+    local remain = Player:GetPowerRecoveryTime(1)
+    self.layer:GetTextComponent("container/obj_time/text_next_time").text = CTime:Time2Str(remain)
+
+    local remain = Player:GetPowerRecoveryTime(2)
+    self.layer:GetTextComponent("container/obj_time/text_end_time").text = CTime:Time2Str(remain)
+end
+
+return BuyPowerInfoLayer

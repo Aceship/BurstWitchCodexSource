@@ -1,0 +1,298 @@
+       ---
+--- @Author:Administrator
+--- @Create Time:2020-07-16 15:22:33
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BackLayer = class("BackLayer", CBaseLayer)
+
+
+--构造函数
+function BackLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_BackLayer",
+    }
+    self._fading = false;
+    self._playerInfoIsShow = false;
+    self._backBtnState = BackBtnState.Normal;
+    self._tipsStr = {};
+    self._topData ={};
+    self._isBtnBackVisible  = -1
+    self._isBtnBackOut      = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function BackLayer:onEnter()
+    self:createPnl();
+    self:addPrefabTop()
+    self._bgPath = nil;
+    self._bgEffectPath = nil;
+    self:addEventListener(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_MAIN_HEADINFO,
+            function(value)
+                if value then
+                    self._clsTopPlayer:SetPlayerIconBorderObj();
+                end
+            end)
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,function(isFrost)
+        self._objMask:SetVisible(isFrost);
+    end);
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:_onUpdateCurrency()
+    end)
+    self:InitUI();
+end
+
+--退出按钮事件
+function BackLayer:onBackClick()
+    if(self._backBtnState == BackBtnState.Normal)then
+        Groble_UIMgr:PopLayer();
+    elseif(self._backBtnState == BackBtnState.StopAndShowTips)then
+        if(self._tipsStr ~= nil and next(self._tipsStr))then
+            Groble_UIMgr:ShowTipsLayer(self._tipsStr);
+        end
+        return;
+    elseif(self._backBtnState == BackBtnState.Stop)then
+        return;
+    end
+    self._clsTopPlayer:SetPlayerFightCapacity()
+end
+
+function BackLayer:InitUI()
+    self._uiPlayerInfo = self.layer:Get("ui_top/info_player"):GetComponent("RectTransform");
+    self._uiTopInfo = self.layer:Get("ui_top/prefab_top");
+    self._rectTopInfo = self._uiTopInfo:GetComponent("RectTransform");
+    self._uiBackBtn = self.layer:Get("button_back");
+    self._objMask = self.layer:Get("obj_mask");
+    self._clsTopPlayer  = UIController:CtorTopPlayer(self._uiPlayerInfo.transform)
+    self._bgEffect = self.layer:Get("prefab_effectBg").gameObject;
+    self._imgBg = self.layer:GetImageComponent("img_bg");
+    CS.UnityHelper.NotchfitY(self.layer:Get("ui_top"), 10)
+end
+
+--显示UI
+function BackLayer:show()
+    self:showLayer();
+end
+
+--         showBtnBack      显示返回按钮
+--         showPlayerInfo   显示玩家信息头像
+--         showTopInfo      显示顶部菜单
+--         topInfo          顶部菜单数据
+--         jumpBuy          是否允许跳转购买
+function BackLayer:SetTopData(topData,topInfo)
+    if(topData == nil)then
+        AppMgr:LogError("topData is nil");
+        return;
+    end
+    if(topData.showBtnBack ~= nil)then
+        self._topData.showBtnBack = topData.showBtnBack;
+    end
+    if(topData.showPlayerInfo ~= nil)then
+        self._topData.showPlayerInfo = topData.showPlayerInfo;
+    end
+    if(topData.showTopInfo ~= nil)then
+        self._topData.showTopInfo = topData.showTopInfo;
+    end
+    if(topData.topInfo ~= nil)then
+        self._topData.topInfo = topData.topInfo;
+    end
+    if(topData.jumpBuy ~= nil)then
+        self._jumpBuy = topData.jumpBuy;
+    else
+        self._jumpBuy = true;
+    end
+    if self._isBtnBackVisible ~= self._topData.showBtnBack then
+        self._isBtnBackVisible = self._topData.showBtnBack
+        self._uiBackBtn:SetVisible(self._topData.showBtnBack)
+    end
+    if self._isBtnBackVisible and self._isBtnBackOut then
+        self:ShowBackBtn()
+    end
+    if self._topData.showBtnBack then
+        
+    end
+    if(self._topData.showPlayerInfo ~= nil)then
+        if(self._playerInfoIsShow ~= self._topData.showPlayerInfo)then--玩家信息显示状态不同,需要动画
+            if(self._topData.showPlayerInfo)then
+                self._uiPlayerInfo:DOAnchorPosY(0, 0.75);
+            else
+                self._uiPlayerInfo:DOAnchorPosY(300, 0.75);
+            end
+            self._playerInfoIsShow = self._topData.showPlayerInfo;
+        end
+        self._playerInfoIsShow = self._topData.showPlayerInfo;
+        if(self._topData.showPlayerInfo)then
+            self._clsTopPlayer:SetPlayerIconBorderObj();
+        end
+    end
+    self._uiTopInfo:SetVisible(self._topData.showTopInfo);
+    if(self._topData.showTopInfo)then
+        if(topInfo ~= nil)then
+            self._topData.topInfo = topInfo;
+        end
+        if self._topData.topInfo ~= nil then
+            self:setCurrency(self._topData.topInfo)
+        end
+    end
+end
+
+--      bgData.showEffect:特效显示
+--      bgData.bgType:背景图片显示
+--      bgData.bgColor:背景图片颜色
+function BackLayer:SetBgData(bgData)
+    if(bgData == nil)then
+        CS.Logger.LogError("bgData is nil");
+        return;
+    end
+    --特效
+    if(bgData.showEffect)then
+        self._bgEffect:SetVisible(true);
+    else
+        self._bgEffect:SetVisible(false);
+    end
+
+    --bg
+    set_com_enabled(self._imgBg,bgData.bgType ~= BackBgPath.Null);
+    if(self._bgPath ~= bgData.bgType)then
+        self._bgPath = bgData.bgType
+        if(bgData.bgType == nil)then
+            self._imgBg:LoadSprite(BackBgPath.BG_DEF);
+        elseif(bgData.bgType ~= BackBgPath.Null)then
+            self._imgBg:LoadSprite(bgData.bgType);
+        end
+    end
+
+    --颜色
+
+    if(bgData.bgType ~= BackBgPath.Null)then
+        if(bgData.bgColor ~= nil)then
+            self._imgBg:SetImageColor(bgData.bgColor[1],bgData.bgColor[2],bgData.bgColor[3],bgData.bgColor[4]);
+        else
+            self._imgBg:SetImageColor(1,1,1,1);
+        end
+    end
+end
+
+function BackLayer:onExit()
+    self._clsTopPlayer:clear();
+    self._clsTopPlayer  = nil;
+    if self._topprefab ~= nil then
+        for i, v in pairs(self._topprefab) do
+            v:clear()
+        end
+        self._topprefab = nil
+    end
+    CBaseLayer.onExit(self);
+end
+
+function BackLayer:SetBackBtnState(state)
+    self._backBtnState = state;
+end
+
+function BackLayer:SetStr(str)
+    self._tipsStr = str;
+end
+
+function BackLayer:ShowBackBtn()
+    self._isBtnBackOut = false
+    self:playAni("ShowBackBtnAnim")
+end
+
+function BackLayer:HideBackBtn()
+    self._isBtnBackOut = true
+    self:playAni("HideBackBtnAnim")
+end
+
+function BackLayer:SetBackButtonVisible(visible)
+    self._uiBackBtn:SetVisible(visible)
+end
+
+function BackLayer:ShowMoneyUI(stime,delayTime)
+    self._rectTopInfo:DOAnchorPosY(-20, stime):SetDelay(delayTime);
+end
+
+function BackLayer:HideMoneyUI(stime,delayTime)
+    self._rectTopInfo:DOAnchorPosY(185, stime):SetDelay(delayTime);
+end
+
+function BackLayer:onUpdateCurrency()
+    if self._topData ~= nil and self._topData.topInfo ~= nil then
+        self:setCurrency(self._topData.topInfo)
+    else
+        self:setCurrency(Player.CURRENCY_MAIN)
+    end
+end
+
+function BackLayer:addPrefabTop()
+    local prefab = self.layer:Get("ui_top"):CreateChild("prefab_comframeWork/prefab_top")
+    prefab.name = "prefab_top"
+    self._topprefab = {}
+    for i = 1, 4, 1 do
+        local cls       = clsbase:new(prefab.transform:Find("image_currency_" .. i))
+        cls.valueTxtCom = cls:GetTextComponent("text_value")
+        cls.iconImgObj  = cls:Find("image_icon")
+        cls.clickCom    = cls:GetButtonComponent("button_click")
+        cls.addCom      = cls:GetButtonComponent("button_add")
+        cls.imgRed      = cls:GetImageComponent("img_red");
+        cls.clickCom:AddButtonListener(
+            function()
+                self:clickTopCurrency(cls.cfgid)
+            end)
+        cls.addCom:AddButtonListener(
+            function()
+                self:clickTopCurrency(cls.cfgid)
+            end)
+        cls.cfgid = 0
+        self._topprefab[i] = cls
+    end
+    self:setCurrency(Player.CURRENCY_MAIN)
+end
+
+local fontSize = 28
+local fontlen = 6
+function BackLayer:setCurrency(coins)
+    for i, cls in ipairs(self._topprefab) do
+        cls:Visible(coins[i] ~= nil)
+        if coins[i] ~= nil then
+            Item:SetItemIcon(cls.iconImgObj, coins[i])
+            local showstr = math.wTally(Item:GetCount(coins[i]))
+            if coins[i] == Player.ITEM_VALUE_POWER then
+                showstr = showstr .. "/" .. Player:GetValue(Player.VALUE_MAX_POWER)
+            end
+            local length = string.len(showstr) - fontlen -- 大于999999 时 每多一位数字号-2
+            cls.valueTxtCom.fontSize = fontSize
+            if length > 0 then
+                cls.valueTxtCom.fontSize =  cls.valueTxtCom.fontSize - length * 2
+            end
+            cls.valueTxtCom.text = showstr
+
+            if cls.addCom ~= nil then
+                cls.addCom:SetVisible(Player.CAN_BUY[coins[i]] and self._jumpBuy);
+            end
+            cls.cfgid = coins[i]
+            cls.imgRed:SetVisible(coins[i] == Player.ITEM_VALUE_POWER and Player:GetBuyPowerRed())--体力会显示红点
+        end
+    end
+end
+
+function BackLayer:clickTopCurrency(currency)
+    if currency == Player.ITEM_VALUE_POWER then
+        Groble_UIMgr:ShowBuyPowerLayer()
+    elseif currency == Player.ITEM_VALUE_MONEY then
+        Groble_UIMgr:ShowBuyJewelLayer();
+    elseif currency == Player.ITEM_VALUE_WITCH_COIN then
+        if(not self._jumpBuy)then
+            Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,currency);
+            return;
+        end
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            Operation:OpenOperationMainLayer(nil,Operation.ActivityID.WitchCoin,false);
+        end);
+    else
+        Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,currency);
+    end
+end
+
+return BackLayer;

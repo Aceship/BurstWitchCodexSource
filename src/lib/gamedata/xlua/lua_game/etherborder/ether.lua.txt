@@ -1,0 +1,79 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Ether = Ether or {};
+
+function Ether:Ctor()
+    Ether:InitData();
+    self._allLv = 0;
+end
+
+function Ether:Clear()
+    self:Ctor();
+end
+
+function Ether:GetAllLevelData()
+    return self._levelData;
+end
+
+function Ether:GetHistoryLv()
+    local historyLv = 0;
+    for i, v in pairs(self._levelData) do
+        if(historyLv < v.maxLv)then
+            historyLv = v.maxLv;
+        end
+    end
+    return historyLv;
+end
+
+function Ether:GetTaskRed()
+    self._tasks = Task:GetTasks(Task.TYPE_ETHER);
+    for _, v in pairs(self._tasks) do
+        local cfg = Task:GetTask(v);
+        if(cfg.state == Task.STATE_HAS_DONE)then
+            return true;
+        end
+    end
+    return false;
+end
+
+function Ether:GetTaskRedBySubType(type)
+    self._tasks = Task:GetSubTasks(type);
+    for _, v in pairs(self._tasks) do
+        local cfg = Task:GetTask(v);
+        if(cfg.state == Task.STATE_HAS_DONE)then
+            return true;
+        end
+    end
+    return false;
+end
+
+function Ether:GetEtherCurStrategyLevel()
+    local all = 0
+    for cid, data in pairs(self._levelData) do
+        all = all + data.curStrategyLv
+    end
+    return all
+end
+
+function Ether:GetEtherChapterHistoryLevel(chapterid)
+    for cid, data in pairs(self._levelData) do
+        if cid == chapterid then
+            return data.maxLv
+        end
+    end
+    return 0
+end
+
+function Ether:GetEtherAffixHistoryLevel(affixId)
+    for cid, data in pairs(self._levelData) do
+        for id, affix in pairs(data.affixs) do
+            if id == affixId then
+                return affix.maxLv
+            end
+        end
+    end
+    return 0
+end
+

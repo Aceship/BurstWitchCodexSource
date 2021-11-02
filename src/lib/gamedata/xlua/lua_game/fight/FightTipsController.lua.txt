@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2021-01-18 11:08:06
+-- brief : 战斗内小提示
+--
+
+FightTipsController = FightTipsController or {}
+
+function FightTipsController:InitFightTipsController()
+    self._mgrs = {}
+end
+
+function FightTipsController:UnInitFightTipsController()
+    if self._mgrs == nil then return end
+    for k, mgr in pairs(self._mgrs) do
+        mgr.anim = nil
+        mgr.text = nil
+        mgr.transform = nil
+        mgr.prefab:Release()
+        mgr.prefab = nil
+        self._mgrs[k] = nil
+    end
+    self._mgrs = nil
+end
+
+function FightTipsController:_tryGetPrefab()
+    for _, mgr in pairs(self._mgrs) do
+        if mgr.anim.isPlaying == false then
+            return mgr
+        end
+    end
+    local prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/FightTipsInfo")
+    local mgr = {
+        prefab = prefab,
+        anim = prefab:GetComponent("Animation"),
+        text = prefab:GetTextComponent("txt_tips"),
+        transform  = prefab:Get("img_bg")
+    }
+    table.insert(self._mgrs, data)
+
+    return mgr
+end
+
+function FightTipsController:ShowFightTips(target, tips)
+    local mgr = self:_tryGetPrefab()
+    mgr.text:SetText(tips)
+    mgr.transform:SetSizeX(math.max(250, mgr.text:GetTextX() + 60))
+    
+    local posx, posy = CameraController:ScreenPointToLocalPointInRectangle(target.transform)
+    mgr.prefab:SetPosition(posx, posy + 35, 0, true)
+    
+    mgr.anim:Play("FightTipsFadeIn")
+end
+
+function FightTipsController:ShowFightTipsByPos(posx, posy, tips)
+    local mgr = self:_tryGetPrefab()
+    mgr.text:SetText(tips)
+    mgr.transform:SetSizeX(math.max(250, mgr.text:GetTextX() + 60))
+    mgr.prefab:SetPosition(posx, posy + 35, 0, true)
+    mgr.anim:Play("FightTipsFadeIn")
+end
+
+-- 
+-- brief: 深夜超越对收提示
+-- 
+function FightTipsController:ShowRankPassNumberTips(number)
+    local mgr = self:_tryGetPrefab()
+    mgr.text:SetText(string.format(LanguageMgr:GetTextByID(121031), number))
+    mgr.transform:SetSizeX(math.max(250, mgr.text:GetTextX() + 60))
+    mgr.prefab:SetPosition(0, 0, 0, true)
+    mgr.anim:Play("FightTipsFadeIn")
+end
+

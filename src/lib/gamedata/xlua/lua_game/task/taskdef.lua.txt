@@ -1,0 +1,152 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 14:24:42
+-- brief : 
+--
+
+Task.TYPE_NOR_TASK      = 1     -- 日/周任务
+Task.TYPE_CHALLENGE     = 2     -- 挑战任务
+Task.TYPE_ACHIEVE       = 3     -- 成就任务
+Task.TYPE_NEWER         = 4     -- 新手7天任务
+Task.TYPE_NEWER_SCORE   = 5     -- 新手积分奖励
+Task.TYPE_RANK          = 6     -- 深夜排行任务
+Task.TYPE_MUSIC         = 7     -- 演奏任务
+Task.TYPE_TOWER         = 9     -- 爬塔任务
+Task.TYPE_BLOOD         = 10    -- 血之轮回任务
+Task.TYPE_MYSTERY       = 11    -- 秘境任务
+Task.TYPE_CHESS         = 12    -- 棋盘活动任务
+Task.TYPE_ETHER         = 13    -- 以太边界任务
+Task.TYPE_ACTIVIT         = 20    -- 活动任务
+
+Task.NEWER_DAYS         = 7     -- 新手任务天数
+
+Task.TYPE_DAILY         = 101       -- 日任务
+Task.TYPE_WEEKLY        = 102       -- 周任务
+Task.TYPE_DAILY_EXP     = 103       -- 活跃任务
+
+Task.TYPE_EXPERIENCE    = 301       -- 历练任务
+Task.TYPE_GROWUP        = 302       -- 养成任务
+Task.TYPE_SOCIAL        = 303       -- 社交任务
+Task.TYPE_COLLECT       = 304       -- 收集任务
+Task.TYPE_EASTER_EGG    = 305       -- 彩蛋任务
+
+Task.DAY_TASK_INDEX     = 400       -- 
+Task.SUB_TYPE_DAY_1     = 401       -- 新手第1天
+Task.SUB_TYPE_DAY_2     = 402       -- 新手第2天
+Task.SUB_TYPE_DAY_3     = 403       -- 新手第3天
+Task.SUB_TYPE_DAY_4     = 404       -- 新手第4天
+Task.SUB_TYPE_DAY_5     = 405       -- 新手第5天
+Task.SUB_TYPE_DAY_6     = 406       -- 新手第6天
+Task.SUB_TYPE_DAY_7     = 407       -- 新手第7天
+Task.SUB_TYPE_SCORE     = 501       -- 新手积分
+
+Task.RANK_TASK_DAILY    = 601      -- 深夜每日任务
+Task.RANK_TASK_GROW     = 602      -- 深夜成长任务
+
+Task.SUB_TYPE_BLOOD_1    = 1001     -- 血之轮回每日任务
+Task.SUB_TYPE_BLOOD_2    = 1002     -- 血之轮回成长任务
+
+Task.SUB_TYPE_MUSIC = {
+    SUB_TYPE_MUSIC_1    = 701,      -- 乐谱初级任务
+    SUB_TYPE_MUSIC_2    = 702,      -- 乐谱中级任务
+    SUB_TYPE_MUSIC_3    = 703,      -- 乐谱神秘任务
+}
+--魔女图鉴
+--装备图鉴
+--演奏图鉴
+
+Task.ChessTask_DayTask  = 1201;  -- 巡查每日任务
+Task.ChessTask_GetDice  = 1202;  -- 获取骰子任务
+Task.ChessTask_Welfare  = 1203;  -- 棋盘福利任务
+
+Task.EtherTask_Daily    = 1301;     -- 以太日常任务
+Task.EtherTask_Week     = 1302;     -- 以太周常任务
+Task.EtherTask_Turns    = 1303;     -- 以太轮换任务
+Task.EtherTask_Achieve  = 1304;     -- 以太轮换任务
+
+
+Task.ACTIVITY_TASK_OUTSIDE  = 2001;     -- 活动外围任务
+Task.ACTIVITY_TASK_POP  = 2002;     -- 活动弹窗任务
+
+Task.STATE_NEWER_NOT_OPEN       = 0   -- 未开启
+Task.STATE_NEWER_HAS_CLOSE      = -1  -- 已关闭
+
+Task.SHOW_TYPE = {
+    Task.TYPE_NOR_TASK,
+    Task.TYPE_ACHIEVE,
+}
+
+Task.SHOW_SUB_TYPE = {
+    [Task.TYPE_NOR_TASK] = {
+        Task.TYPE_DAILY,
+        Task.TYPE_WEEKLY,
+    },
+    [Task.TYPE_ACHIEVE] = {
+        Task.TYPE_EXPERIENCE,
+        Task.TYPE_GROWUP,
+        Task.TYPE_SOCIAL,
+        Task.TYPE_COLLECT,
+        Task.TYPE_EASTER_EGG,
+    },
+}
+
+Task.SHOW_SUB_TYPE_TITLE = {
+    [Task.TYPE_DAILY]       = {60023, 60024},
+    [Task.TYPE_WEEKLY]      = {60025, 60026},
+    [Task.TYPE_EXPERIENCE]  = {60027, 60028},
+    [Task.TYPE_GROWUP]      = {60029, 60030},
+    [Task.TYPE_SOCIAL]      = {60031, 60032},
+    [Task.TYPE_COLLECT]     = {60033, 60034},
+    [Task.TYPE_EASTER_EGG]  = {60035, 60036},
+}
+
+Task.OPEN_TYPE_LEVEL      = 1   -- 等级开放
+Task.OPEN_TYPE_VIP        = 2   -- 月卡开放
+Task.OPEN_TYPE_CHAPTER    = 3   -- 关卡开放
+
+Task.STATE_NOT_DONE           = 0  -- 未完成
+Task.STATE_HAS_DONE           = -1  -- 可领取
+Task.STATE_HAS_RECV           = -2  -- 已领取
+
+Task.UI_TYPE_TASK           = 1     -- 正常任务
+Task.UI_TYPE_TASK_NEWER     = 2     -- 新手任务
+
+Task.PhysicalPowerID = {
+    101901,      -- 午餐
+    101902,      -- 晚餐
+    101903,      -- 宵夜
+}
+
+Task.CMP_TYPE_EQUAL         = 1     -- 等于
+Task.CMP_TYPE_MORE_EQUAL    = 2     -- 大于等于
+Task.CMP_TYPE_LESS_EQUAL    = 3     -- 小于等于
+
+Task.TASK_SUB_TYPE_NAME = {
+    [Task.TYPE_DAILY]           = "日任务",
+    [Task.TYPE_WEEKLY]          = "周任务",
+    [Task.TYPE_DAILY_EXP]       = "活跃任务",
+    [Task.TYPE_EXPERIENCE]      = "历练任务",
+    [Task.TYPE_GROWUP]          = "养成任务",
+    [Task.TYPE_SOCIAL]          = "社交任务",
+    [Task.TYPE_COLLECT]         = "收集任务",
+    [Task.TYPE_EASTER_EGG]      = "彩蛋任务",
+    [Task.SUB_TYPE_DAY_1]       = "新手第1天",
+    [Task.SUB_TYPE_DAY_2]       = "新手第2天",
+    [Task.SUB_TYPE_DAY_3]       = "新手第3天",
+    [Task.SUB_TYPE_DAY_4]       = "新手第4天",
+    [Task.SUB_TYPE_DAY_5]       = "新手第5天",
+    [Task.SUB_TYPE_DAY_6]       = "新手第6天",
+    [Task.SUB_TYPE_DAY_7]       = "新手第7天",
+    [Task.SUB_TYPE_SCORE]       = "新手积分",
+    [Task.RANK_TASK_DAILY]      = "深夜每日任务",
+    [Task.RANK_TASK_GROW]       = "深夜成长任务",
+    [Task.SUB_TYPE_BLOOD_1]     = "血之轮回每日任务",
+    [Task.SUB_TYPE_BLOOD_2]     = "血之轮回成长任务",
+    [Task.ChessTask_DayTask]    = "巡查每日任务",
+    [Task.ChessTask_GetDice]    = "获取骰子任务",
+    [Task.ChessTask_Welfare]    = "棋盘福利任务",
+    [Task.EtherTask_Daily]      = "以太日常任务",
+    [Task.EtherTask_Week]       = "以太周常任务",
+    [Task.EtherTask_Turns]      = "以太轮换任务",
+    [Task.EtherTask_Achieve]    = "以太轮换任务",
+}

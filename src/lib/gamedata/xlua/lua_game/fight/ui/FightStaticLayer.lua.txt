@@ -1,0 +1,779 @@
+--
+-- author: haosun
+-- date  : 2021-04-12 15:13:25
+-- brief : 
+--
+
+UI_FightStaticLayer = UI_FightStaticLayer or {}
+
+local _ecsInstance = CS.ECSManager.Instance
+
+local levelsBG = {}
+levelsBG[1] = "load_pingji_c_di"
+levelsBG[2] = "load_pingji_b_di"
+levelsBG[3] = "load_pingji_a_di"
+levelsBG[4] = "load_pingji_s_di"
+
+local levelIcon = {}
+levelIcon[1] = "load_pingji_c_con"
+levelIcon[2] = "load_pingji_b_con"
+levelIcon[3] = "load_pingji_a_con"
+levelIcon[4] = "load_pingji_s_con"
+
+local oldRank = 30
+
+
+function UI_FightStaticLayer:FightStaticLayerCreator()
+    self._levelId = Chapter:GetCurFightLevelId()
+    self._level = FightController:GetLevelCfg()
+    self._hasDestroyed = false
+    self._isVisible = false
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/FightStaticInfo")
+    self.prefab:AddAnimationBehaviour(self)
+    self.prefab:SetVisible(false)
+    -- 刘海适配
+    CS.UnityHelper.NotchfitY(self.prefab, 40, true)
+    self._isAvoidLevel  = FightController:IsOnlyAvoidLevel()
+    self._isTutorial    = TutorialController:IsTutorialLevel()
+    
+    local isUnlock      = Player:IsSysFuncOpen(Player.SYS_FUNC.sys_autoskill)
+    self._isHideAuto    = self._isTutorial or self._isAvoidLevel or (not isUnlock) or 
+        FightController:IsTriggerLevel() or PlaybackController:IsPlaybackFight()
+    self._isHideOther   = true or self._isTutorial or self._isAvoidLevel
+    self._hasAutoMove   = not FightController:IsNoAutoMove()
+
+    self._uiscore = self.prefab:Get("obj_score")
+    self.ScoreNum = self._uiscore:GetTextComponent("ScoreNum")
+    self.ScoreNum:SetText(0)
+    if self._isAvoidLevel then
+        self._uiscore:SetVisible(false)
+    end
+
+    self._uiscoreMidnight = self.prefab:Get("info_midnight")
+    self.ScoreNumMidnight = self._uiscoreMidnight:GetTextComponent("txt_score")
+    self.ScoreNumMidnight:SetText(0)
+
+    if(not FightController:IsRankLevel()) then
+        self._uiscoreMidnight:SetVisible(false)
+    end
+
+    self._ui_pk         = self.prefab:Get("info_pk")
+    self._txt_pk_score  = self._ui_pk:GetTextComponent("txt_score")
+    self._ui_pk:SetVisible(false)
+
+    if self._isHideOther then
+        self.prefab:Get("obj_kill"):SetVisible(false)
+        self.prefab:Get("obj_must"):SetVisible(false)
+    else
+        self._killinfo = {
+            cache_num = nil,
+            msgtips = LanguageMgr:GetTextByID(2203401),
+            txt_msg = self.prefab:GetTextComponent("obj_kill/text_desc"),
+        }
+        self._mustinfo = {
+            cache_num = nil,
+            msgtips = LanguageMgr:GetTextByID(2203402),
+            txt_msg = self.prefab:GetTextComponent("obj_must/text_desc"),
+        }
+    end
+    self.RankNum = self.prefab:GetTextComponent("obj_wave/txt_wave")
+    if self._isHideAuto then
+        self.prefab:Get("AutoMove"):SetVisible(false)
+        self.prefab:Get("AutoSkill"):SetVisible(false)
+        self.prefab:Get("AutoSetBtn"):SetVisible(false)
+    else
+        self:InitAutoFightInfo()
+    end
+    self.prefab:Get("obj_wave"):SetVisible(false)
+    self.prefab:Get("WorldDef"):SetVisible(false)
+    self._def_number = self.prefab:GetTextComponent("WorldDef/def_number")
+
+    self._cadanScore = 0
+    self._cacheCadanScore = 0
+    self._txt_wipe = self.prefab:GetTextComponent("obj_wipe/text_number")
+    self._txt_wipe:SetText(0)
+
+    --秒伤
+    self._cacheSecdps = -1
+    self._obj_Secdps = self.prefab:Get("obj_Secdps")
+    self._txt_Secdps = self.prefab:GetTextComponent("obj_Secdps/text_number")
+    self._txt_Secdps:SetText(0)
+    self._isSecdps = true
+    if self._isTutorial or FightController:IsOnlyAvoidLevel() then
+        self._isSecdps = false
+    end
+    self._obj_Secdps:SetVisible(self._isSecdps)
+
+    --分数等级
+    self.cache_levelScore = 0
+    self._obj_scoreLevel = self.prefab:Get("obj_ScoreLevel")
+    self._img_ScoreLevel_BG = self.prefab:GetImageComponent("obj_ScoreLevel/img_iconBg")
+    self._img_ScoreLevel = self.prefab:GetImageComponent("obj_ScoreLevel/img_icon")
+    self._txt_Score = self.prefab:GetTextComponent("obj_ScoreLevel/text_number")
+    self._isEnableScore = FightController:IsEnableScoreLevel()
+    self._obj_scoreLevel:SetVisible(self._isEnableScore)
+
+    if self._isTutorial then
+        self.prefab:Get("obj_wipe"):SetVisible(false)
+    end
+
+    self._starOpenBtn = self.prefab:GetButtonComponent("obj_star/Panel_close/btn_switch")
+    self._starCloseBtn = self.prefab:GetButtonComponent("obj_star/Panel_open/btn_switch")
+    self._objStar = self.prefab:Get("obj_star")
+
+    self._has_star = not (self._isTutorial or (not (FightController:IsPlotLevel() or FightController:IsActivityLevel())))
+    if self._has_star then
+        self._info_stars = {clearbase:new(), clearbase:new(), clearbase:new()}
+
+        self._info_stars[1].state = 1 
+        self._info_stars[1].img_star = self.prefab:GetImageComponent("obj_star/Panel_close/img_star1")
+        self._info_stars[1].img_star_open = self.prefab:GetImageComponent("obj_star/Panel_open/img_star1")
+        self._info_stars[1].img_star_desc = self.prefab:GetTextComponent("obj_star/Panel_open/img_star1/desc/text_desc") 
+        self._info_stars[2].state = 0
+        self._info_stars[2].img_star = self.prefab:GetImageComponent("obj_star/Panel_close/img_star2")
+        self._info_stars[2].img_star_open = self.prefab:GetImageComponent("obj_star/Panel_open/img_star2")
+        self._info_stars[2].img_star_desc = self.prefab:GetTextComponent("obj_star/Panel_open/img_star2/desc/text_desc") 
+        self._info_stars[3].state = 0
+        self._info_stars[3].img_star = self.prefab:GetImageComponent("obj_star/Panel_close/img_star3")
+        self._info_stars[3].img_star_open = self.prefab:GetImageComponent("obj_star/Panel_open/img_star3")
+        self._info_stars[3].img_star_desc = self.prefab:GetTextComponent("obj_star/Panel_open/img_star3/desc/text_desc") 
+
+        local isShowStarDesc = PrefsController:IsShowStarDesc()
+        self.prefab:Get("obj_star/Panel_open"):SetVisible(isShowStarDesc)
+        self.prefab:Get("obj_star/Panel_close"):SetVisible(not isShowStarDesc)
+
+        -- self._starOpenBtn:SetVisible(false)
+        -- self._starCloseBtn:SetVisible(true)
+
+        self._starOpenBtn.onClick:AddListener(function()
+            self._objStar:AnimationPlay("FightStarOpen")
+            PrefsController:SetIsShowStarDesc(true)
+        end)
+
+        self._starCloseBtn.onClick:AddListener(function()
+            self._objStar:AnimationPlay("FightStarClose")
+            PrefsController:SetIsShowStarDesc(false)
+        end)
+
+        local desc = Chapter:LevelStarTarget(FightController._levelid)
+        for i = 1, Chapter.LEVEL_STAR_NUM do
+            local item = self._info_stars[i].img_star_desc
+            item.text = desc[i]
+        end        
+
+    else
+        self.prefab:Get("obj_star"):SetVisible(false)
+    end
+
+
+    --self._autoSetBtn = self.prefab:Get("AutoSetBtn")
+
+    self._newRecord = self.prefab:Get("new_record")
+
+    self._killScore = self.prefab:Get("obj_killScore")
+    self._killScoreNumber = self._killScore:GetTextComponent("text_number")
+
+    self._damageScore = self.prefab:Get("obj_damageScore")
+    self._damageScoreNumber = self._damageScore:GetTextComponent("text_number")
+
+    self._myRank = self.prefab:Get("obj_myRank")
+    self._txtMyRank = self._myRank:GetTextComponent("text_rank")
+    self._txtMyNumber = self._myRank:GetTextComponent("text_number")
+    self._txtMyAddNumber = self._myRank:GetTextComponent("text_add_number")
+    self._txtMyAddNumber:SetVisible(false)
+
+    self._otherRank = self.prefab:Get("obj_otherRank")
+    self._txtOtherRank = self._otherRank:GetTextComponent("text_rank")
+    self._txtOtherNumber = self._otherRank:GetTextComponent("text_number")
+
+    self._addScore = 0
+    self._addScoreSingle = 0
+    self._isNewRecord = false
+
+    UI_AutoFightLayer:AutoFightLayerCreator()
+end
+
+function UI_FightStaticLayer:FightStaticLayerDestructor()
+    if self._hasDestroyed then return end
+
+    self._starOpenBtn.onClick:RemoveAllListeners()
+    self._starCloseBtn.onClick:RemoveAllListeners()
+    self.prefab:GetButtonComponent("AutoMove").onClick:RemoveAllListeners()
+    self.prefab:GetButtonComponent("AutoSkill").onClick:RemoveAllListeners()
+    self.prefab:GetButtonComponent("AutoSetBtn").onClick:RemoveAllListeners()
+
+    self._hasDestroyed  = true
+    self._uiscore       = nil
+    self.ScoreNum       = nil
+    self._uiscoreMidnight = nil
+    self.ScoreNumMidnight = nil
+    self.RankNum        = nil
+    self._autoMoveGa    = nil
+    self._autoMoveGou   = nil
+    self._autoSkillGa   = nil
+    self._autoSkillGou  = nil
+    self._autoNum       = nil
+    self._useCakeNum    = nil
+    self._buyPowerNum   = nil
+    self._autoEndNum    = nil
+    if self._killinfo ~= nil then
+        self._killinfo.txt_msg = nil
+    end
+    self._killinfo      = nil
+    if self._mustinfo ~= nil then
+        self._mustinfo.txt_msg = nil
+    end
+    self._mustinfo      = nil
+    DoArrayClassClear(self._info_stars)
+    self._info_stars    = nil
+
+    self._isHideAuto    = nil
+    self._isHideOther   = nil    
+    self._hasAutoMove   = nil
+    self._killnumber    = nil
+    self._skillplaynumber   = nil
+    self._WorldDef      = nil
+
+    self._autoSetBtn = nil
+
+    self._starOpenBtn = nil
+    self._starCloseBtn = nil
+    self._objStar = nil
+
+    self._newRecord = nil
+    
+    self._killScoreNumber = nil
+    self._killScore = nil
+
+    self._damageScoreNumber = nil
+    self._damageScore = nil
+
+    self._txtMyRank = nil
+    self._txtMyNumber = nil
+    self._txtMyAddNumber = nil
+    self._myRank = nil
+
+    self._txtOtherRank = nil
+    self._txtOtherNumber = nil
+    self._otherRank = nil
+
+    if self.prefab ~= nil then
+        self.prefab:Release()
+        self.prefab = nil
+    end
+
+    self.cache_showscore = nil
+    self.cache_fightwave = nil
+    self.cache_fightwavecount = nil
+    self.cache_defnumber = nil
+    self.cache_levelScore = 0
+
+    self._def_number = nil
+    self._txt_wipe = nil
+    self._obj_Secdps = nil
+    self._txt_Secdps = nil
+    self._obj_scoreLevel = nil
+    self._img_ScoreLevel_BG = nil
+    self._img_ScoreLevel = nil
+    self._txt_Score = nil
+    self._starOpenBtn = nil
+    self._starCloseBtn = nil
+    self._objStar = nil
+    self._ui_pk         = nil
+    self._txt_pk_score  = nil
+
+    UI_AutoFightLayer:AutoFightLayerDestructor()
+end
+
+function UI_FightStaticLayer:refreshOtherNumber(killnumber, playmustnumber)
+    if self._isHideOther then return end
+
+    -- 击杀怪物数
+    if self._killinfo.cache_num ~= killnumber then
+        self._killinfo.cache_num = killnumber
+        self._killinfo.txt_msg.text = self._killinfo.msgtips..killnumber
+    end
+    -- 大招释放次数
+    if self._mustinfo.cache_num ~= playmustnumber then
+        self._mustinfo.cache_num = playmustnumber
+        self._mustinfo.txt_msg.text = self._mustinfo.msgtips..playmustnumber
+    end
+end
+
+function UI_FightStaticLayer:CloseAutoMove()
+    if self._isHideAuto then return end
+    
+    self._autoMoveGou:SetVisible(FightController:DoAutoFightMove(false))
+    _ecsInstance:AutoMoveOff()
+end
+
+function UI_FightStaticLayer:AutoFightMove()
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_auto) == false then
+        UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_auto)
+        return
+    end
+    if Chapter:IsAutoFight() then return end
+    if self._isHideAuto then return end
+
+    local isAutoMove = FightController:DoAutoFightMove()
+    self._autoMoveGou:SetVisible(isAutoMove)
+    if(isAutoMove) then
+        _ecsInstance:AutoMoveOn(PrefsController:IsAutoMoveContinue(), PrefsController:IsAutoMoveElite(), 
+            PrefsController:IsAutoMoveChangeByHp(), PrefsController:IsAutoMoveChangeByEnergy(), PrefsController:IsAutoMoveChangeByAttrib(), PrefsController:IsAutoMoveChangeByEnemyCount())
+    else
+        _ecsInstance:AutoMoveOff()
+    end
+end
+
+function UI_FightStaticLayer:AutoFightSkill()
+    local auto = not PrefsController:IsAutoSkill()
+    PrefsController:SetAutoSkill(auto)
+    self._autoSkillGou:SetVisible(auto)
+
+    if(auto) then
+        _ecsInstance:AutoDazhaoOn(PrefsController:AutoDazhaoType(), PrefsController:IsAutoMoveContinue(), PrefsController:IsAutoGunTypeSkill())
+    else
+        _ecsInstance:AutoDazhaoOff()
+    end
+
+    self:_checkAutoSkillTutorial()
+end
+
+function UI_FightStaticLayer:InitAutoFightInfo()
+    self._autoMoveGa    = self.prefab:Get("AutoMove")
+    self._autoMoveGou   = self._autoMoveGa:Get("Gou")
+    self._autoMoveGou:SetVisible(PrefsController:IsAutoMove())
+    self._autoMoveGa:SetVisible(self._hasAutoMove)
+    self._autoSkillGa   = self.prefab:Get("AutoSkill")
+    self._autoSkillGou  = self._autoSkillGa:Get("Gou")
+    self._autoSkillGou:SetVisible(PrefsController:IsAutoSkill())
+    
+    self._autoSetBtn = self.prefab:Get("AutoSetBtn")
+
+    if Chapter:IsAutoFight() then
+        self._autoMoveGa:SetVisible(false)
+        self._autoSkillGa:SetVisible(false)
+        self._autoSetBtn:SetVisible(false)
+    end
+    
+    self.prefab:AddButtonListener("AutoMove",
+        function()
+            self:AutoFightMove()
+        end)
+    self.prefab:AddButtonListener("AutoSkill",
+        function()
+            self:AutoFightSkill()
+        end)
+
+    self.prefab:AddButtonListener("AutoSetBtn",
+        function()
+            self:OpenAutoSetting()
+        end)
+end
+
+function UI_FightStaticLayer:refreshWorlBossInfo(defnumber)
+    if FightController:IsDefWorldBossLevel() then
+        if self._WorldDef == nil then
+            self._WorldDef = true
+            self.prefab:Get("WorldDef"):SetVisible(true)
+        end
+        if self.cache_defnumber ~= defnumber then
+            self.cache_defnumber = defnumber
+            self._def_number:SetText(defnumber)
+        end
+    end
+end
+
+function UI_FightStaticLayer:refreshWipeScore(score)
+    if self._isTutorial then return end
+    
+    self._cadanScore = score
+    if self._cacheCadanScore ~= self._cadanScore then
+        self._cacheCadanScore = self._cadanScore
+        local str = tostring(self._cadanScore)
+        if(FightController:IsRankLevel()) then
+            str = tostring(math.wTally(self._cadanScore))
+        end
+        self._txt_wipe:SetText(str)
+        -- self.cadan2:SetText(self._cadanScore)
+        -- self.caDanAni:Play("cadanEffect")
+        local inst = Groble_SoundMgr:PlayEffectByEvent("event:/FightEffect/bullet_score")
+        fmod:setEventInstanceParam(inst, "CadanScore", self._cadanScore)
+    end
+end
+
+function UI_FightStaticLayer:refreshSecdps(score)
+    if not self._isSecdps then return end
+    
+    if self._cacheSecdps ~= score then
+        self._cacheSecdps = score
+        local str = tostring(score)
+        if(FightController:IsRankLevel()) then
+            str = tostring(math.wTally(score))
+        end
+        self._txt_Secdps:SetText(str)
+    end
+end
+
+function UI_FightStaticLayer:refreshScoreLevel(score, time)
+    -- if self._level.rewards[1] ~= Chapter.DROP_SCORE then
+    --     return
+    -- end
+    if not self._isEnableScore then return end
+    local has = Chapter:HasAllScoreDrop(self._level.rewards[2])
+    set_com_enabled(self._img_ScoreLevel_BG,has)
+    set_com_enabled(self._img_ScoreLevel,has)
+    if not has then
+        return
+    end
+
+    self:displayScoreLevel(score, time)
+end
+
+function UI_FightStaticLayer:displayScoreByScore(score)
+    local level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],score)
+
+    local interval = nextNum - preNum
+    local percent = (score - preNum)/(nextNum - preNum)
+    --print("当前得分  ： "..score.." : 上次分数 ： "..preNum.."  : 下次分数 ： "..nextNum.." 百分比 ： "..percent)
+    if percent < 0 then
+        percent = 1
+    end
+
+    self:displayScoreLevelIcon(percent, interval, level)
+end    
+
+function UI_FightStaticLayer:displayScoreByKillCount(count)
+    local level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],count)
+
+    local interval = nextNum - preNum
+    local percent = (count - preNum)/(nextNum - preNum)
+    --print("当前得分  ： "..count.." : 上次分数 ： "..preNum.."  : 下次分数 ： "..nextNum.." 百分比 ： "..percent)
+    if percent < 0
+        or nextNum < 0 then
+        percent = 1
+    end
+
+    if(level >= 4) then
+        self._txt_Score.text = ""
+    else
+        self._txt_Score.text = (count) .. "/" .. (interval + preNum) --(count - preNum) .. "/" .. interval
+    end
+
+    self:displayScoreLevelIcon(percent, interval, level)
+end
+
+
+function UI_FightStaticLayer:displayScoreByFast(time)
+    local level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],time)
+
+    local interval = nextNum - preNum
+    local percent = interval == 0 and 0 or  (time - preNum) / interval
+    --print("当前得分  ： "..time.." : 上次分数 ： "..preNum.."  : 下次分数 ： "..nextNum.." 百分比 ： "..percent)
+    if percent < 0 then
+        percent = 0
+    end
+
+    if(level <= 0) then
+        self._txt_Score.text = ""
+    else
+        self._txt_Score.text = math.max(0, math.ceil(preNum - time)) .. LanguageMgr:GetTextByID(20094)
+    end
+
+    self:displayScoreLevelIcon(percent, interval, level)
+end
+
+function UI_FightStaticLayer:displayScoreByTime(time)
+    local level,preNum,nextNum = Chapter:GetScoreLevel(self._level.rewards[2],time)
+
+    local interval = nextNum - preNum
+    local percent = (time - preNum)/(nextNum - preNum)
+    --print("当前得分  ： "..time.." : 上次分数 ： "..preNum.."  : 下次分数 ： "..nextNum.." 百分比 ： "..percent)
+    if percent < 0 then
+        percent = 1
+    end
+
+    if(level >= 4) then
+        self._txt_Score.text = ""
+    else
+        self._txt_Score.text = math.max(0, math.ceil(interval - (time - preNum))) .. LanguageMgr:GetTextByID(20094)
+    end
+
+    self:displayScoreLevelIcon(percent, interval, level)
+end    
+
+
+function UI_FightStaticLayer:displayScoreLevel(score, time)
+    local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])
+    local type = levelList[1].type
+
+    local percent, interval, level
+    if(type == 1) then
+        self:displayScoreByScore(score)
+    elseif(type == 2) then
+        self:displayScoreByKillCount(EventController:GetKillCount())
+    elseif(type == 3) then
+        self:displayScoreByFast(time)
+    elseif(type == 4) then
+        self:displayScoreByTime(time)
+    end
+end
+
+function UI_FightStaticLayer:displayScoreLevelIcon(percent, interval, level)
+    self._img_ScoreLevel.fillAmount = percent
+
+    if self.cache_levelScore ~= level and level > 0 then
+        self.cache_levelScore = level
+        local pathBG = levelsBG[level]
+        local path = levelIcon[level]
+        self._img_ScoreLevel_BG:LoadAtlasSprite("source_atlas/atlas_common_res_1",pathBG)
+        self._img_ScoreLevel:LoadAtlasSprite("source_atlas/atlas_common_res_1", path);
+        self._img_ScoreLevel_BG:SetNativeSize()
+        self._img_ScoreLevel:SetNativeSize()
+        if interval < 0 or level >= 4 then --s级 满级
+            self._img_ScoreLevel.fillAmount = 1
+        else
+            self._img_ScoreLevel.fillAmount = 0
+        end
+
+    end
+end    
+
+function UI_FightStaticLayer:refreshMidNightScore(data)
+    self._damageScoreNumber.text = tostring(math.wTally(math.floor(data.damageScore)))
+    self._killScoreNumber.text = tostring(math.wTally(math.floor(data.killScore)))
+
+    local midnightScore = data.midnightScore
+    if(self._addScore > 0) then
+        self._addScore = self._addScore - self._addScoreSingle    
+        midnightScore = midnightScore - self._addScore
+        self._txtMyAddNumber.text = "+" .. tostring(math.wTally(math.floor(self._addScore)))
+
+        if(self._addScore <= 0) then
+            self._addScore = 0
+            self._addScoreSingle = 0
+            self._txtMyAddNumber:SetVisible(false)
+            midnightScore = data.midnightScore
+        end
+    end
+
+    self.ScoreNumMidnight:SetText(tostring(math.tointeger(math.floor(midnightScore))))
+    self._txtMyNumber.text = tostring(math.wTally(math.floor(midnightScore)))
+    self.ScoreNum:SetText(math.floor(midnightScore))
+
+    if(FightController:IsRankLevel()) then
+        if(midnightScore > ShenYeController.oldScore
+            and not self._isNewRecord) then
+            self._isNewRecord = true
+            self:NewRecord()
+        end
+
+        local upRank = math.max(1, self._myRankData - 1)
+        local upScore = ShenYeController.scoreTbl[upRank]
+
+        if(upScore ~= nil
+            and midnightScore > upScore) then
+            self._myRankData = upRank
+
+            if(self._myRankData > 1) then
+                upRank = math.max(1, self._myRankData - 1)
+
+                self._txtMyRank.text = self._myRankData
+                self._txtOtherRank.text = upRank
+                self._txtOtherNumber.text = math.wTally(ShenYeController.scoreTbl[upRank])
+                ShenYeController.oldRank = upRank
+            else
+                self._txtMyRank.text = 1
+                self._txtOtherRank.text = 1
+                self._txtOtherNumber.text = math.wTally(math.floor(midnightScore))
+                ShenYeController.oldRank = 1
+            end
+        end
+    end
+
+end
+
+
+function UI_FightStaticLayer:ShowScorePk(score)
+    self._txt_pk_score:SetText(tostring(score))
+    self._uiscore:DOLocalMoveX(-200, 0.3)
+    self._ui_pk:SetVisible(true)
+    self._ui_pk:AnimationPlay("FightStaticInfoPk")
+end
+
+function UI_FightStaticLayer:HideScorePk()
+    self._uiscore:DOLocalMoveX(0, 0.3)
+    self._ui_pk:SetVisible(false)
+end
+
+function UI_FightStaticLayer:onAnimationDestroy()
+    self:FightStaticLayerDestructor()
+end
+
+function UI_FightStaticLayer:onAnimationEvent(anitype, intkey)
+    if intkey == 1 then
+        self._isVisible = false
+        self.prefab:SetVisible(false)
+    elseif intkey == 99 then        
+    end
+end
+
+--public interface --------------------------------------------------------------------------------------------------
+
+--
+-- brief 显示
+-- 
+function UI_FightStaticLayer:EnterFightStaticLayer()
+    if self._isVisible then return end
+    
+    self:refreshOtherNumber(0, 0)
+    self.prefab:SetVisible(true)
+    self.prefab:AnimationPlay("FightStaticInfo")
+    self._isVisible  = true
+
+    UI_AutoFightLayer:EnterAutoFightLayer()
+
+    self._newRecord:SetVisible(false)
+
+    if(not FightController:IsRankLevel()) then
+        self._uiscore:SetVisible(true)
+        self._killScore:SetVisible(false)
+        self._damageScore:SetVisible(false)
+        self._myRank:SetVisible(false)
+        self._otherRank:SetVisible(false)
+    else
+        self._uiscore:SetVisible(false)
+        self._killScore:SetVisible(true)
+        self._damageScore:SetVisible(true)
+        self._myRank:SetVisible(true)
+        self._otherRank:SetVisible(true)
+
+        local upRank = math.max(1, ShenYeController.oldRank - 1)
+        self._txtMyRank.text = ShenYeController.oldRank
+        self._txtOtherRank.text = upRank
+        self._txtOtherNumber.text = math.wTally(ShenYeController.scoreTbl[upRank])
+        self._myRankData = ShenYeController.oldRank
+    end
+
+end
+
+--
+-- brief 隐藏
+-- 
+function UI_FightStaticLayer:ExitFightStaticLayer()
+    if not self._isVisible then return end
+
+    self.prefab:AnimationPlay("FightStaticOut")
+    UI_AutoFightLayer:ExitAutoFightLayer()
+end
+
+--
+-- brief 数据刷新
+-- 
+function UI_FightStaticLayer:UpdateFightStaticLayerData(data)
+    if self._hasDestroyed or (not self._isVisible) then return end
+    -- 波数
+    if self.cache_fightwave ~= data.curFightWave then
+        self.cache_fightwave = data.curFightWave
+        self.RankNum.text = string.format("%d/%d", data.curFightWave, data.maxFightWave)
+    end
+    -- 分数
+    self._showscore = math.floor(data.score)
+    if self.cache_showscore ~= self._showscore then
+        self.cache_showscore = self._showscore
+        self.ScoreNum:SetText(tostring(self._showscore))
+        self._txt_Score:SetText(tostring(self._showscore))
+    end
+    -- 擦弹分数
+    self:refreshWipeScore(math.floor(data.cadanScore))
+
+    --秒伤
+    self:refreshSecdps(math.floor(data.secDps))
+
+    --评分等级
+    self:refreshScoreLevel(data.score, data.fightTime)
+
+    -- 三星状态
+    if self._has_star then
+        for i, v in ipairs(self._info_stars) do
+            local state = data.achieve[i] and 1 or 0
+            if v.state ~= state then
+                v.state = state
+                if state == 1 then
+                    v.img_star:LoadAtlasSprite(AtlasMgr.COM_RES, "Img_MoNvTouXiAng_Xing_Da3")
+                    v.img_star_open:LoadAtlasSprite(AtlasMgr.COM_RES, "Img_MoNvTouXiAng_Xing_Da3")
+                else
+                    v.img_star:LoadAtlasSprite(AtlasMgr.COM_RES, "Img_MoNvTouXiAng_Xing_Da4")
+                    v.img_star_open:LoadAtlasSprite(AtlasMgr.COM_RES, "Img_MoNvTouXiAng_Xing_Da4")
+                end
+            end
+        end
+    end
+    -- 成就
+    -- self:refreshOtherNumber(data.killNumber, data.playMustNumber)
+    -- 防御立场
+    self:refreshWorlBossInfo(data.defNumber)
+
+    if(FightController:IsRankLevel()) then
+        self:refreshMidNightScore(data)
+    end
+end
+
+
+function UI_FightStaticLayer:OpenAutoSetting()
+    UIController:OpenAutoSetting()
+end
+
+function UI_FightStaticLayer:OnAutoMoveBreak()
+    if not self._isHideAuto then
+        if(self._autoMoveGou ~= nil) then
+            self._autoMoveGou:SetVisible(false)
+        end
+        if(self._autoSkillGou ~= nil) then
+            self._autoSkillGou:SetVisible(false)
+        end
+    end
+end
+
+function UI_FightStaticLayer:ShowAutoSkillTutorial()
+    if self._isHideAuto then return end
+
+    LuaScriptController:GamePause(true)
+
+    self._objTutorial = self.prefab:CreateChild("tutorial_dir/tutorial_autoskill")
+    self._objTutorial:Get("hand"):DOScale(1.3, 0.33):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+    local maskscript = self._objTutorial:Get("mask"):GetComponent("GuideLightMask")
+    maskscript:onCircle(self._objTutorial:GetRectTransformComponent("rect"))
+    self._objTutorial:GetButtonComponent("rect"):AddButtonListener(
+        function()
+            self:AutoFightSkill()
+        end)
+end
+
+function UI_FightStaticLayer:_checkAutoSkillTutorial()
+    if self._objTutorial ~= nil then
+        self._objTutorial:Release()
+        self._objTutorial = nil
+        LuaScriptController:AwakenEjector()
+        LuaScriptController:GamePause(false)
+    end
+end
+
+function UI_FightStaticLayer:NewRecord()
+    self._newRecord:SetVisible(true)
+    self._newRecord:GetComponent("Animation"):Play("NewRecord")
+end
+
+function UI_FightStaticLayer:DoAddScore(score)
+    self._addScore = score
+    self._addScoreSingle = self._addScore / 30
+
+    self._txtMyAddNumber:SetVisible(true)
+
+    self._txtMyAddNumber.transform:DOScale(1.4, 0.3):OnComplete(
+        function()
+            self._txtMyAddNumber.transform:DOScale(1.0, 0.3)
+        end)
+
+end
+

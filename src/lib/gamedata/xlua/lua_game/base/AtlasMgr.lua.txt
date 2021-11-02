@@ -1,0 +1,72 @@
+--
+-- author: haosun
+-- date  : 2019-10-18 11:04:33
+-- brief : 
+--
+
+AtlasMgr = AtlasMgr or {}
+
+AtlasMgr.IMG_ORDERS     = {"Img_ShenYe_PaiHangBangMingCi_1", "Img_ShenYe_PaiHangBangMingCi_2", "Img_ShenYe_PaiHangBangMingCi_3"}
+AtlasMgr.IMG_ATTRIBUTE  = {
+    [0] = "Icom_Head_ShuXing0", 
+    [1] = "Icom_Head_ShuXing1", 
+    [2] = "Icom_Head_ShuXing2", 
+    [3] = "Icom_Head_ShuXing3"
+}
+AtlasMgr.IMG_QLTY       = {"Img_Quality_N", "Img_Quality_R", "Img_Quality_SR", "Img_Quality_SSR", "Img_Quality_UR"}
+AtlasMgr.IMG_STAR       = {"Img_MoNvTouXiAng_Xing_1", "Img_MoNvTouXiAng_Xing_2", "Img_MoNvTouXiAng_Xing_3", "Img_MoNvTouXiAng_Xing_4", "Img_MoNvTouXiAng_Xing_5", "Img_MoNvTouXiAng_Xing_6"}
+AtlasMgr.IMG_BORDER     = {"Common_Btn_WuPing_n_1", "Common_Btn_WuPing_n_2", "Common_Btn_WuPing_n_3", "Common_Btn_WuPing_n_4", "Common_Btn_WuPing_n_5"}
+AtlasMgr.IMG_STEP       = {
+    "Text_LuoMa_1", "Text_LuoMa_2", "Text_LuoMa_3", "Text_LuoMa_4",
+    "Text_LuoMa_5", "Text_LuoMa_6", "Text_LuoMa_7", "Text_LuoMa_8",
+    "Text_LuoMa_9", "Text_LuoMa_10", "Text_LuoMa_11",
+}
+AtlasMgr.IMG_ATK_TYPE   = {"comm_atk_1", "comm_atk_2", "comm_atk_3", "comm_atk_4", "comm_atk_5", "comm_atk_6"}
+
+AtlasMgr.LOGIN_SYS      = "source_atlas/atlas_login"
+AtlasMgr.COM_RES        = "source_atlas/atlas_common_res"
+AtlasMgr.ICON_ATTR      = "source_atlas/atlas_icon_attr"
+AtlasMgr.TOWER_LAYER    = "source_atlas/atlas_tower_layer"
+AtlasMgr.WITCHES_LAYER  = "source_atlas/atlas_witch_layer"
+AtlasMgr.RANK_SYS       = "source_atlas/atlas_activity_layer"
+AtlasMgr.MYSTERY_SYS    = "source_atlas/atlas_mystery"
+AtlasMgr.LOTTERY_02     = "source_atlas/atlas_lottery_2"
+
+AtlasMgr.MID_NIGHT      = "source_atlas/atlas_mid_night_res"
+AtlasMgr.Operation      = "source_atlas/atlas_operation"
+
+function AtlasMgr:LoadAtlasSprite(atlas, name)
+    return AssetLoader:LoadAtlasSprite(atlas, name)
+end
+
+function AtlasMgr:LoadAtlasOrder(order)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ORDERS[order])
+end
+
+function AtlasMgr:LoadAtlasAttr(attri)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[attri])
+end
+
+function AtlasMgr:LoadHeroQlty(qlty)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_QLTY[qlty])
+end
+
+function AtlasMgr:LoadGoodsStar(star)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_STAR[star])
+end
+
+function AtlasMgr:LoadQltyBorder(qlty)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_BORDER[qlty])
+end
+
+function AtlasMgr:LoadHeroStep(step)
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_STEP[step])
+end
+
+function AtlasMgr:LoadHeroAttrBgIcon(qlty)
+    local _filepath = "Img_ShuXing_NR"
+    if qlty > Bag.QLTY_R then
+        _filepath = "Img_ShuXing_SR"
+    end
+    return self:LoadAtlasSprite(AtlasMgr.COM_RES, _filepath)
+end

@@ -1,0 +1,36 @@
+--
+-- author: haosun
+-- date  : 2019-06-29 16:06:13
+-- brief :
+--
+Talk=Talk or {}
+
+function Talk:OpenTalkLayer(showType)
+    core.require("xlua/lua_UI/HomeScene/talkLayer/TalkLayer.txt"):new():show(showType)
+end
+
+function Talk:OpenSelfTalkUi(data)
+    if data.id == Player:GetId() then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1600082))
+        return
+    end
+    self:AddPrivateTalker(data.id, data.name, data.iconid, data.frameid)
+    if self._uilayer then
+        self._uilayer:showAgain(data.id)
+    else
+        core.require("xlua/lua_UI/HomeScene/talkLayer/TalkLayer.txt"):new():show(nil, data.id)
+    end
+end
+
+function Talk:ShowForbidTalkUI()
+    if(Talk:GetTalkStart() == 0)then
+        --解除禁言
+    elseif(Talk:GetTalkStart() < 0)then
+        --永久禁言
+        local des = string.gsub(LanguageMgr:GetTextByID(880047), '\\n', '\n')
+        Groble_UIMgr:ShowMessageBox(true, false, des);
+    else
+        local des = string.gsub(string.format(LanguageMgr:GetTextByID(880046),CTime:UTime2Str(Talk:GetTalkStart())), '\\n', '\n')
+        Groble_UIMgr:ShowMessageBox(true, false, des);
+    end
+end

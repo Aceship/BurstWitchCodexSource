@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2018-10-18 13:37:04
+-- brief : 
+--
+core = core or {}
+local _configs = {}
+
+function core.require(name)
+    if _configs[name] == nil then
+        -- print("load file: {0}", name)
+        _configs[name] = AssetLoader:LoadLuaAsset(name)
+    end
+    return _configs[name]
+end
+
+function core.reload(name)
+    _configs[name] = nil
+    core.require(name)
+end
+
+function core.clear()
+    _configs = {}
+end
+
+function core.dump()
+    for key, value in pairs(_configs) do
+        print(key .. "   =   " .. value)
+    end
+end
+
+core.clear()

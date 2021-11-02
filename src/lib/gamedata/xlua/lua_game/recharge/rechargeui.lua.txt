@@ -1,0 +1,149 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-15 17:08:11
+---
+
+Recharge = Recharge or {};
+function Recharge:OpenBuyTipsLayer()
+    if self._curSelectGiftPagId == nil or self._curSelectGiftPagId == 0 then
+        AppMgr:LogInfo("===============未设置当前购买类型===============")
+    else
+        local cfg = self:GetData(self._curSelectGiftPagId)
+        if cfg ~= nil then
+            if cfg.itype == Recharge.ChargeType.Skin or cfg.itype == Recharge.ChargeType.Item then
+                core.require("xlua/lua_UI/UIOperation/BuyTipsLayer.txt"):new():show()
+            else
+                core.require("xlua/lua_UI/Comframework/GiftBuyTipsLayer.txt"):new():show(self._curSelectGiftPagId, cfg)
+            end
+        end
+    end
+end
+
+function Recharge:NewGiftPagItem(trans)
+    local cls = clsbase:new(trans);
+    cls.item = Bag:CtorComSimpleGoodsUi(trans:Get("item"));
+    cls.txtName = trans:GetTextComponent("txt_name");
+    cls.imgBuyIcon = trans:GetImageComponent("trans_price_bg/txt_cur_price/img_buy_icon");
+    cls.txtCurPrice = trans:GetTextComponent("trans_price_bg/txt_cur_price");
+    cls.txtCostPrice = trans:GetTextComponent("trans_price_bg/txt_cost_price");
+    cls.transLimitBuy = cls:Find("img_limit_buy");
+    cls.txtLimitBuyNum = cls.transLimitBuy:GetTextComponent("txt_limit_buy_num");
+    cls.imgDiscountBg = trans:GetImageComponent("img_discount_bg");
+    cls.txtDiscount = trans:GetTextComponent("txt_discount");
+    cls.transTag = cls:Find("img_tag");
+    cls.transTag:CreateChild(Bag.SPINE_SHOP_HOT);
+    cls.imgMask = trans:GetImageComponent("img_mask");
+    cls.imgIsGet = trans:GetImageComponent("img_is_get");
+    cls.transIsOpen = cls:Find("trans_is_open");
+    cls.txtOpenValue = trans:GetTextComponent("trans_is_open/txt_open_value");
+    cls.imgBg = trans:GetImageComponent("img_bg");
+    cls.btn = cls.transform:GetComponent("Button");
+    cls.bgPath = "";
+    cls.btn:AddButtonListener(function ()
+        Recharge:SetCurSelectGiftPagId(cls.id);
+        Recharge:OpenBuyTipsLayer();
+    end);
+    return cls;
+end
+
+function Recharge:SetGiftPagItem(cls,cfgId)
+    cls:Visible(cfgId ~= nil);
+    if(cfgId == nil)then
+        return;
+    end
+    cls.id = cfgId;
+    local isSellOut = false;
+    local cfg = Recharge:GetData(cfgId);
+    local buyNum = Operation:GetGiftBagBoughtNum(cfgId);
+
+    if(cfg.itype == Recharge.ChargeType.Item)then--普通物品,走item配置
+        Bag:SetComSimpleGoodsUi(cls.item,cfg.goods[1][1],cfg.goods[1][2],cfg.goods[1][3]);
+    else
+        cls.item.iconImg:LoadSprite(cfg.icon);
+        cls.item.numCom:SetText(1);
+        Bag:SetGoodsBorderByQlty(cls.item ,cfg.qlty);
+    end
+
+    --bg
+    if cfg.bgPath[2] ~= cls.bgPath and cfg.bgPath ~= -1 then
+        if tonumber(cfg.bgPath[1]) == Recharge.GiftBgImage then
+            cls.imgBg:SetEnabled(true);
+            cls.imgBg:LoadAtlasSprite("source_atlas/atlas_operation", cfg.bgPath);
+        elseif tonumber(cfg.bgPath[1]) == Recharge.GiftBgSpine then
+            cls.imgBg:SetEnabled(false);
+            if(cls.spineBorder ~= nil)then
+                cls.spineBorder:Release();
+            end
+            cls.spineBorder = cls.imgBg.transform:CreateChild(string.format("prefab_item_spine/%s",cfg.bgPath[2]));
+        end
+        cls.bgPath = cfg.bgPath[2];
+    end
+
+    cls.txtName:SetText(cfg.name);
+    --折扣
+    cls.imgDiscountBg:SetEnabled(cfg.discount < 1);
+    cls.txtDiscount:SetEnabled(cfg.discount < 1);
+    cls.txtCostPrice:SetVisible(cfg.discount < 1);
+    if(cfg.discount < 1)then
+        cls.txtDiscount:SetText(math.ceil(cfg.discount * 10));
+        cls.txtCostPrice:SetText(cfg.price);
+    end
+
+    cls.transLimitBuy:SetVisible(cfg.stock > 0);
+    local str = "";
+    if(cfg.buytype == Recharge.BuyType.day)then
+        str = LanguageMgr:GetTextByID(90207);
+    elseif(cfg.buytype == Recharge.BuyType.Week)then
+        str = LanguageMgr:GetTextByID(90208);
+    elseif(cfg.buytype == Recharge.BuyType.Month)then
+        str = LanguageMgr:GetTextByID(90209);
+    elseif(cfg.buytype == Recharge.BuyType.Normal)then
+        if(cfg.stock > 0)then
+            str = LanguageMgr:GetTextByID(90210);
+        end
+    elseif(cfg.buytype == Recharge.BuyType.IsDoubleWeek)then
+        str = LanguageMgr:GetTextByID(90211);
+    end
+    if(cfg.buytype ~= Recharge.BuyType.Normal)then
+        isSellOut = cfg.stock - buyNum <= 0;
+        cls.txtLimitBuyNum:SetText(string.format(str,cfg.stock - buyNum,cfg.stock));
+    else
+        if(cfg.stock <= 0)then
+            isSellOut = false;
+        else
+            isSellOut = cfg.stock - buyNum <= 0;
+            cls.txtLimitBuyNum:SetText(string.format(str,cfg.stock - buyNum,cfg.stock));
+        end
+    end
+    cls.imgBuyIcon:SetEnabled(not isSellOut);
+    cls.txtCurPrice:SetEnabled(not isSellOut);
+    if(not isSellOut)then
+        cls.imgBuyIcon.sprite = Item:LoadSprite(cfg.priceId);
+        cls.txtCurPrice:SetText(math.ceil(cfg.price * cfg.discount));
+    end
+    cls.imgIsGet:SetEnabled(isSellOut);
+
+    local isOpen,lockType,lockValue = Recharge:GetChargeOpenStateById(cfgId);
+    cls.transIsOpen:SetVisible(not isOpen);
+    str = "";
+    if(not isOpen)then
+        if(lockType == Recharge.OpenType.Chapter)then
+            str = string.format(LanguageMgr:GetTextByID(90212),lockValue);
+        elseif(lockType == Recharge.OpenType.Lv)then
+            str = string.format(LanguageMgr:GetTextByID(90213),lockValue);
+        elseif(lockType == Recharge.OpenType.LastGift)then
+            local temp = Recharge:GetData(lockValue);
+            str = string.format(LanguageMgr:GetTextByID(90214),temp.name);
+        end
+    end
+    if(not isOpen)then
+        cls.txtOpenValue:SetText(str);
+    end
+
+    cls.imgMask:SetEnabled(isSellOut or not isOpen);
+    cls.btn.interactable = not isSellOut and isOpen;
+    cls.transTag:SetVisible(cfg.tag > 0);
+    if(cfg.tag > 0)then
+        --设置角标
+    end
+end

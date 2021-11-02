@@ -1,0 +1,85 @@
+--
+-- author: haosun
+-- date  : 2018-12-20 11:41:30
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CAttrTipsLayer = class("CAttrTipsLayer", CBaseLayer)
+
+local _inst = nil
+function CAttrTipsLayer.GetInstance()
+    if _inst == nil then
+        _inst = CAttrTipsLayer:new()
+    end
+    return _inst
+end
+
+function CAttrTipsLayer.DestoryInstance()
+    if _inst ~= nil then
+        _inst:onExit()
+        _inst = nil
+    end
+end
+
+function CAttrTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_AttrTipsLayer",
+    }
+    self._fading = false
+    self:onEnter()
+end
+
+function CAttrTipsLayer:initObj()
+    self._container = self.layer.transform:Find("container")
+    self._transform = self._container:GetComponent("RectTransform")
+    self._nameCom   = self._container.transform:Find("text_name"):GetComponent("Text")
+    self._descCom   = self._container.transform:Find("text_desc"):GetComponent("Text")
+end
+
+function CAttrTipsLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:hideLayer()
+end
+
+function CAttrTipsLayer:onBackClick()
+    self:hideLayer()
+end
+
+function CAttrTipsLayer:show(trans, attrtype, attrvalue, convert)
+    local cfg = CAttr:GetCfg(attrtype)
+    local desc
+    if convert and attrtype == CAttr.TYPE_HIT then
+        -- 总暴击值/（总暴击值+暴击常数）
+        local hit = (attrvalue / (attrvalue + FightModule.crit_rate)) * 100
+        hit = math.floor(hit * 10) /10
+        desc = string.format(LanguageMgr:GetTextByID(881011), hit) .. cfg.desc
+    elseif convert and attrtype == CAttr.TYPE_DMG then
+        -- 暴击伤害等级/ (暴击伤害等级 + 暴击伤害系数)*暴击伤害率上限系数
+        local dmg = (attrvalue / (attrvalue + FightModule.hit_hurt_rate) * FightModule.hit_hurt_max) * 100
+        dmg = math.floor(dmg * 10) /10
+        desc = string.format(LanguageMgr:GetTextByID(881012), dmg) .. cfg.desc
+    else
+        desc = cfg.desc
+    end
+    self:showByNameDesc(trans, cfg.name, desc)
+end
+
+function CAttrTipsLayer:showByNameDesc(trans, name, desc)
+    self._nameCom.text = name
+    self._descCom.text = desc
+    if(trans.position == nil)then
+        trans = trans.transform;
+    end
+    local position = trans.position
+    position = calc_follow_postion(position, 300, 280, 30)
+    
+    self:showLayer()
+    self._transform.position = position
+
+    Groble_UIMgr:PlayAni(self._container, "AttrTipsLayerFadeInAni")
+end
+
+return CAttrTipsLayer
+

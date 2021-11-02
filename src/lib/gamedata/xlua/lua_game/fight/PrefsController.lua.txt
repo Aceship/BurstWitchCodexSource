@@ -1,0 +1,344 @@
+--
+-- author: haosun
+-- date  : 2020-07-27 15:24:00
+-- brief : 
+--
+
+PrefsController = PrefsController or {}
+
+local _skey_auto_move       = nil
+local _skey_auto_skill      = nil
+local _skey_double_skill    = nil
+local _skey_replay_plot     = nil
+local _skey_fight_right     = nil
+local _skey_must_picture    = nil
+local _skey_is_first_blmn   = nil
+local _skey_is_first_sxithseal   = nil
+local _skey_change_name     = nil
+
+local _skey_is_auto_move_continue = nil
+local _skey_is_auto_move_elite = nil
+local _skey_auto_dazhao_type = nil
+local _skey_is_auto_move_change_by_hp = nil
+local _skey_is_auto_move_change_by_energy = nil
+local _skey_is_auto_move_change_by_attrib = nil
+local _skey_is_auto_move_change_by_enemy_count = nil
+local _skey_is_auto_gun_type_skill = nil
+local _skey_voice_language = nil
+local _skey_PushActivity_Day = nil
+local _skey_is_show_star_desc = nil
+
+local _instance = nil
+function PrefsController:InitPrefsController()
+
+    _instance = CS.PrefsMgr.Instance
+    local pid = Player:GetId()
+
+    _skey_auto_move     = "_autoFight_" .. pid
+    _skey_auto_skill    = "_autoSkill_" .. pid
+    _skey_double_skill  = "_double_skill" .. pid
+    _skey_replay_plot   = "replay_plot" .. pid
+    _skey_fight_right   = "_fightui_right_" .. pid
+    _skey_must_picture  = "_must_picture_" .. pid
+    _skey_is_first_blmn = "_skey_is_first_blmn_" .. pid
+
+    _skey_is_first_sxithseal = "_skey_is_first_sxithseal" .. pid
+
+    _skey_voice_language    = "_skey_voice_language" .. pid
+    _skey_fps_state     = "fps_state" .. pid
+    _skey_change_name   = "_skey_change_name_" .. pid
+
+    _skey_is_auto_move_continue = "_skey_is_auto_move_continue" .. pid
+    _skey_is_auto_move_elite = "_skey_is_auto_move_elite" .. pid
+    _skey_auto_dazhao_type = "_skey_auto_dazhao_type" .. pid
+    _skey_is_auto_move_change_by_hp = "_skey_is_auto_move_change_by_hp" .. pid
+    _skey_is_auto_move_change_by_energy = "_skey_is_auto_move_change_by_energy" .. pid
+    _skey_is_auto_move_change_by_attrib = "_skey_is_auto_move_change_by_attrib" .. pid
+    _skey_is_auto_move_change_by_enemy_count = "_skey_is_auto_move_change_by_enemy_count" .. pid
+    _skey_is_auto_gun_type_skill = "_skey_is_auto_gun_type_skill" .. pid
+    _skey_is_show_star_desc = "_skey_is_show_star_desc" .. pid
+
+    _skey_PushActivity_Day = "_skey_PushActivity_Day"..pid
+    -- 战斗通关次数记录
+    local _skey_tmp = pid .. "_LevelIdStr_"
+    self._skey_pass_level = {}
+
+    for levelid, v in pairs(Operation:GetAllTriggerPackageLevelId()) do
+        self._skey_pass_level[levelid] = _skey_tmp .. levelid
+    end
+
+    self._auto_move     = _instance:GetBool(_skey_auto_move, false)
+    self._auto_skill    = _instance:GetBool(_skey_auto_skill, false)
+    self._double_skill  = _instance:GetBool(_skey_double_skill, false)
+    self._replay_plot   = _instance:GetBool(_skey_replay_plot, false)
+    self._fight_right   = _instance:GetBool(_skey_fight_right, false)
+    self._must_picture  = _instance:GetBool(_skey_must_picture, true)
+
+    self._is_first_enter    = _instance:GetBool(_skey_is_first_blmn, true)
+    _instance:SetBool(_skey_is_first_blmn, false)
+
+    self._is_first_enter_sixthseal    = _instance:GetBool(_skey_is_first_sxithseal, false)
+    
+    self._is_auto_move_continue = _instance:GetBool(_skey_is_auto_move_continue, true)
+    self._is_auto_move_elite = _instance:GetBool(_skey_is_auto_move_elite, false)
+    self._auto_dazhao_type = _instance:GetInt(_skey_auto_dazhao_type, 1)
+    self._is_auto_move_change_by_hp = _instance:GetBool(_skey_is_auto_move_change_by_hp, true)
+    self._is_auto_move_change_by_energy = _instance:GetBool(_skey_is_auto_move_change_by_energy, true)
+    self._is_auto_move_change_by_attrib = _instance:GetBool(_skey_is_auto_move_change_by_attrib, false)
+    self._is_auto_move_change_by_enemy_count = _instance:GetBool(_skey_is_auto_move_change_by_enemy_count, true)
+    self._is_auto_gun_type_skill = _instance:GetBool(_skey_is_auto_gun_type_skill, false)
+    self._is_show_star_desc = _instance:GetBool(_skey_is_show_star_desc, true)
+
+    self._voice_language = _instance:GetInt(_skey_voice_language, -1)
+    if self._voice_language == -1 then        
+        self:SetVoiceLanguage(G_VoiceLanguageZh)
+    else
+        _instance:SetLanguageSetting(self._voice_language)
+    end
+    self._fps_state = _instance:GetInt(_skey_fps_state, -1)
+    if self._fps_state == -1 then        
+        self:SetFPSState(FPSSettingLow)
+    end
+
+    self._change_name = _instance:GetBool(_skey_change_name, true)
+    self._pushActivityDay = _instance:GetInt(_skey_PushActivity_Day,0)
+end
+
+function PrefsController:IsAutoMove()
+    return self._auto_move
+end
+
+function PrefsController:SetAutoMove(value)
+    if self._auto_move ~= value then
+        self._auto_move = value
+        _instance:SetBool(_skey_auto_move, value)
+    end
+end
+
+function PrefsController:IsAutoSkill()
+    return self._auto_skill
+end
+
+function PrefsController:SetAutoSkill(value)
+    if self._auto_skill ~= value then
+        self._auto_skill = value
+        _instance:SetBool(_skey_auto_skill, value)
+    end
+end
+
+function PrefsController:SetDoublePlaySkill(value)
+    self._double_skill = value
+    _instance:SetBool(_skey_double_skill, value)
+end
+
+function PrefsController:IsDoublePlaySkill()
+    return self._double_skill
+end
+
+function PrefsController:IsReplayPlot()
+    return self._replay_plot
+end
+
+function PrefsController:SetReplayPlot(value)
+    self._replay_plot = value
+    _instance:SetBool(_skey_replay_plot, value)
+end
+
+function PrefsController:IsFightRight()
+    return self._fight_right
+end
+
+function PrefsController:SetFightRight(value)
+    self._fight_right = value
+    _instance:SetBool(_skey_fight_right, value)
+end
+
+function PrefsController:GetPassLevelNumber(levelid)
+    local _skey_tmp = self._skey_pass_level[levelid]
+    if _skey_tmp == nil then return 0 end
+    return _instance:GetInt(_skey_tmp)
+end
+
+function PrefsController:AddPassLevelNumber(levelid)
+    local _skey_tmp = self._skey_pass_level[levelid]
+    if _skey_tmp == nil then return end
+
+    local _number = _instance:GetInt(_skey_tmp)
+    _number = _number + 1
+    _instance:SetInt(_skey_tmp, _number)
+end
+
+function PrefsController:IsMustPicture()
+    return self._must_picture
+end
+
+function PrefsController:SetMustPicture(value)
+    self._must_picture = value
+    _instance:SetBool(_skey_must_picture, self._must_picture)
+end
+
+-- 第一次启动游戏
+function PrefsController:IsFirstEnter()
+    if self._is_first_enter then
+        self._is_first_enter = false
+        return true
+    end
+    return false
+end
+
+function PrefsController:IsFirstEnterSxithSeal()
+    return self._is_first_enter_sixthseal
+end
+
+function PrefsController:SetFirstEnterSxithSeal()
+    self._is_first_enter_sixthseal = true
+end
+
+function PrefsController:IsAutoMoveContinue()
+    return self._is_auto_move_continue
+end
+
+function PrefsController:SetIsAutoMoveContinue(value)
+    if self._is_auto_move_continue ~= value then
+        self._is_auto_move_continue = value
+        _instance:SetBool(_skey_is_auto_move_continue, value)
+    end
+end
+
+function PrefsController:IsAutoMoveElite()
+    return self._is_auto_move_elite
+end
+
+
+function PrefsController:SetIsAutoMoveElite(value)
+    if self._is_auto_move_elite ~= value then
+        self._is_auto_move_elite = value
+        _instance:SetBool(_skey_is_auto_move_elite, value)
+    end
+end
+
+function PrefsController:AutoDazhaoType()
+    return self._auto_dazhao_type
+end
+
+function PrefsController:SetAutoDazhaoType(value)
+    if self._auto_dazhao_type ~= value then
+        self._auto_dazhao_type = value
+        _instance:SetInt(_skey_auto_dazhao_type, value)
+    end
+end
+
+
+function PrefsController:IsAutoMoveChangeByHp()
+    return self._is_auto_move_change_by_hp
+end
+
+function PrefsController:SetIsAutoMoveChangeByHp(value)
+    if self._is_auto_move_change_by_hp ~= value then
+        self._is_auto_move_change_by_hp = value
+        _instance:SetBool(_skey_is_auto_move_change_by_hp, value)
+    end
+end
+
+function PrefsController:IsAutoMoveChangeByEnergy()
+    return self._is_auto_move_change_by_energy
+end
+
+function PrefsController:SetIsAutoMoveChangeByEnergy(value)
+    if self._is_auto_move_change_by_energy ~= value then
+        self._is_auto_move_change_by_energy = value
+        _instance:SetBool(_skey_is_auto_move_change_by_energy, value)
+    end
+end
+
+function PrefsController:IsAutoMoveChangeByAttrib()
+    return self._is_auto_move_change_by_attrib
+end
+
+function PrefsController:SetIsAutoMoveChangeByAttrib(value)
+    if self._is_auto_move_change_by_attrib ~= value then
+        self._is_auto_move_change_by_attrib = value
+        _instance:SetBool(_skey_is_auto_move_change_by_attrib, value)
+    end
+end
+
+function PrefsController:IsAutoMoveChangeByEnemyCount()
+    return self._is_auto_move_change_by_enemy_count
+end
+
+function PrefsController:SetIsAutoMoveChangeByEnemyCount(value)
+    if self._is_auto_move_change_by_enemy_count ~= value then
+        self._is_auto_move_change_by_enemy_count = value
+        _instance:SetBool(_skey_is_auto_move_change_by_enemy_count, value)
+    end
+end
+
+function PrefsController:IsAutoGunTypeSkill()
+    return self._is_auto_gun_type_skill
+end
+
+function PrefsController:SetIsAutoGunTypeSkill(value)
+    if self._is_auto_gun_type_skill ~= value then
+        self._is_auto_gun_type_skill = value
+        _instance:SetBool(_skey_is_auto_gun_type_skill, value)
+    end
+end
+
+function PrefsController:IsShowStarDesc()
+    return self._is_show_star_desc
+end
+
+function PrefsController:SetIsShowStarDesc(value)
+    if self._is_show_star_desc ~= value then
+        self._is_show_star_desc = value
+        _instance:SetBool(_skey_is_show_star_desc, value)
+    end
+end
+
+
+function PrefsController:GetVoiceLanguage()
+    return self._voice_language
+end
+
+function PrefsController:GetFpsSetting()
+    return self._fps_state
+end
+
+
+function PrefsController:GetTargetFrameRate()
+    if self._fps_state == FPSSettingHigh then
+        return 60;
+    else
+        return 30;
+    end
+end
+
+function PrefsController:SetVoiceLanguage(language)
+    self._voice_language = language
+    _instance:SetInt(_skey_voice_language, language)
+    _instance:SetLanguageSetting(self._voice_language)
+end
+
+function PrefsController:IsChangeNameTips()
+    return self._change_name
+end
+
+function PrefsController:SetChangeNameTips(value)
+    if self._change_name ~= value then
+        self._change_name = value
+        _instance:SetBool(_skey_change_name, value)
+    end
+end
+
+function PrefsController:SetFPSState(fpsState)
+    self._fps_state = fpsState
+    _instance:SetInt(_skey_fps_state, fpsState)
+end
+
+function PrefsController:SetPushActivityDay(curDay)
+    _instance:SetInt(_skey_PushActivity_Day, curDay)
+end
+
+function PrefsController:GetPushActivityDay()
+    return _instance:GetInt(_skey_PushActivity_Day)
+end

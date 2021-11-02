@@ -1,0 +1,286 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-30 13:51:11
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelSpecialLayer = class("ActivityLevelSpecialLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnFight = "trans_container/btn_fight",
+	--@ButtonEnd
+}
+--构造函数
+function ActivityLevelSpecialLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelSpecialLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+    };
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActivityLevelSpecialLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ActivityLevelSpecialLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnFight)then 
+	   self:OnBtnFightClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function ActivityLevelSpecialLayer:Init()
+    self._awardItems = {};
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function ActivityLevelSpecialLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId();
+    self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity.ActivityLevelType_Special);
+
+    local data = self._layerCfg.topInfo;
+    Activity:SetLevelTopData(data);
+
+    local chapterIds = Activity:GetActivityChapterIds();
+    self._curChapter = {};
+    for _, v in ipairs(chapterIds) do
+        local chapter = Chapter:GetChapter(v);
+        if(CTime:IsOpen(chapter.timeid) and chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL)then--深渊关卡, 并且再活动时间内
+            self._curChapter = chapter;
+        end
+    end
+    self._levelIds = self._curChapter.levelids;
+    local curId = Activity:GetFirstOpenSpecialLevelId();
+    self._curIndex = 1;
+    for i, v in ipairs(self._levelIds) do
+        if(curId == v)then
+            self._curIndex = i;
+            break;
+        end
+    end
+end
+
+--初始化UI
+function ActivityLevelSpecialLayer:InitUI()
+
+    self._imgAttr = self.layer:GetImageComponent("trans_container/img_attr");
+    self._imgTitleBg = self.layer:GetImageComponent("trans_container/img_title_bg");
+    self._imgFightLock = self.layer:GetImageComponent("trans_container/img_fight_lock");
+    --@ImageEnd
+
+    self._txtLv = self.layer:GetTextComponent("trans_container/txt_name/txt_lv");
+    self._txtName = self.layer:GetTextComponent("trans_container/txt_name");
+    --@TextEnd
+
+    self._transAwardParent = self.layer:Get("trans_container/trans_award_parent");
+    self._transLeft = self.layer:Get("trans_container/trans_package_info/btn_left");
+    self._transRight = self.layer:Get("trans_container/trans_package_info/btn_right");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._mGroup = self.layer:Get("trans_container/trans_package_info/MGroup"):GetComponent("MGroup");
+    self._mGroup:Init(#self._levelIds,self._curIndex - 1);
+    self._mGroup.SelectAction = function ()
+        self:CutLevel();
+    end ;
+    self:InitLevel();
+    self._transLeft:SetVisible(self._curIndex > 1);
+
+    self._imgTitleBg:LoadSprite(Activity:GetActivityLevelImgPath(self._layerCfg.titleBg[1]));
+    if(self._layerCfg.titleBg[2] ~= nil)then
+        self._imgTitleBg:SetAnchoredPosition(tonumber(self._layerCfg.titleBg[2]),self._layerCfg.titleBg[3]);
+    end
+    self:CutLevel();
+end
+
+--显示UI
+function ActivityLevelSpecialLayer:show()
+    self:showLayer();
+end
+
+function ActivityLevelSpecialLayer:showLayer()
+    Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Special);
+    Activity:CloseCurActivityLevelId();
+    self:playAni("ActivityLevelSpecialLayerAnim");
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function ActivityLevelSpecialLayer:onBackClick()
+    Activity:CloseCurActivityLevelId();
+    self:onPopLayer();
+end
+
+--释放
+function ActivityLevelSpecialLayer:onExit()
+    self._curChapter = nil
+    self._levelIds = nil;
+
+    self._imgFightLock = nil;
+    self._imgAttr = nil;
+    self._txtLv = nil;
+    self._txtName = nil;
+    self._transAwardParent = nil;
+    self._transLeft = nil;
+    self._transRight = nil;
+    self._objItem = nil;
+	self._imgTitleBg = nil;
+	--@CloseEnd
+
+    if(self._levelItem ~= nil)then
+        for _, v in pairs(self._levelItem) do
+            v:clear();
+        end
+    end
+    self._levelItem = nil;
+
+    if(self._awardItems ~= nil)then
+        for _, v in pairs(self._awardItems) do
+            v:clear();
+        end
+    end
+    self._awardItems = nil;
+
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ActivityLevelSpecialLayer:OnBtnFightClick()
+    if self._fading then return end
+    local levelId = self._levelIds[self._curIndex];
+    if self._curChapter.timeid ~= 0 then
+        -- 时间检测
+        if not CTime:IsOpen(self._curChapter.timeid) then
+            Groble_UIMgr:ShowGameWordTipsLayer(881015)
+            return false
+        end
+    end
+    local unlock, lockstr = Chapter:GetActivityLevelIsOpen(levelId);
+    if unlock then
+        if self._curChapter.fight_count == 0 or self._curChapter.fight_count - self._curChapter.pass_count > 0 then
+            Activity:CloseActivityLevelTitleLayer();
+            Activity:SetCurActivityLevelId(levelId);
+            Chapter:ShowLevelLayer(levelId, 76000051)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(lockstr)
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ActivityLevelSpecialLayer:InitLevel()
+    self._levelItem = {};
+    local bossData;
+    for _, levelId in ipairs(self._levelIds) do
+        local cls = clsbase:new(self._mGroup.transform:Get(tonumber(_)));
+        cls.imgMonster = cls:GetImageComponent("img_monster");
+        --boss半身像
+        bossData = self._layerCfg.bossImgPos[_];
+        cls.imgMonster:LoadSprite(bossData[1]);
+        if(bossData[2] ~= nil)then
+            cls.imgMonster.transform:SetPosition(tonumber(bossData[2]), tonumber(bossData[3]),0,true);
+        end
+        if bossData[4] ~= nil then
+            cls.imgMonster.transform:SetScale(tonumber(bossData[4]), tonumber(bossData[4]), 0)
+        end
+        cls.isUnLock,cls.lockStr = self:GetLevelLockState(levelId);
+        self._levelItem[_] = cls;
+    end
+end
+
+function ActivityLevelSpecialLayer:CutLevel()
+    self._curIndex = self._mGroup.m_CurrentSelectIndex + 1;
+    self._transLeft:SetVisible(self._curIndex > 1);
+    self._transRight:SetVisible(self._curIndex < #self._levelIds);
+    local cls = self._levelItem[self._curIndex];
+    self._imgFightLock:SetEnabled(not cls.isUnLock);
+    local level = Chapter:GetLevel(self._levelIds[self._curIndex]);
+    local bossCfg = FightModule:GetElementCfg(tonumber(level.enemyids));
+    --属性
+    self._imgAttr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(bossCfg.attri_type)]);
+    --Boss名称
+    self._txtName:SetText(bossCfg.Name);
+    if(level.lvevl == -1)then
+        self._txtLv:SetText("");
+    else
+        self._txtLv:SetText(string.format("Lv.%s",level.lvevl));
+    end
+
+    --掉落
+    if(level.first_rewards ~= nil)then
+        local drops = Item:GetDrops(level.first_rewards[2]);
+        local cls;
+        local num = math.max(#self._awardItems,#drops);
+        for _ = 1, num do
+            cls = self._awardItems[_];
+            if(cls == nil)then
+                cls = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transAwardParent).transform);
+                cls.isGet = cls:Find("trans_is_get");
+                self._awardItems[_] = cls;
+            end
+            cls:Visible(drops[_] ~= nil);
+            if(drops[_] ~= nil)then
+                cls.isGet:SetVisible(level.open);
+                Bag:SetComSimpleGoodsUi(cls,drops[_][1],drops[_][2],drops[_][3]);
+            end
+        end
+    else
+        for _, v in pairs(self._awardItems) do
+           v:Visible(false);
+        end
+    end
+end
+
+function ActivityLevelSpecialLayer:GetLevelLockState(levelId)
+    if self._curChapter.timeid ~= 0 then
+        -- 时间检测
+        if not CTime:IsOpen(self._curChapter.timeid) then
+            return false
+        end
+    end
+    local unlock, lockstr = Chapter:GetActivityLevelIsOpen(levelId);
+    if unlock then
+        if self._curChapter.fight_count == 0 or self._curChapter.fight_count - self._curChapter.pass_count > 0 then
+            return true;
+        else
+            return false,LanguageMgr:GetTextByID(31221);
+        end
+    else
+        return false,lockstr;
+    end
+    return false,"";
+end
+
+return ActivityLevelSpecialLayer;

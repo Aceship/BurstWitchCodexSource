@@ -1,0 +1,12 @@
+--
+-- author: cjj
+-- date  : 2019-04-10 13:38:24
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightmodule.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fighttalk.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fighttalkdef.txt")
+FightModule:Ctor()
+FightModule:_LoadFightModuleCfg()

@@ -1,0 +1,13 @@
+
+
+Language.TableName = {
+    [1001] = "localization_CHS.txt",
+    [1002] = "localization_CHT.txt",
+    [1003] = "localization_EN.txt",
+    [1004] = "localization_JP.txt",
+}
+
+Language.LANGUAGE_CHS         = 1001        --中文(简体)
+Language.LANGUAGE_CHT         = 1002        --中文(繁体)
+Language.LANGUAGE_EN          = 1003        --英文
+Language.LANGUAGE_JP          = 1004        --日文

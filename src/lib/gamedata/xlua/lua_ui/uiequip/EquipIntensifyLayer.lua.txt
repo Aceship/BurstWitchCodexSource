@@ -1,0 +1,979 @@
+--
+-- author: haosun
+-- date  : 2019-02-18 19:09:10
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EquipIntensifyLayer = class("EquipIntensifyLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Intensify       = "button_intensify",
+    OneKey          = "button_onekey",
+    Coin            = "pnl_cost/button_click",
+}
+
+local TIP_POS = {
+    [4] = CS.UnityEngine.Vector3(270, 97, 0),
+    [5] = CS.UnityEngine.Vector3(-220, 30, 0),
+    [6] = CS.UnityEngine.Vector3(270, 30, 0),
+}
+
+local uuid = 100
+local function getUUID()
+    uuid = uuid + 1
+    return uuid
+end
+
+local max_cost_num = 5
+
+function EquipIntensifyLayer:onBackClick()
+    if(self.callback ~= nil)then
+        self.callback();
+    end
+    self:onPopLayer()
+end
+
+function EquipIntensifyLayer:ctor(super,uid)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEquip/UI_EquipIntensifyLayer",
+        obj = true,
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_FRIEND
+    }
+    self._cellsObj          = {}
+    self.timer              = {}
+    self._hideOtherLayer    = true;
+    self._addStack          = true;
+    self._equipid           = uid
+
+    self._selectType        = 1 -- 1材料, 2符石
+    self.isBest             = false
+
+    self:onEnter()
+end
+
+function EquipIntensifyLayer:onExit()
+    for id, v in pairs(self.timer) do
+        Timer:RemoveTimerCall(id)
+    end
+    self.timer = nil
+
+    self._costsObj          = nil
+
+    self._selectType        = nil
+    self.isBest             = nil
+    self._cellsObj          = nil
+    self._equipid           = nil
+    self._tvController      = nil
+    self._equipInfoObj      = nil
+
+    self._txtPer = nil;
+    self._sliderLv = nil;
+    self._sliderLvAdd = nil;
+    self._sliderBg = nil;
+
+    self._equipCObj         = nil
+    self._lvUpEffect        = nil
+    self._intensify         = nil
+    self._onekey            = nil
+    self._maxTxtCom         = nil
+    self._attrCObjArr       = nil
+    self._txtTip            = nil
+    self._TipObj            = nil
+    self._txtAnimation      = nil
+    self._suit              = nil
+    self._suitIcon          = nil
+    self._suitTagImg        = nil
+    self._suitTagTxt        = nil
+    self._txtSelect         = nil
+    self._imgSelect         = nil
+    self._imgGou            = nil
+
+    self._data              = nil
+    self._cfg               = nil
+    self.callback           = nil
+
+    self._cost              = nil
+    self._canIntensify      = nil
+    self._hasmax            = nil
+    self._hasempty          = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function EquipIntensifyLayer:setItemCObj(cls, data)
+    if data.itype == Bag.TYPE_EQUIP then
+        Equip:SetEquipCObjByUid(cls, data.uid, true)
+        set_com_enabled(cls.levelBgCom, true)
+    else
+        Bag:SetComSimpleGoodsUi(cls.clsbag, data.itype, data.uid,data.count)
+        cls.levelTxtCom.text = ""
+        set_com_enabled(cls.levelBgCom, false)
+        cls.starCom:SetVisible(false)
+    end
+end
+
+function EquipIntensifyLayer:ctorCellCObj(obj)
+    local cls       = clsbase:new(obj)
+    cls.items       = {}
+    cls.row         = 0
+    local itemobj
+    for i = 1, 5, 1 do
+        itemobj         = obj.transform:Find("prefab_" .. i)
+        cls.items[i]    = Equip:CtorEquipCObj(itemobj, function()
+            self.selectItem = false;
+            local data = self._datas[cls.row * 5 + i].data
+            -- self:showItemTips(cls.row * 5 + i, cls.items[i].obj)
+            self:showItemTips(data.itype, data.uid, data.count, cls.items[i].obj)
+            self:onMaterialClick(cls.row * 5 + i) end)
+    end
+    return cls
+end
+
+function EquipIntensifyLayer:setCellCObj(cls, row)
+    cls.row = row
+    local number = #self._datas
+    local edata, realindex, data
+    for i = 1, 5 do
+        realindex = row * 5 + i
+        set_obj_active(cls.items[i].obj, realindex <= number)
+        if realindex <= number then
+            data = self._datas[realindex]
+            self:setItemCObj(cls.items[i], data.data)
+        end
+    end
+    self:refreshCellCheck(cls)
+end
+
+function EquipIntensifyLayer:inCost(uuid)
+    for k, v in pairs(self._cost) do
+        if v ~= 0 and uuid == v[1] then
+            return true
+        end
+    end
+    return false
+end
+
+function EquipIntensifyLayer:GetCostNumByUUid(uuid)
+    local num = 0
+    for k, v in pairs(self._cost) do
+        if v ~= 0 and uuid == v[1] then
+            num = num + 1
+        end
+    end
+    return num
+end
+
+function EquipIntensifyLayer:refreshCellCheck(cls)
+    for i = 1, 5 do
+        local index = cls.row * 5 + i
+        if self._datas[index] ~= nil then
+            local show = self._datas[index] and self:inCost(self._datas[index].uuid)
+            cls.items[i].clsbag.checkCom.gameObject:SetVisible(show)
+            cls.items[i].numCom.text = string.format("%s(%s)",self._datas[index].data.count,self:GetCostNumByUUid(self._datas[index].uuid))
+        end
+    end
+end
+
+function EquipIntensifyLayer:ctorCostCObj(obj, i)
+    local cls       = clsbase:new(obj)
+    cls.index       = i
+    cls.citem       = Equip:CtorEquipCObj(cls:Find("prefab_item"))
+    cls.empty       = cls:Find("img_empty")
+    cls.cancel      = cls:Find("img_cancel")
+    cls.click       = cls:Find("button_click")
+    cls.cancel      = cls:Find("img_cancel")
+    cls.effect      = cls:Find("ui_effect/UI02_hc/p_SJ"):GetComponent("ParticleSystem")
+    cls.effect:Stop()
+
+    cls.click:GetComponent("Button").onClick:AddListener(function()
+        self:onClickCost(cls.index)
+    end)
+
+    cls.cancel:GetComponent("Button").onClick:AddListener(function()
+        self:cancelEquip(cls.index)
+    end)
+
+    return cls
+end
+
+function EquipIntensifyLayer:initObj()
+    self._tvController      = UIController:CtorTableView(self.layer:Get("pnl_material/TableViewController"))
+    self._equipInfoObj      = self.layer:Get("equip_info")
+    self._equipCObj         = Equip:CtorEquipCObj(self._equipInfoObj:Get("prefab_equip"), function()end)
+    self._lvUpEffect        = self._equipInfoObj:Get("ui_effect/UI_SJ/p_SJ"):GetComponent("ParticleSystem")
+    self._lvUpEffect:Stop()
+    self._costsObj = {}
+    for i = 1, max_cost_num, 1 do
+        self._costsObj[i] = self:ctorCostCObj(self.layer:Get("pnl_cost/consume_" .. i), i)
+    end
+    self._intensify         = self.layer:Get(BUTTON_TYPE.Intensify)
+    self._onekey            = self.layer:Get(BUTTON_TYPE.OneKey)
+
+    self._maxTxtCom         = self.layer:GetTextComponent("text_max")
+    self._attrCObjArr       = CAttr:NewAttrObjArr(self._equipInfoObj:Get("prefab_attr"), 5)
+    self._txtTip            = self.layer:GetTextComponent("equip_info/prefab_attr/img/text_tip")
+    self._TipObj            = self.layer:Get("equip_info/prefab_attr/img")
+    self._txtAnimation      = self.layer:Get("txt_ani"):GetComponent("TextAnimation")
+    self._suit              = self._equipInfoObj:Get("suit")
+    self._suitIcon          = self._suit:GetImageComponent("img_icon")
+    self._suitTagImg        = self._suit:GetImageComponent("img_tag")
+    self._suitTagTxt        = self._suit:GetTextComponent("img_tag/txt_tag")
+    self._txtSelect         = self.layer:GetTextComponent("pnl_material/button_select/label_title")
+    self._imgSelect         = self.layer:Get("pnl_material/button_select/img_1")
+    self._lvUpEffect        = self._equipInfoObj:Get("effect"):GetComponent("ParticleBehaviour");
+
+    --进度条
+    self._txtPer = self._equipInfoObj:GetTextComponent("text_per");
+    self._sliderLv = self._equipInfoObj:GetSliderComponent("level_slider");
+    self._sliderLvAdd = self._equipInfoObj:GetSliderComponent("level_slider_add");
+    self._sliderBg = self._equipInfoObj:GetSliderComponent("sliderBg");
+
+    self.layer:GetButtonComponent("pnl_material/button_select"):AddButtonListener(function()
+        self._selectType = 3 - self._selectType
+        self._txtSelect:SetText(self._selectType == 1 and LanguageMgr:GetTextByID(190004) or LanguageMgr:GetTextByID(72000034))
+        self._imgSelect:SetRotation(self._selectType == 1 and 0 or 180, 0, 0, true)
+        self:changeSort()
+        self._tvController:Reload(math.ceil(#self._datas / 5))
+        self._tvController:ScrollToTop()
+        self:refreshItems()
+    end)
+
+    self._imgGou            = self.layer:Get("pnl_cost/button_best/img_gou")
+    self.layer:GetButtonComponent("pnl_cost/button_best"):AddButtonListener(function()
+        self.isBest = not self.isBest
+        self._imgGou:SetVisible(self.isBest)
+        self:changeSort()
+        self._tvController:Reload(math.ceil(#self._datas / 5))
+        self:refreshItems()
+    end)
+
+    self.layer:GetButtonComponent("GameObject"):AddButtonListener(function()
+        if self.tipLayer then
+            self.tipLayer:onBackClick()
+        end
+    end)
+end
+
+function EquipIntensifyLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self._doLvNum = 0;
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_LEVEL,
+        function(data)
+            self:onEquipLevelUpRep(data)
+        end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("info_title"))
+end
+
+function EquipIntensifyLayer:show(callback)
+    self._data = Equip:GetEquip(self._equipid)
+    self._cfg  = Equip:GetCfg(self._data.cfgid)
+    self.curLevel = self._data.level;
+    self.callback = callback;
+    self:_initLayer()
+    self:setEquipInfo()
+    -- self.layer.transform:Find("pnl_material/checkbutton2/txt_title"):GetComponent("Text"):SetTextById(72000034)
+    self:setMaterial()
+    self:refreshItems()
+    self:setConsumes()
+    self:showLayer()
+    self:playAni("EquipIntensifyLayerAni")
+
+
+    self._selectType = 1 -- 1材料, 2符石
+    self.isBest = false
+    self._imgGou:SetVisible(self.isBest)
+    self._txtSelect:SetText(self._selectType == 1 and LanguageMgr:GetTextByID(190004) or LanguageMgr:GetTextByID(72000034))
+    self._imgSelect:SetRotation(self._selectType == 1 and 0 or 180, 0, 0, true)
+    self:showSuit()
+end
+
+function EquipIntensifyLayer:showSuit()
+    self._suit:SetVisible(self._data.suitid)
+    if self._data.suitid then
+        Equip:SetIconUi(self._suitIcon, self._cfg.itemPath, tonumber(self._cfg.FSicon))
+        Equip:SetEquipTag(self._data.suitid, self._suitTagImg, self._suitTagTxt)
+    end
+end
+
+function EquipIntensifyLayer:_initLayer()
+    self._cost = {0, 0, 0, 0, 0}
+    self._canIntensify = false
+    self._hasmax = false
+    self._hasempty = true
+
+    if self._data.level == self._data.curr_max_level then
+        self._data.is_level_max = true
+    end
+
+    self:dataGen()
+    self:changeSort()
+
+    for _, v in ipairs(self._costsObj) do
+        v:Visible(not self._data.is_level_max)
+    end
+end
+
+function EquipIntensifyLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.Intensify then
+        self:onIntensify()
+    elseif itype == BUTTON_TYPE.OneKey then
+        self:onOnekey()
+    elseif itype == BUTTON_TYPE.Coin then
+        SingletonMgr:ShowItemTipsLayer(self.layer, Bag.TYPE_ITEM, Player.ITEM_VALUE_COIN)
+    else
+        --TODO:
+    end
+end
+
+function EquipIntensifyLayer:onCheckButtonClick(itype)
+    -- self:setMaterial()
+    -- self:refreshItems()
+end
+
+function EquipIntensifyLayer:cancelEquip(i)
+    self._hasempty = true
+    local costData = self._cost[i]
+    local index = costData.index
+    if costData ~= 0 then
+        self._datas[index].data.count = self._datas[index].data.count + 1
+        self._cost[i] = 0
+        self:setConsumes()
+        self:refreshItems()
+    end
+end
+
+function EquipIntensifyLayer:onClickCost(i)
+    self._hasempty = true
+    if self._cost[i] ~= 0 then
+        local data = self._cost[i][2]
+        self:showItemTips(data.itype, data.uid, data.count, self._costsObj[i])
+        -- self._cost[i] = 0
+        -- self:setConsumes()
+        -- self:refreshItems()
+    end
+end
+
+function EquipIntensifyLayer:setEquipInfo()
+    Equip:SetEquipCObjByUid(self._equipCObj, self._data.uid, true)
+    if(self.equipNameLvExp == nil)then
+        self.equipNameLvExp =  Equip:NewEquipNameLvExp(self._equipInfoObj)
+    end
+    Equip:SetEquipNameLvExp(self.equipNameLvExp, self._data, {heroid = self._data.heroid, showExp = true})
+    -- attrs
+    Equip:SetEquipAttr(self._attrCObjArr, self._data, true)
+    self:setAddAttr()
+end
+
+function EquipIntensifyLayer:setLevel(addLevel)
+    local level = self._data.level
+    if addLevel ~= nil then
+        level = addLevel
+    end
+    level = "Lv."..level
+    local str_level
+    if self._data.is_level_max then
+        str_level = string.format(COLOR_STR.EquipLevelMax, level, self._data.curr_max_level)
+    else
+        str_level = string.format(COLOR_STR.EquipLevelNew, level, self._data.curr_max_level)
+    end
+    self._equipInfoObj.transform:Find("text_level"):GetComponent("Text").text = str_level
+end
+
+function EquipIntensifyLayer:setExp(addExp,showDoAnim)
+    local next_exp = Equip:GetLevelCostExp(self._data.cfgid, self._data.level)
+
+    local str_per = self._data.exp .. "/" .. next_exp
+
+    if(next_exp ~= self._sliderLv.maxValue)then
+        self._sliderLv.maxValue = next_exp;
+        self._sliderLvAdd.maxValue = next_exp
+        self._sliderBg.maxValue = next_exp
+    end
+
+    if addExp > 0 then
+        str_per =  string.format(COLOR_STR.EquipAddNew, self._data.exp + addExp, next_exp)
+    end
+    self._txtPer:SetText(str_per);
+    self._sliderLvAdd.value = self._data.exp + addExp
+    self._sliderBg.value = self._data.exp + addExp
+    if(self._doLvNum > 0)then
+        self._lvUpEffect:Stop();
+        self._lvUpEffect:Play();
+    end
+    self:DoAnim(showDoAnim)
+
+end
+
+function EquipIntensifyLayer:DoAnim(showDoAnim)
+        if(showDoAnim)then
+            if(self._doLvNum > 0)then
+                self._sliderLvAdd.value = self._sliderLv.maxValue
+                self._sliderBg.value = self._sliderLv.maxValue
+                self._sliderLv:DOValue(self._sliderLv.maxValue,0.1):SetEase(CS.DG.Tweening.Ease.Linear):OnComplete(function ()
+                    self._doLvNum = self._doLvNum - 1;
+                    self._sliderLv.value = 0;
+                    self:DoAnim(showDoAnim);
+                end);
+            else
+                if(self._sliderLv.value > self._data.exp)then
+                    self._sliderLv.value = 0;
+                end
+                self._sliderLvAdd.value = self._data.exp
+                self._sliderBg.value = self._data.exp
+                self._sliderLv:DOValue(self._data.exp,0.3):SetEase(CS.DG.Tweening.Ease.Linear):OnComplete(function ()
+                    if self._data.is_level_max then
+                        self._txtPer:SetText("--/--");
+                        self._sliderLv.value = 0
+                        self._sliderLvAdd.value = 0
+                        self._sliderBg.value = 0
+                        return
+                    end;
+                end);
+            end
+        else
+            if self._data.is_level_max then
+                self._txtPer:SetText("--/--");
+                self._sliderLv.value = 0
+                self._sliderLvAdd.value = 0
+                self._sliderBg.value = 0
+                return
+            end;
+            self._sliderLv.value = self._data.exp
+        end
+end
+
+function EquipIntensifyLayer:setAddAttr(level)
+    -- { {attrtype=xx, addvalue=xx}, ... }
+    local addattrs = Equip:LvUpAttrs(self._data, level)
+    for i =1 ,5 do
+        local val =0
+        if addattrs[i] ~= nil then
+            val = addattrs[i].addvalue
+        end
+        CAttr:SetAddAttrCObj(self._attrCObjArr[i], val, CAttr:GetCfg(self._data.mattr).show_type == CAttr.SHOW_TYPE_PER)
+    end
+
+
+end
+
+function EquipIntensifyLayer:setCostCoin(level, addexp)
+    local _uitext = self.layer.transform:Find("obj_cost/text_cost").transform
+    if self._data.is_level_max then
+        _uitext:GetComponent("Text").text  = "- - -"
+        return
+    end
+    self._coin = Equip:GetLvUpCostCoin(self._data, level, addexp)
+    -- self._coin = addexp * Equip.LEVEL_COIN_RATE
+    self._lackcoin = set_cost_color(_uitext, Player.ITEM_VALUE_COIN, self._coin)
+end
+
+function EquipIntensifyLayer:setConsumes(showDoAnim)
+    set_com_enabled(self._maxTxtCom, self._data.is_level_max)
+    local exp, bcost, data = 0, false
+    self._canIntensify = false
+    for i, cls in ipairs(self._costsObj) do
+        bcost = self._cost[i] ~= 0
+        set_obj_active(cls.empty, not bcost)
+        set_obj_active(cls.cancel, bcost)
+        set_obj_active(cls.citem.obj, bcost)
+        if bcost then
+            data = self._cost[i][2]
+            self:setItemCObj(cls.citem, data)
+            self._canIntensify = true
+            if data.itype == Bag.TYPE_ITEM then
+                exp = exp + Item:GetTransExp(data.uid)
+            else
+                exp = exp + Equip:GetTransExp(data.uid)
+            end
+        end
+    end
+
+    local _level, _exp = Equip:AddExpToLevel(self._data, exp)
+
+    self._hasmax = _level >= self._data.curr_max_level
+    if self._hasmax then
+        _level = self._data.curr_max_level
+    end
+
+    local max_exp   = Equip:CurMaxLevelExp(self._data)
+    self.isMaxExp   = exp > max_exp
+
+    self:setLevel(_level)
+    self:setExp(exp,showDoAnim)
+    self:setAddAttr(_level)
+    self:setCostCoin(_level, math.min(exp, max_exp))
+    self:setTips()
+end
+
+function EquipIntensifyLayer:dataGen()
+    self._datas = {}
+    -- 材料
+    local items = Item:GetEquipUpMaterial()
+    for k, v in pairs(items) do
+        local _data = {}
+        _data.uuid = getUUID()
+        _data.data = v
+        table.insert(self._datas, _data)
+    end
+    -- 装备
+    local equips = Equip:GetNotUseEquip(self._data.uid)
+    for k, v in pairs(equips) do
+        local _data = {}
+        _data.uuid = getUUID()
+        _data.data = v
+        _data.data.count = 1
+        table.insert(self._datas, _data)
+    end
+end
+
+function EquipIntensifyLayer:setMaterial()
+    local nums = #self._datas
+    set_obj_active(self.layer.transform:Find("pnl_material/image_empty"), nums == 0)
+    local rows = math.ceil( nums / 5)
+    if not self._init then
+        self._tvController:Init(rows, true,
+            function(cell, row, play)
+                self:refreshUnitCell(cell, row)
+            end, 0.3, 0.1)
+        self._init = true
+    else
+        self._tvController:Reload(rows)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function EquipIntensifyLayer:refreshUnitCell(cell, row)
+    local cls = self._cellsObj[cell.name]
+    if cls == nil then
+        cls = self:ctorCellCObj(cell)
+        self._cellsObj[cell.name] = cls
+    end
+    self:setCellCObj(cls, row)
+end
+
+function EquipIntensifyLayer:emptyPos()
+    self._hasempty = false
+    for i, v in ipairs(self._cost) do
+        if v == 0 then
+            self._hasempty = true
+            break
+        end
+    end
+end
+
+function EquipIntensifyLayer:refreshItems()
+    if self._data.level == self._data.curr_max_level then
+        self._data.is_level_max = true
+    end
+
+    for _, cls in pairs(self._cellsObj) do
+        self:refreshCellCheck(cls)
+    end
+end
+
+function EquipIntensifyLayer:showItemTips(itype, uid, count, obj)
+    SingletonMgr:ShowItemTipsLayer(obj, itype, uid, true, count,true)
+end
+
+function EquipIntensifyLayer:onMaterialClick(index)
+    if self._data.is_level_max then
+       Groble_UIMgr:ShowGameWordTipsLayer(72000057)
+        return
+    end
+
+    local data = self._datas[index]
+    if data.data.count > 0 then
+        if not self._hasempty then  --位置已满
+            Groble_UIMgr:ShowGameWordTipsLayer(72000060)
+            return
+        end
+        if self._hasmax then --装备已满级
+            Groble_UIMgr:ShowGameWordTipsLayer(72000056)
+            return
+        end
+
+        if self._hasempty then --未满
+            data.data.count = data.data.count - 1
+            --print("剩余数量  ： "..self._datas[index].data.count)
+            for i, v in ipairs(self._cost) do
+                if v == 0 then
+                    self._cost[i] = {self._datas[index].uuid, self._datas[index].data,index = index}  --上阵
+                    break
+                end
+            end
+        end
+    else
+        --print("材料不足 ")
+        Groble_UIMgr:ShowGameWordTipsLayer(72000058)
+        return
+    end
+
+    self:emptyPos() --空位
+    self:refreshItems()
+    self:setConsumes()
+end
+
+
+function EquipIntensifyLayer:onIntensify()
+    if(not Guide:ForceGuideIsEnd())then
+        self:UpLevel();
+        return;
+    end
+    if self._data.is_level_max or self._data.level == self._data.curr_max_level then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000057)
+        return
+    end
+    if(self.isMaxExp)then
+        Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(40025),
+            function()
+                self:UpLevel();
+            end, nil, true)
+    else
+        self:UpLevel();
+    end
+end
+
+function EquipIntensifyLayer:UpLevel()
+    if self._lackcoin then
+        Groble_UIMgr:ShowLackCurrencyTips(Player.ITEM_VALUE_COIN)
+        return
+    end
+    if self._fading then
+        return
+    end
+    local items = {}
+    local equips = {}
+    for i, v in ipairs(self._cost) do
+        if v ~= 0 then
+            if v[2].itype == Bag.TYPE_ITEM then
+                if items[v[2].uid] == nil then
+                    items[v[2].uid] = 1
+                else
+                    items[v[2].uid] = items[v[2].uid] + 1
+                end
+            else
+                table.insert(equips, v[2].uid)
+            end
+        end
+    end
+    if self._canIntensify == false then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000059)
+        return
+    end
+
+    local isSsr, isUp = false, false
+    for _, v in pairs(equips) do
+        local equip = Equip:GetEquip(v)
+        if equip.qlty >= Bag.QLTY_SSR then
+            isSsr = true
+            break
+        end
+        if equip.level > 1 then
+            isUp = true
+            break
+        end
+    end
+    if true == isUp then
+        Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(72000062), function()
+            Equip:LevelUpReq(self._data.uid, items, equips)
+            self._fading = true
+            self:resetAttrTip()
+        end, nil, true)
+    else
+        if true == isSsr then
+            Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(72000062), function()
+                Equip:LevelUpReq(self._data.uid, items, equips)
+                self._fading = true
+                self:resetAttrTip()
+            end, nil, true)
+        else
+            Equip:LevelUpReq(self._data.uid, items, equips)
+            self._fading = true
+            self:resetAttrTip()
+        end
+    end
+end
+
+function EquipIntensifyLayer:resetAttrTip()
+    for i = 2,5 do
+        local cls =  self._attrCObjArr[i]
+        cls.imgNew:SetVisible(false)
+    end
+    self._TipObj:SetVisible(false)
+
+end
+
+function EquipIntensifyLayer:onOnekey()
+    if self._data.is_level_max then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000057)
+        return
+    end
+    local itemNum = 0;
+    for _, v in ipairs(self._cost) do
+        if(v ~= 0)then
+            itemNum = itemNum + 1;
+        end
+    end
+    if(itemNum >= 5)then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880017))
+        return;
+    end
+    if #self._datas == 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000058)
+        return
+    end
+    if self._hasmax then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000056)
+    end
+
+    self:emptyPos()
+    if not self._hasempty then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000060)
+        return
+    end
+    if(itemNum == 0)then
+        self.selectItem = false;
+    end
+    local currAllItemExp = 0;
+    for _, v in ipairs(self._cost) do
+        if(v ~= 0)then
+            if v[2].itype == Bag.TYPE_ITEM then
+                currAllItemExp = currAllItemExp + Item:GetTransExp(v[2].uid);
+            else
+                currAllItemExp = currAllItemExp + Equip:GetTransExp(v[2].uid);
+            end
+        end
+    end
+
+    local curExp = Equip:CurMaxLevelExp(self._data) - currAllItemExp;
+    local curItemExp;
+    local showTips = false;
+    local showGoldTips = false;
+    curExp, showTips, showGoldTips = self:setCellExp(curItemExp, curExp)
+    if(showTips)then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880001))
+    end
+    if(showGoldTips)then
+        if(self.selectItem == false)then
+            self.selectItem = true;
+            local curItemNum = 0;
+            for _, v in ipairs(self._cost) do
+                if(v ~= 0)then
+                    curItemNum = curItemNum + 1;
+                end
+            end
+            if(curItemNum ~= 0 and curItemNum ~= itemNum)then
+                return;
+            end
+        end
+        local goldName = Item:GetCfg(Player.ITEM_VALUE_COIN).Name;
+        UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(880013),goldName))
+    end
+end
+
+function EquipIntensifyLayer:GetCostNum()
+    local num = 0
+    for i, v in ipairs(self._cost) do
+        if self._cost[i] ~= 0 then
+            num = num + 1
+        end
+    end
+    return num
+end
+
+function EquipIntensifyLayer:setCellExp(curCellExp, curExp)
+    local showTips = true;
+    local showNotGoldTips = false;
+    local useCount = self:GetCostNum()
+    local costNum = 0
+    for i = 1, #self._datas do
+        if self._datas[i].data.count > 0 then
+            if not self._hasempty then
+                break
+            end
+            if self._hasmax then
+                break
+            end
+            local itype = self._datas[i].data.itype
+            if itype == Bag.TYPE_ITEM then
+                curCellExp = Item:GetTransExp(self._datas[i].data.uid)
+            elseif itype == Bag.TYPE_EQUIP then
+                curCellExp = Equip:GetTransExp(self._datas[i].data.uid)
+            end
+
+            if (curExp - curCellExp >= -20) and (max_cost_num - useCount > 0) then
+                curExp = curExp - curCellExp
+                local count = self._datas[i].data.count
+                for j = 1,count do
+                    costNum = costNum + 1
+                    if costNum <= 5 then
+                        self:onMaterialClick(i)
+                    end
+                end
+                showNotGoldTips = false;
+                useCount = useCount + 1
+                showTips = false
+            end          
+        end
+    end
+    return curExp, showTips, showNotGoldTips
+end
+
+function EquipIntensifyLayer:onEquipLevelUpRep(data)
+    self._fading = true
+    local unlockAttr = data[2]
+    local isLevelUp = data[3]
+    Groble_SoundMgr:PlayEffect(20000017)
+    self._lvUpEffect:Play()
+    for i, v in ipairs(self._cost) do
+        if v ~= 0 then
+            self._costsObj[i].effect:Play()
+        end
+    end
+    --
+    self:_initLayer();
+    self._doLvNum = self._doLvNum + self._data.level - self.curLevel;
+    self.curLevel = self._data.level
+    Groble_UIMgr:SetBackBtnState(BackBtnState.Stop)
+    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(700996))
+
+    if not lua_table_empty(unlockAttr) then
+        local attrs = Equip:GetEquipSortAttrs(self._data)
+        local cls
+        for i, atype in pairs(attrs) do
+            cls = self._attrCObjArr[i]
+            if i > 1 then
+                for _, v in pairs(unlockAttr) do
+                    if atype == v.atype then
+                        cls.effect:Play()
+                        if v.unlock == true then
+                            cls.imgNew:SetVisible(true)
+                        else
+                            --todo dotween
+                            self:TxtAnimation(cls, i)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if isLevelUp then
+        self:TxtAnimation(self._attrCObjArr[1], 1)
+    end
+    self:setEquipInfo()
+
+    local id = Timer:AddTimerCall(0.6, function ()
+        self._fading = false
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Normal)
+        Guide:RecoverGuide()
+    end)
+    self.timer[id] = 1
+    self:setConsumes(true);
+    self:setMaterial()
+end
+
+function EquipIntensifyLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function EquipIntensifyLayer:setTips()
+    local curCount = #self._data.ex_attrs + 1
+    local maxCount = Equip.FS_ATTR_COUNT
+    local curLv = self._data.level
+    local hasTip = false
+    for i,lv in ipairs(Player.FS_UP_GROUPS) do
+        if curLv < lv and self.curLevel >= lv then
+            hasTip = true
+        end
+    end
+    if hasTip then
+        self._TipObj:SetVisible(true)
+        if curCount < maxCount then
+            --解锁
+            self._txtTip:SetTextById(700986)
+        else
+            --提升
+            self._txtTip:SetTextById(700987)
+        end
+        self._TipObj.transform.localPosition = TIP_POS[maxCount +1]
+    else
+        self._TipObj:SetVisible(false)
+    end
+
+end
+
+function EquipIntensifyLayer:TxtAnimation(cls, index)
+    local startValue = lua_str_split(cls.valueCom.text, "%")[1]
+    local endValue  =  self._data.show_attrs[index][2]
+    local showPer = cls.show_type == CAttr.SHOW_TYPE_PER
+    if showPer then
+        endValue =  string.format("%.1f", endValue / 10 )
+    end
+    local scale = 1.5
+    if(math.abs(startValue - endValue) < 0.0001) then
+        scale = 1
+    end
+    self._txtAnimation:TxtAnimation(cls.valueCom,tonumber(startValue), tonumber(endValue), showPer, 0.5 ,scale)
+end
+
+------------------------ 符石修改
+function EquipIntensifyLayer:changeSort()
+    table.sort(self._datas, function(a, b)
+        local _a = a.data
+        local _b = b.data
+        if self._selectType == 1 then
+            -- 材料在前
+            if _a.itype == _b.itype then
+                local expA = _a.itype == Bag.TYPE_EQUIP and Equip:GetTransExp(_a.uid) or Item:GetTransExp(_a.uid)
+                local expB = _b.itype == Bag.TYPE_EQUIP and Equip:GetTransExp(_b.uid) or Item:GetTransExp(_b.uid)
+                if expA == expB then
+                    if _a.sortid == _b.sortid then
+                        return _a.uid < _b.uid
+                    else
+                        return _a.sortid < _b.sortid
+                    end
+                else
+                    if self.isBest then
+                        return expA > expB
+                    else
+                        return expA < expB
+                    end
+                end
+            else
+                return _a.itype > _b.itype
+            end
+        elseif self._selectType == 2 then
+            -- 符石
+            if _a.itype == _b.itype then
+                local expA = _a.itype == Bag.TYPE_EQUIP and Equip:GetTransExp(_a.uid) or Item:GetTransExp(_a.uid)
+                local expB = _b.itype == Bag.TYPE_EQUIP and Equip:GetTransExp(_b.uid) or Item:GetTransExp(_b.uid)
+                if expA == expB then
+                    if _a.sortid == _b.sortid then
+                        return _a.uid < _b.uid
+                    else
+                        return _a.sortid < _b.sortid
+                    end
+                else
+                    if self.isBest then
+                        return expA > expB
+                    else
+                        return expA < expB
+                    end
+                end
+            else
+                return _a.itype < _b.itype
+            end
+        end
+    end)
+end
+
+return EquipIntensifyLayer
+

@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2020-11-07 00:42:41
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TimeOutAddLayer = class("TimeOutAddLayer", CBaseLayer)
+
+function TimeOutAddLayer:ctor(super)
+    CBaseLayer.ctor(self)   
+    self._prefab = {
+        path = "prefab_uiFight/ui_FightInfo/UI_TimeOut",
+    }
+    self:onEnter()
+end
+
+function TimeOutAddLayer:onEnter()
+    self:createPnl()
+end
+
+function TimeOutAddLayer:show(call)
+    self._call = call
+end
+
+function TimeOutAddLayer:onLayerFadeOutEndCall()
+    self._call()
+    self._call = nil
+    self:onPopLayer()
+end
+
+return TimeOutAddLayer
+

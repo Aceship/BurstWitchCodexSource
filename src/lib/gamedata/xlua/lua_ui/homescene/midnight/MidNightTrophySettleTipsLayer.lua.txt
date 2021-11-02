@@ -1,0 +1,196 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-01 15:04:46
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightTrophySettleTipsLayer = class("MidNightTrophySettleTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnOk = "trans_container/trans_dan/rect_bottom/btn_ok",
+	--@ButtonEnd
+}
+--构造函数
+function MidNightTrophySettleTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightTrophySettleTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function MidNightTrophySettleTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function MidNightTrophySettleTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnOk)then 
+	   self:OnBtnOkClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+end
+
+--初始化
+function MidNightTrophySettleTipsLayer:Init()
+    self:InitData();
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化数据
+function MidNightTrophySettleTipsLayer:InitData()
+
+end
+
+--更新数据
+function MidNightTrophySettleTipsLayer:UpdateData()
+
+end
+
+--初始化UI
+function MidNightTrophySettleTipsLayer:InitUI()
+
+	self._imgSettleTitle = self.layer:GetImageComponent("trans_container/trans_trophy/img_settle_title");
+	self._imgDanTitle = self.layer:GetImageComponent("trans_container/trans_dan/img_dan_title");
+	--@ImageEnd
+
+	self._txtTrophyAddNum = self.layer:GetTextComponent("trans_container/trans_trophy/txt_trophy_add_num");
+	self._txtTrophyName = self.layer:GetTextComponent("trans_container/trans_trophy/txt_trophy_name");
+	self._txtRank = self.layer:GetTextComponent("trans_container/trans_trophy/txt_trophy_name/txt_rank");
+	self._txtDanUpTitle = self.layer:GetTextComponent("trans_container/trans_dan/rect_bottom/txt_dan_up_title");
+	--@TextEnd
+
+	self._transTrophy = self.layer:Get("trans_container/trans_trophy");
+	self._transDan = self.layer:Get("trans_container/trans_dan");
+	self._transDanUpBg = self.layer:Get("trans_container/trans_dan/img_dan_up_bg");
+	self._transEffect = self.layer:Get("trans_container/trans_dan/trans_effect");
+	--@TransformEnd
+
+	self._rectBottom = self.layer:GetRectTransformComponent("trans_container/trans_dan/rect_bottom");
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+	self._danGrading = MidNight:NewDanGradingUI(self.layer:Get("trans_container/trans_dan"));
+end
+
+--显示UI
+function MidNightTrophySettleTipsLayer:show()
+	self:SetUI();
+    self:showLayer();
+end
+
+--退出按钮事件
+function MidNightTrophySettleTipsLayer:onBackClick()
+	if(MidNight:GetSmallStageSettleStepNum() <= 0)then
+		self:onPopLayer();
+	else
+		self:SetUI();
+		MidNight:RemoveSmallStageSettleStep();
+	end
+end
+
+--释放
+function MidNightTrophySettleTipsLayer:onExit()
+    
+    self._transTrophy = nil;
+	self._imgSettleTitle = nil;
+	self._txtTrophyAddNum = nil;
+	self._txtTrophyName = nil;
+	self._txtRank = nil;
+	self._transDan = nil;
+	self._imgDanTitle = nil;
+	self._transDanUpBg = nil;
+	self._transEffect = nil;
+	self._rectBottom = nil;
+	self._txtDanUpTitle = nil;
+	--@CloseEnd
+	self._danGrading:clear();
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightTrophySettleTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+end
+function MidNightTrophySettleTipsLayer:OnBtnOkClick()
+	self:onBackClick();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function MidNightTrophySettleTipsLayer:SetUI()
+	local data = MidNight:GetCurSmallStageSettleStep();
+	self._transTrophy:SetVisible(data.stepType == MidNight.SmallStageSettleStep_Trophy);
+	self._transDan:SetVisible(data.stepType == MidNight.SmallStageSettleStep_Dan);
+	if(data.stepType == MidNight.SmallStageSettleStep_Trophy)then
+		self:SetTrophyUI(data.data);
+	elseif(data.stepType == MidNight.SmallStageSettleStep_Dan)then
+		self:SetDanUI(data.data);
+	end
+end
+
+function MidNightTrophySettleTipsLayer:SetTrophyUI(data)
+
+	self:playAni("MidNightTrophySettleAnim");
+	local danCfg = MidNight:GetDanGradingCfgById(data.lastDanId);
+	local str = "";
+	if(data.addNum >= 0)then
+		str = string.format("+%s",data.addNum);
+	else
+		str = string.format("-%s",math.abs(data.addNum));
+	end
+	self._txtTrophyAddNum:SetText(str);
+	self._txtRank:SetText(string.format(LanguageMgr:GetTextByID(120054),data.ranking));
+	self._txtTrophyName:SetText(danCfg.name);
+	if(data.addNum < 0)then
+
+	end
+end
+
+function MidNightTrophySettleTipsLayer:SetDanUI(data)
+	self:playAni("MidNightDanAnim");
+	local cfg = MidNight:GetDanGradingCfgById(data.curDanId);
+	MidNight:SetDanGradingUI(self._danGrading,data.curDanId,Player:GetTrophyNum());
+	self._transDanUpBg:SetVisible(data.lastDanId < data.curDanId);
+	if(data.lastDanId < data.curDanId)then
+		--self._transEffect:CreateChild("prefab_uiEffect/uiEffect/ui97_jinji");
+		self._transEffect:CreateChild("prefab_uiEffect/uiEffect/ui97_jinji_low");
+		--else
+	end
+	if(data.curDanId > data.lastDanId)then
+		self._imgDanTitle:LoadSprite("source_common/ImageText/text_shengye_jingji_wenzi");
+		self._imgDanTitle:SetAnchoredPosition(-10,531);
+		self._rectBottom:SetAnchoredPosition(0,-268);
+	else
+		self._imgDanTitle:LoadSprite("source_common/ImageText/text_shengye_duanwei_xiajiang");
+		self._imgDanTitle:SetAnchoredPosition(-10,458);
+		self._rectBottom:SetAnchoredPosition(0,-179);
+	end
+	self._txtDanUpTitle:SetText(string.format(LanguageMgr:GetTextByID(120055),cfg.trophySection[1]));
+end
+
+
+
+return MidNightTrophySettleTipsLayer;

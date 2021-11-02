@@ -1,0 +1,502 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-24 11:49:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityMainLayer = class("ActivityMainLayer", CBaseLayer)
+
+--构造函数
+function ActivityMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ActivityMainLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = {nil,nil,nil},
+    }
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self._addStack = true;
+    self._init = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function ActivityMainLayer:onEnter()
+    self:createPnl();
+    self:RegisterHandler();
+    self:Init();
+end
+
+--按钮事件
+function ActivityMainLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ActivityMainLayer:Init()
+    self._curSelectUid = nil;
+    self._allLayers = {};
+    self._alpha = 0;
+    self._leftTogs = {};
+    self._v3Zero = CS.UnityEngine.Vector3.zero;
+    self:UpdateData();
+    self:InitUI();
+    self:SetBottomTogUI();
+end
+
+function ActivityMainLayer:UpdateData()
+    self._cfgList = {};
+    local cfgs = Operation:GetActiveListByType(Operation.LayerType.Activity);
+    for k, v in ipairs(cfgs) do
+        local isOpen,timerId = Operation:GetActiveListIsOpenById(v.id);--获取活动是否开启,倒计时
+        if(isOpen)then
+            table.insert(self._cfgList,{cfg = v,timerId = timerId});
+        end
+    end
+end
+
+--初始化UI
+function ActivityMainLayer:InitUI()
+
+	self._imgTitle = self.layer:GetImageComponent("trans_container/img_title");
+	--@ImageEnd
+
+	--@TextEnd
+
+    self._transLeftTogBg = self.layer:Get("trans_container/left_tog_bg");
+    self._transLeftTogContent = self.layer:Get("trans_container/left_tog_bg/view_point/trans_left_tog_content");
+    self._transSelectTogBg = self.layer:Get("trans_container/left_tog_bg/trans_select_tog_bg");
+	self._transSpineBg = self.layer:Get("trans_container/trans_spine_bg");
+	self._transBottomContent = self.layer:Get("trans_container/bottom_tog_bg/viewport/trans_bottom_content");
+    self._transUIParent = self.layer:Get("trans_container/trans_ui_parent");
+	--@TransformEnd
+
+	self._rectTitle = self.layer:GetRectTransformComponent("trans_container/img_title");
+	self._rectBottomContent = self.layer:GetRectTransformComponent("trans_container/bottom_tog_bg/viewport/trans_bottom_content");
+	--@RectTransformEnd
+
+	self._objLeftTog = self.layer:Get("trans_container/item_hide/obj_left_tog").gameObject;
+	self._objBottomTog = self.layer:Get("trans_container/item_hide/obj_bottom_tog").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function ActivityMainLayer:show()
+    if(Activity:GetCurMainType() == nil)then
+        self._bottomTogItems[1].tog.isOn = true;
+    else
+        for i, v in pairs(self._bottomTogItems) do
+            if(v.data.id == Activity:GetCurMainType())then
+                v.tog.isOn = true;
+            end
+        end
+    end
+    self:showLayer();
+end
+
+function ActivityMainLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    self:UpdateRed();
+    if(self._curMainType == Activity.MainType.Gather)then
+        if(self._GatherLayer ~= nil)then
+            self._GatherLayer:showLayer();
+        end
+    end
+end
+
+function ActivityMainLayer:onUpdate(dt)
+    if(self._curModel == nil)then
+        return;
+    end
+    if self._updateA then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            self._skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+--退出按钮事件
+function ActivityMainLayer:onBackClick()
+    Activity:InitData();
+    Operation:InitData();
+    self:onPopLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function ActivityMainLayer:OnBottomTogClick(isOn,cls)
+    if(isOn)then
+        if(self._curMainType == cls.data.id)then
+            return;
+        end
+        self:CutMainType(cls.data.id);
+    end
+end
+
+function ActivityMainLayer:OnLeftTogClick(isOn,cls)
+    if(not Activity:GetMainLayerTogClickState())then
+        return;
+    end
+    if(isOn)then
+        if(self._curSelectUid == cls.data.UID)then
+            return;
+        end
+        Activity:SetCurSelectUid(cls.data.UID);
+        self._curSelectUid = Activity:GetCurSelectUid();
+        Activity:SetActivityId(self._curSelectUid)
+        if(self._allLayers[self._curSelectUid] == nil)then
+            if(self._curSelectUid == Operation.ActivityID.DailyCheckIn)then--每日签到
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/DaySignInLayer.txt"):new();
+            elseif(self._curSelectUid == Operation.ActivityID.NewWelfare)then--萌新福利
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/RookieAwardLayer.txt"):new();
+            elseif(self._curSelectUid == Operation.ActivityID.GradeAward)then--等级奖励
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/LevelAwardLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.Dial)then  --转盘
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/DialLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.WitchBook)then--魔女手册
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/WitchBookLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.UpgradePackage)then--等级礼包
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/UpgradePackageLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.ValueSummon)then--超值召唤
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/ValueSummonLayer.txt"):new(self._transUIParent);
+            end
+        end
+        if(self._allLayers[self._curSelectUid] ~= nil)then
+            self._allLayers[self._curSelectUid]:show();
+        end
+        self:UpdateSelectTogBgPos();
+        if(cls.data.ad_Image ~= nil)then--设置广告字
+            Activity:SetImgTitle(self._imgTitle,self._rectTitle,cls.data);
+            self._imgTitle.color = CS.UnityEngine.Color(1,1,1,0);
+            self._imgTitle:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
+            --[[local tempV;
+            Operation:SetOperationImage(self._imgTitle,cls.data.ad_Image[1],Operation.AD_IMAGE_FILE);--加载广告字图片
+            if(cls.data.ad_Image[4] == nil)then
+                tempV = CS.UnityEngine.Vector2(0.5, 1);
+            else
+                tempV = CS.UnityEngine.Vector2(tonumber(cls.data.ad_Image[4]), tonumber(cls.data.ad_Image[5]));
+            end
+            self._imgTitle.color = CS.UnityEngine.Color(1,1,1,0);
+            self._imgTitle:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
+            self._rectTitle.anchorMax = tempV;
+            self._rectTitle.anchorMin = tempV;
+            self._rectTitle.pivot = tempV;
+            self._rectTitle.anchoredPosition = CS.UnityEngine.Vector2(tonumber(cls.data.ad_Image[2]), tonumber(cls.data.ad_Image[3]));]]--
+        end
+        if(cls.data.Picture ~= "-1")then
+            self:SetBGImage(cls.data.Picture);
+        end
+        if(cls.data.spine ~= nil)then--设置spine
+            self:LoadHeroSpine(cls.data.spine[1],cls.data);
+        else
+            if(self._curModel ~= nil)then
+                self.currHeroId = nil;
+                u3d_destory_obj(self._curModel);
+                self._curModel = nil;
+            end
+        end
+
+    else
+        if(self._allLayers[cls.data.UID] ~= nil)then
+            self._allLayers[cls.data.UID]:hideLayer();
+        end
+    end
+
+    self._topData.topInfo = cls.data.currencyIds;--货币类型
+    Groble_UIMgr:SetTopData(self._topData);
+end
+
+--@MToggleFunctionEnd
+
+--释放
+function ActivityMainLayer:onExit()
+
+    self._leftTogs = nil;
+    self._objLeftTog = nil;
+	self._transLeftTogContent = nil;
+	self._transSelectTogBg = nil;
+	self._transSpineBg = nil;
+	self._imgTitle = nil;
+	self._rectTitle = nil;
+    self._objBottomTog = nil;
+    self._transBottomContent = nil;
+    self._cfgList = nil;
+    self._rectBottomContent = nil;
+    self._bottomTogItems = nil;
+    --@CloseEnd
+    for _, v in pairs(self._allLayers) do
+        v:onBackClick();
+    end
+    self._allLayers = nil;
+    if(self._GatherLayer ~= nil)then
+        self._GatherLayer:onBackClick();
+    end
+    self._GatherLayer = nil;
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+--------------------------------------------------BottomTog--------------------------------------------
+function ActivityMainLayer:SetBottomTogUI()
+    if(#self._cfgList > 3)then
+        self._rectBottomContent.pivot = CS.UnityEngine.Vector2(0,0.5);
+    else
+        self._rectBottomContent.pivot = CS.UnityEngine.Vector2(0.5,0.5);
+    end
+    if(self._bottomTogItems == nil)then
+        self._bottomTogItems = {};
+    end
+    local num = #self._cfgList;
+    if(num < #self._bottomTogItems)then
+        num = #self._bottomTogItems;
+    end
+    for i = 1, num do
+        local cls = self._bottomTogItems[i];
+        if(cls == nil)then
+            cls = self:NewTog(false);
+            self._bottomTogItems[i] = cls;
+        end
+        local data = self._cfgList[i];
+        cls:Visible(data ~= nil);
+        cls.isOpen = data ~= nil;
+        self:SetBottomTog(cls,data);
+    end
+end
+
+function ActivityMainLayer:NewTog(isLeft)
+    local gameObject
+    if isLeft then
+        gameObject = CS.UnityEngine.GameObject.Instantiate(self._objLeftTog,self._transLeftTogContent)
+    else
+        gameObject = CS.UnityEngine.GameObject.Instantiate(self._objBottomTog,self._transBottomContent)
+    end
+    local cls = clsbase:new(gameObject);
+    cls.tog = cls.transform:GetComponent("MToggle");
+    cls.selectTxtTile = gameObject:GetTextComponent("select/txt_title");
+    cls.selectTxtTileE = gameObject:GetTextComponent("select/txt_title_E");
+    cls.unSelectTxtTile = gameObject:GetTextComponent("unselect/txt_title");
+    cls.unSelectTxtTileE = gameObject:GetTextComponent("unselect/txt_title_E");
+    cls.selectImgIcon  = gameObject:GetImageComponent("select");
+    cls.unSelectImgIcon = gameObject:GetImageComponent("unselect");
+    cls.imgRed = gameObject:GetImageComponent("img_red");
+    if isLeft then
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnLeftTogClick(isOn,cls);
+        end);
+    else
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnBottomTogClick(isOn,cls);
+        end);
+    end
+    return cls
+end
+
+function ActivityMainLayer:SetBottomTog(cls,data)
+    cls.selectTxtTile.text = data.cfg.Name;
+    cls.selectTxtTileE.text = data.cfg.EnglishName;
+    cls.unSelectTxtTile.text = data.cfg.Name;
+    cls.unSelectTxtTileE.text = data.cfg.EnglishName;
+    cls.selectImgIcon:LoadSprite(  string.format("%s%s_c",Operation.IMAGE_PATH , data.cfg.Picture));
+    cls.unSelectImgIcon:LoadSprite(  string.format("%s%s_a",Operation.IMAGE_PATH , data.cfg.Picture));
+    cls.data = data.cfg;
+end
+
+-------------------------------------------------LeftTog-----------------------------------------------
+
+function ActivityMainLayer:SetLeftTogUI()
+    for _, cfg in ipairs(self._activitys[self._curMainType]) do
+        if(self._leftTogs[cfg.UID] == nil)then
+            self._leftTogs[cfg.UID] = self:NewTog(true);
+        end
+        local cls = self._leftTogs[cfg.UID];
+        cls.isOpen = true;
+        if(cfg ~= nil)then
+            cls.selectTxtTile.text = cfg.Name;
+            cls.selectTxtTileE.text = cfg.EnglishName;
+            cls.unSelectTxtTile.text = cfg.Name;
+            cls.unSelectTxtTileE.text = cfg.EnglishName;
+            cls.data = cfg;
+        end
+    end
+    for _, v in pairs(self._leftTogs) do
+        v.obj:SetVisible(v.isOpen);
+        v.isOpen = false;
+    end
+end
+
+
+----------------------------------------------------------------------------------
+
+function ActivityMainLayer:UpdateSelectTogBgPos()
+    self._transSelectTogBg:SetParent(self._leftTogs[self._curSelectUid].transform);
+    self._transSelectTogBg:SetAsFirstSibling();
+    if(self._init)then
+        self._init = false;
+        self._transSelectTogBg:DOLocalMove(self._v3Zero,0);
+    else
+        self._transSelectTogBg:DOLocalMove(self._v3Zero,0.2);
+    end
+end
+
+--加载英雄spine
+function ActivityMainLayer:LoadHeroSpine(heroId,cfg)
+    if(self.currHeroId ~= heroId)then
+        self.currHeroId = heroId;
+        Hero:LoadSpineAsync(self.__cname,self._transSpineBg, tonumber(heroId), Hero.SPINE_UI_TYPE_WITCH,
+                function(obj)
+                    self._alpha = -0.1
+                    if obj == nil then
+                        self._updateA = false
+                    else
+                        self._curModel = obj
+                        self._skeletonAni = self._curModel:GetComponent("SkeletonAnimation")
+                        self._skeletonAni:GetComponent("MeshRenderer").sortingOrder = Activity.SPINE_ORDER;
+                        self._curModel.transform.localPosition = CS.UnityEngine.Vector3(cfg.spinePos[1][1],cfg.spinePos[1][2],cfg.spinePos[1][3]);
+                        self._curModel.transform.localScale = CS.UnityEngine.Vector3(cfg.spineScale[1][1],cfg.spineScale[1][2],cfg.spineScale[1][3]);
+                        self._updateA = true
+                        if self._alpha < 1 then
+                            self._skeletonAni.Skeleton.A = 0
+                        else
+                            self._skeletonAni.Skeleton.A = 1
+                        end
+                    end
+                end)
+    else
+        if(self._curModel ~= nil)then
+            self._skeletonAni = self._curModel:GetComponent("SkeletonAnimation")
+            self._skeletonAni:GetComponent("MeshRenderer").sortingOrder = Activity.SPINE_ORDER;
+            self._curModel.transform.localPosition = CS.UnityEngine.Vector3(cfg.spinePos[1][1],cfg.spinePos[1][2],cfg.spinePos[1][3]);
+            self._curModel.transform.localScale = CS.UnityEngine.Vector3(cfg.spineScale[1][1],cfg.spineScale[1][2],cfg.spineScale[1][3]);
+            self._updateA = true
+            if self._alpha < 1 then
+                self._skeletonAni.Skeleton.A = 0
+            else
+                self._skeletonAni.Skeleton.A = 1
+            end
+        else
+            self._updateA = false
+        end
+    end
+end
+
+--切换活动主类型
+function ActivityMainLayer:CutMainType(mainType)
+    if(self._curMainType == mainType)then
+        return;
+    end
+    if(self._activitys == nil)then
+        self._activitys = {};
+    end
+    self._curMainType = mainType;
+    Activity:SetCurMainType(mainType);
+    local cfg = Operation:GetActiveListCfgById(mainType);
+    self._transLeftTogBg:SetVisible(cfg.showPaging > 0);
+    if(mainType == Activity.MainType.Activity)then
+        if(self._activitys[mainType] == nil)then
+            self._activitys[mainType] = {};
+            for _, cfg in ipairs(cfg.table) do
+                if(Operation:GetActiveIsOpenByUid(cfg.UID))then
+                    table.insert(self._activitys[mainType],cfg);
+                end
+            end
+        end
+        self:SetLeftTogUI();
+        if(self._curSelectUid == nil)then
+            if Activity:GetActivityId() > 0 then
+                Activity:SetCurSelectUid(Activity:GetActivityId());
+            else
+                Activity:SetCurSelectUid(self._activitys[mainType][1].UID);
+            end
+            if self._leftTogs[Activity:GetCurSelectUid()] then
+                self._leftTogs[Activity:GetCurSelectUid()].tog.isOn = false;
+            end
+        end
+        if self._leftTogs[Activity:GetCurSelectUid()] then
+            self._leftTogs[Activity:GetCurSelectUid()].tog.isOn = true;   
+        end
+        if(self._GatherLayer ~= nil)then
+            self._GatherLayer:hideLayer();
+        end
+        self._imgTitle:SetEnabled(true);
+        self._transSpineBg:SetVisible(true);
+        self:refreshLeftTogTips()
+    elseif(mainType == Activity.MainType.Gather)then
+        if(self._GatherLayer == nil)then
+            self._GatherLayer = Activity:OpenActiveGatherLayer(self._transUIParent);
+        end
+        if(self._allLayers[self._curSelectUid] ~= nil)then
+            self._allLayers[self._curSelectUid]:hideLayer();
+        end
+        self._curSelectUid = nil;
+        self._GatherLayer:show();
+        self._imgTitle:SetEnabled(false);
+        self._transSpineBg:SetVisible(false);
+        self._topData.topInfo = {nil,nil,nil};--货币类型
+        Groble_UIMgr:SetTopData(self._topData);
+    end
+end
+
+function ActivityMainLayer:SetBGImage(path)
+    self._bgData = {
+        bgType = "source_icon/operation/BGImage/"..path,
+    }
+    Groble_UIMgr:SetBgData(self._bgData);
+end
+
+--更新红点
+function ActivityMainLayer:UpdateRed()
+    for _, cls in pairs(self._bottomTogItems) do
+        if(cls.isOpen)then
+            if cls.data.id == Activity.MainType.Activity then
+                cls.imgRed:SetEnabled(Activity:IsBatterActivityOper())
+            elseif cls.data.id == Activity.MainType.Gather then
+                cls.imgRed:SetEnabled(Activity:IsBatterGatherOper())
+            end
+        end
+    end
+    self:refreshLeftTogTips()
+end
+
+function ActivityMainLayer:refreshLeftTogTips()
+    for _, cls in pairs(self._leftTogs) do
+        cls.imgRed:SetEnabled(Activity:GetRedStateByActivityId(cls.data.UID))
+    end
+end
+
+function ActivityMainLayer:RegisterHandler()
+    self:addEventListener(EVENT_NAME.UI_REFRESH_REDTIP,self.__cname,function()
+        self:UpdateRed();
+    end);
+    self:addEventListener(EVENT_NAME.UPDATE_OPER_TOG_STATE,self.__cname,function()
+        self:UpdateRed();
+    end);
+    self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(99000060));
+        self:UpdateRed();
+    end);
+end
+
+return ActivityMainLayer;

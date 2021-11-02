@@ -1,0 +1,30 @@
+--
+-- author: haosun
+-- date  : 2019-07-03 16:58:00
+-- brief : 
+--
+
+Timer = Timer or {}
+
+function Timer:Ctor()
+end
+
+local _inst = CS.Timer.Instance
+
+function Timer:AddTimerCall(delayTime, callback)
+    return _inst:AddDelayCall(delayTime, callback, 1)
+end
+
+function Timer:AddRepeatTimerCall(delayTime, callback, repeatCnt)
+    return _inst:AddDelayCall(delayTime, callback, repeatCnt)
+end
+
+function Timer:RemoveTimerCall(timerId)
+    _inst:RemoveDelayCall(timerId)
+end
+
+function Timer:TimerClear()
+    _inst:Clear()
+end
+
+Timer:Ctor()

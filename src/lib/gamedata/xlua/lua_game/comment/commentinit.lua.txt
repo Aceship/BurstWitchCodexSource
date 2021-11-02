@@ -1,0 +1,12 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-03 11:04:12
+---
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Comment/comment.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Comment/comment_proto.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Comment/commentdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Comment/commentdata.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Comment/comment_c2s.txt")
+
+Comment:Ctor();
+Comment:InitData();

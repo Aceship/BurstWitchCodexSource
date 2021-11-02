@@ -1,0 +1,806 @@
+UI_FightTalk = class("UI_FightTalk")
+
+local _Linear = CS.DG.Tweening.Ease.Linear
+
+function UI_FightTalk:ctor(super)
+    self._recordText = {}
+    self._fightTalkLayer = CS.UnityEngine.GameObject.Find("TalkPanel"):CreateChild("prefab_uiFight/ui_FightTalk/prefab/UI_TalkPrefab")
+    
+    self._fightTalkLayer:AddAnimationBehaviour(self)
+    
+    self._video_player = self._fightTalkLayer.transform:Find("video_player"):GetComponent("CriVideoHelper")
+
+    local rect = self._fightTalkLayer:GetRectTransformComponent("video_player")
+    local size = rect.rect.size
+    local sizeDelta = rect.sizeDelta
+    sizeDelta.x = size.y * 9 / 16
+    rect.sizeDelta = sizeDelta
+
+    self._video_bg = self._fightTalkLayer:Get("img_video_bg")
+    self._video_bg:SetVisible(false)
+    
+    self._nextbutton = self._fightTalkLayer:GetButtonComponent("nextBtn")
+    self._skipbutton = self._fightTalkLayer:GetButtonComponent("skipBtn")
+    self._skipbtnObj = self._fightTalkLayer:Get("skipBtn")
+    self._recordBtn = self._fightTalkLayer.transform:Find("recordBtn")
+    self._recordbutton = self._fightTalkLayer:GetButtonComponent("recordBtn")
+    self._skipbutton:SetVisible(false)
+    self._fightTalkLayer:SetVisible(false)
+    self._recordBtn:SetVisible(false);
+    
+    self._autoBtn = self._fightTalkLayer:GetButtonComponent("autoBtn")
+    self._autoObj = self._fightTalkLayer:Get("autoBtn")
+    self._autoBtnName = self._autoObj:GetTextComponent("BtnName");
+    self._autoStart = self._fightTalkLayer:Get("autoBtn/img_start")
+    self._autoPause = self._fightTalkLayer:Get("autoBtn/img_pause")
+    self._autoBtnBg = self._fightTalkLayer:Get("autoBtn/img_lan"); 
+    self._autoObj:SetVisible(false);
+    self._autoStart:SetVisible(true);
+    self._autoPause:SetVisible(false);
+    
+    self._talkbody = self._fightTalkLayer.transform:Find("talkbody")
+    self._talkbodyBg = self._fightTalkLayer.transform:Find("talkbody/body_bg")
+    self._talkbodyBg:SetVisible(false);
+    
+    self._img_blink = self._fightTalkLayer:GetImageComponent("img_blink")
+    self._img_blink:SetVisible(false);
+    
+    self._show_bkg_bc   = self._fightTalkLayer:GetImageComponent("show_bkg_bc")
+    self._show_bkg_bc:SetVisible(false)
+    fixed_obj_scale_by_height(self._show_bkg_bc)
+    self._img_black = self._fightTalkLayer:GetImageComponent("img_black")
+    self._img_black:SetColorA(0)
+    self._img_black:SetVisible(true)
+    
+    ----------------------------
+    self._talkbg            = self._fightTalkLayer.transform:Find("talkbg"); 
+    self._nextarrow         = self._talkbg:Find("nextbg")
+    self._infoPos           = self._talkbg:Find("info")
+    self._objNameBg         = self._talkbg:Get("img_namebg")
+    self._name              = self._talkbg:GetTextComponent("name") 
+    self._info              = self._infoPos:GetComponent("Text"); 
+    self._name.text         = ""; 
+    self._info.text         = ""; 
+    self._soundInstanceList = {}
+    self._objNameBg:SetVisible(false)
+    
+    self._statusTable       = {
+        None = 0,
+        Doing = 1,
+        Done = 2,
+        AllEnd = 3
+    }
+    --对话状态 0:无对话 1:进行中 2:当前结束 3:对话结束
+    self._talkStatus        = self._statusTable.None; 
+    self._isAuto            = GTemp:IsAutoFightTalk();  
+    self:ChangeAutoBtn()
+    self._CanAuto           = true;
+    self._CanNext           = true;
+
+    local onRecord = function()
+        if self._clickMask then return end
+        -- AppMgr:LogInfo("记录")
+        self:TalkEnd()
+        local callback = function() 
+            self._isAuto = GTemp:IsAutoFightTalk();
+            self:ChangeAutoBtn()
+            if(self._isAuto)  then
+                self:DoTalk();
+            end
+        end
+        core.require("xlua/lua_UI/GameFightScene/UI_RecordLayer.txt"):new():show(self._recordText, callback)
+    end
+    local onNext = function()
+        if not self._CanNext then return end
+        if self._clickMask then return end
+        self._CanNext = false;
+        Timer:AddTimerCall(0.3,function()
+            self._CanNext = true;
+        end)
+
+        if self._talkStatus == self._statusTable.None or self._talkStatus == self._statusTable.Done then
+            self._talkStatus = self._statusTable.Doing
+            self:DoTalk();
+        elseif self._talkStatus == self._statusTable.Doing then
+            self:TextDone();
+        end
+    end
+    
+    self._recordbutton:AddButtonListener(onRecord)
+    self._skipbutton:AddButtonListener(function()
+        if self._clickMask then return end
+        -- AppMgr:LogInfo("跳过")
+        self:onSkip()
+    end)
+    self._nextbutton:AddButtonListener(onNext)
+    self._autoBtn:AddButtonListener(function()
+        if self._clickMask then return end
+        self:ClickAuto()
+    end)
+    
+    CS.UnityHelper.NotchfitY(self._fightTalkLayer:Get("skipBtn"), 10)
+    CS.UnityHelper.NotchfitY(self._fightTalkLayer:Get("recordBtn"), 10)
+    CS.UnityHelper.NotchfitY(self._fightTalkLayer:Get("autoBtn"), 10)
+    
+end
+
+function UI_FightTalk:FightTalkDestructor()
+    self._nextbutton.onClick:RemoveAllListeners()
+    self._skipbutton.onClick:RemoveAllListeners()
+    self._recordbutton.onClick:RemoveAllListeners()
+    self._autoBtn.onClick:RemoveAllListeners()
+
+    self._autoBtn = nil;
+    self._nextbutton = nil; 
+    self._skipbutton = nil; 
+    self._recordbutton = nil; 
+    self._curTalkCfg = nil; 
+    self._nextarrow = nil; 
+    self._infoPos = nil; 
+    self._talkInfo = nil; 
+    self._talkbody = nil; 
+    self._talkbodyBg = nil; 
+    self._talkbg = nil; 
+    self._show_bkg_bc = nil; 
+    self._recordBtn = nil; 
+    self._autoObj = nil;
+    self._recordText = nil; 
+    self._img_black = nil; 
+    if self._fightTalkLayer ~= nil then
+        self._fightTalkLayer:Release()
+        self._fightTalkLayer = nil
+    end
+    
+    self._newTalkSkipLayer = nil
+end
+
+function UI_FightTalk:EnterFightTalk(talkid, isBegin)
+    self._isAuto = GTemp:IsAutoFightTalk();
+    self:ChangeAutoBtn()
+    self._talkStatus = self._statusTable.None;
+    self._curTalkid = talkid
+    self._isBegin = isBegin
+    self._sampleInfo = FightModule:GetFightTalkCfg(self._curTalkid).talk_sample 
+    self._clickMask = false
+    self._hasImgBg = false
+    self._playBgm = false
+    self._objNameBg:SetVisible(false)
+    self._fightTalkLayer:SetVisible(true)
+    self._fightTalkLayer:AnimationPlay("TalkFadeIn")
+end
+
+function UI_FightTalk:CleanFightTalk()
+    self._dofadeOut = nil; 
+    if self._fightTalkLayer ~= nil then
+        self._fightTalkLayer:SetVisible(false)
+    end
+    if self._playBgm then
+        self._playBgm = false
+        FightController:SetBGMPath("")
+    end
+end
+
+function UI_FightTalk:ResetTalkInfo()
+    if self._faceprefab ~= nil then
+        self._faceprefab:Release()
+        self._faceprefab = nil
+    end
+    self._name.text = ""
+    self._info.text = ""
+    self._faceprefabPath = nil
+    self._facelist = nil
+    self._dofadeOut = true; 
+    self._recordbutton.interactable = false; 
+    self._skipbutton.interactable = false; 
+    -- self._nextbutton.interactable = false
+    self._nextarrow:SetVisible(false);
+    self._video_playing = false
+    self._video_bg:SetVisible(false)
+    self._img_black:SetColorA(0)
+    self._show_bkg_bc:SetVisible(false)
+    for k, v in pairs(self._soundInstanceList) do
+        fmod:StopByInstnace(v);
+        self._soundInstanceList[k] = nil
+    end
+end
+
+function UI_FightTalk:TalkEnd()
+    if self._isAuto then
+        self._isAuto = false; 
+        -- self._autoBtnBg:SetVisible(false);
+        -- self._autoStart:SetVisible(true);
+        -- self._autoPause:SetVisible(false);
+        -- self._autoBtnName:SetTextById(6900018)
+        self._talkStatus = self._statusTable.Done;
+    end
+end
+
+function UI_FightTalk:DoTalk()
+    if (self._curTalkid == nil or self._curTalkid == -1) and self._dofadeOut == nil then
+        self:TalkEnd();
+        self._talkStatus = self._statusTable.AllEnd; 
+        -- AppMgr:LogInfo("剧情结束!!")
+        self:ResetTalkInfo();
+        self._clickMask = true
+        self._fightTalkLayer:AnimationPlay("TalkFadeOut")
+        return ;
+    end
+    
+    -- self._nextbutton.interactable = false
+    self._recordbutton.interactable = true; 
+    self._skipbutton.interactable = true; 
+    self._curTalkCfg = FightModule:GetFightTalkCfg(self._curTalkid)
+    
+    if self._curTalkCfg.talk_info[1] == FightModule.talk_type_talk then
+        AppMgr:LogInfo("========================对话========================" .. self._curTalkid)
+        -- 对话
+        self:showTalkText(self._curTalkCfg.talk_info[2])
+    elseif self._curTalkCfg.talk_info[1] == FightModule.talk_type_show then
+        AppMgr:LogInfo("========================演出========================" .. self._curTalkid)
+        -- 演出
+        self._nextbutton.interactable = false
+        self:showTalkShow(self._curTalkCfg.talk_info[2])
+        self:ShowTime();
+    elseif self._curTalkCfg.talk_info[1] == FightModule.talk_type_select then
+        AppMgr:LogInfo("========================剧情========================" .. self._curTalkid)
+        -- 剧情选择
+        self:TalkEnd()
+        local function onSelectCall(jumpid)
+            if jumpid ~= "-1" then
+                self._curTalkid = tonumber(jumpid); 
+            end
+            self._isAuto = GTemp:IsAutoFightTalk();
+            self:ChangeAutoBtn()
+            self:DoTalk();
+        end
+        
+        core.require("xlua/lua_UI/GameFightScene/UI_TalkSelectLayer.txt"):new():show(self._curTalkCfg.talk_info, onSelectCall)
+    elseif self._curTalkCfg.talk_info[1] == FightModule.talk_type_openUI then
+        -- AppMgr:LogInfo("========================打开界面========================")
+        if not Player:IsModifyName() then
+            self:TalkEnd()
+            -- 打开界面
+            local function onOpenCall()
+                -- self._curTalkid = self._curTalkCfg.nextid
+                self._skipbtnObj:SetVisible(true)
+                self._recordBtn:SetVisible(true)
+                self._autoObj:SetVisible(true)
+                self._curTalkid = self._curTalkCfg.nextid
+                if self._namelayer then
+                    self._namelayer = nil
+                end
+                self._faceprefabPath = ""
+                self._faceprefab:Release()
+                self._faceprefab = nil
+                self.btnNeedHidden = false
+                self._isAuto = GTemp:IsAutoFightTalk();
+                self:ChangeAutoBtn()
+                self:DoTalk();
+            end
+            self.btnNeedHidden = true
+            self._skipbtnObj:SetVisible(false)
+            self._recordBtn:SetVisible(false)
+            self._autoObj:SetVisible(false)
+            if not self._faceprefab then
+                local f = "master0_1"
+                self._faceprefab = self._talkbody:CreateChild("prefab_uiFight/ui_FightTalk/talkprefab/talk_" .. f)
+            end
+            self._namelayer = core.require("xlua/lua_UI/GameFightScene/StartNameLayer.txt"):new()
+            self._namelayer:EnterStartNameLayer(onOpenCall)
+        else
+            self._curTalkid = self._curTalkCfg.nextid
+            self:DoTalk();
+            return 
+        end
+    end
+    if self._curTalkCfg.talk_sound ~= "-1" then
+        local soundinfo = GameTools.GetCsvValueList(self._curTalkCfg.talk_sound)
+        local _type = tonumber(soundinfo[2])
+        local _cmd = {}
+        local inst = nil; 
+        local _paramCount = 0
+        
+        for k, v in pairs(soundinfo) do
+            if v ~= ";" then
+                table.insert(_cmd, v)
+                _paramCount = _paramCount + 1
+            else
+                for k, v in pairs(_cmd) do
+                    AppMgr:LogInfo("_cmd " .. tostring(k) .. " " .. tostring(v))
+                end
+                if audioInterface[_cmd[1]] then
+                    local fun = SoundMgr[_cmd[1]]
+                    if type(fun) == "function" then
+                        if _paramCount == 1 then
+                            break
+                        elseif _paramCount == 2 then
+                            inst = fun(nil, _cmd[2])
+                        elseif _paramCount == 3 then
+                            inst = fun(nil, _cmd[2], _cmd[3])
+                        elseif _paramCount == 4 then
+                            inst = fun(nil, _cmd[2], _cmd[3], _cmd[4])
+                        elseif _paramCount == 5 then
+                            inst = fun(nil, _cmd[2], _cmd[3], _cmd[4], _cmd[5])
+                        end
+                    end
+                    if _cmd[1] == "StopBgm" then
+                        FightController:SetBGMPath("")
+                    elseif _cmd[1] == "PlayBgm" then
+                        self._playBgm = true
+                        FightController:SetBGMPath(_cmd[2])
+                    end
+                end
+                if inst ~= nil then
+                    table.insert(self._soundInstanceList, inst)
+                end
+                
+                _cmd        = {}
+                _paramCount = 0
+            end
+        end
+        
+        for k, v in pairs(_cmd) do
+            AppMgr:LogInfo("_cmd " .. tostring(k) .. " " .. tostring(v))
+        end
+        
+        inst = nil; 
+        if _cmd ~= {} then
+            if audioInterface[_cmd[1]] then
+                local fun = SoundMgr[_cmd[1]]
+                if type(fun) == "function" then
+                    if _paramCount == 1 then
+                    elseif _paramCount == 2 then
+                        inst = fun(nil, _cmd[2])
+                    elseif _paramCount == 3 then
+                        inst = fun(nil, _cmd[2], _cmd[3])
+                    elseif _paramCount == 4 then
+                        inst = fun(nil, _cmd[2], _cmd[3], _cmd[4])
+                    elseif _paramCount == 5 then
+                        inst = fun(nil, _cmd[2], _cmd[3], _cmd[4], _cmd[5])
+                    end
+                end
+                if _cmd[1] == "StopBgm" then
+                    FightController:SetBGMPath("")
+                elseif _cmd[1] == "PlayBgm" then
+                    self._playBgm = true
+                    FightController:SetBGMPath(_cmd[2])
+                end
+            end
+        end
+        if inst ~= nil then
+            table.insert(self._soundInstanceList, inst)
+        end
+        --print("_type:".._type.." path:".._path)
+        --------------------------to do by 薛老师
+    else
+        -- local fun = SoundMgr["test"]
+        -- fun("test-_G", "test-_G")
+    end
+    if self._curTalkid == self._curTalkCfg.nextid then
+        self._curTalkid = -1
+    else
+        self._curTalkid = self._curTalkCfg.nextid
+    end
+end
+
+function UI_FightTalk:test(msg)
+    CS.Logger.LogInfo("##[BBstudio AudioDbg]## ")
+end
+
+function UI_FightTalk:ShowFace(faceid)
+    if self._faceprefab == nil then
+        return 
+    end
+    if self._facelist ~= nil then
+        if faceid ~= nil and faceid ~= "-1" and self._faceprefabPath ~= nil then
+            local respath = string.format("source_avatar/show/show_%s_%s", self._faceprefabPath, faceid)
+            -- AppMgr:LogInfo("-----------------------respath = " .. respath)
+            self._facelist:LoadSprite(respath)
+        end
+        
+        self._facelist:SetVisible(faceid ~= nil and faceid ~= "-1" and self._faceprefabPath ~= nil)
+    end
+    
+    self._faceprefab:SetVisible(true)
+end
+
+function UI_FightTalk:showTalkShow(cfgid)
+    self._show_cfg = FightModule:GetFightTalkShowCfg(cfgid)
+    if self._show_cfg.face_info == "-1" then
+        return 
+    end
+    
+    local tchID = Player:GetTutorID()
+    -- 导师id
+    local face_info = lua_str_split(self._show_cfg.face_info, "|")
+    if (face_info[1] ~= nil and self._faceprefabPath ~= face_info[1]) or (tchID ~= nil and tchID ~= 0) then
+        if self._faceprefab ~= nil then
+            self._faceprefab:Release()
+        end
+        
+        self._faceprefabPath = face_info[1]
+        local f = face_info[1]
+        local master = f == "master1"
+        if master then
+        -- 约定master1是导师
+            if not tchID then
+                tchID = 0
+            end
+            if not tchID or tchID == 0 then
+                local fIndex = 1
+                if face_info[2] then
+                    fIndex = face_info[2]
+                end
+                
+                f = "master0_" .. fIndex
+            else
+                f = string.format("master%d", tchID)
+            end
+            
+            self.lastFace = f
+            if self.lastFace ~= f and self._faceprefab ~= nil then
+                self._faceprefab:Release()
+            end
+        end
+        
+        self._faceprefab = self._talkbody:CreateChild("prefab_uiFight/ui_FightTalk/talkprefab/talk_" .. f)
+        self._faceBg = self._faceprefab:GetImageComponent("content/bg")
+        if not master then
+            self._faceprefab:SetVisible(false)
+            self._facelist = self._faceprefab:GetImageComponent("content/face")
+            self:ShowFace(face_info[2])
+        end
+    end
+end
+
+function UI_FightTalk:ShowTime()
+    local function onFinish()
+        self:DoTalk();
+        self._nextbutton.interactable = true
+    end
+    
+    -- AppMgr:LogInfo("=====================================演出类型 = " .. self._show_cfg.show_type)
+    if self._show_cfg.show_type == FightModule.show_left_fadein then
+        self._talkbodyBg:SetVisible(true)
+        self._faceprefab:SetPosition(0, 0, 0, true)
+        self._faceprefab.transform:DOLocalMoveX(0, tonumber(self._show_cfg.param)):OnComplete(onFinish)
+    elseif self._show_cfg.show_type == FightModule.show_right_fadein then
+        self._talkbodyBg:SetVisible(true)
+        self._faceprefab:SetPosition(0, 0, 0, true)
+        self._faceprefab.transform:DOLocalMoveX(0, tonumber(self._show_cfg.param)):OnComplete(onFinish)
+    elseif self._show_cfg.show_type == FightModule.show_left_fadeout then
+        self._talkbodyBg:SetVisible(false)
+        self._faceprefab:SetPosition(0, 0, 0, true)
+        self._faceprefab.transform:DOLocalMoveX(-2500, tonumber(self._show_cfg.param)):OnComplete(onFinish)
+    elseif self._show_cfg.show_type == FightModule.show_right_fadeout then
+        self._talkbodyBg:SetVisible(false)
+        self._faceprefab:SetPosition(0, 0, 0, true)
+        self._faceprefab.transform:DOLocalMoveX(2500, tonumber(self._show_cfg.param)):OnComplete(onFinish)
+    elseif self._show_cfg.show_type == FightModule.show_mid_fadein then
+        self._talkbodyBg:SetVisible(true)
+        self._faceprefab:SetPosition(0, 0, 0, true)
+        if self._facelist ~= nil then
+            self._facelist:SetVisible(false)
+        end
+        
+        local function onFadeInEnd()
+            if self._facelist ~= nil then
+                self._facelist:SetVisible(true)
+            end
+            
+            onFinish()
+        end
+        
+        self._faceBg:SetImageColor(1, 1, 1, 0)
+        self._faceBg:DOColor(CS.UnityEngine.Color(1, 1, 1, 1), tonumber(self._show_cfg.param)):OnComplete(onFadeInEnd)
+    elseif self._show_cfg.show_type == FightModule.show_screen_blink then
+        self._img_blink:SetVisible(true)
+        local params = lua_str_split(self._show_cfg.param, "|")
+        local colors = lua_str_split(params[1], "#", true)
+        self._img_blink:SetImageColor(colors[1], colors[2], colors[3], 0)
+        local dr             = tonumber(params[2])
+        local counttimes     = (dr / tonumber(params[3])) / 2; 
+        local curblink_times = counttimes; 
+        
+        local function onBlink()
+            curblink_times = curblink_times + counttimes
+            
+            local function onBlinkEnd()
+                curblink_times = curblink_times + counttimes
+                if curblink_times >= dr then
+                    self._img_blink:SetVisible(false);
+                    onFinish();
+                else
+                    self._img_blink:DOFade(1, counttimes):OnComplete(onBlink)
+                end
+            end
+            
+            self._img_blink:DOFade(0, counttimes):OnComplete(onBlinkEnd)
+        end
+        
+        self._img_blink:DOFade(1, counttimes):OnComplete(onBlink)
+    elseif self._show_cfg.show_type == FightModule.show_bg_shake then
+        -- 对话框震动
+        local params = lua_str_split(self._show_cfg.param, "|", true)
+        self._talkbg.transform:DOShakePosition(tonumber(params[2]),
+            tonumber(params[1]), tonumber(params[1]), tonumber(params[1]), false):OnComplete(onFinish)
+    elseif self._show_cfg.show_type == FightModule.show_role_shake then
+        -- 角色震动
+        local params = lua_str_split(self._show_cfg.param, "|", true)
+        self._faceprefab.transform:DOShakePosition(tonumber(params[2]),
+            tonumber(params[1]), tonumber(params[1]), tonumber(params[1]), false):OnComplete(onFinish)    
+    elseif self._show_cfg.show_type == FightModule.show_bg_in then
+        if self._hasImgBg then
+            self._img_black:SetColorA(0)
+            self._img_black:DOFade(1, 1):OnComplete(function()
+                    self._show_bkg_bc:LoadSprite(self._show_cfg.param)
+                    self._show_bkg_bc:SetVisible(true)
+                    self._hasImgBg = true
+                    self._img_black:DOFade(0, 1):OnComplete(onFinish)
+                end)
+        else
+            self._show_bkg_bc:LoadSprite(self._show_cfg.param)
+            self._img_black:SetColorA(0)
+            self._img_black:DOFade(1, 1):OnComplete(function()
+                    self._show_bkg_bc:SetVisible(true)
+                    self._hasImgBg = true
+                    self._img_black:DOFade(0, 1):OnComplete(onFinish)
+                end)
+        end
+        -- AppMgr:LogInfo("-------------------------背景载入-------------------------")
+    elseif self._show_cfg.show_type == FightModule.show_bg_out then        
+        self._img_black:DOFade(1, 1):OnComplete(function()
+                self._show_bkg_bc:SetVisible(false)
+                self._hasImgBg = false
+                self._img_black:DOFade(0, 1):OnComplete(onFinish)
+            end)
+        -- AppMgr:LogInfo("-------------------------背景载出-------------------------")
+    elseif self._show_cfg.show_type == FightModule.show_video then
+        self._video_bg:SetVisible(true)
+        if self._video_playing then
+            AppMgr:LogInfo("!!!!!!!!!!!!!!!!!!!! 2 load video = " .. self._show_cfg.param)
+
+            self._img_black:SetColorA(0)
+            self._img_black:DOFade(1, 1):OnComplete(
+                function()
+                    self._video_player:SetVideoClip("CriVideo/"..self._show_cfg.param)
+                    self._img_black:DOFade(1, 0.5):OnComplete(
+                        function()
+                            self._img_black:DOFade(0, 0.5):OnComplete(onFinish)                            
+                        end)
+                end)
+        else
+            AppMgr:LogInfo("!!!!!!!!!!!!!!!!!!!! 1 load video = " .. self._show_cfg.param)
+            self._video_player:SetVideoClip("CriVideo/"..self._show_cfg.param)
+            if self._hasImgBg then
+                self._img_black:SetColorA(0)
+            else
+                self._img_black:SetColorA(1)
+            end
+            self._img_black:DOFade(0, 1):OnComplete(onFinish)
+        end
+        self._video_playing = true
+    elseif self._show_cfg.show_type == FightModule.hide_video then
+        AppMgr:LogInfo("!!!!!!!!!!!!!!!!!!!!unload video.")
+        self._video_playing = false
+        self._video_bg:SetVisible(false)
+        self._video_player:ClearVideoClip()
+        self._fightTalkLayer:DelayCall(0.1, function() onFinish() end)
+    else
+        AppMgr:LogError("-------------------未处理的演出类型-------------------" .. self._show_cfg.show_type)
+    end
+end
+
+function UI_FightTalk:showTalkText(cfgid)
+    local cfg = FightModule:GetFightTalkTextCfg(cfgid)
+    if self._talkInfo == nil then
+        self._talkInfo = {
+            name = "",
+            info = "",
+        }
+    end
+    if cfg.talk_name ~= nil and cfg.talk_name == "#p#" and Player:GetName() ~= nil then
+        self._talkInfo.name = Player:GetName()
+    else
+        if cfg.talk_name == "-1" then
+            self._talkInfo.name = ""
+        else
+            self._talkInfo.name = cfg.talk_name
+        end
+    end
+    
+    self._talkInfo.info = FightModule.LanguageTextMsg[cfgid]
+    
+    local info = {
+        textid = cfgid,
+        headid = cfg.head_id,
+        name = self._talkInfo.name,
+    }
+    table.insert(self._recordText, info)
+
+    if not self.btnNeedHidden then
+        self._skipbutton:SetVisible(true)
+        self._recordBtn:SetVisible(true)
+        self._autoObj:SetVisible(true)
+    end
+
+    self._talkInfo.text_speed = cfg.text_speed
+    self._talkInfo.cur_speed = 0; 
+    if self._talkInfo.name == "" then
+        self._objNameBg:SetVisible(false)
+        self._infoPos.transform.localPosition = CS.UnityEngine.Vector3(5, -140, 0)
+        self._info.color = COLOR_TYPE.Talk_Other_Color
+    else
+        self._objNameBg:SetVisible(true)
+        self._infoPos.transform.localPosition = CS.UnityEngine.Vector3(5, -62, 0)
+        self._info.color = COLOR_TYPE.White
+    end
+    
+    self._name.text = self._talkInfo.name
+    if (self._talkInfo.name == "？？？" or self._talkInfo.name == "???") and Player:IsModifyName() then
+        self._talkbody:SetVisible(false)
+    else
+        self._talkbody:SetVisible(true)
+    end
+    self._nextarrow:SetVisible(false);
+    self._info.text = ""; 
+    
+    self:ShowFace(cfg.face_id);
+    if tonumber(cfgid) == 13193 then
+        self._talkInfo.info = string.gsub(self._talkInfo.info, "xxxxxx", Player:GetName())
+    end
+    
+    self._info:DOKill(false);
+    if self.talkTimerId then
+        Timer:RemoveTimerCall(self.talkTimerId)
+        self.talkTimerId = nil
+    end
+    self._info:DOText(self._talkInfo.info, #self._talkInfo.info / 100, true):SetEase(_Linear):OnComplete(function()
+        -- self._nextbutton.interactable = true
+        self._nextarrow:SetVisible(true);
+        self._talkStatus = self._statusTable.Done;
+        self.talkTimerId = Timer:AddTimerCall(1.5,function()
+            if self._isAuto then
+                self:DoTalk();
+            end
+        end)
+    end)
+end
+
+function UI_FightTalk:TextDone()
+    self._info:DOKill(false);
+    if self.talkTimerId then
+        Timer:RemoveTimerCall(self.talkTimerId)
+        self.talkTimerId = nil
+    end
+    if self._talkInfo ~= nil then
+        self._info.text = self._talkInfo.info;
+        self._talkStatus = self._statusTable.Done;
+        self._nextarrow:SetVisible(true);
+        self.talkTimerId = Timer:AddTimerCall(1.5,function()
+            if self._isAuto then
+                self:DoTalk();
+            end
+        end)
+    end
+end
+
+function UI_FightTalk:onSkip()
+    --播放状态置回
+    self:TalkEnd();
+    
+    if not Player:IsModifyName() and self:haveNameLayer(self._curTalkid) then
+        self._curTalkid = 150074
+        self:DoTalk()
+        return 
+    end
+    
+    if self._sampleInfo ~= -1 and (not GTemp:IsSkipFightTalk()) then
+        UI_TalkSkipLayer:EnterTalkSkipLayer(self._sampleInfo,
+            function()
+                self:onSkipCall()
+            end, function() 
+                self._isAuto = GTemp:IsAutoFightTalk();
+                self:ChangeAutoBtn()
+                self:DoTalk();                
+            end)
+    else
+        self:onSkipCall()
+    end
+end
+
+function UI_FightTalk:onSkipCall()
+    self:ResetTalkInfo()
+    self:onLayerFadeOutEnd()
+end
+
+-- animation interface-----------------------------------------------
+function UI_FightTalk:onAnimationDestroy()
+end
+
+function UI_FightTalk:onAnimationEvent(anitype, intkey)
+    if anitype == 6 then
+        if 1 == intkey then
+            -- 入场动画结束
+            if self._isBegin then
+                CameraController:StartFightBcEffect()
+                self._isBegin = false
+            end
+            self:DoTalk()
+        elseif 2 == intkey then
+            self:onLayerFadeOutEnd()
+        end
+    end
+end
+
+--
+-- brief: 出场动画结束
+--
+function UI_FightTalk:onLayerFadeOutEnd()
+    self:CleanFightTalk();
+    FightController:TalkEnd()
+end
+
+function UI_FightTalk:haveNameLayer(id)
+    if id == 150074 then
+        return true
+    end
+    
+    local count = 0
+    local _curTalkCfg = FightModule:GetFightTalkCfg(id)
+    
+    while _curTalkCfg ~= nil do
+        local nextID = _curTalkCfg.nextid
+        if nextID == 150074 then
+            return true
+        end
+        if nextID == -1 then
+            return false
+        end
+        
+        _curTalkCfg = FightModule:GetFightTalkCfg(nextID)
+        
+        count = count + 1
+        if count > 1000 then
+            return false
+        end
+    end
+    
+    return false
+end
+
+function UI_FightTalk:ClickAuto()
+
+    if not self._isAuto then
+        if not self._CanAuto then return end
+        self._CanAuto = false;
+        Timer:AddTimerCall(0.5, function()
+            self._CanAuto = true;
+        end)
+    end
+
+    if self._isAuto then
+        self._isAuto = false; 
+    else
+        self._isAuto = true; 
+        if self._talkStatus == self._statusTable.Done then
+            self:DoTalk()
+        end
+    end
+    self:ChangeAutoBtn()
+    GTemp:SetAutoFightTalk(self._isAuto)
+end
+
+function UI_FightTalk:ChangeAutoBtn()
+    if self._isAuto then
+        self._autoBtnBg:SetVisible(true);
+        self._autoStart:SetVisible(false);
+        self._autoPause:SetVisible(true);
+        self._autoBtnName:SetTextById(6900019)
+    else
+        self._autoBtnBg:SetVisible(false);
+        self._autoStart:SetVisible(true);
+        self._autoPause:SetVisible(false);
+        self._autoBtnName:SetTextById(6900018)
+    end
+end

@@ -1,0 +1,81 @@
+--
+-- author: haosun
+-- date  : 2019-01-07 17:44:43
+-- brief :
+--
+
+Skill = Skill or {}
+
+function Skill:SetUi(trans, skill)
+    trans:Find("text_skill_level"):GetComponent("Text").text = skill.level .. "/" .. skill.maxlevel
+    self:SetSkillIcon(trans:Find("image_icon"), skill.cfgid)
+end
+
+function Skill:SetSkillIcon(img, skillid)
+    local cfg = Skill:GetHeroSkillShowCfg(skillid)
+    img:GetComponent("Image").sprite = AssetLoader:LoadSprite(cfg.icon)
+end
+
+function Skill:SetUiByCls(cls, skill, star)
+    -- level
+    cls.lvCom.text = string.format("%d/%d", skill.level, skill.maxlevel)
+    -- icon
+    local cfg = Skill:GetHeroSkillShowCfg(skill.showid,star)
+    cls.iconCom:LoadSprite(cfg.icon)
+end
+
+function Skill:NewSkillCObj(obj)
+    local cls   = clsbase:new(obj)
+    cls.name    = cls:GetTextComponent("text_skill_name")
+    cls.desc    = cls:GetTextComponent("text_skill_desc")
+    cls.play    = cls:GetTextComponent("text_play")
+    cls.cd      = cls:GetTextComponent("text_cd")
+    cls.fire    = cls:GetTextComponent("text_fire")
+    return cls
+end
+
+function Skill:SetSkillInfoByCls(cls, skill, atk)
+    local cfg = Skill:GetHeroSkillCfg(skill.cfgid)
+    local showCfg = Skill:GetHeroSkillShowCfg(skill.showid)
+    -- name
+    cls.name.text = showCfg.name
+    -- desc
+    if cls.desc ~= nil then
+        cls.desc.text = self:GetSkillHurtDesc(atk, skill.cfgid, skill.showid, true, skill.level)
+    end
+    -- play type
+    local play_type = Skill.PLAY_TYPES[cfg.playtype]
+    cls.play.text = Skill.PLAY_TYPE_NAME[play_type]
+    -- cd
+    local a,b = math.modf(skill.playcd)
+    local cdTime = b > 0 and skill.playcd or a
+    cls.cd.text = cdTime .. "s"
+    if cfg.playtype == Skill.PLAY_TYPES[Skill.TYPE_BULLET] then
+        cls.cd.text = "--"
+    end
+    --神火
+    if cls.fire ~= nil then
+        if cfg.playtype == Skill.TYPE_KILL then
+            local cfg = Skill:GetHeroSkillCfg(skill.cfgid)
+            cls.fire.text = cfg.firecost
+        else
+            cls.fire:SetTextById(881013)
+        end
+    end
+end
+
+-- hero skill 是否可以升级,
+-- @skilllv 当前等级
+-- @herolv 当前等级
+-- return 是否可升级, 升级条件
+function Skill:SkillUpEnable(slot, herolv, skilllv, maxlevel)
+
+    if skilllv == maxlevel then
+        return false
+    end
+
+    local minHeorLv = self._skillLimit[slot][skilllv + 1]
+    local canUp = herolv >= minHeorLv
+
+    return canUp, minHeorLv
+end

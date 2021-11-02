@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2018-11-27 13:30:29
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PlayerUpLayer = class("PlayerUpLayer", CBaseLayer)
+
+function PlayerUpLayer:ctor(super, params)
+    CBaseLayer.ctor(self, params)
+    self._prefab = {
+        path = "prefab_uiHome/ui_playerinfo/UI_PlayerUpEffectLayer",
+    }
+    self:onEnter()
+end
+
+function PlayerUpLayer:initObj()
+    self._psLvObj = self.layer:GetParticleComponent("content/Function/img_cricle/UI41_sj/Particle_G3")
+    self._psLvObj:Play()
+end
+
+function PlayerUpLayer:onEnter()
+    self:createPnl()
+    self:initObj()    
+    self:hideLayer()
+end
+
+function PlayerUpLayer:show(callback)
+    Groble_SoundMgr:PlayEffect(20000009)
+    self._callback = callback
+    self:initLayer()
+    self:showLayer()
+end
+
+function PlayerUpLayer:initLayer()
+    self.layer:GetTextComponent("content/Function/img_cricle/text_lv").text = Player:GetLevel()
+end
+
+function PlayerUpLayer:doExit()
+    if self._callback ~= nil then
+        self._callback()
+        self._callback = nil
+    end
+    LayerMgr:LayerCheck()
+    self:onPopLayer()
+end
+
+function PlayerUpLayer:onExit()
+    self._psLvObj = nil
+    CBaseLayer.onExit(self)
+end
+
+function PlayerUpLayer:onBackClick()
+    self._fading = true
+    self:playAni("UnlockEffectLayerEndAni")
+end
+
+function PlayerUpLayer:KeyFrameCall()
+    if TutorialController:IsFirstTutorial() then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+    self:doExit()
+end
+
+function PlayerUpLayer:onLayerFadeInEndCall()
+    if Chapter:IsAutoFight() then
+        self:onBackClick()
+    end
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return PlayerUpLayer
+

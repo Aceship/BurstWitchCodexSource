@@ -1,0 +1,105 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-16 20:20:13
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertHallPreviewLayer = class("ConcertHallPreviewLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function ConcertHallPreviewLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMusic/UI_ConcertHallPreviewLayer",
+        trans = "Canvas"
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = true,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertHallPreviewLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertHallPreviewLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ConcertHallPreviewLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertHallPreviewLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function ConcertHallPreviewLayer:show()
+    self:showLayer();
+end
+
+--退出按钮事件
+function ConcertHallPreviewLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function ConcertHallPreviewLayer:onExit()
+    
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertHallPreviewLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return ConcertHallPreviewLayer;

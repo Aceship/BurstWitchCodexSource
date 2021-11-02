@@ -1,0 +1,185 @@
+---
+--- @Author:2144
+--- @Create Time:2021-06-26 16:32:15
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightingUpTipsLayer = class("FightingUpTipsLayer", CBaseLayer)
+
+local s_instance = nil
+function FightingUpTipsLayer.GetInstance()
+    if s_instance == nil then
+        s_instance = FightingUpTipsLayer:new()
+    end
+    return s_instance
+end
+
+function FightingUpTipsLayer.DestoryInstance()
+    if s_instance ~= nil then
+        s_instance:onExit()
+        s_instance = nil
+    end
+end
+
+--构造函数
+function FightingUpTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_FightingUpTipsLayer",
+    }
+    self._uitype = 2;
+    self:onEnter();
+    self:hideLayer();
+end
+
+
+--进入Ui调用一次
+function FightingUpTipsLayer:onEnter()
+    self:createPnl();
+    self:Init();
+end
+
+--初始化
+function FightingUpTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function FightingUpTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtName = self.layer:GetTextComponent("trans_container/txt_name");
+	self._txtCurFighting = self.layer:GetTextComponent("trans_container/txt_cur_fighting");
+	self._txtUpFighting = self.layer:GetTextComponent("trans_container/txt_cur_fighting/txt_up_fighting");
+	--@TextEnd
+
+	self._clsHero = Bag:CtorComSimpleGoodsUi(self.layer:Get("trans_container/trans_hero"));
+	self._clsPlayer = Player:CtorPlayerIconBorder(self.layer:Get("trans_container/trans_player"));
+
+    local heroObj = self.layer:Get("trans_container/trans_hero")
+    self._heroBorder = clearbase:new(heroObj)
+    self._heroBorder.objBorder   = self.layer:Get("trans_container/trans_hero/img_border")
+    self._heroBorder.img_border = self.layer:GetImageComponent("trans_container/trans_hero/img_border");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+
+function FightingUpTipsLayer:SetData(showType,timer,heroId)
+    self._delayedTime = timer;
+    self._showType = showType;
+    self._heroId = heroId;
+
+    if(self._showType == Hero.ShowFightingUpType.One)then
+        local hero = Hero:GetHero(self._heroId);
+        self._lastNum = Hero:GetLastFightingById(self._heroId);
+        self._addNum = hero.fighting_capacity - self._lastNum;
+    elseif(self._showType == Hero.ShowFightingUpType.All)then
+        self._lastNum = Hero:GetAllLastFighting();
+        self._addNum = Hero:GetTotalFightNum() - Hero:GetAllLastFighting();
+    end
+
+    if(self._addNum <= 0)then
+        self._delayedTime = -1;
+    end
+
+    if(self._delayedTime >= 0)then
+        self:CloseTimer();
+        self._timeId = Timer:AddTimerCall(self._delayedTime,
+        function(rst)
+            self._timeId = nil;
+            self:show();
+        end)
+    else
+        Timer:RemoveTimerCall(self._timeId);
+    end
+    Hero:UpdateAllLastFighting();
+
+end
+
+--显示UI
+function FightingUpTipsLayer:show()
+    self._clsHero:Visible(self._showType == Hero.ShowFightingUpType.One);
+    self._clsPlayer:Visible(self._showType == Hero.ShowFightingUpType.All);
+    self._txtUpFighting:SetText(tostring(math.ceil(self._addNum)));
+    self._txtCurFighting:SetText(tostring(math.ceil(self._lastNum)));
+    if(self._showType == Hero.ShowFightingUpType.One)then
+        local hero = Hero:GetHero(self._heroId);
+        self._txtName:SetText(hero.config.Name);
+        hero = Hero:GetHero(self._heroId);
+        Hero:SetHeroHeadSprite(self._clsHero.iconImg, self._heroId,false,true, true);
+        --self._clsHero.borderCom.sprite = AtlasMgr:LoadQltyBorder(hero.qlty);
+        --Hero:SetHeroCObj(self._clsHero,hero);
+        Hero:SetHeroBorder(self._heroBorder,hero.qlty)
+    elseif(self._showType == Hero.ShowFightingUpType.All)then
+        self._txtName:SetTextById(880079);
+        Player:SetPlayerIconBorderObj(self._clsPlayer, Player:GetHeadIcon(), Player:GetHeadBorder())
+        -- local itemDB = Item:GetCfg(Player:GetHeadIcon());
+        -- local _filepath = nil
+        -- if tonumber(itemDB.itemType) == Item.TYPE_HEAD_BORDER then
+        --     _filepath = "source_icon/item/" .. Player:GetHeadIcon();
+        -- else
+        --     _filepath = "source_avatar/hero/head_" .. Player:GetHeadIcon();
+        -- end
+        -- self._clsPlayer.imgIcon:LoadSprite(_filepath);
+        -- if Player:GetHeadBorder() <= Player.DEFAULT_ICON_INDEX then
+        --     -- 默认品质边框
+        --     local qlty = Player:GetHeadBorder();
+        --     if qlty == 0 then
+        --         qlty = Bag.QLTY_R
+        --     end
+        --     self._clsPlayer.borderCom.sprite = AtlasMgr:LoadQltyBorder(qlty);
+        -- else
+        --     self._clsPlayer.frameCom.sprite = Item:LoadSpriteByCfgid(Player:GetHeadBorder());
+        -- end
+    end
+    self:showLayer();
+    self:playAni("fightingUpTipsAnim");
+end
+
+--释放
+function FightingUpTipsLayer:onExit()
+
+    self._clsHero = nil;
+	self._clsPlayer = nil;
+	self._txtName = nil;
+	self._txtCurFighting = nil;
+	self._txtUpFighting = nil;
+    CBaseLayer.onExit(self);
+	--@CloseEnd
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------d
+
+function FightingUpTipsLayer:CloseTimer()
+    if(self._timeId ~= nil)then
+        Timer:RemoveTimerCall(self._timeId);
+        self._timeId = nil;
+    end
+end
+
+
+function FightingUpTipsLayer:KeyFrameCall(intkey)
+    if(intkey == 1)then
+        self:hideLayer();
+    end
+end
+return FightingUpTipsLayer;

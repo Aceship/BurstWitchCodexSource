@@ -1,0 +1,11 @@
+索引,资源名称
+id,ResName
+number,string
+100801,prefab_barrage/playerBarrage_1008/LISHADA_hit_4x
+102306,prefab_barrage/playerBarrage_1023/barrage_102302_1
+104206,prefab_barrage/playerBarrage_1042/barrage_104201_hit
+101501,prefab_barrage/playerBarrage_1015/barrage_101503_bao
+101502,prefab_barrage/playerBarrage_1015/barrage_101503_bao_tishi
+102513,prefab_barrage/playerBarrage_1025/suger_1
+102523,prefab_barrage/playerBarrage_1025/suger_2
+102533,prefab_barrage/playerBarrage_1025/suger_3

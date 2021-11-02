@@ -1,0 +1,84 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 16:08:42
+-- brief :
+--
+Item = Item or {}
+
+-- 道具类型
+Item.TYPE_CURRENCY          = 1         -- 货币
+Item.TYPE_BUFF              = 2         -- buff
+Item.TYPE_ROLE_CHIP         = 3         -- 角色碎片
+Item.TYPE_MATERIAL          = 4         -- 材料
+Item.TYPE_GIFT              = 5         -- 礼物 2019-10-11 update
+Item.TYPE_MUSIC_BOOK        = 6         -- 乐谱
+Item.TYPE_FUNCTION          = 7         -- 功能性道具
+Item.TYPE_BOX               = 8         -- 宝箱礼包
+Item.TYPE_PET_FODDER        = 9         -- 宠物饲料
+Item.TYPE_ROLE_ATTIRE       = 10        -- 角色时装
+Item.TYPE_HEAD_BORDER       = 11        -- 玩家头像边框
+
+-- 道具子类
+Item.SUBTYPE_CHIP_HERO      = 301       -- 魔女碎片
+Item.SUBTYPE_CHIP_WEAP      = 302       -- 装备碎片
+Item.SUBTYPE_CHIP_RUNE      = 303       -- 符石碎片
+Item.SUBTYPE_EQUIP_UP       = 401       -- 装备强化材料
+Item.SUBTYPE_EQUIP_STAR     = 402       -- 装备进阶材料
+Item.SUBTYPE_EQUIP_TOP      = 403       -- 装备升星突破素材
+Item.SUBTYPE_HERO_TOP       = 404       -- 魔女升阶材料
+Item.SUBTYPE_PET_UP         = 405       -- 仆从增幅材料
+Item.SUBTYPE_HERO_SKILL     = 408       -- 技能升级材料
+Item.SUBTYPE_MUSICBOOK      = 601       -- 乐谱
+Item.SUBTYPE_MUSIC_PAPER    = 602       -- 乐器图纸
+Item.SUBTYPE_MUSIC_COM      = 603       -- 乐器组件
+Item.SUBTYPE_VIP            = 701       -- 月卡
+Item.SUBTYPE_HERO_EXP       = 702       -- 经验药水(魔女升级)
+Item.SUBTYPE_POWER          = 703       -- 体力道具
+Item.SUBTYPE_RUNE           = 704       -- 探险加速券
+Item.SUBTYPE_LOTTERY        = 705       -- 抽奖券
+Item.SUBTYPE_COIN_TICKET    = 706       -- 魂晶门票
+Item.SUBTYPE_BOX            = 707       -- 宝箱
+Item.SUBTYPE_GIFT           = 708       -- 礼包
+Item.SUBTYPE_BUFF           = 709       -- Buff
+Item.SUBTYPE_GIFT_CHOICE    = 713       -- 批量自选礼包
+Item.SUBTYPE_FOODER         = 901       -- 所有进阶材料子类
+Item.SUBTYPE_SUIT           = 1001      -- 所有时装子类
+Item.SUBTYPE_BORDER         = 1101      -- 所有边框
+Item.SUBTYPE_TUTORHEAD      = 1102      -- 导师头像
+
+
+-- 使用类型
+Item.USE_TYPE_GET           = 0         -- 获得后直接使用
+Item.USE_TYPE_NORMAL        = 1         -- 可以使用
+Item.USE_TYPE_NO            = 2         -- 不能使用
+Item.USE_TYPE_OPTIONAL      = 3         -- 自选
+
+Item.ORIGIN_LEVEL           = 1         -- 物品来源关卡
+Item.ORIGIN_CHAPTER         = 2         -- 物品来源章节
+Item.ORIGIN_FIGHT           = 3         -- 某一类型战斗
+Item.ORIGIN_SHOP            = 4         -- 物品来源商店
+Item.ORIGIN_LOTTERY         = 5         -- 物品来源抽卡
+Item.ORIGIN_TEXT            = 99        -- 物品来源是显示文字
+Item.ORIGIN_NIGHT           = 6         -- 物品来深夜
+Item.ORIGIN_ODEUM           = 7         -- 物品来源音乐厅
+Item.ORIGIN_MYSTERY         = 8         -- 物品来源秘境
+Item.ORIGIN_FRIEND          = 9         -- 物品来源好友列表
+Item.ORIGIN_WOLRD_BOSS      = 10        --  物品来源世界boss
+Item.ORIGIN_EITHER          = 11        --  物品来源以太边界
+
+
+Item.SELL_TYPE_NO           = -1        -- 不可出售
+
+Item.ITEM_POWER_ID          = 7000005   -- 可恢复体力的道具ID
+Item.ITEM_ADD_POWER         = 60
+
+Item.ID_LOTTERY_TICKET      = 7000007   -- 抽奖券
+Item.PURCHAS_VIT            = 120;      -- 购买获取体力值
+
+Item.ID_EXP                = 1000099 -- 经验
+Item.COMMON_PIECE = 2999999 --通用魔女碎片
+
+Item.SMALL_MONTH_CARD       = 7000001 --小月卡
+Item.BIG_MONTH_CARD         = 7000002 --小月卡
+
+Item.AUTO_ITEM_ID           = 8999994   -- 托管多倍道具

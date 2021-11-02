@@ -1,0 +1,77 @@
+--
+-- author: haosun
+-- date  : 2019-09-24 17:37:48
+-- brief : 
+--
+local baseanimation = class("baseanimation")
+
+function baseanimation:ctor()
+    self._aniPanelFadeInEndCallback = nil
+    self._KeyFrameCall = nil
+end
+
+function baseanimation:clear()
+    self._aniPanelFadeInEndCallback = nil
+    self._KeyFrameCall = nil
+end
+
+function baseanimation:addBaseAnimationBehaviour(obj)
+    obj:AddAnimationBehaviour(self)
+end
+
+function baseanimation:onLayerFadeOutEndCall()
+end
+
+function baseanimation:onAnimationDestroy()
+    self:clear()
+end
+
+-- 
+-- Brief：Animation Callback
+-- Param： 
+-- enum AnimationEvent : int {
+--         FadeInEnd = 1,
+--         FadeOut,
+--         FadeOutEnd,
+--         MainFadeInEnd,
+--         MainFadeOutEnd,
+--         KeyFrameCall,
+--     };
+function baseanimation:onAnimationEvent(anitype, keyTag)
+    if anitype == 1 then
+        self._fading = false
+        if self._aniPanelFadeInEndCallback ~= nil then
+            self._aniPanelFadeInEndCallback()
+        end        
+        if self.onLayerFadeInEndCall ~= nil then
+            self:onLayerFadeInEndCall()
+        end
+    elseif anitype == 2 then
+        if self.onLayerFadeOutEndCall ~= nil then
+            self:onLayerFadeOutEndCall()
+        else
+            self._fading = true
+        end
+    elseif anitype == 3 then
+        self:onLayerFadeOutEndCall()
+        self._fading = false
+    elseif anitype == 4 then
+        if self.UI_MainBoxFadeInEnd ~= nil then
+            self:UI_MainBoxFadeInEnd()
+        end
+    elseif anitype == 5 then
+        if self.UI_MainBoxFadeOutEnd ~= nil then
+            self:UI_MainBoxFadeOutEnd()
+        end
+    elseif anitype == 6 then
+        if self._KeyFrameCall ~= nil then
+            self._KeyFrameCall(keyTag)
+        end
+        if self.KeyFrameCall ~= nil then
+            self:KeyFrameCall(keyTag)
+        end
+    end
+end
+
+return baseanimation
+

@@ -1,0 +1,219 @@
+--
+-- author: liangxt
+-- date  : 2019年10月14日14:44:35
+-- brief : 好感等级奖励
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FavourLevelLayer = class("FavourLevelLayer", CBaseLayer)
+--按钮
+local BTNS = {
+
+    BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+local lockColor = CS.UnityEngine.Color(103/255,103/255,103/255,1);
+local unLockColor = CS.UnityEngine.Color(1,1,1,1);
+
+local function _ctorCell(cell)
+    local cls           = clsbase:new(cell)
+
+    cls._favourComObj = cell.transform:Find("image_favour"):GetComponent("Image")
+    cls._lvComObj = cell.transform:Find("image_favour/text_level"):GetComponent("Text")
+    cls._lockObj = cell.transform:Find("image_lock")
+    cls.txtManner = cell.transform:Find("txt_manner"):GetComponent("Text")
+    cls.citems      = {}
+    for i = 1, 2, 1 do
+        cls.citems[i]   = Bag:CtorComSimpleGoodsUi(cls:Find("add_bg/item_bg/item" .. i))
+        cls.citems[i].imgDark = cls:Find("add_bg/item_bg/item" .. i.."/img_dark"):GetComponent("Image")
+    end
+    cls.itemsParent = cls:Find("add_bg/item_bg").gameObject;
+    cls.faceItem = {};
+    cls.faceItem.transform = cls:Find("add_bg/attr_bg/face_item");
+    cls.faceItem.txtDes = cls.faceItem.transform:Find("txt_des"):GetComponent("Text");
+    cls.musicItem = {};
+    cls.musicItem.transform = cls:Find("add_bg/attr_bg/music_item");
+    cls.musicItem.txtDes = cls.musicItem.transform:Find("txt_des"):GetComponent("Text");
+    return cls
+end
+
+local function _refreshCell(cls, data,level)
+    cls._lvComObj.text = data.level
+    set_obj_active(cls._lockObj,  tonumber(data.level) > level);
+    cls.musicItem.transform.gameObject:SetVisible(data.music_award ~= "-1");
+    if(data.music_award ~= "-1")then
+        local musicData = lua_str_split(data.music_award,"&");
+        local des = "";
+        if(musicData[1] == "1")then
+            des = LanguageMgr:GetTextByID(31018);
+        else
+            des = LanguageMgr:GetTextByID(31019);
+        end
+        cls.musicItem.txtDes.text = string.format(des,musicData[2]);
+        if(tonumber(data.level) > level)then
+            cls.musicItem.txtDes.color = lockColor;
+        else
+            cls.musicItem.txtDes.color = unLockColor;
+        end
+    end
+    cls.faceItem.transform.gameObject:SetVisible(data.unlock_face ~= "-1");
+    if(data.unlock_face ~= "-1")then
+        if(tonumber(data.level) > level)then
+            cls.faceItem.txtDes.color = lockColor;
+        else
+            cls.faceItem.txtDes.color = unLockColor;
+        end
+        cls.faceItem.txtDes.text = string.format(LanguageMgr:GetTextByID(31017),data.unlock_face);
+    end
+    cls.txtManner.text = data.relation;
+    local path
+    if tonumber(data.level) > level then
+        path = Fetter.Img_path.gary
+    else
+        path = Fetter.Img_path.red
+    end
+    cls._favourComObj.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_fetter_layer", path)
+    cls.itemsParent:SetVisible(data.award ~= "-1");
+    if(data.award ~= "-1")then
+        local items = lua_parse_cfg(data.award,true)
+        for i, cobj in ipairs(cls.citems) do
+            cobj:Visible(items[i] ~= nil)
+            if items[i] ~= nil then
+                Bag:SetComSimpleGoodsUi(cobj, items[i][1], items[i][2], items[i][3])
+                set_com_enabled(cobj.imgDark,tonumber(data.level) > level)
+            end
+        end
+    end
+end
+
+function FavourLevelLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_FavourLevelLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+    };
+    self._addStack = true;
+    self._uitype = 2;
+    self._fading = false;
+    self._cellObj = {}
+    self:onEnter()
+end
+
+function FavourLevelLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BTNS);
+    self._tvController = UIController:CtorTableView(self.layer.transform:Find("trans_container/TableViewController"))
+    self._slider = self.layer.transform:Find("trans_container/title/slider"):GetComponent("Slider")
+
+    --@ImageEnd
+
+    self._txtTitle = self.layer:GetTextComponent("trans_container/title/text_title");
+	--@TextEnd
+
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    
+end
+
+--退出按钮事件
+function FavourLevelLayer:onBackClick()
+    self:onPopLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function FavourLevelLayer:OnBtnReturnClick()
+    Groble_UIMgr:ClickOnReturnBtn();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+function FavourLevelLayer:onExit()
+    self._tvController:Clear()
+    self._tvController = nil
+    self._list = nil
+    CBaseLayer.onExit(self)
+end
+
+--按钮事件
+function FavourLevelLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+function FavourLevelLayer:show(heroid,groupid)
+    self._list = {}
+    self._hero = Hero:GetHero(heroid)
+    local levellist  = lua_deep_copy(Fetter:GetIntimacyByGroup(groupid))
+    self._list  = self:setLevelList(levellist) 
+    --移除1级
+    table.remove(self._list,1)
+    self._group = groupid
+    self._maxlevel = tonumber(Fetter:GetFavourLevelMax(self._group))
+    self:initData()
+    self:initTabelViewController()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function FavourLevelLayer:initData()
+    local expdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._hero.intimacy_data.level)
+    if self._hero.intimacy_data.level == self._maxlevel then
+        self._slider.maxValue = 1
+        self._slider.value = 1
+        self.layer.transform:Find("trans_container/title/text_exp"):GetComponent("Text").text ="--/--"
+    else
+        self._slider.maxValue = expdata.exp
+        self._slider.value = self._hero.intimacy_data.exp
+        self.layer.transform:Find("trans_container/title/text_exp"):GetComponent("Text").text = string.format("%d/%d",self._hero.intimacy_data.exp, expdata.exp)
+    end
+   
+    self.layer.transform:Find("trans_container/title/slider/image_favour/text_level"):GetComponent("Text").text = self._hero.intimacy_data.level
+    self._txtTitle.text = expdata.relation;
+end
+
+function FavourLevelLayer:initTabelViewController()
+    self._tvController:Init(#self._list, false,
+        function(cell, row, play)
+            self:refreshItems(cell, row+1)
+        end, 0.3, 0.1)
+    self._tvController:ScrollRectVertical(false)
+    self._aniPanelFadeInEndCallback = function()
+        self._tvController:ScrollRectVertical(true)
+    end
+end
+
+function FavourLevelLayer:refreshItems(cell, row)
+    local _cellObj = self._cellObj[cell]
+    if _cellObj == nil then
+        _cellObj = _ctorCell(cell)
+        self._cellObj[cell] = _cellObj
+    end
+    _refreshCell(_cellObj, self._list[row], self._hero.intimacy_data.level)
+end
+
+--解锁奖励读取的是上一级的配置
+function FavourLevelLayer:setLevelList(levellist)
+    for i = #levellist,2,-1  do
+        levellist[i].award = levellist[i-1].award
+    end
+    return levellist
+end
+
+
+return FavourLevelLayer
+

@@ -1,0 +1,136 @@
+--
+-- author: lv
+-- date  : 2021-09-24 11:45:24
+-- brief : 活动关卡
+--
+Activity = Activity or {}
+
+--打开活动关卡主界面
+function Activity:OpenActivityLevelMainLayer()
+
+    if(Activity:GetOpenActivityLevelId() <= 0)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032));
+        return false;
+    end
+    if(Activity:GetActivityLevelIsFirstOpen())then
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            uimgr:hideHomeLayer();
+            Groble_SoundMgr:StopBgm();
+            core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelVideoLayer.txt"):new():show();
+        end);
+    else
+        core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelMainLayer.txt"):new():show();
+    end
+    return true;
+end
+
+--打开活动关卡商城界面
+function Activity:OpenActivityLevelShopLayer()
+    core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelShopLayer.txt"):new():show();
+end
+--打开活动关卡任务界面
+function Activity:OpenActivityLevelTaskLayer()
+    core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelTaskLayer.txt"):new():show();
+end
+
+--打开活动关卡界面
+function Activity:OpenActivityLevelLayer()
+    local chapterIds = Activity:GetActivityChapterIds();
+    local chapter;
+    if(chapterIds[1] ~= nil or chapterIds[1] ~= 0)then
+        chapter = Chapter:GetChapter(chapterIds[1]);
+    end
+    if(chapter ~= nil)then
+        local isOpen,lockStr = Chapter:GetChapterIsLock(chapterIds[1]);
+        if(isOpen)then
+            core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelLayer.txt"):new():show();
+        else
+            Groble_UIMgr:ShowTipsLayer(lockStr);
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90395));
+    end
+end
+
+--打开活动关卡特殊界面
+function Activity:OpenActivityLevelSpecialLayer()
+    local chapterIds = Activity:GetActivityChapterIds();
+    local chapter;
+    for _, v in ipairs(chapterIds) do
+        chapter = Chapter:GetChapter(v);
+        if(chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL)then--深渊关卡
+            break;
+        end
+    end
+    if(chapter ~= nil)then
+        local isOpen, lockStr = Chapter:GetChapterIsLock(chapter.id);
+        if(isOpen)then
+            core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelSpecialLayer.txt"):new():show();
+        else
+            Groble_UIMgr:ShowTipsLayer(lockStr);
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90395));
+    end
+end
+
+--打开活动关卡签到界面
+function Activity:OpenActivityLevelSignLayer()
+    core.require("xlua/lua_UI/Activity/ActivityLevel/SixsealSigninLayer.txt"):new():show();
+end
+
+--设置活动关卡title界面
+function Activity:SetActivityLevelTitleLayer(activityLevelType)
+    Activity:SetActivityLevelLayerType(activityLevelType);
+    if(activityLevelType ~= nil)then
+        if(self._ActivityLevelTitleLayer == nil)then
+            self._ActivityLevelTitleLayer = core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelTitleLayer.txt"):new();
+            self._ActivityLevelTitleLayer:show();
+        end
+        self._ActivityLevelTitleLayer:UpdateShowType();
+        self._ActivityLevelTitleLayer:show();
+    end
+end
+
+function Activity:HideActivityLevelTitleLayer()
+    if(self._ActivityLevelTitleLayer == nil)then
+        return;
+    end
+    self._ActivityLevelTitleLayer:hide();
+end
+
+--清空活动关卡title界面
+function Activity:CloseActivityLevelTitleLayer()
+    Activity:SetActivityLevelTitleLayer();
+    if(self._ActivityLevelTitleLayer ~= nil)then
+        self._ActivityLevelTitleLayer:onPopLayer();
+        self._ActivityLevelTitleLayer = nil;
+    end
+end
+
+function Activity:GetActivityLevelImgPath(path)
+    if(path ~= nil or path ~= "")then
+        return string.format("source_common/ActivityLevel/%s",path);
+    end
+end
+
+function Activity:SetActivityLevelImgTitle(img,rect,layerCfg)
+    if(layerCfg.adImg ~= nil)then
+        local _filepath = Activity:GetActivityLevelImgPath(layerCfg.adImg[1]);
+        img:LoadSprite(_filepath);
+        img:ResetSize();
+
+        local tempV;
+        if(layerCfg.adImg[4] == nil)then
+            tempV = CS.UnityEngine.Vector2(0.5, 1);
+        else
+            tempV = CS.UnityEngine.Vector2(tonumber(layerCfg.adImg[4]), tonumber(layerCfg.adImg[5]));
+        end
+        --self.imgAD.color = CS.UnityEngine.Color(1,1,1,0);
+        --local dt = self.imgAD:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
+        rect.anchorMax = tempV;
+        rect.anchorMin = tempV;
+        rect.pivot = tempV;
+        img:SetAnchoredPosition(tonumber(layerCfg.adImg[2]),tonumber(layerCfg.adImg[3]));
+    end
+end

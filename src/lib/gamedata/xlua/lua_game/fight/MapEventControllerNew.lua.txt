@@ -1,0 +1,23 @@
+
+MapEventControllerNew = MapEventControllerNew or {}
+
+function MapEventControllerNew:InitMapEventController()
+    --屏幕效果
+    self.screenMgr      = FightScreenEffect:new()
+    CS.LuaLogicStaticCall.SetLuaFeature(self,"LuaMapModule")
+end
+
+
+function MapEventControllerNew:UnInitMapEventController()
+    --屏幕效果
+    self.screenMgr      = nil
+end
+
+function MapEventControllerNew:UpdateLogic(dt)
+    self.screenMgr:Update(dt)
+end
+
+function MapEventControllerNew:ScreenEffectEnter(screenId)
+    self.screenMgr:ScreenEffectEnter(screenId)
+end
+

@@ -1,0 +1,495 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief :
+--
+MidNight = MidNight or {}
+
+--更新服务器排行数据
+function MidNight:UpdateServerData(data)
+    self._serverData = {};
+    self._serverData.rankType   = data.rank_type;
+    self._serverData.topRanking = data.top or 0;--历史最高排名
+    self._serverData.ranking    = 0;--排名
+    self._serverData.rankTime   = data.enroll_time or 0; --入榜时间
+    self._serverData.rewarded   = data.is_get_reward;--是否已领取奖励
+    self._serverData.value      = data.top_score or 0;--分数
+    self._serverData.rankId     = data.rankid;  --战区
+    self._serverData.levelId    = data.levelid;  --随机关卡ID
+    self._serverData.awards     = data.awards or {};--奖励内容
+    self._serverData.isGetTrophy = data.is_get_trophy;
+    self._serverData.trophyNum = data.trophy or 0;--奖杯
+    self._serverData.gloryTrophyNum = data.glory_trophy or 0;--荣耀奖杯
+    self._serverData.reqTime = 0;--列表请求时间
+    self._serverData.levelId    = data.levelid;  --随机关卡ID
+    self._serverData.lastRanking = 0;
+end
+
+function MidNight:SetHistoryScore(historyScore)
+    self._historyScore = historyScore;
+end
+
+function MidNight:GetHistoryScore()
+    return self._historyScore or 0;
+end
+
+--设置段位数据
+function MidNight:SetDanGradingData()
+    if(self._serverData ~= nil)then
+        self._serverData.danId = MidNight:GetDanIdByTrophyNum(Player:GetTrophyNum());
+        Robot:SetCurRobotGroupId(MidNight:GetDanGradingCfgById(self._serverData.danId).robotRangeId);
+        self._danId = self._serverData.danId;
+    else
+        self._lastServerData.danId = MidNight:GetDanIdByTrophyNum(Player:GetTrophyNum());
+        Robot:SetCurRobotGroupId(MidNight:GetDanGradingCfgById(self._lastServerData.danId).robotRangeId);
+        self._danId = self._lastServerData.danId;
+    end
+    MidNight:SetDayAwards();
+end
+
+--设置日奖励
+function MidNight:SetDayAwards()
+    if(self._serverData ~= nil)then
+        for _, v in ipairs(self._serverData.awards) do
+            v.items = MidNight:GetAwardItemByDanIdAndRanking(self._danId,v.rank);
+        end
+    end
+
+    if(self._lastServerData ~= nil)then
+        for _, v in ipairs(self._lastServerData.awards) do
+            v.items = MidNight:GetAwardItemByDanIdAndRanking(self._danId,v.rank);
+        end
+    end
+end
+
+--根据段位和排名获取奖励物品
+function MidNight:GetAwardItemByDanIdAndRanking(danId,ranking)
+    local awardCfg = MidNight:GetAwardCfgByDanGradingIdAndRank(danId,ranking);
+    local items = {};
+    local awardData;
+    for _, vv in ipairs(awardCfg.dayAward) do
+        awardData = {
+            id = vv[2],
+            num = vv[3],
+        };
+        table.insert(items,awardData);
+    end
+    return items;
+end
+
+function MidNight:GetRankingReq()
+    if(self._serverData ~= nil and self._serverData.value > 0)then
+        Rank:GetRankingReq(Rank.TYPE_NIGHT);
+    end
+end
+
+function MidNight:GetRankingRep(ranking)
+    self._serverData.ranking = ranking;
+end
+
+function MidNight:GetServerData()
+    return self._serverData;
+end
+
+function MidNight:GetCurLevelId()
+    if(self._serverData == nil)then
+        return 0;
+    end
+    return self._serverData.levelId;
+end
+
+function MidNight:GetCurScore()
+    if(self._serverData == nil)then
+        return 0;
+    end
+    return self._serverData.value;
+end
+
+function MidNight:GetDanId()
+    if(self._danId == nil or self._danId == 0)then
+        self._danId = MidNight:GetDanIdByTrophyNum(Player:GetTrophyNum());
+    end
+    return self._danId;
+end
+
+function MidNight:GetIsGetTrophyState()
+    return self._lastServerData.isGetTrophy;
+end
+
+--设置荣耀奖杯获取状态
+function MidNight:SetHonorTrophyState(isSettle)
+    self._honorTrophyState = isSettle;
+end
+
+--获取荣耀奖杯获取状态
+function MidNight:GetHonorTrophyState()
+    return self._honorTrophyState or false;
+end
+
+function MidNight:InitLastServerData()
+    self._lastServerData = {};
+    self._lastServerData.value   = 0;
+    self._lastServerData.rankId  = 0;
+    self._lastServerData.awards = {};--奖励内容
+    self._lastServerData.ranking    = 0; --排名
+    self._lastServerData.rankTime   = 0; --入榜时间
+    self._lastServerData.rewarded   = true;
+    self._lastServerData.isGetTrophy = true;
+end
+
+function MidNight:SetLastServerData(data)
+    self._lastServerData = {};
+    self._lastServerData.value   = data.top_score or 0;
+    self._lastServerData.rankId  = data.rankid or 0;
+    self._lastServerData.awards = data.awards or {};--奖励内容
+    self._lastServerData.ranking    = data.top or 0; --排名
+    self._lastServerData.rankTime   = data.enroll_time or 0; --入榜时间
+    self._lastServerData.rewarded   = data.is_get_reward;
+    self._lastServerData.isGetTrophy = data.is_get_trophy;
+end
+
+function MidNight:GetLastServerData()
+    return self._lastServerData;
+end
+
+function MidNight:ExistLastRanking()
+    return self._lastServerData.rewarded == false and self._lastServerData.ranking > 0;
+end
+
+--
+-- brief : 隔日刷新
+--
+function MidNight:OnUpdateRankDay(weekUpdate, monthUpdate)
+    if monthUpdate then
+        MidNight:CalcCurSeasonId();
+    end
+    if(weekUpdate)then
+        GEvent:fireEvent(EVENT_TYPE.MID_NIGHT_TASK_UPDATE);
+    end
+end
+
+function MidNight:GetLastRankList()
+    return self._lastRankList or {};
+end
+
+function MidNight:GetDayAwardIsGet()
+    return self._serverData.rewarded;
+end
+
+function MidNight:GetDayAwards()
+    return self._serverData.awards or {};
+end
+
+function MidNight:MidNightRankChange(score)
+    local lastScore = self._serverData.value or 0;
+    local lastIndex = self._serverData.ranking;
+    self._serverData.lastRanking = lastIndex
+    self._serverData.value = score;
+
+    self._new_maxscore = score > MidNight:GetHistoryScore()
+    if score > MidNight:GetHistoryScore() then
+        MidNight:SetHistoryScore(score)
+    end
+
+    local data = self._serverData.list[lastIndex]
+    if data ~= nil then
+        data.score = score
+        table.sort(self._serverData.list,function (a,b)
+            if(a.score == b.score)then
+                if(Robot:IsRobot(a.id))then
+                    return a.id > b.id;
+                end
+                return a.id < b.id;
+            end
+            return a.score > b.score;
+        end);
+
+        for i, v in ipairs(self._serverData.list) do
+            v.rank = i;
+            if(v.id == data.id)then
+                self._serverData.ranking = i;
+            end
+        end
+    end
+
+    UpLoadVideo:SetUpLoadState(false);
+    if self._serverData.ranking <= 10 and lastScore < score then
+        --第一,上传战斗数据
+        UpLoadVideo:SetUpLoadState(true);
+        UpLoadVideo:SetCurScore(score);
+        UpLoadVideo:UpLoadDataReq();
+    end
+end
+
+function MidNight:RankIsChange(value)
+    value = value or 0;
+    if(self._serverData == nil)then
+        return false;
+    end
+    if(self._serverData.value == nil)then
+        return false
+    end
+    return self._serverData.value < value;
+end
+
+---------------------------------------------------------排行榜注册
+function MidNight:RankRegisterReq()
+    if(self._serverData == nil or self._serverData.rankId <= 0)then--注册排行榜
+        Rank:RankIdReq(Rank.TYPE_NIGHT);
+    else
+        GEvent:fireEvent(EVENT_TYPE.RANK_REGISTER_REP);
+    end
+end
+
+function MidNight:RankRegisterRep(data)
+    MidNight:UpdateServerData(data, 0);
+    MidNight:SetDanGradingData();
+    GEvent:fireEvent(EVENT_TYPE.RANK_REGISTER_REP);
+end
+---------------------------------------------------------
+--获得当前深夜所有BossId
+function MidNight:GetAllMidNightBossIds()
+    local levelId = self._serverData.levelId
+    local levelfile = "fightdata/level/ShenYe/"..levelId
+    local jsondata  = AssetLoader:LoadTextFromTextAsset(levelfile)
+    local leveldata = luajson.decode(jsondata)
+
+    return leveldata.midnightBossId
+end
+
+function MidNight:LotteryBoxRecvReq()
+    Network:CallServerScript({c2s.SHOP_GET_LSY_VOW_GIFT_REQ})
+end
+
+function MidNight:LotteryBoxRecvRep(leftnum, bitmark)
+    self._lotteryMidNight.count = leftnum
+    self._lotteryMidNight.recved = bitmark
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.RANK_SHOP_BOX_RECV)
+end
+
+
+
+---------------------------------------结算-----------------
+function MidNight:SettleNotify(settleType,awardData)
+    if(self._serverData == nil or self._serverData.value <= 0)then--未参加深夜永久
+        return;
+    end
+    if(settleType == MidNight.SettleType_Day)then--日结算
+        self._serverData.rewarded = false;
+        if(self._serverData.awards == nil)then
+            self._serverData.awards = {};
+        end
+        awardData.items = MidNight:GetAwardItemByDanIdAndRanking(self._danId,awardData.rank);
+        table.insert(self._serverData.awards,awardData);
+        GEvent:fireEvent(EVENT_TYPE.MID_NIGHT_SETTLE_DAY);
+    elseif(settleType == MidNight.SettleType_SmallStage)then--小阶段结算
+        MidNight:SetLastServerData({
+            top_score = self._serverData.value or 0,
+            rankid = self._serverData.rankId or 0,
+            awards = self._serverData.awards or {}, --奖励内容
+            top = self._serverData.ranking or 0, --排名
+            enroll_time = self._serverData.rankTime or 0, --入榜时间
+            is_get_reward = self._serverData.rewarded,
+            is_get_trophy = false,
+        });
+        self._lastRankList = nil;
+        self._serverData = nil;
+        MidNight:SetDanGradingData();
+    end
+    GEvent:fireEvent(EVENT_TYPE.MID_NIGHT_SETTLE);
+end
+
+--排行日奖励获取请求
+function MidNight:DayAwardGetReq()
+    Rank:RankCoinSettleReq(Rank.TYPE_NIGHT);
+end
+
+-- 排行日奖励获取返回
+function MidNight:DayAwardGetRep(data)
+    self._lastServerData.awards = data;
+    self._lastServerData.rewarded = true;
+    if(self._serverData ~= nil)then
+        self._serverData.rewarded = true;
+        self._serverData.awards = {};
+    end
+    if(MidNight:GetIsGetTrophyState())then
+        GEvent:fireEvent(EVENT_TYPE.GET_MIDNIGHT_DAY_AWARD_REP);
+        MidNight:ShowSettleGetTipsLayer(data,nil,false);
+        return;
+    end
+    MidNight:AddSmallStageSettleStep(MidNight.SmallStageSettleStep_DayAward,data);
+    MidNight:EnterRankLayer();
+end
+
+--小赛季结算
+function MidNight:GetSmallStageAwardReq()
+    Rank:GetSmallStageAwardReq(Rank.TYPE_NIGHT);
+end
+
+--小赛季结算返回
+function MidNight:GetSmallStageAwardRep(data)
+    self._lastServerData.isGetTrophy = true;
+    local addData = {
+        addNum = data[2],
+        ranking = self._lastServerData.ranking or 1,
+        lastDanId = MidNight:GetDanIdByTrophyNum(data[1]),
+    };
+    MidNight:AddSmallStageSettleStep(MidNight.SmallStageSettleStep_Trophy,addData);
+    local lastDanId = MidNight:GetDanIdByTrophyNum(data[1]);
+    local curDanId = MidNight:GetDanIdByTrophyNum(data[1] + data[2]);
+    if(lastDanId ~= curDanId)then
+        addData = {
+            lastDanId = lastDanId,
+            curDanId = curDanId,
+        };
+        MidNight:AddSmallStageSettleStep(MidNight.SmallStageSettleStep_Dan,addData);
+    end
+      ThinkingMgr:AddUserSet("midnight_rank", curDanId)--深夜永久段位 埋点
+    Player:UpdateTrophyNum(data[2]);
+    MidNight:EnterRankLayer();
+end
+
+
+--获得荣耀奖杯请求
+function MidNight:GetHonorTrophyReq()
+    Rank:GetBigSettleAwardReq(Rank.TYPE_NIGHT);
+end
+
+--获得荣耀奖杯返回
+function MidNight:GetHonorTrophyRep(data)
+    MidNight:SetHonorTrophyState(false);
+    Player:UpdateTrophyNum(-(data[2]));
+    Player:UpdateGloryTrophyNum(data[2]);
+    self._honorData = {
+        Player:GetTrophyNum() + data[2],
+        data[1],
+        data[2],
+    };
+    GEvent:fireEvent(EVENT_TYPE.GET_HONOR_TROPHY_REP);
+end
+
+function MidNight:GetHonorData()
+    return self._honorData or {};
+end
+
+function MidNight:GetRankListReq()
+    if os.time() - self._serverData.reqTime > Rank.REQ_INTERVIAL then
+        Rank:RankListReq(Rank.TYPE_NIGHT, self._serverData.rankId);
+    else
+        if self._serverData == nil or self._serverData.value <= 0  then
+            MidNight:ShowRankFightLayer();
+        else
+            MidNight:OpenMidNightLayer();
+        end
+        GEvent:fireEvent(EVENT_NAME.PLOT_RANK);
+    end
+end
+
+function MidNight:doSelfRankingCheck()
+    local pid = Player:GetId()
+    local isSelf = false
+    for i, v in ipairs(self._serverData.list) do
+        if pid == v.id then
+            self._serverData.value = v.score;
+            self._serverData.ranking = i;
+            isSelf = true
+            break
+        end
+    end
+    if not isSelf then
+        local _number = #self._serverData.list
+        table.insert(self._serverData.list, {
+            id = Player:GetId(),
+            frameid = Player:GetHeadBorder(),
+            iconid = Player:GetHeadIcon(),
+            level = Player:GetLevel(),
+            name = Player:GetName(),
+            rank = _number + 1,
+            score = 0,
+        })
+        self._serverData.value = 0
+        self._serverData.ranking = _number + 1
+    end
+end
+
+function MidNight:GetRankListRep(list)
+
+    local retList = MidNight:GetRankList(list)
+    if(retList == nil)then--排行数据发生错误, 需要数据修正
+        return;
+    end
+    self._serverData.reqTime = os.time()
+    self._serverData.list = retList
+    self:doSelfRankingCheck()
+    GEvent:fireEvent(EVENT_NAME.PLOT_RANK)
+    if self._serverData == nil or self._serverData.value <= 0  then
+        MidNight:ShowRankFightLayer();
+    else
+        MidNight:OpenMidNightLayer();
+    end
+end
+
+function MidNight:GetRankList(list)
+    local reList = {}
+    local data;
+    local isErr = true;
+    local pid = Player:GetId()
+    for _,v in pairs(list) do
+        if v.score ~= 0 then
+            if(Robot:IsRobot(v.id))then--机器人, 随机部分需要的数据
+                data = Robot:GetRobotBaseDataById(v.id);
+                if(data == nil)then
+                    data = Robot:InitRobotBaseData(v);
+                else
+                    Robot:UpdateBaseData(v);
+                end
+                table.insert(reList, data);
+            else
+                table.insert(reList, v)
+            end
+            if(v.id == Player:GetId())then
+                isErr = false;
+            end
+        end
+    end
+    table.sort(reList,function (a,b)
+        return a.rank < b.rank;
+    end);
+    if(isErr and self._serverData ~= nil and self._serverData.value > 0 and not self._rankIsAmend)then--自己不在排行榜中, 让服务器修正数据
+        Rank:AmendRankDataReq(Rank.TYPE_NIGHT);
+        return;
+    end
+    return reList;
+end
+
+function MidNight:GetLastRankReq()
+    Rank:GetLastRankListReq(Rank.TYPE_NIGHT,self._lastServerData.rankId);
+end
+
+function MidNight:GetLastRankRep(list)
+    local retList = MidNight:GetRankList(list.rankmebs or {})
+    self._lastRankList = retList or {};
+    if(#retList > 0)then
+        MidNight:AddSmallStageSettleStep(MidNight.SmallStageSettleStep_LastRank,self._lastRankList);
+        for _, v in ipairs(retList) do
+            if(v.id == Player:GetId())then
+                self._lastServerData.ranking = v.rank;
+                break;
+            end
+        end
+    end
+    if #retList == 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(77000058));
+    end
+    MidNight:EnterRankLayer();
+end
+
+--数据修正(排行榜数据错误时进行修正, 会更新serverData数据, 需要重新获取排行榜)
+function MidNight:AmendRankDataRep(data)
+    self._rankIsAmend = true;--数据只会修正一次
+    MidNight:UpdateServerData(data);
+    Rank:RankListReq(Rank.TYPE_NIGHT, self._serverData.rankId);
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.SHOP_GET_LSY_VOW_GIFT_RES]      = {MidNight, MidNight.LotteryBoxRecvRep}

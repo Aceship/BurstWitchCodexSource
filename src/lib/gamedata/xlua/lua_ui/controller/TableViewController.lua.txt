@@ -1,0 +1,78 @@
+--
+-- author: haosun
+-- date  : 2019-09-20 20:29:02
+-- brief : 
+--
+local TableViewController = class("TableViewController")
+
+function TableViewController:ctor(super, obj)
+    self._controller = obj:GetComponent("TableViewController")
+    self._scrollRect = obj.transform:Find("TableView"):GetComponent("ScrollRect")
+    self._init = false
+end
+
+function TableViewController:Clear()
+    self._scrollRect = nil
+    self._controller.onAnimationEnd = nil
+    self._controller.onAnimationEnd = nil
+    self._controller.onAnimationEnd = nil
+    self._controller.onViewScroll = nil
+    self._controller = nil
+end
+
+function TableViewController:ScrollRectVertical(value)
+    self._scrollRect.vertical = value
+end
+
+function TableViewController:Init(rows, playani, callback, stime, sdelay, cellAniEnd)
+    if not self._init then
+        self._init = true
+        self._controller:Init(rows, playani, stime or 0, sdelay or 0, callback, cellAniEnd)
+    else
+        self:Reload(rows, playani)
+    end
+end
+
+function TableViewController:SetCanvasOrder(value)
+    self._controller:SetCanvasOrder(value);
+end
+
+function TableViewController:Reload(rows, playani, scroll)
+    self._controller:OnReloadData(rows, playani or false)
+end
+
+function TableViewController:ScrollToTop(stime, callback)
+    self._controller.onAnimationEnd = callback
+    self._controller:OnScrollToTop(stime or 0)
+end
+
+function TableViewController:ScrollToBottom(stime, callback)
+    self._controller.onAnimationEnd = callback
+    self._controller:OnScrollToBottom(stime or 0)
+end
+
+function TableViewController:ScrollToRow(row, stime,above, callback)
+    self._controller.onAnimationEnd = callback
+    if(above == nil)then
+        above = true;
+    end
+    self._controller:OnScrollToRow(row, stime or 0,above)
+end
+
+function TableViewController:UpdateCellHeight(row, height)
+    self._controller:OnUpdateRowHeight(row, height)
+end
+
+function TableViewController:InitCustomRowWidth(row, width)
+    self._controller:InitCustomRowWidth(row, width)
+end
+
+function TableViewController:GetCellAtRow(row)
+    return self._controller:GetCellAtRow(row)
+end
+
+function TableViewController:SetViewScrollFunc(func)
+    self._controller.onViewScroll = func    
+end
+
+return TableViewController

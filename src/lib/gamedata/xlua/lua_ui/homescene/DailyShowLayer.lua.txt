@@ -1,0 +1,56 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyShowLayer = class("DailyShowLayer", CBaseLayer)
+
+function DailyShowLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_DailyShowLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function DailyShowLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+end
+
+function DailyShowLayer:initObj()
+    self._temp              = self.layer:Get("container/temp")
+    self._awardContent      = self.layer:Get("container/awardContent")
+
+    self.layer:GetButtonComponent("button_back").onClick:AddListener(function() 
+        self:onBackClick()
+    end)
+end
+
+function DailyShowLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function DailyShowLayer:show()
+    self:showLayer()
+    
+    for i = 1, #Player._equipSchedule do
+        local prefab = Groble_ResMgr:Instantiate(self._temp, self._awardContent)
+        prefab.name = "item" .. i
+        prefab:GetTextComponent("txt_day").text = LanguageMgr:GetTextByID(704025 + (i - 1) * 2)
+        prefab:GetTextComponent("txt_day_en").text = LanguageMgr:GetTextByID(704026 + (i - 1) * 2)
+        
+        local tempItem = prefab:Get("tempItem")
+        local itemContent = prefab:Get("itemContent")
+
+        local drops = Item:GetDrops(Player._equipSchedule[i], true)
+        for j = 1, #drops do
+            local itemPre = Groble_ResMgr:Instantiate(tempItem, itemContent)
+            itemPre.name = "item" .. j
+            local item1 = Bag:CtorComSimpleGoodsUi(itemPre)
+            Bag:SetComSimpleGoodsUi(item1, drops[j][1], drops[j][2], drops[j][3])
+        end
+        tempItem:SetVisible(false)
+    end
+    self._temp:SetVisible(false)
+end
+
+return DailyShowLayer

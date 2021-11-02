@@ -1,0 +1,35 @@
+Mail = Mail or {};
+function Mail:LoadCfg()
+
+    Mail:LoadMailDefCfg();
+end
+
+function Mail:LoadMailDefCfg()
+    self._mailDefCfg = {};
+    local cfgs = CfgLoader:LoadCfg("MailDef");
+    for _, cfg in pairs(cfgs) do
+        local id = tonumber(cfg.id);
+        local data = {
+            id = id,
+            author = cfg.author,
+            title = cfg.title,
+            longtitle = cfg.longtitle,
+            text = Language:GetTxtBuyId(cfg.text),
+        }
+        self._mailDefCfg[id] = data;
+    end
+end
+
+function Mail:GetMailDefCfgById(cfgId)
+    local retData = self._mailDefCfg[cfgId];
+    if(retData == nil)then
+        CS.Logger.LogError("mailDefCfg is nil  id = "..cfgId);
+    end
+    return retData or {};
+end
+
+
+function Mail:GetMailTextCountById(id)
+    id = tostring(id);
+    return Language:GetTxtBuyId(id);
+end

@@ -1,0 +1,218 @@
+---
+--- Author:admin
+--- Create Time:2021-09-29 17:02:22
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelAwardLayer = class("ActivityLevelAwardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnBack = "btn_back",
+    BtnGetAllAward = "container/button_getAllAward"
+}
+--构造函数
+function ActivityLevelAwardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelAwardLayer"
+    }
+
+    self._uitype = 2
+    self._fading = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ActivityLevelAwardLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+function ActivityLevelAwardLayer:CheckCanRecv()
+    local tbl = {}
+    for _, v in pairs(self._taskIds) do
+        local data = Task:GetTask(v)
+        if data.state == Task.STATE_HAS_DONE then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+--按钮事件
+function ActivityLevelAwardLayer:onButtonClick(itype)
+    if (itype == BTNS.BtnBack) then
+        self:OnBtnBackClick()
+    elseif (itype == BTNS.BtnGetAllAward) then
+        local recvs = self:CheckCanRecv()
+        if #recvs > 0 then
+            Task:GetRewardReq(recvs)
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(60011))
+        end
+    end
+end
+
+--初始化
+function ActivityLevelAwardLayer:Init()
+    self:InitData()
+    self:UpdateTaskData()
+    self:InitUI()
+end
+--初始化数据
+function ActivityLevelAwardLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId()
+    self._mathTypeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid)
+    self._subType = tonumber(self._mathTypeCfg.taskType_2[1])
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+end
+
+--更新数据
+function ActivityLevelAwardLayer:UpdateTaskData()
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+end
+
+--初始化UI
+function ActivityLevelAwardLayer:InitUI()
+    --@ImageEnd
+    self._imgIcon = self.layer:GetImageComponent("container/Title/img_icon")
+    self._txtCurScore = self.layer:GetTextComponent("container/Title/txt_cur_score")
+    self._taskCells = {}
+
+    self._TableViewController = self.layer:Get("container/TableViewController")
+    self._tvController = UIController:CtorTableView(self._TableViewController)
+    self:SetTaskTableView()
+end
+
+--显示UI
+function ActivityLevelAwardLayer:show()
+    self:showLayer()
+    self:SetUI()
+end
+
+--退出按钮事件
+function ActivityLevelAwardLayer:onBackClick()
+    self:onPopLayer()
+end
+
+--释放
+function ActivityLevelAwardLayer:onExit()
+    --@CloseEnd
+    self._imgIcon = nil
+    self._txtCurScore = nil
+    for _, cell in pairs(self._taskCells) do
+        cell:clear()
+    end
+    self._taskCells = nil
+    self._TableViewController = nil
+    self._tvController = nil
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ActivityLevelAwardLayer:OnBtnBackClick()
+    self:onBackClick()
+end
+function ActivityLevelAwardLayer:OnBtnGetTaskClick(taskId)
+    local task = Task:GetTask(taskId);
+    if(task.state == Task.STATE_HAS_DONE)then
+        Task:GetRewardReq({taskId});
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityLevelAwardLayer:RegisterHandler()
+    self:addEventListener(
+        EVENT_NAME.TASK_RECV_REWARD,
+        self.__cname,
+        function()
+            self:UpdateTaskData()
+            self:RefreshScore()
+            self:SetTaskTableView()
+        end
+    )
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ActivityLevelAwardLayer:SetUI()
+    self._imgIcon:LoadSprite(self._mathTypeCfg.taskType_2[2])
+    self:RefreshScore()
+end
+function ActivityLevelAwardLayer:RefreshScore()
+    local sorce = Stats:GetSixthSealTaskScore()
+    self._txtCurScore:SetText(sorce)
+end
+function ActivityLevelAwardLayer:SetTaskTableView()
+    if self._init then
+        self._tvController:Reload(#self._taskIds, false)
+    else
+        self._tvController:Init(
+            #self._taskIds,
+            false,
+            function(cell, row, play)
+                self:SetTaskCell(cell, row + 1)
+            end,
+            0.3,
+            0.1
+        )
+        self._init = true
+    end
+end
+function ActivityLevelAwardLayer:SetTaskCell(cell, row)
+    local cls = self._taskCells[cell]
+    if (cls == nil) then
+        cls = self:NewTaskCell(cell)
+        self._taskCells[cell] = cls
+    end
+    self:SetTaskCellData(cls, row)
+end
+
+local AwardMaxNum = 2
+function ActivityLevelAwardLayer:NewTaskCell(cell)
+    local cls = clsbase:new(cell)
+    cls.txtDes = cls:GetTextComponent("txt_des")
+    cls.btn = cls:GetButtonComponent("btn")
+    cls.btn.onClick:AddListener(function ()
+        self:OnBtnGetTaskClick(cls.taskId);
+    end);
+    cls.imgCanReceive = cls:GetImageComponent("img_can_receive")
+    cls.items = {}
+    for i = 1, AwardMaxNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls:Find(string.format("item%d", i)))
+        cls.items[i].imgGet = cls.items[i].transform:Find("img_get").gameObject
+    end
+    return cls
+end
+function ActivityLevelAwardLayer:SetTaskCellData(cls, index)
+    cls.taskId = self._taskIds[index]
+    local recNum = Task:GetTaskCanRecvCount(cls.taskId) or 0
+    local task = Task:GetTask(cls.taskId)
+    cls.txtDes:SetText(Language.LanguageTxt[task.Quest_des])
+    cls.imgCanReceive:SetEnabled(task.state == Task.STATE_HAS_DONE);
+    cls.btn:SetVisible(task.state == Task.STATE_HAS_DONE);
+    for i = 1, AwardMaxNum do
+        cls.items[i].transform:SetVisible(false)
+        if task.rewards[i] ~= nil then
+            cls.items[i].transform:SetVisible(true)
+            Bag:SetComSimpleGoodsUi(cls.items[i], task.rewards[i][1], task.rewards[i][2], task.rewards[i][3])
+        end
+    end
+    if task.state == Task.STATE_HAS_RECV then --已领取
+        self:RefreshAwardState(cls,task,AwardMaxNum,true)
+    else
+        self:RefreshAwardState(cls,task,AwardMaxNum,false)
+    end
+end
+function ActivityLevelAwardLayer:RefreshAwardState(cls,task,AwardMaxNum,flag)
+    for i = 1, AwardMaxNum do
+        if task.rewards[i] ~= nil then
+            cls.items[i].imgGet:SetVisible(flag)
+        end
+    end
+end
+return ActivityLevelAwardLayer

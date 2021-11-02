@@ -1,0 +1,175 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 20:30:14
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SweepLayer = class("SweepLayer", CBaseLayer)
+
+
+
+function SweepLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_SweepLayerNew",
+    }
+    self._uitype = 2
+    self._dropItems = {}
+    self._update = false
+    self._dt = 0.5
+    self._index = 1
+    self:onEnter()
+end
+
+function SweepLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+end
+
+function SweepLayer:onBackClick()
+    Player:IgnoreLevelUp(false)
+    if self._isUpLevel then
+        Player:ShowLevelUpLayer()
+    end
+    if self._callback ~= nil then
+        self._callback(true)
+    end
+    self:onPopLayer()
+end
+
+
+
+--[[function SweepLayer:onUpdate(dt)
+    if self._update then
+        self._old_per = self._old_per + self._dis
+        self.layer.transform:Find("container/slider_exp"):GetComponent("Slider").value = self._old_per
+        if  self._old_per - self._new_per > 0 then
+            self._old_per = self._new_per
+            self._update = false
+            if self._isUpLevel then
+                self._old_per = 0
+                self._new_per = Player:GetLevelExpPer()
+                self._update = true
+                self.layer.transform:Find("container/slider_exp"):GetComponent("Slider").value = 1
+                self.layer.transform:Find("container/slider_expBg"):GetComponent("Slider").value = 0
+                self.layer.transform:Find("container/text_level"):GetComponent("Text").text = Player:GetLevel()
+                Player:ShowLevelUpLayer()
+                self._isUpLevel = false
+            else
+                self.layer.transform:Find("container/slider_exp"):GetComponent("Slider").value = self._old_per
+            end
+        end
+    end
+end]]
+
+function SweepLayer:show(drops, levelid, callback, oldinfo)
+    self._level = Chapter:GetLevel(levelid)
+    self._callback = callback
+    self._shownum = 0
+    self._showidx = 1
+    self._drops = drops
+    self._data = oldinfo
+    self:setDrops(drops[1])
+    self:setLevelExp(0)
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function SweepLayer:initObj()
+    self._template  = self.layer:Get("container/parentview/viewport/content/template")
+    self._content   = self.layer:GetRectTransformComponent("container/parentview/viewport/content")
+    self._container = self.layer:Get("container")
+    self._bg        = self.layer:GetRectTransformComponent("container/image_bg")
+    self._parentRt    = self.layer:GetRectTransformComponent("container/parentview")
+
+    self._slider    = self.layer:GetSliderComponent("container/slider_exp")
+    self._sliderBg  = self.layer:GetSliderComponent("container/slider_expBg")
+    self._txtLv     = self.layer:GetTextComponent("container/text_level")
+    self._txtExp    = self.layer:GetTextComponent("container/text_exp")
+    self._txtExpPer = self.layer:GetTextComponent("container/text_exp_per")
+
+    self._parent    = self.layer:GetScrollRectComponent("container/parentview")
+    self._views = {}
+end
+
+
+function SweepLayer:setLevelExp(addexp, index)
+    local data = self._data
+    index = index or 0
+    self._old_per = data.exp + (addexp * index)
+    if self._old_per >= data.next_exp then
+        if  not Player:IsMaxLevel() then
+            self._old_per =  self._old_per - data.next_exp
+            data.exp, data.next_exp = Player:GetLevelExp()
+            data.level = Player:GetLevel()
+            self._isUpLevel = true
+        end
+    end
+    Player:SetPlayerExpPer(self._txtExpPer, self._slider,self._sliderBg, self._old_per, data.next_exp)
+    self._sliderBg.value = self._old_per
+    self._sliderBg.maxValue = data.next_exp
+    self._slider.value = self._old_per
+    self._slider.maxValue = data.next_exp
+
+
+    self._txtLv.text = data.level
+    self._txtExp.text = "+"..addexp
+    local per = 1 / self._length
+    if index > 5 then
+        self._parent.verticalNormalizedPosition = 1 - per * index
+    else
+        self._parent.verticalNormalizedPosition = 1
+    end
+end
+
+function SweepLayer:setDrops(items)
+    self._length = #items
+    local text = LanguageMgr:GetTextByID(76000065)
+    for i = 1, self._length do
+        local scrollview =  Groble_ResMgr:Instantiate(self._template, self._content.transform)
+        self._dropItems[i] = {}
+        self._dropItems[i] = Bag:SetScrollGoods(self._dropItems[i] ,scrollview, items[i], 3, 715, 160, 0.55, 90, true)
+        scrollview.name =  "view"..i
+        local posy, disy =  0, 200
+        u3d_set_localPos(scrollview, nil, posy - disy * (i - 1))
+        scrollview:Find("text_count"):GetComponent("Text").text = string.format(text , i)
+        self._views[i] = scrollview
+        if i == self._length then
+            scrollview:Find("scroll_bg"):SetVisible(false)
+        end
+    end
+    local sizeDelta = self._content.sizeDelta
+    sizeDelta.y = 200 * self._length
+    self._content.sizeDelta = sizeDelta
+
+    sizeDelta = self._parentRt.sizeDelta
+    local count = self._length - 1
+    if count > 4 then count = 4 end
+    sizeDelta.y =  sizeDelta.y + 200 * count
+    self._parentRt.sizeDelta = sizeDelta
+    u3d_set_localPos(self._container,0, 90 * (count + 1))
+    self._bg.sizeDelta = CS.UnityEngine.Vector2(self._bg.sizeDelta.x , self._bg.sizeDelta.y + 200 * count)
+    self._update = true
+end
+
+
+function SweepLayer:onUpdate(dt)
+    self._dt = self._dt + dt
+    if self._update then
+        if self._dt >0.2 then
+            if self._index <= self._length then
+                self._views[self._index]:SetVisible(true)
+               -- self._views[self._index].transform:DOScaleX(1, 0.2)
+                self:setLevelExp( self._drops[2][self._index] , self._index)
+                self._dt = 0
+                self._index = self._index + 1
+            else
+                self._update = false
+            end
+        end
+    end
+
+end
+
+return SweepLayer
+

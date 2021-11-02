@@ -1,0 +1,63 @@
+--
+-- author: haosun
+-- date  : 2019-06-29 14:35:50
+-- brief : 
+--
+
+Talk = Talk or {}
+
+Talk.TALKSTRNUM          = 60     -- 聊天字符数量
+
+Talk.WORLD_SEND_INTERVAL    = 6
+
+Talk.BG_MIN_HEIGHT      = 114   -- 消息背景最小高度
+Talk.CELL_MIN_HEIGHT    = 140   -- 消息单元格最小高度
+Talk.TEXT_MAX_WIDTH     = 646   -- 聊天文本最大宽度
+
+Talk.TYPE_WORLD         = 1     -- 世界频道
+Talk.TYPE_PRIVATE       = 2     -- 私人频道
+Talk.TYPE_SYSTEM_CFG    = 3     -- 系统配置(获得道具、英雄)
+Talk.TYPE_SYSTEM_NOTICE = 4     -- 系统通知(跑马灯)
+Talk.TYPE_MUSIC         = 5     -- 世界应援邀请
+Talk.TYPE_CUT_WORLD_LINE = 6;   -- 切换世界聊天线路
+
+Talk.TalkLineMaxNum = 199;
+
+
+Talk.SHOW_TYPE_WORLD    = 1     -- 
+Talk.SHOW_TYPE_PRIVATE  = 2     -- 
+
+Talk.PARAM_TYPE_NOR     = 0     --普通
+Talk.PARAM_TYPE_MUSIC   = 1     --音乐
+
+Talk.MAX_LIST           = 50
+Talk.IsLoadSceneOver    = false;
+Talk.VOICE_CANCEL_DIS   = 50; --手指滑动距离
+Talk.OneLineMaxNum      = 5000;--单一线路人数上限
+--线路状态系数
+Talk.LineStateValue = {
+    UnblockedValue = math.floor(Talk.OneLineMaxNum * 0.5),--畅通
+    CommonValue = math.floor(Talk.OneLineMaxNum * 0.7),--普通
+    CrowdValue = math.floor(Talk.OneLineMaxNum * 0.89),--拥挤
+    FullValue = Talk.OneLineMaxNum * 1,--饱满
+}
+
+--线路状态系数
+Talk.LineState = {
+    Unblocked = 1,--畅通
+    Common = 2,--普通
+    Crowd = 3,--拥挤
+    Full = 4,--饱满
+}
+
+Talk.ChatMsgNotify = "ChatMsgNotify";
+Talk.ChatContent = "ChatContent";
+Talk.ChatLoginRep = "ChatLoginRep";
+
+Talk.SUCCESS         = 0;
+Talk.MSG_PARSE_ERROR = 1;    --消息分解错误
+Talk.PARAM_ERROR     = 2;    -- 参数错误
+Talk.VERIFY_ERROR    = 3;    -- 验证错误
+Talk.LOAD_ERROR      = 4;    -- 达到负载
+Talk.ROLE_ERROR      = 5;    -- 找不到角色或者角色正在登入中
+Talk.LINE_ERROR      = 6;    -- 线路错误

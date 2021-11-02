@@ -1,0 +1,111 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-01 15:57:11
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local StoryTipsLayer = class("StoryTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function StoryTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_StoryTipsLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+    };
+    self._addStack = true;
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function StoryTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function StoryTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function StoryTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function StoryTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function StoryTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/img_bg/txt_title");
+	self._txtDes = self.layer:GetTextComponent("trans_container/scroll/txt_des");
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._scroll = self.layer:GetScrollRectComponent("trans_container/scroll");
+end
+
+--显示UI
+function StoryTipsLayer:show(data)
+    self._txtTitle.text = Language.LanguageTxt[data.config.title];
+    self._txtDes.text = lua_str_line_feed(Language.LanguageTxt[data.config.des]);
+    self:showLayer();
+    self:playAni("TipsLayerAnim");
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function StoryTipsLayer:OnBtnReturnClick()
+    Groble_UIMgr:ClickOnReturnBtn();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function StoryTipsLayer:onExit()
+
+    self._txtTitle = nil;
+	self._txtDes = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function StoryTipsLayer:KeyFrameCall(intkey)
+    self._scroll.vertical = true;
+end
+
+return StoryTipsLayer;

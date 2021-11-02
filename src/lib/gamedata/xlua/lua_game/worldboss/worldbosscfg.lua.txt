@@ -1,0 +1,131 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+WorldBoss = WorldBoss or {};
+
+function WorldBoss:LoadCfg()
+    WorldBoss:LoadAwardCfg();
+    WorldBoss:_LoadWorldBossCfg();
+end
+
+
+function WorldBoss:LoadAwardCfg()
+    self._awardCfgs = {};
+    self._sortAwardCfgs = {};
+    local cfgs = CfgLoader:LoadCfg("WorldBossAward");
+    for _, cfg in pairs(cfgs) do
+        local rankRange = lua_str_split(cfg.RankRange,"&");
+        for i, v in ipairs(rankRange) do
+            rankRange[i] = tonumber(v);
+        end
+        local id = tonumber(cfg.id);
+        local data = {
+            id = id,
+            des = Language:GetTxtBuyId(cfg.Award_id),
+            rankRange = rankRange,
+            awards = lua_parse_cfg(cfg.Midnight_award_item,true),
+        }
+        self._awardCfgs[id] = data;
+        table.insert(self._sortAwardCfgs,data);
+    end
+    table.sort(self._sortAwardCfgs,function (a,b)
+        return a.id < b.id;
+    end);
+end
+
+function WorldBoss:GetAwardCfgById(cfgId)
+    local retCfg = self._awardCfgs[cfgId];
+    if(retCfg == nil)then
+        CS.Logger.LogError("can't find award cfg id = {0}", cfgId);
+        return {};
+    end
+    return retCfg;
+end
+
+function WorldBoss:GetAllAwardCfgId()
+    local retArr = {};
+    for _, v in ipairs(self._sortAwardCfgs) do
+        table.insert(retArr,v.id);
+    end
+    return retArr;
+end
+
+function WorldBoss:GetAwardIdByRank(rank)
+    if(rank <= 0)then
+        CS.Logger.LogError("rank is 0");
+        return 0;
+    end
+    for _, cfg in ipairs(self._sortAwardCfgs) do
+        if(rank >= cfg.rankRange[1] and rank <= cfg.rankRange[2])then
+            return cfg.id;
+        end
+    end
+end
+
+function WorldBoss:_LoadWorldBossCfg()
+    self._world_boss_cfg = {}
+    local cfgs = CfgLoader:LoadCfg("world_boss_cfg")
+    for _, v in pairs(cfgs) do
+        self._world_boss_cfg[tostring(v.key)] = tonumber(v.value)
+    end
+end
+
+function WorldBoss:GetWorldBossCfg()
+    return self._world_boss_cfg
+end
+
+function WorldBoss:GetWorldBossFeaturesCfg(levelid)
+    local features = self._world_boss_cfg[tostring(levelid)]
+    if features == WorldBoss.BOSS_FEATURES_CRIT then
+        return self._world_boss_cfg["crit_icon"], self._world_boss_cfg["crit_desc"]
+    elseif features == WorldBoss.BOSS_FEATURES_DEF then
+        return self._world_boss_cfg["def_icon"], self._world_boss_cfg["def_desc"]
+    end
+end
+
+function WorldBoss:GetWorldBossVulnerable()
+    return self._world_boss_cfg["boss_hurt_rate"], self._world_boss_cfg["boss_def_rate"]
+end
+
+function WorldBoss:GetWorldBossBuff()
+    return self._world_boss_cfg["buffid"]
+end
+
+-- 暴击类型
+function WorldBoss:WorldBossIsCrit(levelid)
+    return self._world_boss_cfg[tostring(levelid)] == WorldBoss.BOSS_FEATURES_CRIT
+end
+
+-- 防御类型
+function WorldBoss:WorldBossIsDef(levelid)
+    return self._world_boss_cfg[tostring(levelid)] == WorldBoss.BOSS_FEATURES_DEF
+end
+
+function WorldBoss:GetWorldBossDefRate()
+    return self._world_boss_cfg["def_change_rate"]
+end
+
+function WorldBoss:GetWorldBossHpRate()
+    return self._world_boss_cfg["player_hurt_rate"]
+end
+
+function WorldBoss:GetWorldBossHurtRate()
+    return self._world_boss_cfg["hurt_boss_rate"]
+end
+
+function WorldBoss:GetWorldBossCd()
+    return self._world_boss_cfg["blackhole_refresh_rate"]
+end
+
+function WorldBoss:GetWorldBossHoleCd()
+    return self._world_boss_cfg["blackhole_duration"]
+end
+
+function WorldBoss:GetWorldBossInHoleCd()
+    return self._world_boss_cfg["per_cost_def"]
+end
+
+function WorldBoss:GetWorldBossHolePos()
+    return self._world_boss_cfg["blackhole_posx"], self._world_boss_cfg["blackhole_posz"]
+end

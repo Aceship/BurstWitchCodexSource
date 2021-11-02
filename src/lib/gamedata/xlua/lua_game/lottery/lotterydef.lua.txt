@@ -1,0 +1,43 @@
+--
+-- author: haosun
+-- date  : 2019-02-21 13:37:03
+-- brief :
+--
+
+Lottery = Lottery or {}
+
+Lottery.One = 1
+Lottery.Ten = 10
+
+Lottery.LOTTERY_NOR = 1
+Lottery.LOTTERY_RANK = 2
+
+Lottery.LotteryType = {
+    Witch                   = 1,
+    Equip                   = 2,
+    Friendship              = 3,
+    WitchUp                 = 4,
+    LateNight               = 5,
+    FirstTime               = 6,    -- 新手卡池
+}
+
+Lottery.BASICE          = 1;--基础召唤
+Lottery.ACTIVITY        = 2;--活动
+Lottery.FRIENDSHIP      = 3;--友情
+Lottery.ORIENT          = 4;--定向
+Lottery.ORIENT_ACTIVITY = 5;    -- 4 + 2
+Lottery.FIRST_TIME      = 9;--首次
+
+
+Lottery.UP          = 2;--UP池
+
+-- 商店页签需要显示的货币
+Lottery.SHOW_COINS = {
+    [Lottery.BASICE]            = {Player.ITEM_LOTTERY_TICKET,Player.ITEM_EQUIP,Player.ITEM_VALUE_MONEY },--魔晶券、灵契券（装备抽卡券）、钻石
+    [Lottery.ACTIVITY]          = {Player.ITEM_LOTTERY_TICKET,Player.ITEM_EQUIP,Player.ITEM_VALUE_MONEY },--魔晶券、灵契券（装备抽卡券）、钻石
+    [Lottery.FRIENDSHIP]        = {Player.ITEM_LOTTERY_TICKET,Player.ITEM_EQUIP,Player.ITEM_FRIEND_TICKET },--魔晶券、灵契券（装备抽卡券）、友情券
+    [Lottery.FIRST_TIME]        = {Player.ITEM_LOTTERY_TICKET,Player.ITEM_EQUIP,Player.ITEM_VALUE_WITCH_COIN }--魔晶券、灵契券（装备抽卡券）、魔女币
+}
+
+Lottery.LOTTERY_MODE_1  = 1
+Lottery.LOTTERY_MODE_10 = 2

@@ -1,0 +1,260 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-17 15:26:57
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local OrientTipsLayer = class("OrientTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnGetAll = "trans_container/btn_get_all",
+	--@ButtonEnd
+}
+--构造函数
+function OrientTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_OrientTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function OrientTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function OrientTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnGetAll)then 
+	   self:OnBtnGetAllClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+end
+
+--初始化
+function OrientTipsLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化UI
+function OrientTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtRule = self.layer:GetTextComponent("trans_container/trans_rule/txt_rule");
+	self._txtPlan = self.layer:GetTextComponent("trans_container/trans_table_view_controller/txt_plan");
+	--@TextEnd
+
+	self._transTableViewController = self.layer:Get("trans_container/trans_table_view_controller");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/trans_table_view_controller/item_hide/obj_item").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self:SetUI();
+    self:SetTableView();
+end
+
+function OrientTipsLayer:InitData()
+    local curId = Lottery:GetCurOrientId();
+    self._lotteryCfg = Lottery:GetLotteryTypeCfg(curId);
+    self._cells = {};
+    self._taskIds = Task:GetSubTasks(self._lotteryCfg.taskType);
+    table.sort(self._taskIds,function (a,b)
+        return a < b;
+    end);
+end
+
+
+--显示UI
+function OrientTipsLayer:show()
+    self:showLayer();
+end
+
+--释放
+function OrientTipsLayer:onExit()
+    
+    self._txtRule = nil;
+	self._transTableViewController = nil;
+	self._objItem = nil;
+	self._txtPlan = nil;
+    self._taskIds = nil;
+    self._lotteryCfg = nil;
+
+    if self._cells ~= nil then
+        for i, v in pairs(self._cells) do
+            DoArrayClassClear(v.items)
+            v:clear()
+        end        
+    end
+    self._cells = nil;
+	--@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function OrientTipsLayer:OnGetTaskBtnClick(taskId)
+    local task = Task:GetTask(taskId);
+    if(task.state == Task.STATE_HAS_DONE)then
+        Task:GetRewardReq({taskId});
+    else
+        Groble_UIMgr:ShowGameWordTipsLayer(30050);
+    end
+end
+function OrientTipsLayer:OnBtnGetAllClick()
+    local taskIds = {};
+    local task;
+    for _, v in ipairs(self._taskIds) do
+        task = Task:GetTask(v);
+        if(task.state == Task.STATE_HAS_DONE)then
+            table.insert(taskIds,v);
+        end
+    end
+    if(#taskIds <= 0)then
+        Groble_UIMgr:ShowGameWordTipsLayer(30050);
+        return;
+    end
+    Task:GetRewardReq(taskIds);
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function OrientTipsLayer:RegisterHandler()
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:SetTableView();
+        end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function OrientTipsLayer:SetUI()
+    local task = Task:GetTask(self._taskIds[#self._taskIds]);
+    self._txtPlan:SetText(string.format(LanguageMgr:GetTextByID(30043),task.hasValue));
+
+    local cfg = CCfg:GetRuleCfg(self._lotteryCfg.ruleId);
+    if(cfg == nil)then
+        self._txtRule:SetText("Error rule config！！！");
+        return;
+    end
+    local str = string.gsub(cfg.desc, '\n', '\n');
+    self._txtRule:SetText(str);
+end
+
+function OrientTipsLayer:SetTableView()
+    local rows = #self._taskIds;
+    local task;
+    local initIndex = 0;
+    for i, id in ipairs(self._taskIds) do
+        task = Task:GetTask(id);
+        if(task.state == Task.STATE_HAS_DONE)then
+            initIndex = i - 1;
+            break;
+        end
+    end
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self._transTableViewController);
+        self._tvController:Init(rows, false,
+                function(cell, row)
+                    self:SetCell(cell,row + 1);
+                end);
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(rows, false);
+    end
+    if(initIndex > 0)then
+        self._tvController:ScrollToRow(initIndex);
+    end
+end
+
+function OrientTipsLayer:SetCell(cell,row)
+    local item = self._cells[cell.cellInstanceIndex];
+    if(item == nil)then
+        item = self:NewCell(cell.transform);
+        self._cells[cell.cellInstanceIndex] = item;
+    end
+    self:SetCellData(item,row);
+end
+
+local itemMaxNum = 3;
+function OrientTipsLayer:NewCell(transform)
+    local cls = clearbase:new();
+    cls.transform   = transform
+    cls.imgBg       = transform:GetImageComponent("img_bg");
+    cls.imgTitle    = transform:GetImageComponent("img_title");
+    cls.txtPlan     = transform:GetTextComponent("txt_task_plan");
+    cls.transItemBg = transform:Get("item_bg");
+
+    transform:GetButtonComponent("img_bg"):AddButtonListener(
+        function()
+            self:OnGetTaskBtnClick(cls.taskId);
+        end);
+    cls.items = {};
+    for i = 1, itemMaxNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls.transItemBg:AddChild(self._objItem), 
+            function()
+                self:onItemClick(cls.items[i])
+            end);
+        cls.items[i].transGet = cls.items[i]:Find("img_get");
+    end
+
+    cls.taskId = 0
+    return cls;
+end
+
+function OrientTipsLayer:SetCellData(cls,row)
+    local task = Task:GetTask(self._taskIds[row]);
+    cls.taskId = self._taskIds[row];
+    for i = 1, itemMaxNum do
+        cls.items[i]:Visible(task.rewards[i] ~= nil);
+        if(task.rewards[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(cls.items[i],task.rewards[i][1],task.rewards[i][2],task.rewards[i][3],true);
+            cls.items[i].transGet:SetVisible(task.state == Task.STATE_HAS_RECV);
+        end
+    end
+    cls.txtPlan:SetText(string.format("%s/%s",task.hasValue,task.showValue));
+    cls.imgBg:SetEnabled(task.state == Task.STATE_HAS_DONE);
+    if(task.state == Task.STATE_HAS_DONE)then
+        cls.imgTitle:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Img_zhaohuan_jiangli_da_baoxiang");
+        cls.imgTitle:SetImageColor(0,0,0,0);
+        cls.txtPlan:SetTextColor(0,0,0,0);
+    elseif(task.state == Task.STATE_NOT_DONE)then
+        cls.imgTitle:SetImageColor(1,1,1,1);
+        cls.txtPlan:SetTextColor(1,1,1,1);
+        cls.imgTitle:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Img_zhaohuan_jiangli_da_baoxiang");
+    else
+        cls.imgTitle:SetImageColor(1,1,1,1);
+        cls.txtPlan:SetTextColor(1,1,1,1);
+        cls.imgTitle:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Img_zhaohuan_jiangli_da_baoxiang_2");
+    end
+end
+
+function OrientTipsLayer:onItemClick(cls)
+    if cls.data[1] == Bag.TYPE_HERO then
+        Hero:OpenWitchHeroSkillLayer(cls.data[2])
+        self:onPopLayer()
+    else
+        SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data[1], cls.data[2])
+    end
+end
+
+return OrientTipsLayer;

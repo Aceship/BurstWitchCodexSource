@@ -1,0 +1,8 @@
+id,基础模型,变身1,变身2,变身3
+id,model,model1,model2,model3
+number,string,string,string,string
+1,prefab_enemeyModel/M2_luodelige,prefab_enemeyModel/M2_luodelige2,-1,-1
+2,prefab_enemeyModel/M2_Kalinna,prefab_enemeyModel/M2_Kalinna2,-1,-1
+3,prefab_enemeyModel/M2_Haiyinlixi,prefab_enemeyModel/M2_Haiyinlixi2,-1,-1
+4,prefab_enemeyModel/M2_Duerlahan,prefab_enemeyModel/M2_Duerlahan2,-1,-1
+5,prefab_enemeyModel/M2_Yanmo,prefab_enemeyModel/M2_Yanmo2,-1,-1

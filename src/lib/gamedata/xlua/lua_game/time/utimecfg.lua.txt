@@ -1,0 +1,83 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 22:13:40
+-- brief : 
+--
+
+CTime = CTime or {}
+
+function CTime:_LoadCfg()
+    local csvLoad = CsvLoadFile:new("Time")
+    csvLoad:LoadCsv()
+    local cfgs = csvLoad:GetListData()
+
+    self._cfgs = {}
+    for _, v in pairs(cfgs) do
+        local tmp = {
+            id = tonumber(v.id),
+            stime = self:Str2Time(v.open_date_begin),
+            startTime = self:Str2Time(v.open_date_begin),
+            etime = self:Str2Time(v.open_date_end),
+            weeks = {},
+            interval = 0,
+            keep = 0,
+        }
+        if v.week_date == "-1" then
+            tmp.weeks = {1, 2, 3, 4, 5, 6, 7}
+        else
+            local tbl = lua_str_split(v.week_date, "|")
+            for i, v in ipairs(tbl) do
+                table.insert(tmp.weeks, tonumber(v))
+            end
+        end
+        local tbl = lua_str_split(v.returntimes, "|")
+        tmp.interval = tonumber(tbl[1])
+        tmp.keep = tonumber(tbl[2])
+        self._cfgs[tonumber(v.id)] = tmp
+    end
+end
+
+function CTime:GetCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._cfgs[cfgid] ~= nil then
+        return self._cfgs[cfgid]
+    end
+    CS.Logger.LogError("can't find Time config id: {0}", cfgid)
+    return nil
+end
+
+function CTime:Str2Time(str)
+    if(str == "-1")then
+        return 0;
+    end
+    local year, month, day = string.match(str,"(%d+)%d*/(%d+)%d*/(%d+)%d*")
+    local hour, min, sec = string.match(str,"(%d+)%d*:(%d+)%d*:(%d+)%d*")
+    
+    local date = os.date("*t", os.time())
+    local newdate = {
+        year    = year and tonumber(year) or date.year, 
+        month   = month and tonumber(month) or date.month, 
+        day     = day and tonumber(day) or date.day, 
+        hour    = hour and tonumber(hour) or 0, 
+        min     = min and tonumber(min) or 0, 
+        sec     = sec and tonumber(sec) or 0, 
+        isdst   = false
+    }
+    return os.time(newdate)
+end
+
+function CTime:GetCurStartTimeById(tid)
+    if(tid <= 0)then
+        return 1;
+    end
+    local cfg = self:GetCfg(tid);
+    if(cfg.interval == nil or cfg.keep == nil)then
+        return 1;
+    end
+    local retNum = 1;
+    local lastTime = math.min( self:GetServerTime(), cfg.etime - 1 );
+    local cyc_time = cfg.interval + cfg.keep;
+    retNum = math.floor( (lastTime - cfg.startTime) * 1.0 / cyc_time ) + 1;
+    return retNum or 1;
+end
+

@@ -1,0 +1,447 @@
+--
+-- author: haosun
+-- date  : 2019-07-05 17:11:05
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchEquipLayer = class("WitchEquipLayer", CBaseLayer)
+
+local TogUiPath = {
+    [1] = "xlua/lua_UI/UIEquip/EquipCircleLayer.txt",
+    --[2] = "xlua/lua_UI/UIEquip/EquipSelectLayer.txt",
+    --[3] = "xlua/lua_UI/UIEquip/EquipSuitLayer.txt",
+}
+local Attr   = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+    CAttr.TYPE_DEF,
+    CAttr.TYPE_HIT,
+    CAttr.TYPE_DMG,
+}
+
+
+function WitchEquipLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchEquipNewLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_FRIEND
+    }
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self:onEnter()
+end
+
+function WitchEquipLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function WitchEquipLayer:initObj()
+    self._headCom           = self.layer:GetImageComponent("fazhen/img_hero")
+    self._basicObj          = self.layer:Get("info_basic")
+    self._lineObj           = self.layer:Get("label_line")
+    self.imgEmpty           = self.layer:Get("info_empty")
+    self._attrInfo          = self.layer:Get("info_attrs");
+    self.atkobj             = self.layer:Get("info_attrs/attrs/IntroPanel/img_atk_type/btn_click")
+    self._removeObj         = self.layer:Get("btn_one_key_remove")
+    self._transTogBg        = self.layer:Get("obj_tog_bg");
+    self._showAttr = false
+
+    self.suitTips = self.layer:Get("suit_tips");
+
+    self.suitTipsAnimCtrl = UIController:CtorBaseAnimator(self.suitTips);
+    self.suitTipsAnimCtrl._KeyFrameCall = function()
+        set_obj_active(self.suitTips,false);
+        SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.1,self._hero.id);
+    end
+    self.layer:GetTextComponent("info_attrs/suits/btn_equip_map/txt_title"):SetTextById(72000095)
+    self.layer:GetTextComponent("info_attrs/suits/btn_equip_map/txt_title_E"):SetTextById(72000096)
+
+    -- 全部卸下
+    self.layer:GetButtonComponent("btn_one_key_remove"):AddButtonListener(function()
+
+        local arr = {};
+        for i, v in ipairs(self._hero.equipids) do
+            if((v ~= 0)and(v ~= nil))then
+                table.insert(arr,v);
+            end
+        end
+        if((arr == {}) or (#arr == 0))then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(72000080));
+            return;
+        end
+        Equip:UndressReq(arr, true)
+    end)
+
+    -- 流派按钮
+    self.layer:GetButtonComponent("info_attrs/attrs/IntroPanel/img_atk_type/btn_click"):AddButtonListener(function()
+        local atkcfg = Build:GetAtkTypeById(self._hero.config.AtkType)
+        UIMgr:ShowDescTipsLayer(self.atkobj, atkcfg.name, atkcfg.desc)
+    end)
+
+    -- 图鉴
+    self.layer:GetButtonComponent("info_attrs/suits/btn_equip_map"):AddButtonListener(function()
+        core.require("xlua/lua_UI/UIEquip/EquipMapLayer.txt"):new():show()
+    end)
+
+    -- 符石背包
+    self.layer:GetButtonComponent("obj_tog_bg/btn_equip_bag"):AddButtonListener(function()
+
+        -- 符石背包需要参数
+        local list = {}
+        for i = 1, 6 do
+            local cList = Equip:GetFitEquip(self._hero, i)
+            for k, v in pairs(cList) do
+                table.insert(list, v)
+            end
+        end
+        -- local datas = Equip:GetFitEquip(self._hero, itype)
+        self.params = {-1, list}
+       self:OpenEquipSelectLayer();
+    end)
+
+    -- 推荐套装
+    self.layer:GetButtonComponent("obj_tog_bg/btn_recommend"):AddButtonListener(function()
+        self._removeObj:SetVisible(false);
+        self._transTogBg:SetVisible(false);
+        core.require("xlua/lua_UI/UIEquip/EquipSuitLayer.txt"):new():show(self._heorid, self)
+        if(self._allLayers[1] ~= nil)then
+            self._allLayers[1]:onToggleChage();
+        end
+
+        self._attrInfo:SetVisible(true);
+    end)
+
+    self._container = self.layer:Get("trans_ui_parent")
+end
+
+function WitchEquipLayer:onEnter()
+
+    self:createPnl()
+    self:initTog()
+    self.togIndex = nil
+    self:initObj()
+
+    self.attrActive = nil
+    self:setAttrActive(true, true)
+
+    self:addEventListener(EVENT_TYPE.HERO_EQUIP_UI, self.__cname, function(arr)
+        self:showAttr(self.togIndex ~= 2)
+
+        self:checkSuitTips(arr)
+
+        self:onEquipOn(arr)
+    end)
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("info_attrs"))
+end
+
+function WitchEquipLayer:show(heroid)
+    self._heorid = heroid
+    self._fading = false
+
+    self:doUpdateHero(heroid)
+    self:showAttr(true)
+
+    self:showLayer()
+
+    self.layer:DelayCall(0.5, function()
+        self:onLayerFadeInEndCall()
+    end)
+    --self:onTogClick(true, 1)
+    self.togs[1].tog.isOn = true
+end
+
+function WitchEquipLayer:doUpdateHero(heroid)
+    self._heorid = heroid
+    local cfg = Hero:GetCfg(heroid)
+    self._hero = Hero:GetHero(heroid)
+    if(self.introInfo == nil)then
+        self.introInfo = Hero:NewIntroInfo(self.layer:Get("info_attrs/attrs/IntroPanel"));
+        self._txtName = self.layer:GetTextComponent("info_attrs/attrs/IntroPanel/text_name");;
+    end
+    Hero:SetIntroInfo(self.introInfo, self._hero, true)
+    self._txtName.text = string.format(LanguageMgr:GetTextByID(6900015) ,self._hero.config.Name, uistr.com_chapterstr[self._hero.step + 1]);
+end
+
+function WitchEquipLayer:showAttr(show)
+    local changed
+    if show ~= self._showAttr then
+        self._showAttr = show
+        changed = true
+    end
+    self._attrInfo:SetVisible(show)
+
+    if show then
+        if changed then
+            self:playAni("EquipLayerSuitFadeIn");
+        end
+        if self._fsAttrs == nil then
+            self._fsAttrs =  CAttr:NewAttrObjArr(self.layer:Get("info_attrs/attrs"), 5)
+        end
+        --设置属性
+        local attrs =  Hero:GetHeroEquipAttr(self._hero)
+        for i, cls in ipairs( self._fsAttrs) do
+            local attrtype = Attr[i]
+            CAttr:SetAttrCObj(cls, attrtype, attrs[attrtype], true)
+        end
+        --设置套装
+        if self._suits == nil then
+            self._suits = {}
+            for i = 1,3 do
+                local cls   = clsbase:new(self.layer:Get("info_attrs/suits/suit_"..i))
+                cls.txt1    = cls:GetTextComponent("txt_title1")
+                cls.txt2    = cls:GetTextComponent("txt_title2")
+                cls.imgTag  = cls:GetImageComponent("img_tag")
+                cls.txtTag  = cls:GetTextComponent("img_tag/txt_tag")
+                cls.txtNameS= cls:GetTextComponent("txt_name_s")
+                cls.icon    = cls:Find("img_icon")
+                cls.click   = cls:GetButtonComponent("img_icon")
+                cls.click.onClick:AddListener(function ()
+                    self:showSuitTips(cls)
+                end)
+                self._suits[i] = cls
+            end
+        end
+        self:SetSuitObj()
+    else
+        if changed then
+            self:playAni("EquipLayerSuitFadeOut");
+        end
+    end
+end
+
+function WitchEquipLayer:hideLayer()
+    CBaseLayer.hideLayer(self)
+end
+
+function WitchEquipLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function WitchEquipLayer:SetSuitObj()
+    local suits = {}
+    for _, v in ipairs(self._hero.equipids) do
+        if(v ~= 0)then
+            local equip = Equip:GetEquip(v)
+            if equip.suitid > 0 and equip.suitid ~= nil then
+                if suits[equip.suitid] == nil then
+                    suits[equip.suitid] = {}
+                    suits[equip.suitid].num = 1
+                    local cfg = Equip:GetCfg(equip.cfgid)
+                    suits[equip.suitid].itemPath = cfg.itemPath
+                    suits[equip.suitid].FSicon = tonumber(cfg.FSicon)
+                    suits[equip.suitid].equip = equip
+                else
+                    suits[equip.suitid].num =  suits[equip.suitid].num + 1
+                end
+            end
+        end
+    end
+    local index = 1
+    for suitid, v in pairs(suits) do
+        local suitData =  Equip:GetSuitDataByCfgId(suitid)
+        while(v.num  >= suitData.suits[1].num) do
+            local cls = self._suits[index]
+            cls.obj:SetVisible(true)
+            cls.txt1:SetText(string.format(LanguageMgr:GetTextByID(70108),suitData.suits[1].num))
+            cls.txt2:SetText(string.format(LanguageMgr:GetTextByID(70108),suitData.suits[2].num))
+            if v.num < suitData.suits[2].num then
+                cls.txt2.color = COLOR_TYPE.Gary_New
+                cls.suitNum = suitData.suits[1].num
+            else
+                cls.txt2.color = COLOR_TYPE.White
+                cls.suitNum = suitData.suits[2].num
+            end
+            Equip:SetIconUi(cls.icon, v.itemPath, v.FSicon)
+            Equip:SetEquipTag(suitid, cls.imgTag, cls.txtTag)
+            cls.txtNameS:SetText(Equip:GetSuitTag(suitid))
+            cls.equip = v.equip
+            index = index + 1
+            --重复套装也生效
+            v.num = v.num - Equip.SUIT_MAX_NUM
+            if index > 3 then
+                break
+            end
+        end
+        if v.num >= suitData.suits[1].num then
+
+        end
+    end
+    if  self._txtEmpty == nil then
+        self._txtEmpty = self.layer:Get("info_attrs/suits/txt_empty")
+    end
+    self._txtEmpty:SetVisible(index == 1)
+    if index <= 3 then
+        for i = index, 3 do
+            self._suits[i].obj:SetVisible(false)
+        end
+    end
+
+end
+
+function WitchEquipLayer:showSuitTips(cls)
+    core.require("xlua/lua_UI/Witch/SuitTipsLayer.txt"):new():show(cls.obj.transform, cls.equip, cls.suitNum)
+end
+
+function WitchEquipLayer:SetSuitEffect()
+    self.suitTips:SetVisible(true)
+end
+
+
+------------------ 符石修改 ------------------
+function WitchEquipLayer:initTog()
+
+    self.togs               = {}
+    self._allLayers         = {}
+    self.params             = {}
+    for i = 1, #TogUiPath do
+        self.togs[i]        = {}
+        self.togs[i].tog    = self.layer:GetMToggleComponent(string.format("obj_tog_bg/show_type_%d", i))
+        self.togs[i].tog.onValueChanged:AddListener(function (isOn)
+            self:onTogClick(isOn, i)
+        end)
+    end
+end
+
+function WitchEquipLayer:setTogOn(i, parameter)
+    self.params = parameter
+    self:OpenEquipSelectLayer()
+    self.params = nil
+end
+
+function WitchEquipLayer:OpenEquipSelectLayer()
+    self._removeObj:SetVisible(false);
+    self._transTogBg:SetVisible(false);
+    core.require("xlua/lua_UI/UIEquip/EquipSelectLayer.txt"):new():show(self._heorid, self, self.params)
+    self._attrInfo:SetVisible(false)
+    self:setAttrActive(true, true);
+    if(self._allLayers[1] ~= nil)then
+        self._allLayers[1]:onToggleChage();
+    end
+end
+
+function WitchEquipLayer:setAttrActive(active, force)
+
+    if not force and active == self.attrActive then
+        return
+    end
+
+    self.attrActive = active
+    self._attrInfo:SetVisible(self.attrActive)
+end
+
+function WitchEquipLayer:onTogClick(isOn, i)
+
+    if isOn then
+        if self.togIndex == i then
+            return
+        else
+            self.togIndex = i
+            if not self._allLayers[i] then
+                self._allLayers[i] = core.require(TogUiPath[i]):new(self._container)
+            end
+            self._allLayers[i]:show(self._heorid, self) -- TODO self
+            self._attrInfo:SetVisible(true)
+        end
+    end
+end
+
+function WitchEquipLayer:onEquipOn(arr)
+
+    self.togs[1].tog.isOn = true
+
+    if not arr or type(arr) ~= "table" then
+        if self._allLayers[1] then
+            self._allLayers[1]:setInfoActive()
+        end
+        return
+    end
+
+    local pos = arr.index
+
+    if pos and self._allLayers[1] then
+        self._allLayers[1]:onEquipOn(pos)
+        self._allLayers[1]:setInfoActive()
+    end
+end
+
+function WitchEquipLayer:checkSuitTips(arr)
+    local index = nil;
+    if(arr ~= nil)then
+        if(arr == true)then
+            return
+        end
+        index = arr.index;
+    else
+        return
+    end
+    if(not arr.isUpdate)then
+        return;
+    end
+    if(index == nil)then
+        local isShow;
+        for i, v in ipairs(self._hero.equipids) do
+            local equip = Equip:GetEquip(v)
+            if(equip ~= nil)then
+                if(equip.suitid > 0 and equip.suitid ~= nil)then
+                    isShow = Equip:GetEquipSuitIsShow(equip.suitid,self._hero.id,true);
+                    if(isShow)then
+                        self:SetSuitEffect(equip,true);
+                        break;
+                    end
+                end
+            end
+        end
+        return;
+    end
+    local datas = Equip:GetFitEquip(self._hero, index)
+    if #datas <= 0 then
+        return;
+    end
+    local equip = Equip:GetEquip(self._hero.equipids[index])
+    if(equip == nil)then
+        return;
+    end
+    if(equip.suitid <= 0 or equip.suitid == nil)then
+        return;
+    end
+    local isShow = Equip:GetEquipSuitIsShow(equip.suitid,self._hero.id);
+    local showTips = true;
+    if(isShow)then
+        self:SetSuitEffect(equip,showTips);
+    else
+        SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.5,self._hero.id);
+    end
+end
+
+
+function WitchEquipLayer:onExit()
+
+    for _, v in pairs(self._allLayers) do
+        if v then
+            v:onBackClick()
+        end
+    end
+    self._container = nil
+    
+    CBaseLayer.onExit(self)
+end
+---
+function WitchEquipLayer:ShowEquipCircleLayer()
+    self._attrInfo:SetVisible(true);
+    self._removeObj:SetVisible(true);
+    self._transTogBg:SetVisible(true);
+    self._allLayers[1]:show(self._heorid, self)
+end
+
+return WitchEquipLayer
+

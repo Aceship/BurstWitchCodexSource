@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2019-03-13 16:56:52
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Guide/guide.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Guide/guide_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Guide/guidecfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Guide/guidedef.txt")
+
+Guide:GuideCtor()
+Guide:_LoadCfg()

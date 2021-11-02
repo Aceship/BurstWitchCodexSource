@@ -1,0 +1,113 @@
+--
+-- author: haosun
+-- date  : 2021-07-14 14:04:22
+-- brief : 
+--
+Chapter = Chapter or {}
+
+local _basekey = ""
+
+function Chapter:InitChapterTips()
+    if self._dataLevelTips == nil then
+        self._dataLevelTips = {}
+        _basekey = string.format("blmn_level_tips_%d_", Player:GetId())
+    end
+
+    local _instance = CS.PrefsMgr.Instance
+    local _default = 0
+    local _key = ""
+    for _, level in pairs(self._levels) do
+        _key = string.format("%s%d", _basekey, level.id)
+        _default = _instance:GetInt(_key, -1)
+        if -1 == _default then
+            _instance:SetInt(_key, 0)
+            _default = 0
+        end
+        self._dataLevelTips[level.id] = _default
+    end
+end
+
+function Chapter:SaveLevelTips(levelid)
+    if 0 == self._dataLevelTips[levelid] then
+        self._dataLevelTips[levelid] = 1
+        local _key = string.format("%s%d", _basekey, levelid)
+        CS.PrefsMgr.Instance:SetInt(_key, 1)
+    end
+end
+
+-- 
+-- brief:关卡是否打过
+-- 
+function Chapter:IsLevelNeverFought(levelid)
+    return self._dataLevelTips[levelid] == 0
+end
+
+function Chapter:IsExistOperLevel(cid, isPlot)
+    local chapter = self:GetChapter(cid)
+
+    if not self:chapterOrLevelIsOpen(chapter) then return false end
+    
+    if chapter.levelid == 0 then return false end
+
+    if not chapter.open then return false end
+
+    if Player:GetLevel() < chapter.open_level then return false end
+
+    local _find = false
+    for i, levelid in ipairs(chapter.levelids) do
+        if 0 == self._dataLevelTips[levelid] and self:LevelIsUnlock(levelid, true) then
+            if isPlot then
+                if chapter.levelid == levelid then
+                    _find = true
+                    break
+                end
+            else
+                local level = self:GetLevel(levelid)
+                if not level.open then
+                    _find = true
+                    break
+                end
+            end
+        end
+    end
+
+    return _find
+end
+
+-- 
+-- brief:是否存在新开启的剧情本
+-- 
+function Chapter:IsExistNewPlotLevel()
+    for mode, array in pairs(self._plotChapters) do
+        for i, data in ipairs(array) do
+            if self:IsExistOperLevel(data.cid, true) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- 
+-- brief:是否存在新开启的日常本
+-- 
+function Chapter:IsExistNewDailyLevel()
+    local modes = self:GetChapterMode(Chapter.SHOW_TYPE_DAILY)
+    for i, v in pairs(modes) do
+        if self:IsExistOperLevel(v.ids[1], false) then
+            return true
+        end
+    end
+    return false
+end
+
+-- 
+-- brief:是否存在新开启挑战本
+-- 
+function Chapter:IsExistNewChallengeLevel()
+    return false
+end
+
+function Chapter:IsExistNewLevel()
+    return self:IsExistNewPlotLevel() or self:IsExistNewDailyLevel() or self:IsExistNewChallengeLevel()
+end

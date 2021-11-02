@@ -1,0 +1,147 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightFeelWallLayer = class("FightFeelWallLayer", CBaseLayer)
+
+function FightFeelWallLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_FellWellStart",
+    }
+    self._topData = {
+        showBtnBack = true,
+        showPlayerInfo = false,
+        showTopInfo = true,
+        topInfo = {}
+    }; 
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter();
+end
+
+function FightFeelWallLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:loadSpine();
+end
+
+function FightFeelWallLayer:onExit()
+    self._img_title = nil
+    self._txt_Des = nil
+    self._award = nil
+    self._txt_power = nil
+    self._topData = nil
+    
+    CBaseLayer.onExit(self)
+end
+
+function FightFeelWallLayer:showLayer()
+    CBaseLayer.showLayer(self)
+end
+
+function FightFeelWallLayer:show(id, showChange)
+    self:showLayer();
+    self._id = id
+    self._index = 1
+    if showChange then
+        showChange = #Chapter._triggerLevels > 0
+    else
+        self._index = #Chapter._triggerLevels
+    end
+    
+    self._showChange = showChange;
+    if self._showChange then
+        self._leftBtn:SetVisible(false)
+        self._rightBtn:SetVisible(#Chapter._triggerLevels > 1)
+    else
+        self._leftBtn:SetVisible(false)
+        self._rightBtn:SetVisible(false)
+    end
+    self:UpdateUI()
+end
+
+function FightFeelWallLayer:UpdateUI()
+    local content = self.panel:Get("awardNode/info_drop/scrollview/viewport/content").transform
+    local childCount = content.childCount
+    for i = 1, childCount do
+        local child = content:GetChild(i-1).gameObject
+        u3d_destory_obj(child)
+    end
+    
+    self._level = Chapter:GetLevel(self._id)
+    if self._level then
+        self._chapter = Chapter:GetChapter(self._level.chapterid)
+        local dropid = self._level.rewards and self._level.rewards[2]
+        if dropid then
+            local drops = Item:GetDrops(dropid)
+            self.panel:Get("awardNode/info_drop/text_empty"):SetVisible(#drops == 0)
+            self.panel:Get("awardNode/info_drop/scrollview"):SetVisible(#drops > 0)
+            if #drops > 0 then
+                Timer:AddTimerCall(0.1, function()
+                    Bag:SetScrollGoods(nil,self.panel:Get("awardNode/info_drop/scrollview"), drops, 4, 780, 120, 0.37, 778,nil,true, true)
+                end)
+            end
+        end
+        self._txt_power.text = "" .. self._level.cost_power
+        self._txt_Des.text = self._level.desc or "没有文字内容,找策划配置";
+        if self._id == 140101 or self._id == 140102 then --金币 遗落的宝箱
+            self._img_title.sprite = AssetLoader:LoadSprite("source_feelwall/text_shuangguan_yiluobaoxiang_01")
+            self._txt_Des.color = CS.UnityEngine.Color(161/255,143/255,151/255,1)
+        elseif self._id == 140201 or self._id == 140202 then --炸雷 危险的海域
+            self._img_title.sprite = AssetLoader:LoadSprite("source_feelwall/text_shuangguan_weixianhaiyu_02")
+            self._txt_Des.color = CS.UnityEngine.Color(135/255,122/255,140/255,1)
+        else
+            self._img_title.sprite = AssetLoader:LoadSprite("source_feelwall/text_shuangguan_modaokeji_03")
+            self._txt_Des.color = CS.UnityEngine.Color(132/255,122/255,120/255,1)
+        end
+    end
+end
+
+function FightFeelWallLayer:ClickChange(num)
+    self._index = self._index + num
+    if self._index <= 1 then
+        self._index = 1
+        self._leftBtn:SetVisible(false)
+        self._rightBtn:SetVisible(true)
+    elseif self._index >= #Chapter._triggerLevels then
+        self._index = #Chapter._triggerLevels
+        self._leftBtn:SetVisible(true)
+        self._rightBtn:SetVisible(false)
+    else
+        self._leftBtn:SetVisible(true)
+        self._rightBtn:SetVisible(true)
+    end
+    self._id = Chapter._triggerLevels[self._index]
+    self:UpdateUI()
+end
+
+function FightFeelWallLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function FightFeelWallLayer:initObj()
+    self.panel = self.layer:Get("Panel")
+    self._img_title = self.panel:GetImageComponent("img_title")
+    self._txt_Des = self.panel:GetTextComponent("txt_Des")
+    self._award = self.panel:Get("awardNode/award")
+    self._txt_power = self.panel:GetTextComponent("button_fight/info_cost_1/text_power")
+    self._fightBtn = self.panel:GetButtonComponent("button_fight")
+    self._fightBtn:AddButtonListener(function()
+        Chapter:ShowLevelLayer(self._id, nil, self._index)
+    end)
+    self._leftBtn = self.panel:Get("leftBtn")
+    self._rightBtn = self.panel:Get("rightBtn")
+    self._leftBtnCom = self.panel:GetButtonComponent("leftBtn")
+    self._rightBtnCom = self.panel:GetButtonComponent("rightBtn")
+    self._leftBtnCom:AddButtonListener(function()
+        self:ClickChange(-1)
+    end)
+    self._rightBtn:AddButtonListener(function()
+        self:ClickChange(1)
+    end)
+end
+
+function FightFeelWallLayer:loadSpine()
+
+end
+
+return FightFeelWallLayer

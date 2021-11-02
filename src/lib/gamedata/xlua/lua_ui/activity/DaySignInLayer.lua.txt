@@ -1,0 +1,304 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-09 16:14:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DaySignInLayer = class("DaySignInLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnActivityDes = "trans_container/img_des_bg/btn_activity_des",
+	BtnSignIn = "trans_container/day_bg/btn_sign_in",
+	--@ButtonEnd
+}
+--构造函数
+function DaySignInLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_DaySignInLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = {}
+    }
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self._addStack = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function DaySignInLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    self:RegisterHandler();
+end
+
+function DaySignInLayer:onBackClick()
+    self:onPopLayer()
+
+    uimgr:CheckTodoList()
+end
+
+--按钮事件
+function DaySignInLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnActivityDes)then 
+	   self:OnBtnActivityDesClick();
+    elseif(itype == BTNS.BtnSignIn)then 
+	   self:OnBtnSignInClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+end
+
+--初始化
+function DaySignInLayer:Init()
+    self._activityCfg = Activity:GetActivityByUId(Operation.ActivityID.DailyCheckIn).info;
+    self:SetData();
+    self:InitUI();
+end
+
+--初始化UI
+function DaySignInLayer:InitUI()
+
+    self._imgSpecialAwardBg = self.layer:GetImageComponent("trans_container/img_special_award_bg");
+    --@ImageEnd
+
+    self._txtSpecialTitle = self.layer:GetTextComponent("trans_container/img_special_award_bg/txt_special_title");
+    self._txtSpecialDes = self.layer:GetTextComponent("trans_container/img_special_award_bg/txt_special_des");
+    self._txtMonth = self.layer:GetTextComponent("trans_container/day_bg/txt_month");
+    --@TextEnd
+
+    self._transBg = self.layer:Get("trans_container/day_bg/item_bg/item_parent");
+    self._transSpineBg = self.layer:Get("trans_spine_bg");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+    self._objSignIn = self.layer:Get("trans_container/day_bg/btn_sign_in").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._itemParents = {};
+    for i = 1, 42 do
+        self._itemParents[i] = {};
+        self._itemParents[i].item = nil;
+        self._itemParents[i].week = i % 7;
+        if(self._itemParents[i].week == 0)then
+            self._itemParents[i].week = 7;
+        end
+        self._itemParents[i].transform = self._transBg:Find("item_"..i);
+    end
+    self._curDayItem = nil;
+
+    self._exAwardItem = Bag:CtorComSimpleGoodsUi(self.layer:Get("trans_container/img_special_award_bg/item_special_award"));
+    self._exAwardItem.imgNotHaveHero = self._exAwardItem:GetImageComponent("img_not_have");
+    self._exAwardItem.imgGet = self._exAwardItem:GetImageComponent("img_get");
+    self:InitSignInItem();
+end
+
+--显示UI
+function DaySignInLayer:show(isPopLayer)
+    if isPopLayer then
+        self._topData.showBtnBack = false
+        self._hideOtherLayer = false
+        self.layer:Get("button_back"):SetVisible(true)
+    else
+        self.layer:Get("button_back"):SetVisible(false)
+    end
+    self:showLayer();
+    self.layer:DelayCall(0.4, function()
+        self:onLayerFadeInEndCall()
+    end)
+end
+
+function DaySignInLayer:onUpdate(dt)
+    if(self._curMoudle == nil)then
+        return;
+    end
+    if self._updateA then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function DaySignInLayer:OnBtnActivityDesClick()
+    Groble_UIMgr:ShowRuleTipsLayer(tonumber(self._activityCfg.ruleid));
+end
+function DaySignInLayer:OnBtnSignInClick()
+    if(Activity:IsSignIn())then
+        Activity:DaySignInReq();
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90164));
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function DaySignInLayer:onExit()
+
+    Activity:SetCurSelectUid();
+    self._imgSpecialAwardBg = nil;
+    self._txtSpecialTitle = nil;
+    self._txtSpecialDes = nil;
+    self._objItem = nil;
+    self._txtMonth = nil;
+    self._transBg = nil;
+    self._transSpineBg = nil;
+    self._objSignIn = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function DaySignInLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+        self:SetData();
+        self:InitSignInItem();
+        self._objSignIn:SetVisible(Activity:IsSignIn());
+    end);
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.SIGN_IN_INFO_UPDATE,function(drops)
+        Bag:ShowExDrops(drops);
+        self:SetData();
+        self:SetSignInItem(self._curDayItem);
+        self._objSignIn:SetVisible(Activity:IsSignIn());
+    end);
+end
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DaySignInLayer:SetData()
+    self._cfgs = Activity:GetAllCurSignInCycCfg();
+    self._itemInitPos = CTime:GetWeekByDay(1);    --签到奖励初始位置(每月1号的星期数)
+    self._curDay = CTime:GetCurDayByMonth();
+end
+
+function DaySignInLayer:InitSignInItem()
+    local curMonthDayNum = Activity:GetCurMonthDayNum();
+    local curSetDayIndex = 1;--当前设置的天数下标
+    for i, cls in ipairs(self._itemParents) do
+        if(i < self._itemInitPos)then--起始位置之前,没有奖励
+            if(cls.item ~= nil)then
+                cls.item.obj:SetVisible(false);
+            end
+        else
+            if(curSetDayIndex <= curMonthDayNum)then
+                if(cls.item == nil)then
+                    cls.item = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItem,cls.transform),function ()
+                        self:SetSelectItemUI(cls);
+                    end);
+                    cls.item.imgGet = cls.item:GetImageComponent("img_get");
+                    cls.item.imgNotGet = cls.item:GetImageComponent("img_not_get");
+                    cls.item.imgSelect = cls.item:GetImageComponent("img_select");
+                    cls.item.objGetEffect = cls.item:Find("effect").gameObject;
+                else
+                    cls.item.obj:SetVisible(true);
+                end
+                cls.item.transform.localScale = CS.UnityEngine.Vector3.zero;
+                cls.item.transform:DOScale(0.36,0.1):SetDelay(0.03 * curSetDayIndex);
+                cls.cfg = self._cfgs[curSetDayIndex];
+                self:SetSignInItem(cls);
+                curSetDayIndex = curSetDayIndex + 1;
+            else--超出当月天数,没有奖励
+                if(cls.item ~= nil)then
+                    cls.item.obj:SetVisible(false);
+                end
+            end
+        end
+    end    
+end
+
+function DaySignInLayer:SetSignInItem(cls)
+    local cfg = cls.cfg;
+    Bag:SetComSimpleGoodsUi(cls.item,cfg.items[1],cfg.items[2],cfg.items[3]);
+    set_com_enabled(cls.item.imgSelect,false);
+    if(Activity:GetSignInStateById(cfg.id))then--未签到
+        cls.item.objGetEffect:SetVisible(self._curDay == cfg.days);
+        set_com_enabled(cls.item.imgGet,false);
+        set_com_enabled(cls.item.imgNotGet,cfg.days < self._curDay);
+    else
+        cls.item.objGetEffect:SetVisible(false);
+        set_com_enabled(cls.item.imgGet,true);
+        set_com_enabled(cls.item.imgNotGet,false);
+    end
+    if(self._curDay == cfg.days)then
+        self._curDayItem = cls;
+        self:SetSelectItemUI(cls);
+    end
+end
+
+function DaySignInLayer:SetExAwardUI(curDayCfg)
+    local hero = Hero:GetHero(curDayCfg.exItems[1]);
+    set_com_enabled(self._exAwardItem.imgNotHaveHero,not hero.owner);
+    if(hero.owner)then
+        set_com_enabled(self._exAwardItem.imgGet,not Activity:GetSignInStateById(curDayCfg.id))
+    else
+        set_com_enabled(self._exAwardItem.imgGet,false);
+    end
+    Bag:SetComSimpleGoodsUi(self._exAwardItem,curDayCfg.exItems[2],curDayCfg.exItems[3],curDayCfg.exItems[4],true);
+    self._txtSpecialTitle.text = string.format(LanguageMgr:GetTextByID(90165),hero.config.Name);
+    self._txtSpecialDes.text = string.format(LanguageMgr:GetTextByID(90166),hero.config.Name,CTime:GetCurMonth(),curDayCfg.days);
+    self._txtMonth.text = string.format(LanguageMgr:GetTextByID(90167),CTime:GetCurMonth());
+    --加载人物spine
+    self:LoadSpine(curDayCfg.exItems[1]);
+    if(hero.owner)then
+        Activity:SetAtlasSprite(self._imgSpecialAwardBg,"img_meiriqiandao_1");
+        self._txtSpecialDes.color = COLOR_TYPE.Color_Recv;
+    else
+        Activity:SetAtlasSprite(self._imgSpecialAwardBg,"img_meiriqiandao_2");
+        self._txtSpecialDes.color = COLOR_TYPE.White_Gray;
+    end
+end
+
+function DaySignInLayer:LoadSpine(heroid)
+    Hero:LoadSpineAsync(self.__cname,self._transSpineBg, heroid , Hero.SPINE_UI_TYPE_DAY_SIGN_IN, function (obj)
+        self._alpha = -0.1
+        if obj == nil then
+            self._updateA = false
+        else
+            self._curMoudle = obj
+            self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+            self._updateA = true
+            if self._alpha < 1 then
+                self.skeletonAni.Skeleton.A = 0
+            else
+                self.skeletonAni.Skeleton.A = 1
+            end
+        end
+    end);
+end
+
+function DaySignInLayer:SetSelectItemUI(cls)
+    if(self._selectItem ~= nil)then
+        set_com_enabled(self._selectItem.item.imgSelect,false);
+    end
+    self._selectItem = cls;
+    set_com_enabled(self._selectItem.item.imgSelect,true);
+    self._objSignIn:SetVisible(Activity:IsSignIn() and self._curDay == cls.cfg.days);
+    self:SetExAwardUI(self._selectItem.cfg);
+end
+
+function DaySignInLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return DaySignInLayer;

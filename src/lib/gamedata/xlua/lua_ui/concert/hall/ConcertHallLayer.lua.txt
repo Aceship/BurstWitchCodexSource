@@ -1,0 +1,165 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-08-13 17:10:24
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertHallLayer = class("ConcertHallLayer", CBaseLayer)
+--按钮
+local BTNS = {
+        BtnTest1 = "uibtn_test1",
+        BtnTest2 = "uibtn_test2",
+        BtnTest3 = "uibtn_test3",
+        BtnTestA = "uibtn_testA",
+        BtnTestB = "uibtn_testB",
+        BtnTestC = "uibtn_testC",
+
+}
+--构造函数
+function ConcertHallLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertHallLayer",
+
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = {},
+    };
+
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertHallLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+end
+
+--按钮事件
+function ConcertHallLayer:onButtonClick(itype)
+    -- debuglog(itype)
+    if(itype == BTNS.BtnTest1)then 
+        self:OnClickTest1();
+    elseif(itype == BTNS.BtnTest2)then 
+        self:OnClickTest2();
+    elseif(itype == BTNS.BtnTest3)then 
+        self:OnClickTest3();
+    elseif(itype == BTNS.BtnTestA)then
+        self:OnClickTestA(); 
+    elseif(itype == BTNS.BtnTestB)then
+        self:OnClickTestB(); 
+    elseif(itype == BTNS.BtnTestC)then
+        self:OnClickTestC(); 
+    end--RemoveEnd  
+end
+
+--初始化
+function ConcertHallLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertHallLayer:InitUI()
+
+	self._texBg = self.layer:GetRawImageComponent("tex_bg");
+	self._uibtnTest1 = self.layer:GetUIButtonComponent("uibtn_test1");
+	self._uibtnTest2 = self.layer:GetUIButtonComponent("uibtn_test2");
+	self._uibtnTest3 = self.layer:GetUIButtonComponent("uibtn_test3");
+	self._uibtnTestA = self.layer:GetUIButtonComponent("uibtn_testA");
+	self._uibtnTestB = self.layer:GetUIButtonComponent("uibtn_testB");
+	self._uibtnTestC = self.layer:GetUIButtonComponent("uibtn_testC");
+end
+
+--显示UI
+function ConcertHallLayer:show()
+
+    self:showLayer();
+    Concert:EnterConcertScene(1);
+    Concert:FlushHallActorState(1);
+    Concert:SetRtBg(self._texBg);
+end
+
+--退出按钮事件
+function ConcertHallLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function ConcertHallLayer:Close()
+	self._texBg = nil;
+	self._uibtnTest1 = nil;
+	self._uibtnTest2 = nil;
+	self._uibtnTest3 = nil;
+	self._uibtnTestA = nil;
+	self._uibtnTestB = nil;
+	self._uibtnTestC = nil;
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ConcertHallLayer:OnClickTest1()
+    --Concert:ClearActorByIndex(1)
+
+    --Concert:SyncConcertHall(nil)
+    --Concert:GetRandomNumList(5)
+    Concert:ShowConcertBookLayer(1,nil)
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Harp]);
+end
+function ConcertHallLayer:OnClickTest2()
+
+    --Concert:ClearActorByIndex(2);
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Violin]);
+end
+function ConcertHallLayer:OnClickTest3()
+    --Concert:ClearActorByIndex(3);
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Trombone]);
+
+end
+
+function ConcertHallLayer:OnClickTestA()
+    Concert:ShowConcertHeroPreview();
+    --Concert:PlayEmojiEffect(3,Concert.sadEmojiEffectPath);
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Clarinet]);
+end
+
+function ConcertHallLayer:OnClickTestB()
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Flute]);
+end
+function ConcertHallLayer:OnClickTestC()
+    Concert:EndConcertHall(1);
+    --Concert:SetActorByIndex(3,10440001,101,2);
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Organ]);
+
+    --Concert:ChangeInstrumentTrack(1,Concert.InstrumentDefaultFmodPath[Concert.InstrumentType.Piano]);
+end
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertHallLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return ConcertHallLayer;

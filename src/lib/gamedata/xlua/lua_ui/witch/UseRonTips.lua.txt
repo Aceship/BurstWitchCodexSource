@@ -1,0 +1,69 @@
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local UseRonTips = class("UseRonTips", CBaseLayer)
+
+function UseRonTips:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_UseRonTips",
+    }
+
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+function UseRonTips:onEnter()
+    self:createPnl()
+    self:initObj()
+end
+
+function UseRonTips:initObj()
+    self._cancelBtn = self.layer:GetButtonComponent("cancelBtn")
+    self._sureBtn = self.layer:GetButtonComponent("sureBtn")
+    self._txtDes = self.layer:GetTextComponent("txtDes")
+    self._noTipBtn = self.layer:GetButtonComponent("noTipBtn")
+    self._imgChoose = self.layer:Get("noTipBtn/imgChoose") 
+
+    self._isChoose = false;
+    Player.isChooseUseRon = false;
+    self._cancelBtn:AddButtonListener(function()
+        self:ClickCancelBtn();
+    end)
+    self._sureBtn:AddButtonListener(function()
+        self:ClickSureBtn();
+    end)
+    self._noTipBtn:AddButtonListener(function()
+        self:ClickNoTipBtn();
+    end)
+end
+
+function UseRonTips:show(showParam)
+    self._hero = showParam.hero
+    local has, cost = Hero:GetHeroChipNumber(self._hero)
+    local cfg = Hero:GetCfg(self._hero.id)
+    local itemCfg = Item:GetCfg(cfg.StarItemID)
+    self._txtDes.text = string.format("专属印记不足，可消耗%d个<color=#91b6fa>%s</color>和%d个<color=#91b6fa>万能印记</color>完成刻印，是否继续？",has,itemCfg.Name,(cost - has))
+end
+
+function UseRonTips:ClickCancelBtn()
+    self:onPopLayer();
+end
+
+function UseRonTips:ClickSureBtn()
+    Player.isChooseUseRon = self._isChoose;
+    self:onPopLayer()
+    Hero:SetHeroTmpAttr(self._hero.id)
+    Hero:TopUpReq(self._hero.id)
+end
+
+function UseRonTips:ClickNoTipBtn()
+    if self._isChoose then
+        self._isChoose = false
+    else
+        self._isChoose = true
+    end
+    self._imgChoose:SetVisible(self._isChoose)
+end
+
+return UseRonTips

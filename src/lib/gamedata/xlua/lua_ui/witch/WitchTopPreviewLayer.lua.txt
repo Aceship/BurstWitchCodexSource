@@ -1,0 +1,468 @@
+--
+-- author: haosun
+-- date  : 2019-07-10 15:28:26
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchTopPreviewLayer = class("WitchTopPreviewLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    btnTop = "container/btn_top_click",
+}
+
+local starMaxNum = 6
+
+function WitchTopPreviewLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchTopPreviewLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo         = {},
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.comm_bg_2,
+    }
+    self._timer = {}
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+function WitchTopPreviewLayer:initObj()
+    self:ctorMakrObjs()
+    self._herointroctrl = UIHeroIntroCtrl:new(self.layer:Get("container"))
+    self._heroHead = self.layer:GetImageComponent("container/btn_top/img_head")
+    self._markEffect = self.layer:Get("container/effect_mark")
+    self._wnspBtn = self.layer:Get("container/wnspBtn")
+    self._wnspBtnCls = self.layer:GetButtonComponent("container/wnspBtn")
+    self._wnspNumCls = self._wnspBtn:GetTextComponent("wnsp_num")
+    self._topEffect = self.layer:Get(BUTTON_TYPE.btnTop.."/top_effect");
+    self._wnspBtnCls:AddButtonListener(function ()
+        --弹出万能碎片介绍界面
+        Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item, Player.ITEM_RON);
+    end)
+    self:ctorItems()
+
+    local trans = self.layer:Get("container/btn_top/image_stars")
+    self._imgStars = {}
+    for i = 1, starMaxNum do
+        self._imgStars[i] = {
+            img = trans:GetImageComponent("image_star_"..i),
+            inited = false
+        }
+    end
+end
+
+function WitchTopPreviewLayer:SetHeroInfo()
+    self._herointroctrl:InitUIHeroIntroCtrl(self._hero.id, false)
+    self._heroHead:LoadSprite("source_icon/player/player_icon_"..self._hero.id)
+    -- local marknum = self._hero.star_mark
+    -- if marknum ~= 0 then
+    -- else
+    -- end
+end
+
+
+function WitchTopPreviewLayer:ctorMakrObjs()
+    self._markObjs = {}
+    for i = 1, 8 do
+        local cls = clsbase:new(self.layer:Get("container/btn_top/markObjs/mark_"..i))
+        cls.select   = cls:Find("img_select")
+        cls.shine    = cls:Find("img_crystal_shine")
+        cls.crystal  = cls:Find("img_crystal")
+        cls.txtAttr  = cls:GetTextComponent("text_attr")
+        cls.numCom   = cls:GetTextComponent("text_mark")
+        cls.index    = i
+        cls.btnclick = cls.obj:GetComponent("Button")
+        cls.btnclick.onClick:AddListener(
+                function()
+                    self:onMarkClick(cls)
+                end)
+        --todo 特效
+        self._markObjs[i] = cls
+    end
+end
+function WitchTopPreviewLayer:onMarkClick(cls)
+    --[[
+    if cls.index > self._hero.star_mark then
+        return
+    end]]--
+    --cls.txtAttr.gameObject:SetVisible(true)
+    if cls.txtAttr.gameObject.activeSelf then
+        return
+    end
+    for i, v in pairs(self._markObjs) do
+        v.txtAttr.gameObject:SetVisible(true)
+    end
+    local id = Timer:AddTimerCall(6,
+            function ()
+                for i, v in pairs(self._markObjs) do
+                    v.txtAttr.gameObject:SetVisible(false)
+                end
+            end)
+    self._timer[id] = 1
+end
+
+function WitchTopPreviewLayer:setMarkObj(isTopMax)
+    local show
+    local showShine
+    local notshow
+    for _, cls in pairs(self._markObjs) do
+        show = cls.index == self._hero.star_mark + 1
+        notshow = cls.index > self._hero.star_mark + 1
+        showShine = cls.index <= self._hero.star_mark
+        cls.select:SetVisible(show and not isTopMax)
+        cls.shine:SetVisible(showShine or isTopMax)
+        cls.txtAttr.gameObject:SetVisible(show and not isTopMax)
+        cls.crystal:SetVisible(show and not isTopMax)
+        cls.numCom.gameObject:SetVisible(notshow and not isTopMax)
+        cls.numCom.text = uistr.com_stepstr[cls.index]
+        if  not isTopMax then
+            local attr =  self._markAttr[self._hero.star][cls.index]
+            for  attrtype, value in pairs(attr) do
+                local cfg = CAttr:GetCfg(attrtype)
+                cls.txtAttr.text ="<size=30>"..cfg.name.."</size>" .."+".."<size=32>"..value.."</size>"
+            end
+        end
+    end
+
+end
+
+function WitchTopPreviewLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_TOP,
+        function(data)
+            self:onHeroRep(data[1], data[2])
+            self:ShowRon();
+        end)
+end
+
+function WitchTopPreviewLayer:onExit()
+    self._consumes  = nil
+    self._attrObj   = nil
+    self._topEffect = nil;
+    for id, v in pairs(self._timer) do
+        Timer:RemoveTimerCall(id)
+    end
+    self._timer = nil
+    if self._herointroctrl ~= nil then
+        self._herointroctrl:UIHeroIntroCtrlDtor()
+        self._herointroctrl = nil
+    end
+    CBaseLayer.onExit(self)
+end
+
+function WitchTopPreviewLayer:onButtonClick(buttontype)
+    if(buttontype == BUTTON_TYPE.btnTop)then
+        self:OnTopBtnClick();
+    end
+end
+
+--退出按钮事件
+function WitchTopPreviewLayer:onBackClick()
+    if(self._callback)then
+        self:_callback();
+    end
+    self:onPopLayer();
+end
+
+function WitchTopPreviewLayer:show(heroid, callback)
+    play_effect_show()
+    if(callback ~= nil)then
+        self._callback = callback
+    end
+    self._consumes = {}
+    self._cfg = Hero:GetCfg(heroid)
+    self._markAttr = Hero:GetMarkUpAttr(heroid)
+    local curDots = lua_parse_cfg(self._cfg.Builddotadd,true);
+    self._buildCfg = {}
+    for i, v in ipairs(curDots) do
+        local cfg = lua_deep_copy(Build:GetBuildAttrCfgByCfgId(v[2]))
+        self._buildCfg[i] = cfg
+        self._buildCfg[i].star = v[1]
+    end
+    self._hero = Hero:GetHero(heroid)
+    self._curMarkIndex = self._hero.star_mark;
+    self._hasNum = Hero:GetHeroChipNumber(self._hero);
+    self:showLayer()
+    self:playAni("WitchTopPreviewLayerAni")
+end
+
+function WitchTopPreviewLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    
+    self:ShowRon();
+    self:doUpdateHero()
+    Groble_UIMgr:ShowBackBtn()
+end
+
+function WitchTopPreviewLayer:ShowRon()
+    local ronNum = Item:GetCount(Player.ITEM_RON);
+    self._wnspNumCls.text = ronNum;
+end
+
+function WitchTopPreviewLayer:doUpdateHero()
+    local isTopMax = self._hero.star == self._hero.maxStar
+    self:SetStarUI(isTopMax)
+    self:SetTopBtnUI(isTopMax)
+    self:SetTalentBuild()
+    self:setNextQlty()
+    self:SetHeroInfo()
+end
+
+function WitchTopPreviewLayer:SetStarUI()
+    for i, v in ipairs(self._imgStars) do
+        if i <= self._hero.star then
+            if not v.inited then
+                v.img.transform:CreateChild("prefab_item_spine/spine_mark_star")
+                v.inited = true
+            end
+            v.img:SetEnabled(false)
+        else
+            v.img:SetEnabled(true)
+        end
+    end
+end
+
+function WitchTopPreviewLayer:SetTopBtnUI(isTopMax)
+    if(self.imgWitchDebIcon == nil)then
+        self.imgWitchDebIcon = self.layer.transform:Find("container/btn_top/img_icon"):GetComponent("Image");
+        self.txtWitchDebNum = self.layer.transform:Find("container/btn_top/txt_num"):GetComponent("Text");
+        self.txtTopTitle = self.layer.transform:Find("container/btn_top_click/txt_title"):GetComponent("LanguageText");
+        self.txtTopTitleE = self.layer.transform:Find("container/btn_top_click/txt_title_E"):GetComponent("LanguageText");
+    end
+    local has, cost = Hero:GetHeroChipNumber(self._hero)
+    if has < cost then
+        if(self._hero.star < self._hero.maxStar)then
+            self.txtTopTitle:UpdateTextContent("70003")
+            self.txtTopTitleE:UpdateTextContent("70002")
+        else
+            self.txtTopTitle:UpdateTextContent("70001")
+            self.txtTopTitleE:UpdateTextContent("70017")
+        end
+    else
+        self.txtTopTitle:UpdateTextContent("700998")
+        self.txtTopTitleE:UpdateTextContent("700999")
+    end
+    if isTopMax then
+        self.txtTopTitle:UpdateTextContent("70004");
+        self.txtTopTitleE:SetText("")
+        self.txtWitchDebNum.text = "--/--"
+    end
+    set_obj_active(self.imgWitchDebIcon.transform,not isTopMax);
+    set_obj_active(self.txtWitchDebNum.transform,not isTopMax);
+    if(not isTopMax)then
+        Item:SetItemIcon(self.imgWitchDebIcon.transform, self._hero.config.StarItemID)
+        local has, cost = Hero:GetHeroChipNumber(self._hero)
+        if(has < cost)then
+            self.txtWitchDebNum.text = string.format(LanguageMgr:GetTextByID(99000073),has) .. cost
+        else
+            self.txtWitchDebNum.text = has .."/".. cost
+        end
+    end
+    --满刻印处理
+    if self._hero.star_mark == Hero.MAX_MARK_NUM then
+        set_obj_active(self.imgWitchDebIcon.transform,false);
+        set_obj_active(self.txtWitchDebNum.transform,false);
+        self.txtTopTitle:UpdateTextContent("70001")
+        self.txtTopTitleE:UpdateTextContent("70017")
+        if(not isTopMax)then
+            if self._topEffect.transform.childCount == 0 then
+                self._topEffect:CreateChild("prefab_uiEffect/uiEffect/ui82_yingke")
+            end
+            self._topEffect:SetVisible(true);
+        else
+            self._topEffect:SetVisible(false);
+        end
+    else
+        self._topEffect:SetVisible(false);
+    end
+
+    self:setMarkObj(isTopMax)
+end
+
+function WitchTopPreviewLayer:OnTopBtnClick()
+    if(self._hero.star >= self._hero.maxStar)then
+        Groble_UIMgr:ShowGameWordTipsLayer(99000072);
+        return;
+    end
+    if self._hero.star_mark < Hero.MAX_MARK_NUM then
+        local has, cost = Hero:GetHeroChipNumber(self._hero)
+        if has < cost then
+            Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.HeroClip,tonumber(self._hero.config.StarItemID))
+            return
+        end
+    end
+   
+    self._oldQlty = self._hero.qlty
+
+    Hero:SetHeroTmpAttr(self._hero.id)
+   -- self._fading = true
+    Hero:TopUpReq(self._hero.id)
+end
+
+function WitchTopPreviewLayer:onHeroRep(heroid, isTop)
+    if isTop then
+        self._curMarkIndex = self._hero.star_mark;
+        self._hasNum = Hero:GetHeroChipNumber(self._hero);
+        Groble_UIMgr:HideBackBtn();
+        local layer = core.require("xlua/lua_UI/HomeScene/WitchEffectLayer.txt"):new()
+        layer:show( heroid, true, function()
+            self:doUpdateHero()
+        end, self._oldQlty)
+
+    else
+        self._fading = true
+        -- Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.MARK_UP,function () end)
+        local temp = 1;
+        for i = self._curMarkIndex + 1, self._hero.star_mark do
+            local id = Timer:AddTimerCall(0.2 * temp,
+                    function (id)
+                        self._timer[id] = nil;
+                        self:playMarkAni(i)
+                        if(i == self._hero.star_mark)then
+                            self._curMarkIndex = self._hero.star_mark;
+                            self._hasNum = Hero:GetHeroChipNumber(self._hero);
+                            self:doUpdateHero()
+                            SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0,heroid);
+                            self._fading = false
+                        end
+                    end)
+            self._timer[id] = 1
+            temp = temp + 1
+        end
+    end
+
+end
+
+function WitchTopPreviewLayer:playMarkAni(index)
+    self._markEffect:SetVisible(false)
+    local cls = self._markObjs[index]
+    self._markEffect:SetParent(cls.transform)
+    self._markEffect:SetPosition(0,0,0,true)
+    self._markEffect:SetVisible(true)
+    self._markEffect:GetComponent("ParticleBehaviour"):Play()
+    cls.shine:SetVisible(true);
+    cls.crystal:SetVisible(false);
+    cls.txtAttr:SetVisible(false);
+    cls.numCom:SetVisible(false);
+    local has, cost = Hero:GetHeroChipNumber(self._hero)
+    self._hasNum = self._hasNum - cost;
+    if(self._hasNum < cost)then
+        self.txtWitchDebNum.text = string.format(LanguageMgr:GetTextByID(99000073),self._hasNum) .. cost
+    else
+        self.txtWitchDebNum.text = self._hasNum .."/".. cost
+    end
+    Groble_UIMgr:ShowTipsLayer(cls.txtAttr.text,true)
+end
+
+function WitchTopPreviewLayer:setNextQlty()
+    local star,qlty =  Hero:getNextQlty(self._hero)
+    local show = star ~= 0
+    self.layer:Get("container/img_toptip"):SetVisible(show)
+    if show then
+        self.layer:GetTextComponent("container/img_toptip/txt_title").text = string.format( LanguageMgr:GetTextByID(70071) , star)
+        Hero:SetHeroQlty(self.layer:Get("container/img_toptip/image_qlty") , qlty)
+    end
+   
+end
+
+function WitchTopPreviewLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function WitchTopPreviewLayer:ctorItems()
+    self._builds  = {}
+    self._talents =  Hero:CtorHeroTalent(self.layer:Get("container/talent_objs"),4,
+            function(cls) 
+                    self:onTalentClick(cls)
+            end)
+    for i = 1,4 do
+        local cls2 = clsbase:new(self.layer:Get("container/build_objs/item_"..i))
+        cls2.icon = cls2:GetImageComponent("img_icon")
+        cls2.bg = cls2:GetImageComponent("img_bg")
+        cls2.click = cls2.obj:GetComponent("Button")
+        cls2.starCom = cls2:Find("img_star")
+        cls2.starChilds     = {}
+        if cls2.starCom ~= nil then
+            for i = 1, 6 do
+                cls2.starChilds[i] = cls2:GetImageComponent("img_star/img_star"..i)
+            end
+        end
+        cls2.click.onClick:AddListener(
+                function()
+                    self:onBuildClick(cls2)
+                end)
+        self._builds[i]  = cls2
+    end
+end
+
+function WitchTopPreviewLayer:setBuild(cls, data)
+   
+    if data == nil then
+        cls.obj:SetVisible(false)
+    else
+        data.unlock = self._hero.star >= data.star
+        cls.obj:SetVisible(true)
+        Build:SetBuildIcon( cls.icon, data.iconPath) 
+        if data.unlock then
+            cls.bg.sprite  = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_2")
+            cls.icon.gameObject:SetVisible(true)
+            for i= 1,6 do
+                cls.starChilds[i].sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da1")
+            end
+        else
+            cls.bg.sprite  = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_1")
+            cls.icon.gameObject:SetVisible(false)
+            for i= 1,6 do
+                cls.starChilds[i].sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da2")
+            end
+        end
+        Bag:SetStarSprite(cls.starChilds, data.star)
+        cls.data = data
+    end
+
+end
+
+function WitchTopPreviewLayer:onTalentClick(cls)
+    local unlock = {}
+    if cls.data.unlock then
+        unlock.desc = string.format(LanguageMgr:GetTextByID(70106), cls.data.star)
+        unlock.lock = false
+    else
+        unlock.lock = true
+        unlock.desc = string.format(LanguageMgr:GetTextByID(70107), cls.data.star)
+    end
+    UIMgr:ShowDescTipsLayer(cls.transform, cls.data.cfg.Talent_Name, cls.data.cfg.desc, unlock)
+end
+
+function WitchTopPreviewLayer:onBuildClick(cls)
+    local unlock = {}
+    if cls.data.unlock then
+        unlock.desc = string.format(LanguageMgr:GetTextByID(70106), cls.data.star)
+        unlock.lock = false
+    else
+        unlock.lock = true
+        unlock.desc = string.format(LanguageMgr:GetTextByID(70107), cls.data.star)
+    end
+    UIMgr:ShowDescTipsLayer(cls.transform, cls.data.name, cls.data.desc, unlock)
+end
+
+
+function WitchTopPreviewLayer:SetTalentBuild()
+    for i = 1,4 do
+        Hero:SetHeroTalentUI(self._talents[i], self._hero.talentcfg[i])
+        self:setBuild(self._builds[i], self._buildCfg[i])
+    end
+end
+
+return WitchTopPreviewLayer
+

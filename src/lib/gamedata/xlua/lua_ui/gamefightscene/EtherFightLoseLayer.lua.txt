@@ -1,0 +1,159 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-24 20:50:49
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherFightLoseLayer = class("EtherFightLoseLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnBack = "img_bg_2/button_back",
+    BtnReplay = "img_bg_2/button_replay",
+    BtnLevel = "trans_container/button_level",
+    BtnEquip = "trans_container/button_equip",
+    --@ButtonEnd
+}
+--构造函数
+function EtherFightLoseLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_EtherFightLoseLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherFightLoseLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            self:onLevelBeginRep(levelid)
+        end)
+    self:Init();
+end
+
+--按钮事件
+function EtherFightLoseLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then 
+       self:OnBtnBackClick();
+    elseif(itype == BTNS.BtnReplay)then
+        FightController:ReFightLevel(self._levelid, false, true)
+    elseif(itype == BTNS.BtnLevel)then 
+       self:OnBtnLevelClick();
+    elseif(itype == BTNS.BtnEquip)then 
+       self:OnBtnEquipClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+    
+    
+    
+end
+
+--退出按钮事件
+function EtherFightLoseLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function EtherFightLoseLayer:Init()
+    self._tmpdata       = GTemp:GetFightTmpData()
+    self._usingtime = self._tmpdata.usingtime;
+    self:InitUI();
+end
+
+--初始化UI
+function EtherFightLoseLayer:InitUI()
+
+    --@ImageEnd
+
+    self._txtTime = self.layer:GetTextComponent("trans_container/txt_time");
+    --@TextEnd
+
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._txtTime.text = lua_str2time(self._usingtime);
+    local heroId = HeroController:GetShowHeroId()
+    Hero:LoadSpineAsync(self.__cname, self.layer:Get("trans_spine_bg"), heroId, Hero.SPINE_UI_TYPE_EVERYDAY, nil)
+end
+
+--显示UI
+function EtherFightLoseLayer:show(levelid)
+    self._levelid = levelid
+    self:showLayer();
+    self:playAni("EtherFightLoseLayerAnim");
+end
+
+--释放
+function EtherFightLoseLayer:onExit()
+    self._tmpdata = nil
+    self._txtTime = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherFightLoseLayer:OnBtnBackClick()
+    uimgr:onMainScene(function ()
+        self:onBackClick()
+    end);
+ end
+
+function EtherFightLoseLayer:OnBtnLevelClick()
+    self:doJump()
+ end
+function EtherFightLoseLayer:OnBtnEquipClick()
+    self:doJump()
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherFightLoseLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherFightLoseLayer:doJump()
+    self._fading = true
+    GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_WITCH)
+    local heroids = Ether:GetCurHeroIds();
+    local hid = 0
+    for i, v in ipairs(heroids) do
+        if v ~= 0 then
+            hid = v
+            break
+        end
+    end
+    Chapter:ClearJumpChapterLevel()
+    Guide:SetGuideJumpHid(hid)
+    self:onBackClick()
+    uimgr:onMainScene()
+    Ether:InitData();
+end
+
+function EtherFightLoseLayer:onLevelBeginRep(levelid)
+    self:onBackClick()
+    FightController:GoOnceLevel(levelid)
+end
+
+return EtherFightLoseLayer;

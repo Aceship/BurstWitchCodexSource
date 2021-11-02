@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2021-06-24 17:59:55
+-- brief : 
+--
+UI_CommonTipsLayer = UI_CommonTipsLayer or {}
+
+function UI_CommonTipsLayer:CommonTipsLayerCreator()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/UI_CommonTipsLayer")
+    self.layer:SetPositionX(10000)
+    self._container = self.layer:Get("container")
+    self._container:AddButtonListener("button_no",
+        function()
+            if self._noCall ~= nil then
+                self._noCall()
+                self._noCall = nil
+            end
+            self:ExitCommonTipsLayer()
+        end)
+    self._container:AddButtonListener("button_ok",
+        function()
+            if self._okCall ~= nil then
+                self._okCall()
+                self._okCall = nil
+            end
+            self:ExitCommonTipsLayer()
+        end)
+    self._container:SetScale(0, 0, 0)
+    self._noTrans = self._container:Get("button_no")
+    self._okTrans = self._container:Get("button_ok")
+    self._msgTxt  = self._container:GetTextComponent("txt_msg")
+    self._animator  = self.layer:GetAnimatorComponent("container")
+    self._inited  = true
+end
+
+function UI_CommonTipsLayer:CommonTipsLayerDestructor()
+    self._inited = false
+
+    self._container = nil
+    self._noTrans = nil
+    self._okTrans = nil
+    self._msgTxt = nil
+
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function UI_CommonTipsLayer:EnterCommonTipsLayer(noCall, okCall, msgid, onlyOK)
+    if not self._inited then
+        self:CommonTipsLayerCreator()
+    end
+    if onlyOK then
+        self._noTrans:SetVisible(false)
+        self._okTrans:SetPositionX(0, true)
+    else
+        self._noTrans:SetVisible(true)
+        self._okTrans:SetPositionX(170, true)
+    end
+    self._noCall = noCall
+    self._okCall = okCall
+    self._msgTxt:SetTextById(msgid)
+    self.layer:SetPositionX(0, true)
+    self._animator:SetTrigger("ScaleTo")
+end
+
+function UI_CommonTipsLayer:ExitCommonTipsLayer()
+    self._container:SetScale(0, 0, 0)
+    self.layer:SetPositionX(10000)
+end
+
+

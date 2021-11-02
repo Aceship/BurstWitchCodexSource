@@ -1,0 +1,100 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-09 10:20:40
+---
+Http = Http or {}
+Http.GLOBAL_CMD_START            = 901;
+Http.QUERY_DISCUSS_REQ           = 902;  --请求一页评论
+Http.QUERY_DISCUSS_REP           = 903;
+Http.QUERY_MORE_REPLY_REQ        = 904;  --请求回复数据
+Http.QUERY_MORE_REPLY_REP        = 905;
+Http.QUERY_CMT_COUNT_REQ         = 906;  --请求评论数量
+Http.QUERY_CMT_COUNT_REP         = 907;
+
+
+Http.QUERY_GLOBAL_RANK_DATA_REQ  = 1001;  --请求排行数据
+Http.QUERY_GLOBAL_RANK_DATA_REP  = 1002;  --请求排行数据返回
+
+Http.QUERY_RANK_RANGE_LOWEST_REQ = 1003      --请求名次区间内需要的最低分数
+Http.QUERY_RANK_RANGE_LOWEST_REP = 1004      --请求名次区间内需要的最低分数 返回
+Http.QUERY_HISTORY_RANK_DATA_REQ = 1005;     --请求history排行数据
+Http.QUERY_HISTORY_RANK_DATA_REP = 1006;    --请求history排行数据返回
+
+Http.LOOK_RANK_CARD_REQ             = 908;--排行榜名片请求
+Http.LOOK_RANK_CARD_REP             = 909;
+
+Http.LOOK_PLAYER_CARD_REQ           = 912;--其他名片请求
+Http.LOOK_PLAYER_CARD_REP           = 913;
+
+Http.BUGLY_PUSH_BUG_MSG_REQ         = 651   -- 错误日志提交
+Http.BUGLY_PUSH_BUG_MSG_REP         = 652
+
+
+Http.UPLOAD_CMD_START		= 1200;
+
+Http.UPLOAD_VIDEO_REQ		= 1201; --  上传视频数据
+Http.UPLOAD_VIDEO_REP		= 1202; --  上传视频数据返回
+Http.VIDEO_ADD_COUNT_REQ    = 1203;     --video增加次数请求
+Http.VIDEO_ADD_COUNT_REP    = 1204;     --video增加次数响应
+Http.WATCH_VIDEO_COUNT_REQ  = 1205;     --观看视频总次数请求
+Http.WATCH_VIDEO_COUNT_REP  = 1206;     --观看视频总次数响应
+
+
+Http.REPORT_GAMER           = 1207;		--举报玩家
+Http.REPORT_CHAT			= 1208;		--举报聊天
+Http.VIDEO_GET_URL			= 1209;		--获取视频
+Http.UPLOAD_CMD_END			= 1299;
+
+-- 激活
+Http.LOGIN_ACTIVATE_REQ  = 3;
+Http.LOGIN_ACTIVATE_REP  = 4;
+--登陆id
+Http.LOGIN_REQ = 5
+Http.LOGIN_REP = 6
+
+Http.Error =
+{
+      
+SUCCESS                 = 0;
+SERVER_BUSY             = 1;    --服务器繁忙(请求过于频繁)
+SERVER_CLOSE            = 2;    --服务器维护
+SYSTEM_ERROR            = 3;    --系统错误
+SDK_LIST_NOTFOUND       = 4;    --找不到sdk配置
+
+--账号登录
+ACCOUNT_UNLAWFUL        = 1001;    --帐号非法的
+PASSWD_UNLAWFUL         = 1002;    --密码非法的
+PASSWD_WRONG            = 1003;    --密码错误(或渠道签名验证错误)
+PASSWD_SDK_VERIFY_FAILED= 1004;    --渠道验证失败
+ACCOUNT_UNACTIVE        = 1005;    --帐号未激活
+INNER_MODE_CLOSE        = 1006;    --未开放非渠道登陆
+UNDOWN_PLATFORM         = 1007;    --未开放的渠道
+REGISTER_ACCOUNT_FAILED = 1008;    --pm -1 系统错误, 0 帐号被注册
+JSON_PARSE_FAILED       = 1009;    --json分解失败, param1 渠道
+JSON_OBJ_GEN_FAILED     = 1010;    --json对象生成失败, param1 渠道
+JSON_PARAM_TYPE_ERROR   = 1011;    --json参数类型错误, param1 渠道
+
+LOGIN_MSGID_UNKNOW      = 1020;     --未知的消息id, param1 消息id
+LOGIN_SERVER_BUSY       = 1021;     --登陆服务器繁忙, param1 消息id
+LOGIN_MSG_HEAD_UNPARSE  = 1022;     --消息头分解失败, param1 消息id
+LOGIN_MSG_PARSE_FAILED  = 1023;     --消息解析失败,   param1 消息id
+LOGIN_ACC_BLACK         = 1024;     --黑名单账号
+LOGIN_ACTIVECODE_ERROR  = 1025;     --非法的激活码
+LOGIN_ACTIVECODE_USED   = 1026;     --激活码已经被使用或者不存在
+----------------------------------------------------------------------------------/
+--http全局服务器
+GLOBAL_MSGID_UNKNOW         = 2001;     --未知的消息id,   param1 消息id
+GLOBAL_MSG_HEAD_UNPARSE     = 2002;     --消息头分解失败, param1 消息id
+GLOBAL_MSG_PARSE_FAILED     = 2003;     --消息解析失败,   param1 消息id
+GLOBAL_MSG_BUSY             = 2004;     --全局服务器繁忙  param1 消息id
+GLOBAL_TOKEN_ERROR          = 2005;     --token验证失败   param1 消息id
+GLOBAL_MSG_PARAM_ERROR      = 2006;     --消息解析失败,   param错误
+--------------------------------------------------------------------------------------
+-- 评论模块错误码  104001~104099
+ERROR_COMMENT_USERCMT_REACH_MAX                = 104001,        -- 玩家评论数量到达上限
+ERROR_COMMENT_USERRPL_REACH_MAX                = 104002,        -- 玩家回复数量到达上限
+ERROR_COMMENT_USERLIKE_REACH_MAX               = 104003,        -- 玩家点赞数量到达上限
+ERROR_COMMENT_MSGLEN_REACH_MAX                 = 104004,        -- 玩家消息字数达到上限
+GLOBAL_MSG_CMT_NOT_EXIST                       = 104005,        -- 请求的评论不存在
+ERROR_COMMENT_END                              = 104099,
+}

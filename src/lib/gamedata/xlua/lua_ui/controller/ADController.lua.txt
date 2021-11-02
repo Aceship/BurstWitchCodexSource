@@ -1,0 +1,207 @@
+--广告板展示
+local ADController = class("ADController");
+
+function ADController:ctor(super, trans,action)
+    self.showItem = nil;
+    self.hideItem = nil;
+    self.dragDis = 0;
+    self.transform = trans;
+    self.tempV2 = CS.UnityEngine.Vector2(0,0);
+    self.temp = nil;
+    self.dataIndex = 1;
+    self.action = action;
+    self.ADContent = self.transform:Find("AD_content");
+    self.leftItem = {};
+    self.leftItem.btn = self.ADContent:Find("item_1"):GetComponent("Button");
+    self.leftItem.transform = self.leftItem.btn.transform;
+    self.leftItem.btn.onClick:AddListener(function ()
+        self:OnButtonClick();
+    end);
+    self.leftItem.rect = self.leftItem.transform:GetComponent("RectTransform");
+    self.leftItem.img = self.leftItem.transform:GetComponent("Image");
+
+
+    self.showItem = {};
+    self.showItem.btn = self.ADContent:Find("item_2"):GetComponent("Button");
+    self.showItem.transform = self.showItem.btn.transform;
+    self.showItem.btn.onClick:AddListener(function ()
+        self:OnButtonClick();
+    end);
+    self.showItem.rect = self.showItem.transform:GetComponent("RectTransform");
+    self.showItem.img = self.showItem.transform:GetComponent("Image");
+
+    self.rightItem = {};
+    self.rightItem.btn = self.ADContent:Find("item_3"):GetComponent("Button");
+    self.rightItem.transform = self.rightItem.btn.transform;
+    self.rightItem.btn.onClick:AddListener(function ()
+        self:OnButtonClick();
+    end);
+    self.rightItem.rect = self.rightItem.transform:GetComponent("RectTransform");
+    self.rightItem.img = self.rightItem.transform:GetComponent("Image");
+    self.togBg = self.transform:Find("bottom_bg/tog_bg");
+    self.togItemPrefab = self.transform:Find("bottom_bg/item_hide/tog_item");
+end
+
+function ADController:Init(data,updateTime)
+    self.data = data;
+    self.adNum = #self.data;
+    self.togItem = {};
+    self.updateTime = updateTime or 1;
+    self.currTime = 0;
+    self.moveOff = 0.3;--切换显示item的系数
+    self.rectSize = self.showItem.rect.sizeDelta.x;
+    for i, v in ipairs(self.data) do
+        self.togItem[i] = CS.UnityEngine.GameObject.Instantiate(self.togItemPrefab ,self.togBg):GetComponent("MToggle");
+    end
+    if(self.adNum >= 2)then--数据数量大于等于2,可以滑动
+        Operation:SetOperationImage(self.leftItem.img, tonumber(self.data[self.adNum].AD_Image),Operation.AD_IMAGE_FILE);
+        Operation:SetOperationImage(self.showItem.img,tonumber(self.data[1].AD_Image),Operation.AD_IMAGE_FILE);
+        Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[2].AD_Image),Operation.AD_IMAGE_FILE);
+    elseif(self.adNum == 1)then-- 禁止滑动
+        Operation:SetOperationImage(self.showItem.img,tonumber(self.data[1].AD_Image),Operation.AD_IMAGE_FILE);
+        self.notDrag = true;
+    end
+    self:initDrag();
+    self.togItem[self.dataIndex].isOn = true
+end
+
+function ADController:OnButtonClick()
+    if(self.action ~= nil)then
+        self.action(self.data[self.dataIndex]);
+    end
+end
+
+function ADController:initDrag()
+    InitEventTriggerEx(self.ADContent,
+            function(arg)
+                self.isDrag = true;
+                self.currTime = 0;
+                self.dragV3 = arg
+            end,
+            function(arg)
+                self:onDrag(arg)
+            end,
+            function(arg)
+                self:onEndDrag(arg)
+            end)
+end
+
+function ADController:onDrag(arg)
+    if(self.notDrag)then
+        return;
+    end
+    self.offsetX = arg.x - self.dragV3.x;
+    self.tempV2.x = self.leftItem.rect.anchoredPosition.x + self.offsetX;
+    self.leftItem.rect.anchoredPosition = self.tempV2;
+    self.tempV2.x = self.rightItem.rect.anchoredPosition.x + self.offsetX;
+    self.rightItem.rect.anchoredPosition = self.tempV2;
+    self.tempV2.x = self.showItem.rect.anchoredPosition.x + self.offsetX;
+    self.showItem.rect.anchoredPosition = self.tempV2;
+    if ((self.showItem.rect.anchoredPosition.x > self.rectSize * self.moveOff)and (self.offsetX > 0))then--向右滑动,并且滑动距离大于图片的一半
+        self.temp = self.showItem;              --交换  将最右侧的item移到左侧
+        self.showItem = self.leftItem;
+        self.leftItem = self.rightItem;
+        self.rightItem = self.temp;
+        self.tempV2.x = -(self.rectSize - self.showItem.rect.anchoredPosition.x);--计算左侧item的位置(item的宽度 - 显示的item的UI偏移(ui偏移为负数))
+        self.leftItem.rect.anchoredPosition = self.tempV2;
+        if (self.dataIndex - 1 < 1)then         --数据首位,设置下标,循环赋值
+            self.dataIndex = self.adNum;        --左侧的item数据未显示数据下标 - 1
+            Operation:SetOperationImage(self.leftItem.img, tonumber(self.data[self.adNum - 1].AD_Image),Operation.AD_IMAGE_FILE);
+        else
+            self.dataIndex = self.dataIndex - 1;--非首位
+            if(self.dataIndex - 1 == 0)then
+                Operation:SetOperationImage(self.leftItem.img, tonumber(self.data[self.adNum].AD_Image),Operation.AD_IMAGE_FILE);
+            else
+                Operation:SetOperationImage(self.leftItem.img, tonumber(self.data[self.dataIndex - 1].AD_Image),Operation.AD_IMAGE_FILE);
+            end
+        end
+        self.togItem[self.dataIndex].isOn = true
+    elseif ((self.showItem.rect.anchoredPosition.x < -self.rectSize * self.moveOff)and (self.offsetX < 0))then--向左滑动
+        self.temp = self.showItem;          --交换  将最左侧的item移到右侧
+        self.showItem = self.rightItem;
+        self.rightItem = self.leftItem;
+        self.leftItem = self.temp;
+        self.tempV2.x = self.rectSize + self.showItem.rect.anchoredPosition.x  --计算左侧item的位置(item的宽度 + 显示的item的UI偏移(ui偏移为正数))
+        self.rightItem.rect.anchoredPosition = self.tempV2;
+        if (self.dataIndex + 1 > self.adNum)then--数据尾位,设置下标,循环赋值
+            self.dataIndex = 1;
+            Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[self.dataIndex + 1].AD_Image),Operation.AD_IMAGE_FILE);
+        else
+            self.dataIndex = self.dataIndex + 1;--非尾位
+            if(self.dataIndex + 1 > self.adNum)then
+                Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[1].AD_Image),Operation.AD_IMAGE_FILE);
+            else
+                Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[self.dataIndex + 1].AD_Image),Operation.AD_IMAGE_FILE);
+            end
+        end
+        self.togItem[self.dataIndex].isOn = true
+    end
+    self.dragV3 = arg
+end
+
+function ADController:onEndDrag(arg)
+    self.isDrag = false;
+    if(self.notDrag)then
+        return;
+    end
+    self.leftItem.rect:DOAnchorPosX(-self.leftItem.rect.sizeDelta.x, 0.2);
+    self.rightItem.rect:DOAnchorPosX(self.rightItem.rect.sizeDelta.x, 0.2);
+    self.showItem.rect:DOAnchorPosX(0, 0.2);
+end
+
+function ADController:Update()
+    if(self.isDrag or self.notDrag)then
+        return;
+    end
+    if(self.currTime < self.updateTime)then
+        self.currTime = self.currTime + 1;
+    else        -- 数据更新,自动向左滑动
+        self.currTime = 0;
+
+        self.temp = self.showItem;
+        self.showItem = self.rightItem;
+        self.rightItem = self.leftItem;
+        self.leftItem = self.temp;
+        self.tempV2.x = 374 + self.showItem.rect.anchoredPosition.x
+        self.rightItem.rect.anchoredPosition = self.tempV2;
+        if (self.dataIndex + 1 > self.adNum)then
+            self.dataIndex = 1;
+            Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[self.dataIndex + 1].AD_Image),Operation.AD_IMAGE_FILE);
+        else
+            self.dataIndex = self.dataIndex + 1;
+            if(self.dataIndex + 1 > self.adNum)then
+                Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[1].AD_Image),Operation.AD_IMAGE_FILE);
+            else
+                Operation:SetOperationImage(self.rightItem.img,tonumber(self.data[self.dataIndex + 1].AD_Image),Operation.AD_IMAGE_FILE);
+            end
+        end
+        self.togItem[self.dataIndex].isOn = true
+        self.leftItem.rect:DOAnchorPosX(-self.leftItem.rect.sizeDelta.x, 0.5);
+        self.rightItem.rect:DOAnchorPosX(self.rightItem.rect.sizeDelta.x, 0.5);
+        self.showItem.rect:DOAnchorPosX(0, 0.5);
+    end
+end
+
+function ADController:OnDestroy()
+    self.data = nil;
+    self.adNum = 0;
+    self.togItem = nil;
+    self.updateTime = 0;
+    self.currTime = 0;
+    self.showItem = nil;
+    self.hideItem = nil;
+    self.dragDis = 0;
+    self.transform = nil;
+    self.tempV2 = nil;
+    self.temp = nil;
+    self.dataIndex = 1;
+    self.action = nil;
+    self.ADContent = nil;
+    self.leftItem = nil;
+    self.showItem = nil;
+    self.rightItem = nil;
+    self.togBg = nil;
+    self.togItemPrefab = nil;
+end
+
+return ADController;

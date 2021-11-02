@@ -1,0 +1,84 @@
+--
+-- author: haosun
+-- date  : 2019-01-08 17:14:42
+-- brief : 
+--
+Shop = Shop or {}
+
+function Shop:_LoadCfg()
+    self._datas = {}
+    for _, v in pairs(Shop.TYPES) do
+        self._datas[v] = {
+            update = true,
+            items = {},
+            refresh_count = 0,
+            next_time = 0,
+            record_time = 0
+        }
+    end
+    local cfgs = CfgLoader:LoadCfg("Shop")
+    local shop_type
+    for _, v in pairs(cfgs) do
+        shop_type = tonumber(v.Shop_Type)
+        local data = {
+            cfgid       = tonumber(v.id),       -- 
+            name        = Language:GetTxtBuyId(v.des),                --
+            count       = 0,                    -- 已购次数
+            buytype     = tonumber(v.Buytype),  -- 
+            stock       = tonumber(v.Buytimes), -- 库存
+            goods       = {Bag.TYPE_ITEM, Player.ITEM_VALUE_COIN, 1},
+            sortid      = tonumber(v.Order),
+            discount    = tonumber(v.Discount),
+            price       = 0,
+            price_ex    = v.price,
+            orgi_price  = 0,
+            costtype    = Player.ITEM_VALUE_COIN,
+            unlock_lv   = nil,
+            double      = tonumber(v.Double),
+            oneBuyNum   = tonumber(v.BuyMore),
+            rebate      = 10 ,-- 黑市折扣  10无折扣
+            lockdata    = nil,
+            isRankPrize = tonumber(v.MidnightShow),
+    }
+        data.shopItems = lua_parse_cfg(v.ShopItem, true);
+        if tonumber(v.ShopItem_type) == Shop.SELL_TYPE_GOODS or tonumber(v.ShopItem_type) == Shop.SELL_POP_UP  then
+            data.goods[1] = data.shopItems[1][1]
+            data.goods[2] = data.shopItems[1][2]
+            data.goods[3] = data.shopItems[1][3]
+            self:SetBuyPrice(data, shop_type)
+        end
+        if v.UnlockData ~= "-1" then
+            data.unlock_lv = lua_parse_cfg(v.UnlockData,true)[1]
+        end
+        if v.LockData ~= "-1" then
+            data.lockdata  = lua_parse_cfg(v.LockData,true)[1]
+        end
+        if self._datas[shop_type] ~= nil then
+            table.insert(self._datas[shop_type].items, data)
+        else
+            CS.Logger.LogWarning("未定义的商店类型({0}).", shop_type)
+        end
+    end
+    for _, v in pairs(self._datas) do
+        table.sort(v.items, function(a, b) return a.sortid < b.sortid end)
+    end
+end
+
+function Shop:SetBuyPrice(data, shoptype)
+    local tbl
+    if data.price_ex ~= "-1" then
+        tbl = lua_str_split(data.price_ex, "&")
+    else
+        local cfg = Bag:GetCfgByTypeCfgid(data.goods[1], data.goods[2])
+        tbl = lua_str_split(cfg.price, "&")
+    end
+    data.costtype = tonumber(tbl[1])
+    data.orgi_price = tonumber(tbl[2])
+    data.price = math.ceil(data.orgi_price * data.discount)
+    data.rePrice = data.price
+    -- 黑市价格修正
+    if shoptype == Shop.TYPE_MARKET then
+        data.rePrice =  math.ceil(data.price * data.goods[3] * data.rebate / 10)
+        data.price = math.ceil(data.price * data.goods[3])
+    end
+end

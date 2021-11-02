@@ -1,0 +1,392 @@
+--
+-- author: haosun
+-- date  : 2018-12-10 12:11:43
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyLevelLayer = class("DailyLevelLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    CostItem        = "pnl_remain/button_click",
+    Rule            = "button_rule",
+}
+
+function DailyLevelLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_DailyLevelLayer",
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+
+    }
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._update = false
+    self.levelItems = {}
+    self:onEnter()
+end
+
+function DailyLevelLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.CHAPTER_FIGHT_BUY,
+        function()
+            self:refreshCount()
+            Groble_UIMgr:ShowGameWordTipsLayer(3002005)
+        end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("pnl_remain"))
+    self._txtScore      = self.layer:GetTextComponent("info_score/txt_score")
+
+    self.layer:GetButtonComponent("info_score/showPaiqi").onClick:AddListener(function() 
+        core.require("xlua/lua_UI/HomeScene/DailyShowLayer.txt"):new():show()
+    end)
+end
+
+function DailyLevelLayer:onExit()
+    if self.levelItems ~= nil then
+        for i, cls in pairs(self.levelItems) do
+            cls:clear()
+        end
+    end
+    self.levelItems = nil
+    self._txtScore  = nil
+
+    self._chapter   = nil
+    self._levelids  = nil
+    
+    CBaseLayer.onExit(self)
+end
+
+function DailyLevelLayer:refreshShow(chapterid, callback)
+    self._chapter = Chapter:GetChapter(chapterid)
+    self._callback = callback
+    self._enemy_num = 0
+    self._drop_num = 0
+    self._showidx = 0
+    self._remain = 0
+    if  self._chapter.modeTimeid ~= nil  and self._chapter.modeTimeid > 0 then
+        self._update = true
+        self._remain = CTime:GetRemainTime(self._chapter.modeTimeid)
+        self:setTitle()
+    else
+        self._update = false
+        self:setTitle()
+    end
+    if self._chapter.sub_type == Chapter.MODE_COIN then
+        Chapter:SetCoinChapterState(true)
+    end
+
+    self:levelidsGen()
+end
+
+function DailyLevelLayer:show(chapterid,callback)
+    self:refreshShow(chapterid,callback)
+    local _bfind = false
+    local jumpdata = Chapter:GetJumpdata()
+    if jumpdata ~= nil and jumpdata.levelid ~= nil then
+        if lua_value_in_tbl(jumpdata.levelid, self._levelids) then
+            _bfind = true
+        end    
+    end
+    if _bfind then
+        self:showLayer()
+        for i = 1, #self._levelids, 1 do
+            self.levelItems[i].transform:SetVisible(true)
+        end
+        self._fading = false
+        self:onLevelClick(jumpdata.levelid)
+    else
+        self:showLayer()
+        self:playAni("DailyLevelLayerAni")
+        self:UI_MainBoxFadeInEnd()
+    end
+    Chapter:ClearJumpChapterLevel()
+end
+
+function DailyLevelLayer:showLayer()
+    self:initLevels()
+    self:setFightCost()
+    CBaseLayer.showLayer(self)
+end
+
+function DailyLevelLayer:onPerSecondUpdate()
+    if  self._update then
+        if self._remain > 0 then
+            self._remain = self._remain -1
+            self._txtScore.text = CTime:Time2Str(self._remain)
+        else
+            self._update = false
+            Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(3002029),
+                function()
+                    self:ReturnToPlot()
+                end, false, true)
+
+        end
+    end
+end
+
+function DailyLevelLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    Chapter:SetCoinChapterState(false)
+    Chapter:SetDailyChapterState(false)
+    self:onPopLayer()
+end
+
+function DailyLevelLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.CostItem then
+        if self._chapter.need_item then
+            SingletonMgr:ShowItemTipsLayer(self.layer:Get(itype), Bag.TYPE_ITEM, self._chapter.itemid)
+        end
+    elseif itype == BUTTON_TYPE.Rule then
+        Groble_UIMgr:ShowRuleTipsLayer(self._chapter.sub_type)
+    end
+end
+
+function DailyLevelLayer:levelidsGen()
+    local openids = {}
+    local lockids = {}
+    local player_level = Player:GetValue(Player.VALUE_LEVEL)
+    for i, levelid in ipairs(self._chapter.levelids) do
+        local unlock, lockstr = Chapter:LevelIsUnlock(levelid)
+        if unlock then
+            table.insert(openids, levelid)
+        else
+            table.insert(lockids, levelid)
+        end
+    end
+    table.sort(openids, function(a, b)
+            return a > b
+        end)
+    table.sort(lockids, function(a, b)
+            return a < b
+        end)
+    self._levelids = lua_merge_tables(false, openids, lockids)
+end
+
+
+function DailyLevelLayer:setTitle()
+    --if  self._chapter.sub_type == Chapter.MODE_EQUIP then
+    if(self._chapter.modeTimeid ~= nil) then
+        self.layer:Get("info_score"):SetVisible(true)
+        self.layer:GetTextComponent("info_score/txt_title"):SetText( LanguageMgr:GetTextByID(3002026))
+        self.layer:GetTextComponent("info_score/txt_title_E"):SetText( LanguageMgr:GetTextByID(3002027))
+        self._remain = CTime:GetRemainTime(self._chapter.modeTimeid)
+        self._txtScore:SetText( CTime:Time2Str( self._remain))
+    else
+        self.layer:Get("info_score"):SetVisible(false)
+    end
+end
+
+function DailyLevelLayer:initLevels()
+    local content = self.layer:Get("scrollview/viewport/content")
+    local _item = self.layer:Get("item").gameObject
+    Item:SetItemIcon(_item:Get("image_power_icon"), Player.ITEM_VALUE_POWER)
+    _item:Get("image_times_icon"):SetVisible(self._chapter.need_item)
+    _item:Get("text_times_cost"):SetVisible(self._chapter.need_item)
+    if self._chapter.need_item then
+        Item:SetItemIcon(_item:Get("image_times_icon"), self._chapter.itemid)
+    end
+    _item:SetVisible(false)
+
+    local item_h = _item:GetSizeDeltaY()
+    content:SetSizeY(#self._levelids * (item_h + 20))
+    self.layer:GetImageComponent("image_bg"):LoadSprite(self._chapter.imgbg)
+
+    local posx = 540
+    local posy = -110
+    for i = 1, #self._levelids do        
+        if(self.levelItems[i] == nil)then
+            local item = content:AddChild(_item)
+            item.name = "item" .. i
+            self.levelItems[i] = self:NewDailyLevelItem(item);
+        end
+        self.levelItems[i].transform:SetPosition(posx, posy, 0, true)
+        self:SetDailyLevelItem(self.levelItems[i],self._levelids[i]);
+        posy = posy - item_h - 20
+    end
+end
+
+function DailyLevelLayer:ReturnToPlot()
+
+    Groble_UIMgr:ClickOnReturnBtn()
+end
+
+
+function DailyLevelLayer:onLevelClick(id)
+    if self._chapter.fight_count > 0 and self._chapter.fight_count + self._chapter.fight_buy - self._chapter.pass_count == 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        return
+    end
+    local levelid = tonumber(id)
+    local unlock, lockstr = Chapter:LevelIsUnlock(levelid)
+    if unlock then
+        if self._chapter.fight_count == 0 or self._chapter.fight_count + self._chapter.fight_buy - self._chapter.pass_count > 0 then
+            Chapter:ShowDailyFightLayer(levelid,function ()
+               self:ReturnToPlot()
+            end, self)
+        else
+            if self._chapter.fight_buy < #self._chapter.fight_cost then
+                self:doBuyFightCount()
+            else
+                Groble_UIMgr:ShowGameWordTipsLayer(31221)
+            end
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(lockstr)
+    end
+end
+
+local _sdelay = 0.1
+function DailyLevelLayer:UI_MainBoxFadeInEnd()
+    for i = 1, #self._levelids, 1 do
+        local item = self.levelItems[i]
+        item.transform:SetScale(1, 0, 1)
+        item.transform:SetVisible(true)
+        item.transform:DOScaleY(1, _sdelay):SetDelay((i-1)*_sdelay)
+    end
+    self.layer:DelayInvoke(#self._levelids * _sdelay, 
+        function()
+            self:_fadingEnd()
+        end)
+end
+
+function DailyLevelLayer:_fadingEnd()
+    self._fading = false
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function DailyLevelLayer:NewDailyLevelItem(gameObject)
+    local cls = clearbase:new()
+    cls.transform   = gameObject.transform
+    cls.txtLevel    = gameObject:GetTextComponent("text_level")
+    cls.txtPower    = gameObject:GetTextComponent("text_power_cost")
+    cls.lockBg      = gameObject:Get("image_lock/image_bg")
+    cls.imgLock     = gameObject:Get("image_lock")
+    cls.txtLock     = gameObject:GetTextComponent("image_lock/image_bg/text_lock")
+    cls.objNewTips  = gameObject:Get("img_new")
+    cls.items       = {}
+    for j = 1, 4 do
+        cls.items[j] = Bag:CtorComSimpleGoodsUi(gameObject:Get("item_reward_" .. j))
+    end
+    gameObject:GetButtonComponent("button_click"):AddButtonListener(function()
+        if not self._fading then
+            self:onLevelClick(cls.id)
+        end
+    end);
+    return cls
+end
+
+function DailyLevelLayer:SetDailyLevelItem(cls,id)
+    local level = Chapter:GetLevel(id)
+    if cls.id ~= id then
+        cls.txtLevel:SetText(level.name)
+        -- 消耗体力
+        cls.txtPower:SetText(level.cost_power)
+        -- 获得道具
+        local drops = Chapter:GetLevelDrops(id,true)
+        for j = 1, 4 do
+            if(drops[j] ~= nil)then
+                Bag:SetComSimpleGoodsUi(cls.items[j],drops[j][1],drops[j][2],drops[j][3]);
+            end
+            cls.items[j].transform:SetVisible(drops[j] ~= nil)
+        end
+        cls.id = id;
+    end
+
+    local unlock, lockstr, openLv = Chapter:LevelIsUnlock(level.id)
+    cls.imgLock:SetVisible(not unlock)
+    if Player:GetLevel() < openLv then
+        cls.txtLock.text = lockstr
+        cls.lockBg:SetVisible(true)
+        cls.objNewTips:SetVisible(false)
+    else
+        cls.lockBg:SetVisible(false)
+        cls.objNewTips:SetVisible((not level.open) and Chapter:IsLevelNeverFought(id))
+    end
+end
+
+function DailyLevelLayer:setFightCost()
+    local show = false
+    self.layer:Get("pnl_remain/txt_item_count"):SetVisible(self._chapter.need_item)
+    self.layer:Get("pnl_remain/image_item_icon"):SetVisible(self._chapter.need_item)
+    self.layer:Get("pnl_remain/text_remain"):SetVisible(not self._chapter.need_item)
+    if self._chapter.need_item then
+        local itemcfg = Item:GetCfg(self._chapter.itemid)
+        Item:SetItemIcon(self.layer:Get("pnl_remain/image_item_icon"), self._chapter.itemid)
+        self.layer:GetTextComponent("pnl_remain/text_fight_tips"):SetTextById(3002003)
+    else
+        if self._chapter.fight_count > 0 then
+            self.layer:GetTextComponent("pnl_remain/text_fight_tips"):SetTextById(3002003)
+        else
+            if self._chapter.count > 0 then
+                self.layer:GetTextComponent("pnl_remain/text_fight_tips"):SetTextById(3002003)
+            end
+        end
+    end
+    local show = self._chapter.need_item or self._chapter.fight_count > 0 or self._chapter.count > 0
+    self.layer:Get("pnl_remain"):SetVisible(show)
+    if show then
+        self:refreshCount()
+    end
+end
+
+function DailyLevelLayer:refreshCount()
+    local all, remain = 0, 0
+    if self._chapter.need_item then
+        local itemcfg = Item:GetCfg(self._chapter.itemid)
+        if itemcfg ~= nil then
+            all = itemcfg.countOwnMax
+        end
+        remain = Item:GetCount(self._chapter.itemid)
+        self.layer:GetTextComponent("pnl_remain/txt_item_count").text = remain .. "/" .. all
+    else
+        if self._chapter.count > 0 then
+            all = self._chapter.count
+            remain = math.max(self._chapter.count - self._chapter.pass_count, 0)
+        end
+        self.layer:GetTextComponent("pnl_remain/text_remain").text = remain .. "/" .. all
+
+        -- if self._chapter.fight_count > 0 then
+        --     all = self._chapter.fight_count
+        --     remain = math.max(self._chapter.fight_count + self._chapter.fight_buy - self._chapter.pass_count, 0)
+        -- else
+        --     if self._chapter.count > 0 then
+        --         all = self._chapter.count
+        --         remain = math.max(self._chapter.count - self._chapter.pass_count, 0)
+        --     end
+        -- end
+        -- self.layer:GetTextComponent("pnl_remain/text_remain").text = remain .. "/" .. all
+    end
+end
+
+function DailyLevelLayer:doBuyFightCount()
+    local chapter = Chapter:GetChapter(self._chapter.id)
+    local remain = self._chapter.fight_count + self._chapter.fight_buy - self._chapter.pass_count
+    if remain == self._chapter.fight_count then
+        Groble_UIMgr:ShowGameWordTipsLayer(3002006)
+    else
+        if self._chapter.fight_buy < #self._chapter.fight_cost then
+            local cost = chapter.fight_cost[chapter.fight_buy+1]
+            if(Item:GetCount(cost[1]) < tonumber(cost[2]))then
+                UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(3002008),Item:GetCfg(cost[1]).Name));
+                return;
+            end
+            Chapter:BuyRewardCount(self._chapter.id, function()
+                Chapter:ChapterRewardCountReq(self._chapter.id)
+                end)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(3002007)
+        end
+    end
+end
+
+return DailyLevelLayer

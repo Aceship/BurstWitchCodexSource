@@ -1,0 +1,127 @@
+--
+-- author: haosun
+-- date  : 2019-02-14 10:42:22
+-- brief : 
+--
+
+GTemp = GTemp or {}
+
+GTemp.MainTypeLayer             = "MainTypeLayer"
+GTemp.LastFightId               = "LastFightId"
+GTemp.FightTmpData              = "FightTmpData"
+GTemp.SweepTmpData              = "SweepTmpData"
+GTemp.AccountTmpData            = "AccountTmpData"
+GTemp.GoFightTmpData            = "GoFightTmpData"
+GTemp.LastLoginTime             = "LastLoginTime"
+GTemp.IsPushActivity            = "IsPushActivity"
+GTemp.IsSkipFightTalk           = 10001
+GTemp.IsAutoFightTalk           = true
+GTemp.IsSkillLevelUpOn          = "IsSkillLevelUpOn"
+
+function GTemp:Ctor()
+    self._vartmp = {}
+end
+
+function GTemp:GTempClear()
+    for _, v in pairs(self._vartmp) do
+        self._vartmp[_] = nil
+    end
+end
+
+function GTemp:SetPushActivityState(push)
+    Groble_SceneMgr:PrefsSetString(GTemp.IsPushActivity,tostring(push))
+end
+
+function GTemp:GetPushActivityState()
+    return Groble_SceneMgr:PrefsGetString(GTemp.IsPushActivity)
+end
+
+function GTemp:SetLastLoginTime(lastTime)
+    Groble_SceneMgr:PrefsSetString(GTemp.LastLoginTime,tostring(lastTime))
+end
+
+function GTemp:GetLastLoginTime()
+    return tonumber(Groble_SceneMgr:PrefsGetString(GTemp.LastLoginTime))
+end
+
+function GTemp:SetMainTypeLayer(itype)
+    self._vartmp[GTemp.MainTypeLayer] = itype
+end
+
+function GTemp:GetMainTypeLayer()
+    return self._vartmp[GTemp.MainTypeLayer]
+end
+
+function GTemp:SetLastFightId(id)
+    self._vartmp[GTemp.LastFightId] = id
+end
+
+function GTemp:GetLastFightId()
+    return self._vartmp[GTemp.LastFightId]
+end
+
+function GTemp:SetFightTmpData(data)
+    self._vartmp[GTemp.FightTmpData] = data
+end
+
+function GTemp:GetFightTmpData()
+    return self._vartmp[GTemp.FightTmpData]
+end
+
+function GTemp:SetSweepTmpData(data)
+    self._vartmp[GTemp.SweepTmpData] = data
+end
+
+function GTemp:GetSweepTmpData()
+    return self._vartmp[GTemp.SweepTmpData]
+end
+
+function GTemp:SetGoFightTmpData(data)
+    self._vartmp[GTemp.GoFightTmpData] = data
+end
+
+function GTemp:GetGoFightTmpData()
+    return self._vartmp[GTemp.GoFightTmpData]
+end
+
+function GTemp:SetSkipFightTalk(tempvalue)
+    self._vartmp[GTemp.IsSkipFightTalk] = tempvalue
+end
+
+function GTemp:IsSkipFightTalk()
+    return self._vartmp[GTemp.IsSkipFightTalk]
+end 
+
+function GTemp:SetAutoFightTalk(tempvalue)
+    self._vartmp[GTemp.IsAutoFightTalk] = tempvalue
+end
+
+function GTemp:IsAutoFightTalk()
+    return self._vartmp[GTemp.IsAutoFightTalk]
+end 
+
+function GTemp:SetSkillLevelUpOn(tempvalue)
+    self._vartmp[GTemp.IsSkillLevelUpOn] = tempvalue
+end
+
+function GTemp:IsSkillLevelUpOn()
+    return self._vartmp[GTemp.IsSkillLevelUpOn]
+end 
+
+
+GTemp.DISCUESSS_CONFIRM		  = 3       -- 评论发送
+
+
+GTemp.SKIP_STOP_CONCERT_CONFIRM  = 100
+GTemp.SKIP_QUICK_CONCERT_CONFIRM = 101 --提前领取
+
+function GTemp:SetTempShowTipsTypeState(showtipstype, value)
+    self._vartmp[showtipstype] = value
+end
+
+function GTemp:GetTempShowTipsTypeState(showtipstype)
+    return self._vartmp[showtipstype] == nil or self._vartmp[showtipstype] == false
+end
+
+GTemp:Ctor()
+

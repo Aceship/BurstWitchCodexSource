@@ -1,0 +1,116 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 14:24:33
+-- brief :
+--
+Task = Task or {}
+
+function Task:_LoadCfg()
+    self._tasks     = {}
+    self._towerIds  = {}
+    self._banners   = {} -- 主界面任务按钮显示相关{{index = 1, id = 0, name = ""}, ...}
+    self._bloodIds  = {
+        [Task.SUB_TYPE_BLOOD_1] = {},
+        [Task.SUB_TYPE_BLOOD_2] = {},
+    }    
+
+    local cfgs = CfgLoader:LoadCfg("Quest")
+    local cfgid, task, _statsdata
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id)
+        self._tasks[cfgid] = {
+            cfgid       = cfgid,
+            showtype    = tonumber(v.Quest_class),
+            subtype     = tonumber(v.Quest_child_class),
+            nextid      = tonumber(v.Next_id),
+            listid      = tonumber(v.Quest_list),
+            Quest_des   = tonumber(v.Quest_des),
+            itype       = tonumber(v.Quest_type),
+            Quest_times = tonumber(v.Quest_completion_times),           -- 任务可领取次数
+            Type_cmp    = tonumber(v.Type_cmp),
+            Count_cmp   = tonumber(v.Count_cmp),
+            Quest_Open  = lua_str_split(v.Open_condition, "&", true),
+            rewards     = {},
+            ExpRewards  = {},
+            mysteryDes      = Language:GetTxtBuyId(v.Quset_secret_des),
+            dataJump        = lua_str_split(v.Is_jump, "&", true),
+            Statistics_id   = tonumber(v.Statistics_quest_id),
+            ActivePiece_point   = tonumber(v.ActivePiece_point),
+            Activity_points = lua_str_split(v.Activity_points, "&", true),
+            -- client data
+            state       = 0,
+            cmpValue    = -1,
+            hasValue    = -1,
+            showValue   = 1,
+            taskTimeId  = 0,
+            isJump      = true,
+            -- server data
+            recv_number = 0,    -- 已领取次数
+        }        
+        task = self._tasks[cfgid]
+        task.isJump = task.dataJump[1] ~= 0
+        local rewards = lua_parse_cfg(v.Reward, true)
+        for i, v in ipairs(rewards) do
+            if lua_value_in_tbl(v[2], Player.TaskExpReward) then
+                table.insert(task.ExpRewards, {v[2], v[3]})
+            else
+                table.insert(task.rewards, v)
+            end
+        end
+        if tonumber(v.Active_point) > 0 then
+            table.insert(task.ExpRewards, {Player.ITEM_VALUE_TASK_EXP, tonumber(v.Active_point)})
+        end
+
+        if task.showtype == Task.TYPE_TOWER then
+            table.insert(self._towerIds, cfgid)
+        end
+        if task.showtype == Task.TYPE_BLOOD then
+            table.insert(self._bloodIds[self._tasks[cfgid].subtype], cfgid)
+        end
+
+        if v.Bannershow and tonumber(v.Bannershow) > 0 then
+            local strs = lua_str_split(v.Banner_Show_Str, "&")
+            local bsID = tonumber(strs[1])
+            local bsPath = strs[2]
+            local bsDes = tonumber(strs[3])
+            table.insert(self._banners, {index = tonumber(v.Bannershow), id = cfgid, name = Language:GetTxtBuyId(bsID), path = bsPath,desId = bsDes})
+        end
+        -- 数据统计表反向关联
+        Stats:ContactTask(task.Statistics_id, task.cfgid)
+        -- 客户端使用数据
+        _statsdata = Stats:GetStatisticsQuestConfig(task.Statistics_id)
+        task.cmpValue = task.Count_cmp
+        task.taskTimeId = _statsdata.TimeId
+        if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_MAX_FIX) then
+            task.cmpValue = 1
+        end
+        task.showValue = task.Count_cmp
+        if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_SHOW_COUNT_FIX) then
+            task.showValue = 1
+        end        
+    end
+
+    table.sort(self._banners, function (a, b)
+        return a.index < b.index
+    end)
+    
+    self._lists = {}
+    for _, v in pairs(self._tasks) do
+        if v.listid == 1 then
+            self._lists[v.cfgid] = {v.cfgid}
+            local list = self._lists[v.cfgid]
+            local nextid = v.nextid
+            local c = 1
+            while nextid ~= 0 do
+                table.insert(list, nextid)
+                if self._tasks[nextid] ~= nil then
+                    nextid = self._tasks[nextid].nextid
+                end
+                c = c + 1
+                if c > 100 then
+                    break
+                end
+            end
+        end
+    end
+end

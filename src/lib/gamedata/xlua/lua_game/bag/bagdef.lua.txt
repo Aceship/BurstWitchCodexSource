@@ -1,0 +1,66 @@
+--
+-- author: haosun
+-- date  : 2018-11-13 11:47:04
+-- brief : 
+--
+
+Bag = Bag or {}
+
+Bag.TYPE_HERO           = 1         -- 魔女
+Bag.TYPE_PET            = 2         -- 宠物
+Bag.TYPE_EQUIP          = 3         -- 装备
+Bag.TYPE_ITEM           = 4         -- 道具
+Bag.TYPE_MUSIC          = 5         -- 乐器
+Bag.TYPE_GIFT           = 6         -- 礼物
+Bag.TYPE_EXCHANGE       = 7         -- 印记兑换
+
+Bag.TYPE_RMB            = 99        -- 充值
+
+Bag.SHOW_TYPE_PROP      = 1         -- 道具分页
+Bag.SHOW_TYPE_RUNE      = 3         -- 符石分页
+Bag.SHOW_TYPE_MATE      = 4         -- 材料分页
+Bag.SHOW_TYPE_CHIP      = 5         -- 印记分页
+
+Bag.SHOW_TYPES = {
+    Bag.SHOW_TYPE_PROP,
+    Bag.SHOW_TYPE_RUNE,
+    Bag.SHOW_TYPE_MATE,
+    Bag.SHOW_TYPE_CHIP,
+}
+
+Bag.SHOW_MAX        = 0     -- 道具可堆叠显示
+Bag.SHOW_MIN        = 1     -- 道具不可堆叠显示
+
+-- 魔女、爪牙、装备、物品的品质统一处理
+Bag.QLTY_N          = 1
+Bag.QLTY_R          = 2
+Bag.QLTY_SR         = 3
+Bag.QLTY_SSR        = 4
+Bag.QLTY_UTR        = 5
+
+Bag.STARS           = {
+    "Img_MoNvTouXiAng_Xing_1",
+    "Img_MoNvTouXiAng_Xing_2",
+    "Img_MoNvTouXiAng_Xing_3",
+    "Img_MoNvTouXiAng_Xing_4",
+    "Img_MoNvTouXiAng_Xing_5",
+    "Img_MoNvTouXiAng_Xing_6",
+}
+
+Bag.SPINE_BG               = "prefab_item_spine/spine_item_bg"
+Bag.SPINE_BG_UR            = "prefab_item_spine/spine_item_bg_ur"
+
+Bag.SPINE_BORDER           = "prefab_item_spine/spine_item_border"
+Bag.SPINE_BORDER_SR        = "prefab_item_spine/spine_item_border_sr"
+Bag.SPINE_BORDER_UR        = "prefab_item_spine/spine_item_border_ur"
+
+Bag.SPINE_BUILD_SELECT      = "prefab_item_spine/spine_build_select"
+Bag.SPINE_SHOP_HOT          = "prefab_item_spine/spine_hot_title"
+Bag.SPINE_SKIN_SHOP_FRAME   = "prefab_item_spine/spine_skin_frame"
+
+
+--item 上方提示文字
+Bag.TYPE_NORMAL  = 0  --无提示
+Bag.TYPE_MAYDROP = 1  --可能掉落
+Bag.TYPE_EXDROP  = 2  --额外掉落
+Bag.TYPE_SETTLEDROP = 3 --结算掉落

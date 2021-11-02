@@ -1,0 +1,161 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-24 15:03:06
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WhiteNightAwardLayer = class("WhiteNightAwardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBack = "btn_back",
+	--@ButtonEnd
+}
+--构造函数
+function WhiteNightAwardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_WhiteNightAwardLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function WhiteNightAwardLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+            function()
+                self:SetItemStart(self._selectItem);
+            end)
+    self:Init();
+end
+
+--按钮事件
+function WhiteNightAwardLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then
+	   self:OnBtnBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function WhiteNightAwardLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function WhiteNightAwardLayer:Init()
+    self._data = Task:GetTasks(Task.TYPE_BLOOD);
+    table.sort(self._data,function (a,b)
+        return a < b;
+    end);
+    self._awardItem = {};
+    self:InitUI();
+end
+
+--初始化UI
+function WhiteNightAwardLayer:InitUI()
+    self._imgItemIcon = self.layer:GetImageComponent("container/image_bg/img_item_icon");
+    --@ImageEnd
+    self._txtItemNum = self.layer:GetTextComponent("container/txt_item_num");
+	--@TextEnd
+
+    self._transContent = self.layer:Get("container/obj_award_bg/view_port/trans_content");
+    --@TransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    Item:SetItemIcon(self._imgItemIcon, Player.WHITE_NIGHT_TASK_ITEM_ID);
+    self._txtItemNum.text = string.format(LanguageMgr:GetTextByID(130028),Item:GetCount(Player.WHITE_NIGHT_TASK_ITEM_ID));
+
+    self._TableViewController   = self.layer:Get("container/TableViewController")
+    self._tvController          = UIController:CtorTableView(self._TableViewController)
+    self._tvController:Init(#self._data, true,
+            function(cell, row)
+                self:refreshUnitCell(cell, row + 1)
+            end, 0.3, 0.1)
+end
+
+--显示UI
+function WhiteNightAwardLayer:show()
+    self:showLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WhiteNightAwardLayer:OnBtnBackClick()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_RED_POINT_STATE);
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function WhiteNightAwardLayer:onExit()
+
+	self._transContent = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function WhiteNightAwardLayer:refreshUnitCell(cell, row)
+    local cls = self._awardItem[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.txtDes = cls:GetTextComponent("txt_des");
+        cls.btn = cls:GetButtonComponent("btn");
+        cls.imgCanReceive = cls:GetImageComponent("img_can_receive");
+        cls.imgItemIcon = cls:GetImageComponent("img_item_icon");
+        cls.btn.onClick:AddListener(function ()
+            self._selectItem = cls;
+            Task:GetRewardReq({cls.data.cfgid});
+        end);
+        cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("item"));
+        cls.objGet = cls.item:Get("img_get").gameObject;
+        self._awardItem[cell] = cls;
+    end
+    local data = Task:GetTask(self._data[row]);
+    cls.data = data;
+    cls.index = row;
+    local isSend = false;
+    Item:SetItemIcon(cls.imgItemIcon, Player.WHITE_NIGHT_TASK_ITEM_ID);
+    cls.btn.gameObject:SetVisible(isSend);
+    self:SetItemStart(cls);
+end
+
+function WhiteNightAwardLayer:SetItemStart(cls)
+    local data = cls.data;
+    local str ="";
+    Bag:SetComSimpleGoodsUi(cls.item,data.rewards[1][1],data.rewards[1][2],data.rewards[1][3],true);
+    if(data.state == Task.STATE_HAS_RECV)then
+        cls.objGet:SetVisible(true);
+        cls.btn.gameObject:SetVisible(false);
+        set_com_enabled(cls.imgCanReceive,false);
+        cls.txtDes.color = COLOR_TYPE.White_Gray;
+        str = LanguageMgr:GetTextByID(130032);
+    else
+        cls.objGet:SetVisible(false);
+        cls.btn.gameObject:SetVisible(data.state == Task.STATE_HAS_DONE);
+        if(data.state == Task.STATE_HAS_DONE)then
+            cls.txtDes.color = COLOR_TYPE.Black;
+            str = LanguageMgr:GetTextByID(130032);
+        else
+            cls.txtDes.color = COLOR_TYPE.White_Gray;
+            local num = data.max_count - Item:GetCount(Player.WHITE_NIGHT_TASK_ITEM_ID)
+            str = string.format(LanguageMgr:GetTextByID(130033),num);
+        end
+        set_com_enabled(cls.imgCanReceive,data.state == Task.STATE_HAS_DONE);
+    end
+    cls.txtDes.text = string.format(LanguageMgr:GetTextByID(130030),data.max_count,str);
+end
+
+return WhiteNightAwardLayer;

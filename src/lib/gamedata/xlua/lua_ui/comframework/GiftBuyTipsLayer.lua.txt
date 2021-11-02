@@ -1,0 +1,278 @@
+--
+-- author: haosun
+-- date  : 2021-05-19 11:28:18
+-- brief : 
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local GiftBuyTipsLayer = class("GiftBuyTipsLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    BtnAdd = "trans_container/trans_num_info/btn_add",
+    BtnSub = "trans_container/trans_num_info/btn_sub",
+    BtnMax = "trans_container/trans_num_info/btn_max",
+    BtnBuy = "trans_container/trans_num_info/btn_buy",
+}
+
+function GiftBuyTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_GiftBuyTipsLayer",
+    }
+    self._uitype    = 2
+    self._fading    = false
+    self._cells     = {}
+    self:onEnter()
+end
+
+function GiftBuyTipsLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:onPopLayer()
+    end)
+    self:initLayer()
+end
+
+function GiftBuyTipsLayer:onExit()
+    self._chargeCfg = nil
+    self._cells     = nil
+    self._imgPriceIcon = nil
+    self._txtBuyNum = nil
+    self._txtAllPrice = nil
+    self._txtLimitBuyNum = nil
+    self._txtHaveNum = nil
+    self._rectContainer = nil
+    self._txtHeroName = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function GiftBuyTipsLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.BtnAdd then 
+        self._slider.value = self._slider.value + 1
+    elseif buttontype == BUTTON_TYPE.BtnSub then 
+        if self._slider.value > 0 then
+            self._slider.value = self._slider.value - 1
+        end
+    elseif buttontype == BUTTON_TYPE.BtnMax then 
+        self._slider.value = self._slider.maxValue
+    elseif buttontype == BUTTON_TYPE.BtnBuy then 
+        if -1 == self._chargeCfg.chargeMoneyId then
+            self:doBuyGift()
+        else
+            Operation:SendMessage(Operation:GetCurSelectUID(),{id = self._chargeId, num = 1})
+        end
+    end
+end
+
+--初始化
+function GiftBuyTipsLayer:initLayer()
+    self._clsitem = Bag:CtorComSimpleGoodsUi(self.layer:Get("trans_container/trans_item_info/trans_item"))
+
+    self._rectContainer = self.layer:GetRectTransformComponent("trans_container")
+    self._imgPriceIcon = self.layer:GetImageComponent("trans_container/trans_num_info/img_price_icon")
+    self._txtBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_buy_num")
+    self._txtAllPrice = self.layer:GetTextComponent("trans_container/trans_num_info/txt_all_price")
+    self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num")
+    self._txtHaveNum = self.layer:GetTextComponent("trans_container/trans_item_info/txt_have_num")
+    self._slider = self.layer:GetSliderComponent("trans_container/trans_num_info/slider")
+    self._slider.onValueChanged:AddListener(function (value)
+        if(value < 0)then
+            value = 0
+        end
+        value = math.floor(value)
+        self._buyItemNum = value
+        self._txtBuyNum:SetText(value.."/"..self._oneMaxBuyNum)
+        if(self._limitBuyStr ~= "")then
+            self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum))
+        end
+        local curAllPrice = math.floor(self._price * value * self._discount)
+        if -1 == self._chargeCfg.chargeMoneyId then
+            if(Item:GetCount(self._chargeCfg.priceId) < curAllPrice)then
+                self._txtAllPrice:SetTextColor(1.00, 0.40, 0.32, 1.00)
+            else
+                self._txtAllPrice:SetTextColor(0,0,0,1)
+            end
+            self._txtAllPrice:SetText(curAllPrice)
+        else
+            self._txtAllPrice:SetTextColor(0,0,0,1)
+            self._txtAllPrice:SetText(uistr.com_rmb .. curAllPrice)
+        end
+    end)
+    self._tvController = UIController:CtorTableView(self.layer:Get("trans_container/trans_goods"))
+    self._tvController:Init(0, false,
+        function(cell, row)
+            self:refreshGiftBuyUnitCell(cell, row+1)
+        end)
+end
+
+function GiftBuyTipsLayer:show(chargeId, chargeCfg)
+    self._chargeId  = chargeId
+    self._chargeCfg = chargeCfg
+    self._price     = 1
+    self._discount  = 1
+    if -1 == self._chargeCfg.chargeMoneyId then
+        self._price = self._chargeCfg.price
+        self._discount = self._chargeCfg.discount
+    else
+        local config = Recharge:GetRechargeMoneyCfg(self._chargeCfg.chargeMoneyId)
+        self._price = config.price
+        self._discount = config.discount
+    end
+    self:SetItemInfo()
+    self:SetTableView()
+    self:SetNumInfoUI()
+    self:showLayer()
+    self:playAni("CommTipsLayer")
+end
+
+function GiftBuyTipsLayer:doBuyGift()
+    if(self._chargeCfg.timeId > 0)then
+        local timeCfg = CTime:GetCfg(self._chargeCfg.timeId)
+        if(CTime:GetServerTime() >= timeCfg.etime)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90315))
+            return
+        end
+    end
+
+    if(self._buyItemNum <= 0)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90250))
+        return
+    end
+    local isLock = false
+    if(self._chargeCfg.lockData == Recharge.LockType.NotHave)then--锁定方式--无
+    elseif(self._chargeCfg.lockData[1] == Recharge.LockType.One)then--锁定方式--一个锁定
+        isLock = Item:GetCount(self._chargeCfg.lockData[2]) + self._buyItemNum >= 1
+    elseif(self._chargeCfg.lockData[1] == Recharge.LockType.Double)then--锁定方式--指定个数锁定
+        isLock = Item:GetCount(self._chargeCfg.lockData[2]) + self._buyItemNum >= self._chargeCfg.lockData[3]
+    end
+
+    if(isLock)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90314))
+        return
+    end
+
+    if(self._buyItemNum * self._price * self._discount > Item:GetCount(self._chargeCfg.priceId))then
+        local _config = Item:GetCfg(self._chargeCfg.priceId)
+        if(self._chargeCfg.priceId == Player.ITEM_VALUE_WITCH_COIN)then
+            self:doGoBuy(_config.Name, Operation.ActivityID.WitchCoin)
+        -- elseif(self._chargeCfg.priceId == Player.ITEM_VALUE_MONEY)then
+        --     self:doGoBuy(_config.Name, Operation.ActivityID.ShopSundryGoods)
+        else
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(90218), _config.Name))
+        end
+    else
+        Operation:SendMessage(Operation:GetCurSelectUID(),{id = self._chargeId,num = self._buyItemNum})
+    end    
+end
+
+function GiftBuyTipsLayer:SetItemInfo()
+    self._txtHaveNum:SetText(0)
+    self._clsitem.iconImg:LoadSprite(self._chargeCfg.icon)
+    Bag:SetGoodsBorderByQlty(self._clsitem, self._chargeCfg.qlty)
+    local trans_item_info = self.layer:Get("trans_container/trans_item_info")
+    if -1 == self._chargeCfg.chargeMoneyId then
+        local _txtUnitPrice = trans_item_info:GetTextComponent("unit_info/txt_unit_price")
+        local _imgUnitPriceIcon = trans_item_info:GetImageComponent("unit_info/img_unit_price_icon")
+        _txtUnitPrice:SetText(math.ceil(self._price * self._discount))
+        _imgUnitPriceIcon:LoadSprite(Item:GetItemIconPathByName(self._chargeCfg.priceId))        
+    else
+        trans_item_info:Get("unit_info"):SetVisible(false)
+    end
+    trans_item_info:GetTextComponent("txt_item_name"):SetText(self._chargeCfg.name)
+end
+
+function GiftBuyTipsLayer:SetTableView()
+    self._tvController:ScrollRectVertical(false)
+    self._tvController:Reload(#self._chargeCfg.goods)
+    self._tvController:ScrollToTop()
+end
+
+function GiftBuyTipsLayer:refreshGiftBuyUnitCell(cell, row)
+    local cls = self._cells[cell]
+    if cls == nil then
+        cls = {
+            clsitem = Bag:CtorComSimpleGoodsUi(cell.transform:Get("item")),
+            txt_des = cell.transform:GetTextComponent("txt_des")
+        }
+        self._cells[cell] = cls
+    end
+    local data = self._chargeCfg.goods[row]
+    Bag:SetComSimpleGoodsUi(cls.clsitem, data[1], data[2], data[3])
+    if data[1] == Bag.TYPE_ITEM then
+        local cfg = Item:GetCfg(data[2])
+        cls.txt_des:SetText(string.format("%s x%d", cfg.Name, (data[3] or 1)))
+    else
+        cls.txt_des:SetText("非道具类型")
+    end
+end
+
+function GiftBuyTipsLayer:SetNumInfoUI()
+    if(self._chargeCfg.oneBuyNum < 1)then
+        return
+    end
+    self._maxBuyNum = 0
+    self._oneMaxBuyNum = 0
+    self._limitBuyStr = ""
+    if(self._chargeCfg.buytype == Recharge.BuyType.day)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90223)
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Week)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90224)
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Month)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90225)
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Normal)then
+        if(self._chargeCfg.stock > 0)then
+            self._limitBuyStr = LanguageMgr:GetTextByID(90227)
+        end
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.IsDoubleWeek)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90228)
+    end
+    if(self._limitBuyStr == "")then
+        self._txtLimitBuyNum:SetText("")
+    end
+    if -1 == self._chargeCfg.chargeMoneyId then
+        self._imgPriceIcon:LoadSprite(Item:GetItemIconPathByName(self._chargeCfg.priceId))
+        self._imgPriceIcon:SetEnabled(true)
+    else
+        self._imgPriceIcon:SetEnabled(false)
+    end
+    self._oneMaxBuyNum = Recharge:GetGiftBagBuyNum(self._chargeId)
+    if(self._chargeCfg.stock > 0)then
+        self._maxBuyNum = self._chargeCfg.stock
+    else
+        self._maxBuyNum = self._chargeCfg.oneBuyNum
+    end
+    local canBuyNum
+    if -1 == self._chargeCfg.chargeMoneyId then
+        canBuyNum = math.floor(Item:GetCount(self._chargeCfg.priceId) / self._chargeCfg.price)
+    else
+        canBuyNum = 1
+    end
+    if(canBuyNum < self._oneMaxBuyNum)then
+        self._oneMaxBuyNum = canBuyNum
+    end
+    if(self._oneMaxBuyNum <= 0)then
+        self._oneMaxBuyNum = 1
+    end
+    self._slider.value = 1
+    self._slider.minValue = 0
+    self._slider.maxValue = self._oneMaxBuyNum
+end
+
+function GiftBuyTipsLayer:onLayerFadeInEndCall()
+    self._tvController:ScrollRectVertical(true)
+end
+
+function GiftBuyTipsLayer:doGoBuy(Name, buyUid)
+    Groble_UIMgr:ShowMsgBy2CallLayer(string.format(LanguageMgr:GetTextByID(90055), Name),
+        function()
+            -- do nothing
+        end,
+        function()
+            Operation:OpenOperationMainLayer(nil, buyUid, false)
+            self:onPopLayer()
+        end)
+end
+
+return GiftBuyTipsLayer

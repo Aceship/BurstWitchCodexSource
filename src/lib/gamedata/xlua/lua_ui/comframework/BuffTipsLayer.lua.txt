@@ -1,0 +1,52 @@
+--
+-- author: haosun
+-- date  : 2019-04-03 14:56:14
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuffTipsLayer = class("BuffTipsLayer", CBaseLayer)
+
+function BuffTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_BuffTipsLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function BuffTipsLayer:onEnter()
+    self:createPnl()
+end
+
+function BuffTipsLayer:show(str,trans)
+    self:refreshPos(trans)
+    local txtDesc = self.layer.transform:Find("container/text_desc"):GetComponent("Text");
+    play_effect_show()
+    self:showLayer()
+    txtDesc.text = str;
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function BuffTipsLayer:refreshPos(trans)
+    -- 计算位置
+    self.layer.transform:Find("container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local rect = self.layer.transform:Find("container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-rect.sizeDelta.x/2,rect.sizeDelta.x/2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y + transRect.sizeDelta.y > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y / 2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y / 2;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y / 2;
+    end
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+return BuffTipsLayer
+

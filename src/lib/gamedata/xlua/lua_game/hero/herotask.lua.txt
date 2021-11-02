@@ -1,0 +1,167 @@
+--
+-- author: haosun
+-- date  : 2021-05-18 16:26:48
+-- brief : 魔女任务统计数据接口
+--
+
+Hero = Hero or {}
+
+--
+-- brief: >= X 等级的魔女数量
+-- 
+function Hero:GetHeroLevelNumber(level)
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        if hero.owner and hero.level >= level then
+            _number = _number + 1
+        end
+    end
+    return _number
+end
+
+--
+-- brief: >= X 星级的魔女数量
+-- 
+function Hero:GetHeroStarNumber(star)
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        if hero.owner and hero.star >= star then
+            _number = _number + 1
+        end
+    end
+    return _number
+end
+
+--
+-- brief: >= X 品质的魔女数量
+-- 
+function Hero:GetHeroQltyNumber(qlty)
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        if hero.owner and hero.qlty >= qlty then
+            _number = _number + 1
+        end
+    end
+    return _number
+end
+
+--
+-- brief: >= X 的魔女技能个数（技能个数）
+-- 
+function Hero:GetHeroSkillLevelNumber(skilllevel)
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        if hero.owner then
+            for _, skill in ipairs(hero.skills) do
+                if (skill.level or 0) >= skilllevel then
+                    _number = _number + 1
+                end
+            end
+        end
+    end
+    return _number
+end
+
+function Hero:GetSkinNumber()
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        for i = 2, #hero.skinids, 1 do
+            if Item:GetCount(hero.skinids[i]) > 0 then
+                _number = _number + 1
+            end
+        end
+    end
+    return _number
+end
+
+-- 
+-- 拥有魔女个数
+-- 
+function Hero:GetOwnerHeroNumber()
+    local _number = 0
+    for _, hero in pairs(self._heroes) do
+        if hero.owner then
+            _number = _number + 1
+        end
+    end
+    return _number
+end
+
+-- 
+-- 指定魔女等级
+-- 
+function Hero:GetHeroLevel(heroid)
+    local hero = self:GetHero(heroid)
+    if hero.owner then
+        return hero.level
+    end
+    return 0
+end
+
+-- 
+-- 指定魔女星级
+-- 
+function Hero:GetHeroStar(heroid)
+    local hero = self:GetHero(heroid)
+    if hero.owner then
+        return hero.star
+    end
+    return 0
+end
+
+-- 
+-- 指定魔女升华等级
+-- 
+function Hero:GetHeroFavorUpLevel(heroid)
+    local hero = self:GetHero(heroid)
+    if hero.owner then
+        if hero.intimacy_data ~= nil then
+            if hero.intimacy_data.raise == 0 then
+                -- 未激活升华
+                return 0
+            elseif hero.intimacy_data.raise < 0 then
+                -- 激活升华但没有升华
+                return 0
+            else
+                -- 升华完毕
+                return 1
+            end
+        end
+    end
+    return 0
+end
+
+-- 
+-- 指定魔女好感度等级
+-- 
+function Hero:GetHeroFavorLevel(heroid)
+    local hero = self:GetHero(heroid)
+    if hero.owner then
+        if hero.intimacy_data ~= nil then
+            return hero.intimacy_data.level
+        end
+    end
+    return 0
+end
+
+--
+-- 指定魔女的R SR SSR符石数量
+--
+function Hero:GetSuitNum(heroid)
+    local hero = self:GetHero(heroid)
+    local RNum, SRNum, SSRNum, levelNum = 0,0,0,0
+    for k,uid in ipairs(hero.equipids) do
+        if uid ~= 0 then
+            local equip = Equip:GetEquip(uid)
+            levelNum = levelNum + equip.level
+            if equip.Quality == Equip.QualityType.R then
+                RNum = RNum + 1
+            elseif equip.Quality == Equip.QualityType.SR then
+                SRNum = SRNum + 1
+            elseif equip.Quality == Equip.QualityType.SSR then
+                SSRNum = SSRNum + 1
+            end
+        end 
+    end
+    return RNum, SRNum, SSRNum, levelNum
+end

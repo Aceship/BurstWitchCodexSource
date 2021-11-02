@@ -1,0 +1,267 @@
+--
+-- author: haosun
+-- date  : 2016-06-26 19:09:16
+-- brief : str function tools
+--
+
+-- 
+-- brief  判断字符串是否为空
+-- param  字符串
+-- return Bool(true or false)
+-- 
+function lua_str_empty(str_value)
+    return not (str_value and str_value ~= "")
+end
+
+-- 
+-- brief  指定字符标识分割字符串
+-- param  字符串
+-- return table(分割后的字符数组)
+-- 
+-- function lua_str_split(str, split_char)
+    -- if type(str) ~= "string" then
+    --     return {}
+    -- end
+    -- local sub_str_tab = {}
+    -- while (true) do
+    --     local pos = string.find(str, split_char)
+    --     if (not pos) then
+    --         sub_str_tab[#sub_str_tab + 1] = str
+    --         break
+    --     end
+    --     local sub_str = string.sub(str, 1, pos - 1)
+    --     sub_str_tab[#sub_str_tab + 1] = sub_str
+    --     str = string.sub(str, pos + 1, #str)
+    -- end
+
+    -- return sub_str_tab
+-- end
+
+function lua_str_split(str, delimiter, number)
+    if str == nil or str == '' or delimiter == nil then
+        return {}
+    end
+
+    local special_delimiters = {'(', ')', '.', '%', '+', '-', '*', '?', '[', '^', '$'};
+    local pattern;
+    for _, v in ipairs(special_delimiters) do
+        if delimiter == v then
+            pattern = "(.-)%"..delimiter;
+            break;
+        end
+    end
+    if not pattern then
+        pattern = "(.-)"..delimiter;
+    end
+    
+    local result = {}
+    if number then
+        for match in (str..delimiter):gmatch(pattern) do
+            table.insert(result, tonumber(match))
+        end
+    else
+        for match in (str..delimiter):gmatch(pattern) do
+            table.insert(result, match)
+        end
+    end
+    return result
+end
+
+function lua_parse_cfg(str, bnumber)
+    local tbl = {}
+
+    if str == nil or str == "-1" or str == "0" or #str == 0 then
+        return tbl
+    end
+    local items = lua_str_split(str, "|")
+    for _, v in ipairs(items) do
+        local index = #tbl+1
+        if true == bnumber then
+            tbl[index] = {}
+            local tmp = lua_str_split(v, "&")
+            for i, val in ipairs(tmp) do
+                table.insert(tbl[index], tonumber(val))
+            end
+        else
+            tbl[index] = lua_str_split(v, "&")
+        end
+    end
+    return tbl
+end
+
+-- 
+-- brief 计算UTF8编码的字符串长度
+-- param 字符串
+-- return number(长度)
+-- 
+function lua_str_utf8len(str)
+    local len  = string.len(str)
+    local left = len
+    local cnt  = 0
+    local arr  = {0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc}
+    while left ~= 0 do
+        local tmp = string.byte(str, -left)
+        local i   = #arr
+        while arr[i] do
+            if tmp >= arr[i] then
+                left = left - i
+                break
+            end
+            i = i - 1
+        end
+        cnt = cnt + 1
+    end
+    return cnt
+end
+
+-- 
+-- brief 将时间转为字符串
+-- param remain, showtype
+-- return string
+-- 
+
+function lua_str2time(remain, showtype)
+    if type(remain) ~= "number" or remain <= 0 then
+        return "00:00:00"
+    end
+    local str_type = "%d:%02d:%02d"
+    if showtype == 1 then
+        str_type = "%d小时%d分%d秒"
+    end
+    local h = math.floor(remain / 3600)
+    local m = math.floor((remain - h * 3600) / 60)
+    local s = remain % 60
+    return string.format(str_type, h, m, s)
+end
+
+local _htmlSpecialCharsTable = {}
+_htmlSpecialCharsTable["&"] = "&amp;"
+_htmlSpecialCharsTable["\""] = "&quot;"
+_htmlSpecialCharsTable["'"] = "&#039;"
+_htmlSpecialCharsTable["<"] = "&lt;"
+_htmlSpecialCharsTable[">"] = "&gt;"
+function lua_str_htmlspecialchars(str)
+    for k, v in pairs(_htmlSpecialCharsTable) do
+        str = string.gsub(str, k, v)
+    end
+    return str
+end
+
+function lua_str_nl2br(str)
+    return string.gsub(str, "\n", "<br />")
+end
+
+function lua_str_text2html(str)
+    str = string.gsub(str, "\t", "    ")
+    str = lua_str_htmlspecialchars(str)
+    str = string.gsub(str, " ", "&nbsp;")
+    str = lua_str_nl2br(str)
+    return str
+end
+
+function lua_str_line_feed(str)
+    if(str == nil or str == "")then
+        return ""
+    end
+    return string.gsub(str,"\\n","\n");
+end
+
+local function number_or_char(str)
+    local rst = true
+    local len  = string.len(str)
+    for i = 1, len do
+        local c = string.byte(str, i)
+        if (c >= 48 and c <= 57) or (c >= 65 and c <= 90) or (c >= 97 and c <= 122) then
+        else
+            rst = false
+            break
+        end
+    end
+    return rst
+end
+
+string.number_or_char = number_or_char
+
+function StringGetBytes(char)
+    if not char then
+       return 0
+    end
+    local code = string.byte(char)
+    if code < 127 then
+       return 1
+    elseif code <= 223 then
+       return 2
+    elseif code <= 239 then
+       return 3
+    elseif code <= 247 then
+       return 4
+    else
+       -- 讲道理不会走到这里^_^
+       return 0
+    end
+ end
+ 
+ function StringSub(str, startIndex, endIndex)
+    local tempStr = str 
+    local byteStart = 1 -- string.sub截取的开始位置
+    local byteEnd = -1 -- string.sub截取的结束位置
+    local index = 0  -- 字符记数
+    local bytes = 0  -- 字符的字节记数
+ 
+    startIndex = math.max(startIndex, 1)
+    endIndex = endIndex or -1
+    while string.len(tempStr) > 0 do     
+       if index == startIndex - 1 then
+          byteStart = bytes+1;
+       elseif index == endIndex then
+          byteEnd = bytes;
+          break;
+       end
+       bytes = bytes + StringGetBytes(tempStr)
+       tempStr = string.sub(str, bytes+1)
+ 
+       index = index + 1
+    end
+    return string.sub(str, byteStart, byteEnd)
+ end
+
+ function filter_spec_chars(s)
+    local ss = {}
+    local k = 1
+    while true do
+        if k > #s then break end
+        local c = string.byte(s,k)
+        if not c then break end
+        if c<195 then
+            -- if (c>=48 and c<=57) or (c>= 65 and c<=90) or (c>=97 and c<=122) then
+                table.insert(ss, string.char(c))
+            -- end
+            k = k + 1
+        elseif c<224 then
+            k = k + 2
+        elseif c<240 then
+            -- if c>=228 and c<=233 then
+                local c1 = string.byte(s,k+1)
+                local c2 = string.byte(s,k+2)
+                if c1 and c2 then
+                    local a1,a2,a3,a4 = 128,191,128,191
+                    if c == 228 then a1 = 184
+                    elseif c == 233 then a2,a4 = 190,c1 ~= 190 and 191 or 165
+                    end
+                    if c1>=a1 and c1<=a2 and c2>=a3 and c2<=a4 then
+                        table.insert(ss, string.char(c,c1,c2))
+                    end
+                end
+            -- end
+            k = k + 3
+        elseif c<248 then
+            k = k + 4
+        elseif c<252 then
+            k = k + 5
+        elseif c<254 then
+            k = k + 6
+        end
+    end
+    return table.concat(ss)
+end
+

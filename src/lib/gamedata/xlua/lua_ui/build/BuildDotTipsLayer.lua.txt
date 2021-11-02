@@ -1,0 +1,141 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-21 15:44:54
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildDotTipsLayer = class("BuildDotTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBack = "btn_close",
+	--@ButtonEnd
+}
+--构造函数
+function BuildDotTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildDotTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function BuildDotTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function BuildDotTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then 
+	   self:OnBtnBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+
+
+--初始化
+function BuildDotTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function BuildDotTipsLayer:InitUI()
+
+	--@ImageEnd
+
+    self._txtTitle = self.layer:GetTextComponent("trans_container/txt_title");
+	self._txtDes = self.layer:GetTextComponent("trans_container/txt_des");
+	self._txtlock = self.layer:GetTextComponent("trans_container/txt_lock");
+	self._imglock = self.layer:Get("trans_container/img_lock");
+    self._containerSize = self.layer:Get("trans_container")
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function BuildDotTipsLayer:show(trans,title, des, unlock)
+    if des ~= nil then
+        self._txtDes.text =lua_color_str(des);
+    end
+    self._txtTitle.text = title;
+    if unlock ~= nil then
+        self._txtlock.text = unlock.desc
+        self._imglock:SetVisible( unlock.lock)
+    end
+    self._txtDes.transform:SetSizeY(self._txtDes.preferredHeight);
+    self._containerSize:SetSizeY(self._txtDes.preferredHeight + 160);
+    self:refreshPos(trans)
+    self:showLayer();
+end
+
+--释放
+function BuildDotTipsLayer:onExit()
+
+    self._txtDes = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuildDotTipsLayer:OnBtnBackClick()
+    self:onPopLayer();
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION,EVENT_NAME.CLOSE_BUILD_DOT_TIPS);
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuildDotTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuildDotTipsLayer:refreshPos(trans)
+    -- 计算位置
+    if(trans.position == nil)then
+        trans = trans.transform;
+    end
+    self.layer.transform:Find("trans_container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local layerWidth = self.layer:GetComponent("RectTransform").sizeDelta.x;
+    local rect = self.layer.transform:Find("trans_container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-(layerWidth / 2 - rect.sizeDelta.x / 2),layerWidth / 2 - rect.sizeDelta.x / 2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y * 1.5 > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y/2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y/2 - 50;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2)+ transRect.sizeDelta.y/2 - 50;
+    end
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+return BuildDotTipsLayer;

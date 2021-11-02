@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2019-02-21 13:36:33
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Lottery/lottery.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Lottery/lottery_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Lottery/lotterycfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Lottery/lotterydef.txt")
+
+Lottery:Ctor()
+Lottery:_LoadLotteryCfg()

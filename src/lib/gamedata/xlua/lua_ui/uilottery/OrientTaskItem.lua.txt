@@ -1,0 +1,85 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-26 16:00:40
+---
+
+local OrientTaskItem = class("OrientTaskItem");
+--初始化
+function OrientTaskItem:ctor(super, trans)
+    self._trans = trans;
+    self._sliderOrient = self._trans:GetSliderComponent("slider_plan");
+    self._txtCurPlan = self._trans:GetTextComponent("txt_cur_plan");
+    self._taskItems = {};
+    for i = 1, 2 do
+        local item = clsbase:new(self._trans:Get("trans_award_"..i));
+        item.imgAward = item:GetImageComponent("img_award");
+        item.txtPlan = item:GetTextComponent("txt_plan");
+        self._taskItems[i] = item;
+    end
+    self._trans:GetButtonComponent("btn_award").onClick:AddListener(function()
+        core.require("xlua/lua_UI/UILottery/OrientTipsLayer.txt"):new():show();
+    end);
+end
+
+function OrientTaskItem:UpdateOrientTaskUI(lotteryTypeId)
+    local lotteryCfg = Lottery:GetLotteryTypeCfg(lotteryTypeId);
+    local taskIds = Task:GetSubTasks(lotteryCfg.taskType);
+    table.sort(taskIds,function (a,b)
+        return a < b;
+    end);
+    Lottery:SetCurOrientId(lotteryTypeId);
+    local task,selTasks = nil,{};
+    local isMax = false;
+    for _, v in ipairs(taskIds) do
+        task = Task:GetTask(v);
+        if(task.state == Task.STATE_HAS_DONE or task.state == Task.STATE_HAS_RECV)then
+            if(_ == #taskIds)then
+                selTasks[2] = task;
+                isMax = true;
+            else
+                selTasks[1] = task;
+            end
+        elseif(task.state == Task.STATE_NOT_DONE)then
+            if(selTasks[1] == nil)then
+                selTasks[1] = task;
+            else
+                selTasks[2] = task;
+                break;
+            end
+        end
+    end
+    self._sliderOrient.maxValue = selTasks[2].showValue + 30;--最大显示向上加30(策划需求)
+    self._sliderOrient.minValue = selTasks[1].showValue - 30;
+    if(isMax)then
+        self._sliderOrient.value = self._sliderOrient.maxValue;
+    else
+        self._sliderOrient.value = selTasks[2].hasValue;
+    end
+    self._txtCurPlan:SetText(string.format(LanguageMgr:GetTextByID(30043),selTasks[2].hasValue));
+    for i, item in ipairs(self._taskItems) do
+        item.txtPlan:SetText(selTasks[i].showValue);
+        if(selTasks[i].state == Task.STATE_NOT_DONE)then--未完成
+            item.imgAward:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Btn_zhaohuan_jiangli_xiao_01");
+        elseif(selTasks[i].state == Task.STATE_HAS_RECV)then--已领取
+            item.imgAward:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Btn_zhaohuan_jiangli_xiao_03");
+        else
+            item.imgAward:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Btn_zhaohuan_jiangli_xiao_02");
+        end
+    end
+end
+
+function OrientTaskItem:SetVisible(isShow)
+    self._trans:SetVisible(isShow);
+end
+
+function OrientTaskItem:Close()
+    self._trans = nil;
+    self._sliderOrient = nil;
+    self._txtCurPlan = nil;
+    for _, v in pairs(self._taskItems) do
+        v:clear();
+    end
+    self._taskItems = nil;
+end
+
+return OrientTaskItem;

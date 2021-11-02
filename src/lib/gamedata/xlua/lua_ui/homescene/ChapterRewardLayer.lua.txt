@@ -1,0 +1,152 @@
+--
+-- author: haosun
+-- date  : 2018-12-04 11:16:27
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChapterRewardLayer = class("ChapterRewardLayer", CBaseLayer)
+
+function ChapterRewardLayer:ctor(super, parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_ChapterRewardLayer",
+    }
+    self._uitype = 2
+    self._dropItems = {}
+    self:onEnter()
+end
+
+function ChapterRewardLayer:onEnter()
+    self:createPnl()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.CHAPTER_REWARD_RECVED,
+        function()
+            GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_CHAPTER_REWARD)
+            self:refreshItems()
+        end)
+    self._aniPanelFadeInEndCallback = function()
+        self:playCellAni()
+    end
+    self._itemObj = {}
+end
+
+function ChapterRewardLayer:show(chapter)
+    self._fading = true
+    self._data = chapter
+
+    local progress_str = string.format(LanguageMgr:GetTextByID(99000015), chapter.has_star, chapter.all_star)
+    self.layer.transform:Find("text_num"):GetComponent("Text").text = progress_str
+
+    self:initRewardItems()
+    self:showLayer()
+    self:playAni("ChapterRewardLayerAni")
+end
+
+function ChapterRewardLayer:initRewardItems()
+    local reward_item = self.layer.transform:Find("reward_item")
+    reward_item.gameObject:SetActive(false)
+    local content = self.layer.transform:Find("scrollview/viewport/content")
+    local posy = -128
+    for i = 1, #self._data.rewards do
+        local item = Groble_ResMgr:Instantiate(reward_item, content)
+        item.name = "item" .. i
+        item.transform:Find("button_click"):GetComponent("Button").onClick:AddListener(function()
+                self:onClickRecv(i)
+            end)
+        item:GetComponent("RectTransform").localPosition = CS.UnityEngine.Vector3(540, posy, 0)
+        posy = posy - 230
+        self:setRewardItems(item, self._data.rewards[i])
+
+        item:GetComponent("RectTransform").localScale = CS.UnityEngine.Vector3(0, 0, 0)
+        set_obj_active(item, true)
+        self._itemObj[i] = item
+    end
+    self:refreshItems()
+    self.layer.transform:Find("scrollview"):GetComponent("ScrollRect").vertical = #self._data.rewards > 3
+end
+
+function ChapterRewardLayer:refreshItems()
+    for i = 1, #self._data.rewards do
+        local data = self._data.rewards[i]
+        local item = self._itemObj[i]
+        local text_num= item.transform:Find("text_num"):GetComponent("Text")
+        text_num.text = data.star
+        local text_tips= item.transform:Find("text_tips"):GetComponent("Text")
+
+        local showbg = false
+        local showDark=false
+        local showWhite=false
+        local showBlack=false
+        local content=item.transform:Find("scrollview/viewport/content")
+        --已经领取
+        if  data.state == Chapter.REWARD_STATE_HAS then
+            text_num.color=COLOR_TYPE.Gray55
+            text_tips.color=COLOR_TYPE.Gray55
+            showDark=true
+            showBlack=true
+
+        else
+                --不能领取
+            if   self._data.has_star < data.star then
+                 text_num.color=COLOR_TYPE.White
+                 text_tips.color=COLOR_TYPE.White
+                showBlack=true
+                --可领取
+            elseif  self._data.has_star >= data.star then
+                 text_num.color=COLOR_TYPE.Black
+                 text_tips.color=COLOR_TYPE.Black
+                 showbg = true
+                 showWhite=true
+            end
+        end
+        set_obj_active(item.transform:Find("rev_bg"),showbg)
+        set_obj_active(item.transform:Find("button_click"),showbg)
+        set_obj_active(item.transform:Find("text_revd"),showDark)
+        for j=1,content.transform.childCount do
+            local prefab_item=content.transform:Find("prefab_item"..j)
+            if prefab_item~= nil then
+                --set_obj_active(prefab_item.transform:Find("image_gg"),false)
+              --  set_obj_active(prefab_item.transform:Find("image_dark"),showDark)
+               -- set_obj_active(prefab_item.transform:Find("bg_white"),showWhite)
+              --  set_obj_active(prefab_item.transform:Find("bg_black"),showBlack)
+            end
+        end
+    end
+end
+
+function ChapterRewardLayer:setRewardItems(item, data)
+    local drops = Item:GetDrops(data.dropid)
+    local scrollview = item.transform:Find("scrollview")
+    self._dropItems = Bag:SetScrollGoods(self._dropItems ,scrollview, drops, 4, 730, 150, 0.5, 92,nil,true)
+    scrollview:GetComponent("ScrollRect").horizontal = false
+end
+
+function ChapterRewardLayer:refreshRewardItems()
+    for i = 1, #self._data.rewards do
+        local drops = Item:GetDrops(self._data.rewards[i].dropid)
+        local scrollview = self.layer.transform:Find("scrollview/viewport/content/item" ..i .. "/scrollview")
+        scrollview:GetComponent("ScrollRect").horizontal = true --#drops > 4
+    end
+end
+
+function ChapterRewardLayer:onClickRecv(i)
+    if self._fading then
+        return
+    end
+
+    if self._data.has_star >= self._data.rewards[i].star then
+		if self._data.rewards[i].state ~= Chapter.REWARD_STATE_HAS then
+			Chapter:ChapterStarRewardReq(self._data.id, i)
+		end
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(20034))
+    end
+end
+
+function ChapterRewardLayer:playCellAni()
+    for i, obj in ipairs(self._itemObj) do
+        obj.transform:DOScale(1, 0.3):SetDelay(0.1*(i-1))
+    end
+end
+
+return ChapterRewardLayer
+

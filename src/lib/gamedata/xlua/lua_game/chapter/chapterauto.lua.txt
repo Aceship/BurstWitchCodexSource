@@ -1,0 +1,225 @@
+--
+-- author: haosun
+-- date  : 2020-04-15 16:06:53
+-- brief : 战斗托管功能
+--
+
+Chapter = Chapter or {}
+
+function Chapter:AutoFightParam(auto, autoUseNumber, autoBuyNumber, autoCountNumber, autoFailOn, autoItemId, 
+    costCnt, autoCount, multipleValue)
+    -- 直至材料打满为止
+    if autoCount then autoCountNumber = 999 end
+
+    self._autoFightParam.auto               = auto
+    self._autoFightParam.stopped            = false
+    self._autoFightParam.autoUseNumber      = autoUseNumber
+    self._autoFightParam.autoBuyNumber      = autoBuyNumber
+    self._autoFightParam.autoCountNumber    = autoCountNumber
+    self._autoFightParam.autoFailOn         = autoFailOn
+    self._autoFightParam.autoFailNumber     = 0
+    self._autoFightParam.autoSuccNumber     = 0
+    self._autoFightParam._buyPowerNum       = 0
+    self._autoFightParam._useCakeNum        = 0
+    self._autoFightParam.maxFightNum        = autoCountNumber
+    self._autoFightParam.autoItemId         = autoItemId
+    self._autoFightParam.costCnt            = costCnt
+    self._autoFightParam.autoCount          = autoCount
+    self._autoFightParam.multipleValue      = multipleValue
+
+    self._autoFightParam.autoItems          = {}
+
+    AppMgr:LogInfo("----------------当前托管次数 = " .. autoCountNumber)
+end
+
+function Chapter:GetAutoFightParamData()
+    return self._autoFightParam;
+end
+
+function Chapter:IsAutoFight()
+    return self._autoFightParam.auto
+end
+
+function Chapter:IsAutoStopped()
+    return self._autoFightParam.stopped
+end
+
+function Chapter:StopAutoFight(reason, clear)
+    if self._autoFightParam.auto then
+        PrefsController:SetAutoSkill(false)
+        FightController:DoAutoFightMove(false)
+    end
+    self._autoFightParam.stopped = true
+    self._autoStopSeason = reason
+    if clear then
+        self._autoFightParam.auto = false
+        self._autoFightParam.autoFailNumber = 0
+        self._autoFightParam.autoSuccNumber = 0
+        self._autoFightParam.autoItems      = {}
+    end
+end
+
+function Chapter:AutoFightPower()
+    if self._autoFightParam.auto then
+        if self._autoFightParam.autoUseNumber > 0 then
+            if Item:GetCount(Item.ITEM_POWER_ID) > 0 then
+                Item:ItemUseReq(Item.ITEM_POWER_ID, 1)
+                return true
+            end
+        end
+        if self._autoFightParam.autoBuyNumber > 0 then
+            if Player:GetValue(Player.VALUE_MONEY) >= Player:GetBuyPowerCost() then
+                Player:BuyPowerReq()
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function Chapter:SubAutoUseNumber()
+    self._autoFightParam._useCakeNum = self._autoFightParam._useCakeNum + 1;
+    self._autoFightParam.autoUseNumber = self._autoFightParam.autoUseNumber - 1
+end
+
+function Chapter:SubAutoBuyNumber()
+    self._autoFightParam._buyPowerNum = self._autoFightParam._buyPowerNum + 1;
+    self._autoFightParam.autoBuyNumber = self._autoFightParam.autoBuyNumber - 1
+end
+
+function Chapter:SubAutoCountNumber()
+    self._autoFightParam.autoCountNumber = self._autoFightParam.autoCountNumber - 1
+end
+
+function Chapter:AddAutoFailNumber()
+    self._autoFightParam.autoCountNumber = self._autoFightParam.autoCountNumber + 1
+    self._autoFightParam.autoFailNumber = self._autoFightParam.autoFailNumber + 1
+end
+
+function Chapter:AddAutoSuccNumber()
+    self._autoFightParam.autoSuccNumber = self._autoFightParam.autoSuccNumber + 1
+end
+
+function Chapter:IsAutoFailOn()
+    return self._autoFightParam.auto and self._autoFightParam.autoFailOn
+end
+
+function Chapter:AutoFightContinue(levelid)
+    if self._autoFightParam.auto and self._autoFightParam.autoCountNumber > 0 then
+        -- 检查托管道具是否充足
+        if self._autoFightParam.multipleValue > 1 then
+            if Item:GetCount(Item.AUTO_ITEM_ID) < self._autoFightParam.multipleValue - 1 then
+                self:StopAutoFight(Chapter.AUTO_STOP_NO_ITEM)
+                return false
+            end
+        end
+
+        levelid = levelid or self._inFightLevelId
+        return self:ChapterLevelBeginReq(levelid, self:GetFightHeroIds(levelid))
+    else
+        return false
+    end
+end
+
+function Chapter:_checkAutoItems(itemtype, cfgid, count, sortid)
+    if itemtype == Bag.TYPE_EQUIP then
+        table.insert(self._autoFightParam.autoItems, {itemtype, cfgid, count, sortid})
+    else
+        local hasitem = false
+        for i, v in ipairs(self._autoFightParam.autoItems) do
+            if v[1] == itemtype and v[2] == cfgid then
+                hasitem = true
+                self._autoFightParam.autoItems[i][3] = self._autoFightParam.autoItems[i][3] + count
+            end
+        end
+        if not hasitem then
+            table.insert(self._autoFightParam.autoItems, {itemtype, cfgid, count, sortid})
+        end
+    end
+end
+
+function Chapter:AddAutoItems(drops, cg_drops, first_drops)
+    for _, v in ipairs(drops or {}) do
+        self:_checkAutoItems(v[1], v[2], v[3], v[4])
+    end
+    for _, v in ipairs(cg_drops or {}) do
+        self:_checkAutoItems(v[1], v[2], v[3], v[4])
+    end
+    for _, v in ipairs(first_drops or {}) do
+        self:_checkAutoItems(v[1], v[2], v[3], v[4])
+    end
+end
+
+function Chapter:GetAutoItems()
+    table.sort(self._autoFightParam.autoItems, function(a, b)
+            return a[4] < b[4]
+        end)
+    return self._autoFightParam.autoItems
+end
+
+function Chapter:GetAutoStopSeason()
+    return self._autoStopSeason
+end
+
+function Chapter:GetAutoFightCount()
+    return self._autoFightParam.autoSuccNumber, self._autoFightParam.autoFailNumber
+end
+
+function Chapter:CheckAutoGoFightCount()
+    local chapter = self:GetChapterByLevelId(self._inFightLevelId)
+    if chapter.fight_count > 0 and chapter.fight_count + chapter.fight_buy - chapter.pass_count <= 0 then
+        self:StopAutoFight(Chapter.AUTO_STOP_NO_CNT)
+        return false
+    end
+    local level = self:GetLevel(self._inFightLevelId)
+    -- check level times
+    if level.fight_count > 0 and level.remain <= 0 then
+        self:StopAutoFight(Chapter.AUTO_STOP_NO_CNT)
+        return false
+    end
+    if self._autoFightParam.autoCountNumber <= 0 then
+        self:StopAutoFight(Chapter.AUTO_STOP_NORMAL)
+        return false
+    end
+    return true
+end
+
+function Chapter:CheckHasAmpleMat()
+    if not self._autoFightParam.auto then return false end
+
+    if self._autoFightParam.autoCount then
+        if self._autoFightParam.autoItemId ~= 0 and self._autoFightParam.costCnt > 0 then
+            if Item:GetCount(self._autoFightParam.autoItemId) >= self._autoFightParam.costCnt then
+                self:StopAutoFight(Chapter.AUTO_STOP_MAT)
+                return true
+            else
+                return false
+            end
+        end
+    end
+
+    return false
+end
+
+function Chapter:_checkAutoFight()
+    self:SubAutoCountNumber()
+    if self:IsAutoFight() then
+        PrefsController:SetAutoMove(true)
+        PrefsController:SetAutoSkill(true)
+    end 
+end
+
+function Chapter:ClearAutoData()
+    self._autoFightParam.auto           = false
+    self._autoFightParam.autoItemId     = 0
+    self._autoFightParam.costCnt        = 0
+    self._autoFightParam.autoCount      = false
+    self._autoFightParam.autoFailNumber = 0
+    self._autoFightParam.autoSuccNumber = 0
+    self._autoFightParam.autoItems      = {}
+end
+
+function Chapter:ShowAutoResultLayer()
+    UI_AutoResultLayer:AutoResultLayerCreator()
+end
+

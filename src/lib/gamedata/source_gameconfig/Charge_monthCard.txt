@@ -1,0 +1,5 @@
+id,每日获得奖励,增加章节奖励次数,单次购买特权持续天数,限购天数,总共获得数量,邮件defid,整合邮件defid,邮件持续时间
+id,dailyAward,mapCount,LastDays,Day,AllGetData,maildefid,maildefid_2,Duration
+number,array_&_|,array_&_|,number,number,array_&_|,number,number,number
+2101,4&1000002&60|4&8999994&10,-1,30,90,4&1000002&2100,1,7,1209600
+2102,4&1000002&150|4&7000011&1|4&8999994&20,-1,30,90,4&1000002&5200,1,7,1209600

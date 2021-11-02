@@ -1,0 +1,386 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:03:33
+-- brief :
+--
+Equip = Equip or {}
+
+function Equip:_LoadCfg()
+    self._configs   = {}
+    self._cfgAttrs  = {}
+    self._lvupGid   = {}
+    local configs = CfgLoader:LoadCfg("Equip")
+    local id
+    for _, v in pairs(configs) do
+        id = tonumber(v.id)
+        v.Name = Language:GetTxtBuyId(v.Name)
+        v.itemInfo = Language:GetTxtBuyId(v.itemInfo)
+        v.itemForm = lua_parse_cfg(v.itemForm)
+        for k, form in pairs(v.itemForm) do
+            form[3] = Language:GetTxtBuyId(form[3]);
+        end
+        self._configs[id] = v
+
+        self._lvupGid[id] = tonumber(v.cost_exp_group)
+    end
+    -- 装备升级消耗
+    self:_LoadLvUpCfg()
+
+    -- 装备套装表
+    self:_LoadEquipSuitCfg()
+    self:_LoadEquipSuitRecommendCfg()
+    self:_loadEquipPool()
+end
+
+function Equip:GetCfg(cfgid)
+    if cfgid == nil then
+        CS.Logger.LogError("error!!! call function(Equip:GetCfg) param is nil")
+        return nil
+    end
+    cfgid = tonumber(cfgid)
+    if self._configs[cfgid] then
+        return self._configs[cfgid]
+    else
+        CS.Logger.LogError("error!!! can't find Equip config {0}", cfgid)
+        return nil
+    end
+end
+
+function Equip:GetCfgByUid(uid)
+    local equip = self:GetEquip(uid)
+    if equip == nil then return nil end
+    return self:GetCfg(equip.cfgid)
+end
+
+function Equip:GetAllCfgId()
+    local retArr = {};
+    for i, v in pairs(self._configs) do
+        table.insert(retArr,i);
+    end
+    return retArr;
+end
+
+--获取指定品质的符石(同品质按ID排序)
+function Equip:GetRunesCfgIdByQuality(quality)
+    local retArr = {};
+    for i, v in pairs(self._configs) do
+        if(tonumber(v.Type) == Bag.TYPE_EQUIP)then
+            if(tonumber(v.Quality) == quality)then
+                table.insert(retArr, tonumber(v.id));
+            end
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a < b;
+    end)
+    return retArr;
+end
+
+--
+-- Brief：加载装备套装表
+--
+function Equip:_LoadEquipSuitCfg()
+    self._suitcfgs = {}
+    local cfgs = CfgLoader:LoadCfg("EquipSuit")
+    local cfgid = 0
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id)
+        local str = lua_str_split(v.sign, "&")
+        self._suitcfgs[cfgid] = {
+            cfgid   = cfgid,
+            suitid  = tonumber(v.suitid),
+            num     = tonumber(v.num),
+            skill   = v.skillinfo,
+            name    = Language:GetTxtBuyId(v.name),
+            sign    = Language:GetTxtBuyId(str[1]),
+            signimg = tonumber(str[2]),
+        }
+    end
+    self._suits = {}
+    for _, v in pairs(self._suitcfgs) do
+        if self._suits[v.suitid] == nil then
+            self._suits[v.suitid] = {}
+        end
+        table.insert(self._suits[v.suitid], {cfgid = v.cfgid, num = v.num})
+    end
+    for _, v in pairs(self._suits) do
+        table.sort(v, function(a, b) return a.num < b.num end)
+    end
+
+    self:SetSuitData()
+end
+
+function Equip:_LoadEquipSuitRecommendCfg()
+    self.recommendcfg = {} -- {[id] = {cfgid = suitid, num = 2}]}
+    local cfgs = CfgLoader:LoadCfg("EquipSuitRecommend")
+
+    for _, v in pairs(cfgs) do
+        local id = tonumber(v.grouping)
+        local strs = lua_str_split(v.combination, "&")
+        local tbl = {}
+        for i = 2, #strs, 2 do
+            local sid = tonumber(strs[i - 1])
+            local num = tonumber(strs[i])
+            local suitcfgid = self:GetEquipSuitCfgByIDNum(sid, num)
+            if suitcfgid == nil then
+                AppMgr:LogError(string.format("[EquipSuitRecommend]配置错误。推荐的套装[ID=%d]不存在", sid))
+            else
+                table.insert(tbl, {cfgid = suitcfgid, num = num})
+            end
+        end
+
+        -- 4件套在前面
+        if #tbl == 3 then
+            table.sort(tbl, function(a, b)
+                return a.cfgid < b.cfgid
+            end)
+        elseif #tbl == 2 then
+            table.sort(tbl, function(a, b)
+                if a.num == b.num then
+                    return a.cfgid, b.cfgid
+                else
+                    return a.num > b.num
+                end
+            end)
+        end
+        self.recommendcfg[id] = tbl
+    end
+
+    self._EquipSuitRecommend = {}
+end
+
+function Equip:SetSuitData()
+    self._suitData = {};
+    local cfg;
+    for suitid, v in pairs(self._suits) do
+        cfg = Equip:GetEquipSuitCfg(v[1].cfgid)
+        self._suitData[suitid] = {
+            suitid = suitid,
+            name = cfg.name,
+            suits = v,
+            equipids = self:GetAllSuitEquipId(suitid)
+        }
+    end
+
+    self._suitTags = {}
+    for k, v in pairs(self._suitData) do
+        local nameTag = string.sub(v.name, 1, 6)
+        table.insert(self._suitTags, {tag = nameTag, suitid = v.suitid})
+    end
+    table.sort(self._suitTags, function (a, b)
+        return a.suitid < b.suitid
+    end)
+end
+
+function Equip:GetSuitDataByCfgId(cfgid)
+    return self._suitData[cfgid]
+end
+
+function Equip:GetAllSuitEquipId(suitId)
+    local retArr = {};
+    for k, v in pairs(self._configs) do
+        if(tonumber(v.Classmate) == suitId)then
+            table.insert(retArr,k);
+        end
+    end
+    if #retArr > 0 then
+        table.sort(retArr,function(a, b) return a < b end)
+    else
+        AppMgr:LogError(string.format("！！！！！！！[EquipSuit]配置错误。套装[%d]不存在对应的符石", suitId))
+    end
+    return retArr;
+end
+
+function Equip:GetSuitDataByQuality(quality)
+    local retArr = {};
+    if (quality == nil or quality == 0) then
+        for j, equipQuality in ipairs(Equip.EquipMapQuality) do
+            for _, v in pairs(self._suitData) do
+                local data = {
+                    suitid = v.suitid,
+                    name = v.name,
+                    suits = v.suits,
+                    equipids = {},
+                    quality = equipQuality;
+                }
+                for ii, id in ipairs(v.equipids) do
+                    if(equipQuality == tonumber(Equip:GetCfg(id).Quality))then
+                        table.insert(data.equipids,id);
+                    end
+                end
+                table.insert(retArr,data);
+            end
+        end
+    else
+        for _, v in pairs(self._suitData) do
+            local data = {
+                suitid = v.suitid,
+                name = v.name,
+                suits = v.suits,
+                equipids = {},
+                quality = quality;
+            }
+            for ii, id in ipairs(v.equipids) do
+                if(quality == tonumber(Equip:GetCfg(id).Quality))then
+                    table.insert(data.equipids,id);
+                end
+            end
+            table.insert(retArr,data);
+        end
+    end
+    return retArr;
+end
+
+function Equip:_LoadLvUpCfg()
+    self._lvupcfgs = {}
+    local cfgs = CfgLoader:LoadCfg("EquipLevelUp")
+    local gid = 0
+    for _, v in pairs(cfgs) do
+        gid = tonumber(v.groupid)
+        if not self._lvupcfgs[gid] then
+            self._lvupcfgs[gid] = {}
+        end
+        self._lvupcfgs[gid][tonumber(v.LevelUp_id)] = {
+            exp = tonumber(v.exp),
+            coin = tonumber(v.money)
+        }
+    end
+end
+
+function Equip:GetLvUpCfg(gid, level)
+    if self._lvupcfgs[gid] == nil or self._lvupcfgs[gid][level] == nil then
+        CS.Logger.LogError("error!!! can't find EquipLvUp Config, gid = {0}  level = {1}", gid, level)
+    end
+    return self._lvupcfgs[gid][level]
+end
+
+function Equip:GetEquipSuitCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._suitcfgs[cfgid] == nil then
+        CS.Logger.LogError("error!!! can't find EquipSuit Config, id = {0}", cfgid)
+        return nil
+    end
+    return self._suitcfgs[cfgid]
+end
+
+function Equip:GetEquipSuitCfgIds(suitid, count)
+    suitid = tonumber(suitid)
+    if self._suits[suitid] == nil then
+        AppMgr:LogError("[EquipSuit]表配置错误。找不到套装 = " .. suitid)
+        return nil
+    end
+    local ids = {}
+    for _, v in ipairs(self._suits[suitid]) do
+        if count >= v.num then
+            table.insert(ids, v.cfgid)
+        end
+    end
+    count = count - Equip.SUIT_MAX_NUM
+    for _, v in ipairs(self._suits[suitid]) do
+        if count >= v.num then
+            table.insert(ids, v.cfgid)
+        end
+    end
+    return ids
+end
+
+function Equip:GetEquipSuitCfgByIDNum(suitid, count)
+    if count > Equip.SUIT_MAX_NUM then
+        return nil
+    end
+    suitid = tonumber(suitid)
+    if self._suits[suitid] == nil then
+        AppMgr:LogError("[EquipSuit]表配置错误。找不到套装 = " .. suitid)
+        return nil
+    end
+
+    for _, v in ipairs(self._suits[suitid]) do
+        if count == v.num then
+            return v.cfgid
+        end
+    end
+    return nil
+end
+
+function Equip:GetEquipSuitIsShow(suitid,heroid,isOneKey)
+    suitid = tonumber(suitid)
+    heroid = tonumber(heroid)
+    local isShow = false;
+    local hero = Hero:GetHero(heroid)
+    if self._suits[suitid] == nil then
+        AppMgr:LogError("[EquipSuit]表配置错误。找不到套装 = " .. suitid)
+        return nil
+    end
+    if hero == nil then
+        CS.Logger.LogError("error!!! can't find hero id = {0}", heroid)
+        return nil
+    end
+    local num = 0;
+    for _, v in pairs(hero.equipids) do
+        if(v ~= 0)then
+            local equip = self:GetEquip(v);
+            if(equip.suitid == suitid)then
+                num = num + 1;
+            end
+        end
+    end
+    if(isOneKey)then
+        for _, v in ipairs(self._suits[suitid]) do
+            if (num >= v.num) then
+                isShow = true;
+            end
+        end
+    else
+        for _, v in ipairs(self._suits[suitid]) do
+            if (num == v.num) or (num == Equip.SUIT_SHOW_MAX_NUM) then
+                isShow = true;
+            end
+        end
+    end
+    return isShow;
+end
+
+function Equip:_loadEquipPool()
+    self._poolcfgs = {}
+    local cfgs = CfgLoader:LoadCfg("EquipPool")
+    local id
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        self._poolcfgs[id] = { id = id, 
+            atype = tonumber(v.attc_type),
+            count = tonumber(v.count),
+            lvup_count = tonumber(v.level_up or 0),
+        }
+    end
+end
+
+function Equip:getPoolCfgById(cfgid)
+    if self._poolcfgs[cfgid] == nil then
+        CS.Logger.LogError("error!!! can't find  equip pool id = {0}", cfgid)
+        return nil
+    end
+    return self._poolcfgs[cfgid]
+end
+
+function Equip:GetRecommendcfg(heroid)
+    if self._EquipSuitRecommend[heroid] == nil then
+        self._EquipSuitRecommend[heroid] = {}
+        local commands = Hero:GetHero(heroid).EquipSuitRecommend
+        for k, cID in pairs(commands) do
+            self.recommendcfg[tonumber(cID[2])].quality = cID[1]
+            table.insert(self._EquipSuitRecommend[heroid], self.recommendcfg[tonumber(cID[2])])
+        end
+    end
+    return self._EquipSuitRecommend[heroid]
+end
+
+-- 名字前俩字
+function Equip:GetSuitTags()
+    return self._suitTags
+end
+
+-- 名字前俩字
+function Equip:GetSuitTag(suitid)
+    local name = self._suitcfgs[suitid].name
+    return string.sub(name, 1, 6)
+end

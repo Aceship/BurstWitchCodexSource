@@ -1,0 +1,568 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-24 15:40:34
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightMainLayer = class("MidNightMainLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnEnter = "container/btn_enter",
+	BtnTask = "container/trans_task/btn_task",
+	BtnShop = "container/btn_shop",
+	BtnRule = "container/trans_top_ui/btn_rule",
+	BtnFriendRank = "container/btn_friend_rank",
+	BtnHighVideo = "container/btn_high_video",
+	--@ButtonEnd
+}
+--构造函数
+function MidNightMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightMainLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_MID_NIGHT_1,
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false;
+    self._daySettleCountDown = 0
+    self:onEnter();
+
+end
+
+
+--进入Ui调用一次
+function MidNightMainLayer:onEnter()
+    Chapter:ClearJumpChapterLevel();
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function MidNightMainLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnEnter)then
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+            return;
+        end
+	   self:OnBtnEnterClick();
+    elseif(itype == BTNS.BtnTask)then
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+            return;
+        end
+	   self:OnBtnTaskClick();
+    elseif(itype == BTNS.BtnShop)then 
+       MidNight:ShowMidNightShopLayer()
+    elseif(itype == BTNS.BtnRule)then 
+       self:OnBtnRuleClick();
+    elseif(itype == BTNS.BtnFriendRank)then
+       MidNight:ShowMidNightFriendLayer()
+    elseif(itype == BTNS.BtnHighVideo)then 
+	   self:OnBtnHighVideoClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function MidNightMainLayer:Init()
+    self._selfPlayerId = Player:GetId();
+    self:InitData();
+    self:UpdateData();
+    self:InitUI();
+end
+
+function MidNightMainLayer:InitData()
+    self._settleCountDown = 0;
+    self._daySettle = 0;
+    local danId = MidNight:GetDanId();
+    self._danCfg = MidNight:GetDanGradingCfgById(danId);
+    self._dayAwardIsGet = MidNight:GetDayAwardIsGet();
+end
+
+function MidNightMainLayer:UpdateData()
+    self._serverData = MidNight:GetServerData();
+    self._rankList = self._serverData.list;
+    self._awardCfg = MidNight:GetAwardCfgByDanGradingIdAndRank(self._danCfg.id,self._serverData.ranking);
+end
+
+function MidNightMainLayer:UpdateTaskData()
+    local weekTask =Task:GetSubTasks(Task.RANK_TASK_DAILY)
+    for i, v in pairs(Task:GetSubTasks(Task.RANK_TASK_GROW)) do
+        table.insert(weekTask,v)
+    end
+    self._taskIds = Task:SortTaskIds(weekTask);
+end
+
+--初始化UI
+function MidNightMainLayer:InitUI()
+    self._spineSelfTips = self.layer:Get("container/trans_self/spine_tips");
+    self._spineSelfTips:CreateChild("prefab_item_spine/spine_item_recv")
+    self._imgSelfGetIcon = self.layer:GetImageComponent("container/trans_self/img_self_get_icon");
+    self._imgTaskRed = self.layer:GetImageComponent("container/trans_task/img_task_red");
+    --@ImageEnd
+
+    self._txtTime = self.layer:GetTextComponent("container/txt_time");
+    self._txtGloryTrophyNum = self.layer:GetTextComponent("container/trans_top_ui/trans_glory_trophy/txt_glory_trophy_num");
+    self._txtSelfRankTitle = self.layer:GetTextComponent("container/trans_self/txt_self_rank_title");
+    self._txtSelfGetTitle = self.layer:GetTextComponent("container/trans_self/txt_self_get_title");
+    self._txtSelfTime = self.layer:GetTextComponent("container/trans_self/trans_self_time/txt_self_time");
+    --@TextEnd
+
+    self._transRankTableViewController = self.layer:Get("container/trans_rank_table_view_controller");
+    self._transTaskTableViewController = self.layer:Get("container/trans_task/trans_task_table_view_controller");
+    self._transGloryTrophy = self.layer:Get("container/trans_top_ui/trans_glory_trophy");
+    self._transSelf = self.layer:Get("container/trans_self");
+    self._transSelfTime = self.layer:Get("container/trans_self/trans_self_time");
+    self._transHighVideo = self.layer:Get(BTNS.BtnHighVideo);
+    --@TransformEnd
+
+    self._rectSelf = self.layer:GetRectTransformComponent("container/trans_self");
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._objShopTips = self.layer:Get("container/btn_shop/obj_tips")
+
+    self._danGrading = MidNight:NewDanGradingUI(self.layer:Get("container/trans_dan_grading"));
+    MidNight:SetDanGradingUI(self._danGrading,self._danCfg.id,Player:GetTrophyNum());
+    self._rankCells = {};
+    self._taskCells = {};
+    self:SetGloryTrophyUI();
+    self:SetSettleCountDownUI(false);
+    self:InitDayAwardItem();
+    self:SetDayAwardUI();
+    self:SetRankTableView();
+    local showVideoBtn = true;
+    if(self._rankList == nil or #self._rankList == 0 or Robot:IsRobot(self._rankList[1].id))then
+        showVideoBtn = false;
+    end
+    self._transHighVideo:SetVisible(showVideoBtn);
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/trans_top_ui"));
+end
+
+--显示UI
+function MidNightMainLayer:show()
+    self:ShowHonorTrophyLayer();
+    --MidNight:GetHonorTrophyRep({1200,80});
+    self:showLayer();
+end
+
+function MidNightMainLayer:showLayer()
+    --倒计时
+    self._settleCountDown = MidNight:GetSettleCountDown();
+    self._daySettleCountDown = MidNight:GetDaySettleCountDown();
+    self:onPerSecondUpdate();
+    --任务
+    self:UpdateTaskData();
+    self:SetTaskTableView();
+    self._objShopTips:SetVisible(MidNight:GetMidNightShopRedTip())
+    
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function MidNightMainLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function MidNightMainLayer:onExit()
+
+    self._txtTime = nil;
+    self._transRankTableViewController = nil;
+	self._transTaskTableViewController = nil;
+	self._transGloryTrophy = nil;
+	self._txtGloryTrophyNum = nil;
+    self._danCfg = nil;
+    self._rankList = nil;
+    self._serverData = nil;
+    self._transSelf = nil;
+    self._txtSelfRankTitle = nil;
+    self._txtSelfGetTitle = nil;
+    self._imgSelfGetIcon = nil;
+    self._spineSelfTips = nil
+    self._rectSelf = nil;
+    self._transSelfTime = nil;
+    self._txtSelfTime = nil;
+    self._imgTaskRed = nil;
+    --@CloseEnd
+    self._danGrading:clear();
+    if self._rankTableViewCtl ~= nil then
+        self._rankTableViewCtl:Clear()
+        self._rankTableViewCtl = nil
+    end
+    if self._taskTableViewCtl ~= nil then
+        self._taskTableViewCtl:Clear()
+        self._taskTableViewCtl = nil
+    end
+    for _, cell in pairs(self._rankCells) do
+        cell:clear();
+    end
+    self._rankCells = nil;
+    for _, cell in pairs(self._taskCells) do
+        cell.item:clear();
+        cell:clear();
+    end
+    self._taskCells = nil;
+    for _, v in pairs(self._dayAwardItems) do
+        v:clear();
+    end
+    self._sltCell = nil;
+    self._dayAwardItems = nil;
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightMainLayer:OnBtnEnterClick()
+    if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+        Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+        return;
+    end
+    if(not MidNight:MidNightIsRegister())then
+        Groble_UIMgr:LocateToLayer(LayerType_Plot);
+        Groble_UIMgr:ShowGameWordTipsLayer(120059)
+        return;
+    end
+    MidNight:ShowRankFightLayer();
+end
+function MidNightMainLayer:OnBtnTaskClick()
+    MidNight:ShowMidNightRankTaskLayer()
+end
+
+function MidNightMainLayer:OnBtnRuleClick()
+    MidNight:ShowMidNightRuleTipsLayer();
+end
+
+function MidNightMainLayer:GetRankAwardBtnClick(data)
+    if self._dayAwardIsGet then
+        MidNight:ShowMidNightRankAwardRuleLayer()
+    else
+        MidNight:ShowMidNightRankAwardLayer()
+    end
+end
+
+function MidNightMainLayer:OnBtnGetTaskClick(taskId)
+    local task = Task:GetTask(taskId);
+    if(task.state == Task.STATE_HAS_DONE)then
+        Task:GetRewardReq({taskId});
+    end
+end
+function MidNightMainLayer:OnBtnHighVideoClick()
+    local data = self._rankList[1];
+    UpLoadVideo:SetPlayerData(data);
+    UpLoadVideo:GetDownLoadUrlReq();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightMainLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,function()
+        self:UpdateTaskData();
+        self:SetTaskTableView();
+    end)
+
+    self:addEventListener(EVENT_TYPE.MID_NIGHT_SETTLE_DAY, self.__cname, function()
+        self._dayAwardIsGet = MidNight:GetDayAwardIsGet();
+        self._daySettleCountDown = MidNight:GetDaySettleCountDown();
+        self:SetDayAwardUI();
+        self:SetRankTableView();
+    end)
+
+    self:addEventListener(EVENT_TYPE.GET_HONOR_TROPHY_REP, self.__cname, function()
+        MidNight:SetDanGradingUI(self._danGrading,self._danCfg.id,Player:GetTrophyNum());
+        MidNight:OpenMidNightHonorTrophyLayer();
+    end)
+
+    self:addEventListener(EVENT_TYPE.CLOSE_HONOR_TROPHY_LAYER, self.__cname, function()--关闭荣誉奖杯界面
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+        self:playAni("GetHonorTrophyAnim");
+    end)
+
+    self:addEventListener(EVENT_TYPE.GET_MIDNIGHT_DAY_AWARD_REP, self.__cname, function()--
+        self._dayAwardIsGet = MidNight:GetDayAwardIsGet();
+        self:SetDayAwardUI();
+        self:SetRankTableView();
+    end)
+
+    self:addEventListener(EVENT_TYPE.MID_NIGHT_TASK_UPDATE, self.__cname, function()--
+        self:UpdateTaskData();
+        self:SetTaskTableView();
+    end)
+
+    self:addEventListener(EVENT_TYPE.GET_DOWN_LOAD_VIDEO_PATH_REP, self.__cname, function(path)--
+        AppMgr:LogInfo(string.format("视频路径为: %s",path));
+        if(path == nil or path == "")then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(121036));
+            return;
+        end
+        PlaybackController:DownloadFightData(path);
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+--荣耀奖杯
+function MidNightMainLayer:SetGloryTrophyUI()
+    self._transGloryTrophy:SetVisible(Player:GetGloryTrophyNum() > 0);
+    if(Player:GetGloryTrophyNum() > 0)then
+        self._txtGloryTrophyNum:SetText(Player:GetGloryTrophyNum());
+    end
+end
+
+--结算倒计时
+function MidNightMainLayer:SetSettleCountDownUI(isSettle)
+    if(isSettle)then
+        self._txtTime:SetText(LanguageMgr:GetTextByID(120037));
+    else
+        self._txtTime:SetText(string.format(LanguageMgr:GetTextByID(120036),CTime:Time2Str_2(self._settleCountDown)));
+    end
+end
+
+function MidNightMainLayer:onPerSecondUpdate()
+    if(self._daySettleCountDown ~= nil)then
+        if(self._daySettleCountDown > 0)then
+            self._daySettleCountDown = self._daySettleCountDown - 1;
+            if(self._daySettleCountDown > 0)then
+                self._txtSelfTime:SetText(string.format(LanguageMgr:GetTextByID(120039),CTime:Time2Str_2(self._daySettleCountDown)));
+            else
+                self._txtSelfTime:SetText(LanguageMgr:GetTextByID(120037));
+            end
+        end
+    end
+    if(self._settleCountDown ~= nil)then
+        if(self._settleCountDown > 0)then
+            self._settleCountDown = self._settleCountDown - 1;
+            if(self._settleCountDown > 0)then
+                self:SetSettleCountDownUI(false);
+            else
+                self:SetSettleCountDownUI(true);
+            end
+        end
+    end
+end
+
+------------------------------RankTableView-------------------------------------
+function MidNightMainLayer:SetRankTableView()
+    local rows = # self._rankList;
+    if(self._rankTableViewCtl == nil)then
+        self._rankTableViewCtl = UIController:CtorTableView(self._transRankTableViewController);
+        self._selfIndex = self._serverData.ranking - 1;
+        self._rankTableViewCtl:InitCustomRowWidth(self._selfIndex,167);
+        self._rankTableViewCtl:Init(rows, false,
+                function(cell, row)
+                    self:SetRankCell(cell,row);
+                end);
+    else
+        self._rankTableViewCtl:UpdateCellHeight(self._selfIndex,122);
+        self._selfIndex = self._serverData.ranking - 1;
+        self._rankTableViewCtl:UpdateCellHeight(self._selfIndex,167);
+        self._rankTableViewCtl:Reload(rows);
+    end
+    local index = self._serverData.ranking - 2;
+    if(index < 0)then
+        index = 0;
+    end
+    if(index > rows)then
+        index = rows;
+    end
+    --local time = index * 0.03 < 0.3 and index * 0.03 or 0.3;
+    self._rankTableViewCtl:ScrollToRow(index);
+end
+
+function MidNightMainLayer:SetRankCell(cell,row)
+    local cls = self._rankCells[cell];
+    if(cls == nil)then
+        cls = MidNight:NewRankCell(cell,function(data)
+            self:GetRankAwardBtnClick(data);
+        end);
+        self._rankCells[cell] = cls;
+    end
+    self:SetRankCellData(cls,row);
+end
+
+local RankImgShowNum = 3;
+function MidNightMainLayer:SetRankCellData(cls,row)
+    row = row + 1;
+    local data = self._rankList[row];
+    MidNight:SetRankCell(cls,data);
+    cls.imgBg:SetEnabled(row % 2 ~= 0);
+    if(self._selfPlayerId == data.id)then
+        cls.btnGet:SetVisible(true);
+        if(data.rank > RankImgShowNum)then
+            cls.txtOrder:SetTextColor(0,0,0,1);
+        end
+        cls.txtName:SetTextColor(0,0,0,1);
+        cls.txtScore:SetTextColor(0,0,0,1);
+        self._transSelf:SetParent(cls.transform,true);
+        self._transSelf:SetScale(1,1,1);
+        self._transSelf:SetPosition(0, 0, 0, true);
+        self._sltCell = cls;
+
+        if(self._dayAwardIsGet)then
+            cls.imgSelf:LoadSprite("source_common/MidNight/Img_shengye_ziji_changtai");
+        else
+            cls.imgSelf:LoadSprite("source_common/MidNight/Img_shengye_ziji_lingqu");
+        end
+    else
+        cls.btnGet:SetVisible(false);
+        if(data.rank > RankImgShowNum)then
+            cls.txtOrder:SetTextColor(197/255,197/255,197/255,1);
+        end
+        cls.txtName:SetTextColor(190/255,190/255,190/255,1);
+        cls.txtScore:SetTextColor(235/255,235/255,235/255,1);
+        if(self._sltCell == cls)then
+            self._transSelf:SetPosition(5000, 5000, 0, true);
+        end
+    end
+end
+
+--------------------------------------任务----------------------------------------------
+
+function MidNightMainLayer:SetTaskTableView()
+    local rows = # self._taskIds;
+    if(self._taskTableViewCtl == nil)then
+        self._taskTableViewCtl = UIController:CtorTableView(self._transTaskTableViewController);
+        self._taskTableViewCtl:Init(rows, true,
+                function(cell, row)
+                    self:SetTaskCell(cell,row);
+                end,0.2,0.08);
+    else
+        self._taskTableViewCtl:Reload(rows,true);
+        self._taskTableViewCtl:ScrollToTop();
+    end
+    self._imgTaskRed:SetEnabled(Task:IsBetterOper(Task.TYPE_RANK, Task.RANK_TASK_DAILY) or Task:IsBetterOper(Task.TYPE_RANK, Task.RANK_TASK_GROW) );
+end
+
+function MidNightMainLayer:SetTaskCell(cell,row)
+    local cls = self._taskCells[cell];
+    if(cls == nil)then
+        cls = self:NewTaskCell(cell);
+        self._taskCells[cell] = cls;
+    end
+    self:SetTaskCellData(cls,row);
+end
+
+function MidNightMainLayer:NewTaskCell(trans)
+    local cls = clsbase:new(trans);
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.slider = cls:GetSliderComponent("slider");
+    cls.txtDes = cls:GetTextComponent("txt_des");
+    cls.txtPlan = cls:GetTextComponent("txt_plan");
+    cls.transFinish = cls:Find("obj_finish");
+    cls.imgFill = cls:GetImageComponent("slider/img_fill");
+    cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("item"));
+    cls.btn = cls:GetButtonComponent("btn_get");
+    cls.btn.onClick:AddListener(function ()
+        self:OnBtnGetTaskClick(cls.taskId);
+    end);
+    return cls;
+end
+
+function MidNightMainLayer:SetTaskCellData(cls,index)
+    cls.taskId = self._taskIds[index + 1];
+    local task = Task:GetTask(cls.taskId);
+    cls.imgBg:SetEnabled(task.state == Task.STATE_HAS_DONE);
+    cls.transFinish:SetVisible(task.state == Task.STATE_HAS_RECV);
+    cls.btn:SetVisible(task.state == Task.STATE_HAS_DONE);
+    cls.slider.minValue = 0;
+    cls.slider.maxValue = task.showValue;
+    cls.txtDes:SetText(Language:GetTxtBuyId(task.Quest_des));
+    Bag:SetComSimpleGoodsUi(cls.item,task.rewards[1][1],task.rewards[1][2],task.rewards[1][3]);
+    if(task.state == Task.STATE_NOT_DONE)then--未完成
+        cls.txtDes:SetTextColor(190/255,190/255,190/255,1);
+        cls.slider.value = task.hasValue;
+        cls.imgFill:LoadAtlasSprite(AtlasMgr.MID_NIGHT,"Img_shengye_renwu_jingdutiao_02");
+        cls.txtPlan:SetText(string.format("<color=#EBEBEBFF>%s</color><color=#BEBEBEFF>/%s</color>",math.kTally(task.hasValue),math.kTally(task.showValue)));
+    else
+        cls.slider.value = task.showValue;
+        cls.imgFill:LoadAtlasSprite(AtlasMgr.MID_NIGHT,"Img_shengye_renwu_jingdutiao_03");
+        cls.txtPlan:SetText(string.format("%s/%s",math.kTally(task.showValue),math.kTally(task.showValue)));
+        if(task.state == Task.STATE_HAS_DONE)then--已完成未领取
+            cls.txtDes:SetTextColor(0,0,0,1);
+            cls.txtPlan:SetTextColor(0,0,0,1);
+        else--已完成已领取
+            cls.txtPlan:SetTextColor(1,1,1,1);
+            cls.txtDes:SetTextColor(190/255,190/255,190/255,1);
+        end
+    end
+
+end
+
+-----------------------------------------------------------------------------------------------
+
+local RankAwardMaxNum = 2
+function MidNightMainLayer:InitDayAwardItem()
+    self._dayAwardItems = {};
+    for i = 1, RankAwardMaxNum  do
+        local cls = clsbase:new(self._transSelf:Get("trans_item_"..i));
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.txtNum = cls:GetTextComponent("txt_num");
+        self._dayAwardItems[i] = cls;
+    end
+end
+
+function MidNightMainLayer:SetDayAwardUI()
+    self._spineSelfTips:SetVisible(not self._dayAwardIsGet);
+    self._imgSelfGetIcon:SetVisible(not self._dayAwardIsGet);
+    self._txtSelfGetTitle:SetVisible(not self._dayAwardIsGet);
+    self._transSelfTime:SetVisible(self._dayAwardIsGet);
+    if(self._dayAwardIsGet)then
+        self._txtSelfRankTitle:SetTextColor(235/255,235/255,235/255,1);
+        self._txtSelfRankTitle:SetText(LanguageMgr:GetTextByID(120034));
+        for _, v in ipairs(self._dayAwardItems) do
+            v:Visible(self._awardCfg.dayAward[_] ~= nil);
+            if(self._awardCfg.dayAward[_] ~= nil)then
+                v.imgIcon:LoadSprite(Item:GetItemIconPath(self._awardCfg.dayAward[_][2]));
+                v.txtNum:SetText("×"..tostring(self._awardCfg.dayAward[_][3]));
+            end
+        end
+    else
+        self._txtSelfRankTitle:SetTextColor(0,0,0,1);
+        self._txtSelfRankTitle:SetText(LanguageMgr:GetTextByID(120038));
+        for _, v in ipairs(self._dayAwardItems) do
+            v:Visible(false);
+        end
+    end
+end
+
+function MidNightMainLayer:ShowHonorTrophyLayer()
+    if(MidNight:GetHonorTrophyState())then
+        MidNight:GetHonorTrophyReq();
+    end
+end
+
+function MidNightMainLayer:KeyFrameCall(intkey)
+    if(intkey == 1)then
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
+        self:SetGloryTrophyUI();
+        MidNight:SetDanGradingUI(self._danGrading,self._danCfg.id,Player:GetTrophyNum());
+    elseif(intkey == 2)then
+    end
+end
+
+return MidNightMainLayer;

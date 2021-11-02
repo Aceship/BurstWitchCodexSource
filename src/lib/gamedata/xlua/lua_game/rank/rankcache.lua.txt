@@ -1,0 +1,23 @@
+--
+-- author: haosun
+-- date  : 2019-08-22 11:01:02
+-- brief : 
+--
+
+Rank = Rank or {}
+
+function Rank:GetPlayerCardCacheData(pid)
+    local data = self._cachedata[pid]
+    if data ~= nil and os.time() - data.marktime < Rank.REQ_PLAYER_INFO_TIME then
+        return data.pdata
+    end
+    return nil
+end
+
+function Rank:SetPlayerCardCacheData(pid, pdata)
+    if self._cachedata[pid] == nil then
+        self._cachedata[pid] = {}
+    end
+    self._cachedata[pid].marktime = os.time()
+    self._cachedata[pid].pdata = pdata
+end

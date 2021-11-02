@@ -1,0 +1,135 @@
+--
+-- author: haosun
+-- date  : 2019-01-07 11:48:49
+-- brief : 
+--
+Rank = Rank or {}
+
+function Rank:RankCtor()
+    self._clearingStates      = {}     -- 排行榜结算状态
+    self._cachedata     = {}
+    self:_LoadCfg()
+end
+
+
+function Rank:ClearVar()
+end
+
+function Rank:Destory()
+    self._cachedata = nil
+end
+
+function Rank:GetClearingStart(rankType)
+    return self._clearingStates[rankType] or false;
+end
+
+--[[function Rank:SetRanking()
+    table.sort(self._rankdata.list, function(a, b)
+            return a[Player.ATTR_RANK_VALUE] > b[Player.ATTR_RANK_VALUE]
+        end)
+    local bexist = false
+    local selfid = Player:GetId()
+    for i, v in ipairs(self._rankdata.list) do
+        if v[Player.ATTR_PLAYERID] == selfid then
+            self._rankdata.ranking = i
+            bexist = true
+            break
+        end
+    end
+    return bexist
+end]]--
+
+--[[function Rank:GetDailySettleRemain()
+    local _t1 = Lib:GetDayPassTime(CTime:GetServerTime()) - 5
+    local _t2 = self._dailyCoinSettleTime * CTime.HOUR_SEC
+    if _t1 > _t2 then
+        if Rank:ExistCoin() then
+            return 0
+        else
+            return _t2 - _t1 + CTime.DAY_SEC
+        end
+    else
+        return _t2 - _t1
+    end
+end]]--
+
+--[[function Rank:GetRankTxt(rank, fstr , notxt)
+    local str
+    if rank <= Rank.GROUP_TOP_NUM then
+        if notxt then
+            str = rank
+        else
+            str = fstr..string.format(LanguageMgr:GetTextByID(121001), rank)
+        end
+    elseif rank <= Rank.NEW_GROUP_NUM/2 then
+        local percent = string.format("%.1f", (1- rank / Rank.NEW_GROUP_NUM)*100)
+        if notxt then
+            str  = "> "..percent.."%"
+        else
+            str = fstr.. string.format(LanguageMgr:GetTextByID(121002), percent.."%")
+        end
+    else
+        if notxt then
+            str  = "< 50%"
+        else
+            str = fstr..LanguageMgr:GetTextByID(121003)
+        end
+    end
+    return str
+end]]--
+
+--[[function Rank:GetMainLayerTip()
+    if  self._rankChaged == Rank.RANK_CHANED_FALSE then
+        return false
+    else
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            return false
+        end
+
+        if self._rankdata.value == 0 then
+            return false
+        end
+        local str
+        if self._rankdata.ranking == 0 then
+            return false
+        elseif self._rankdata.ranking  <= Rank.GROUP_TOP_NUM then
+            str = string.format(LanguageMgr:GetTextByID(121018), self._rankdata.ranking )
+            self._rankChaged = Rank.RANK_CHANED_FALSE
+            return true, str
+        elseif self._rankdata.ranking <= Rank.NEW_GROUP_NUM / 2 then
+            local percent = string.format("%.1f", (1- self._rankdata.ranking / Rank.NEW_GROUP_NUM) * 100)
+            str = string.format(LanguageMgr:GetTextByID(121019), percent.."%" )
+            self._rankChaged = Rank.RANK_CHANED_FALSE
+            return true, str
+        else
+            str = LanguageMgr:GetTextByID(121020)
+            self._rankChaged = Rank.RANK_CHANED_FALSE
+            return true, str
+        end
+    end
+end]]--
+--[[function Rank:GetSeasonMedals(seasonid)
+    return self._season_medals[seasonid] or {}
+end]]--
+
+function Rank:ResetBuffIdArr()
+    if self._buffIdArr ~= nil then
+        for k, v in pairs(self._buffIdArr) do
+            self._buffIdArr[k] = nil
+        end
+    end
+end
+
+function Rank:GetBuffIdArr()
+    if not self._buffIdArr then
+        self._buffIdArr = {}
+    end
+    return self._buffIdArr
+end
+
+function Rank:AddBuffId(id)
+    if not self._buffIdArr then
+        self._buffIdArr = {}
+    end
+    table.insert(self._buffIdArr, id)
+end

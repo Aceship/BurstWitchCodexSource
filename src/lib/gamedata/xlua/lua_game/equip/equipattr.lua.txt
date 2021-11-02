@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:01:10
+-- brief : 装备分为武器和符石
+--
+Equip = Equip or {}
+
+function Equip:GetCfgAttrs(cfgid)
+    local cfgid = tonumber(cfgid)
+    if self._cfgAttrs[cfgid] == nil then
+        self._cfgAttrs[cfgid] = {}
+        local cfg = self:GetCfg(cfgid)
+        local cfgAttrs = lua_parse_cfg(cfg.OrgAttribute, true)
+        for _, v in pairs(cfgAttrs) do
+            self._cfgAttrs[cfgid][v[1]] = v[2]
+        end
+
+    end
+    return self._cfgAttrs[cfgid]
+end
+
+function Equip:SetAttr(equip, calHero)
+    if equip == nil then
+        return
+    end
+    CAttr:ClearAttrs(equip.attrs)
+
+    local attrs = self:CalcEquipAttr(equip, equip.level)
+    CAttr:AddAttrs(equip.attrs, attrs)
+
+    --计算符石副属性
+    attrs = self:CalcSecondAttr(equip)
+    CAttr:AddAttrs(equip.attrs, attrs)
+    -- enchant
+
+    -- skill
+end
+
+--
+-- 
+--  --（初始属性 * 成长倍率 / 50） * lv + 基础属性
+function Equip:CalcEquipAttr(equip ,level)
+    local attrs = CAttr:NewAttrs()
+    -- 基础值
+    if equip.m_attr ~= nil then
+        local poolcfg = self:getPoolCfgById(equip.m_attr.id)
+
+        local rate = 0
+        for _, v in pairs(Player.FS_UP_RATE) do
+            if v[1] == poolcfg.atype then
+                rate = v[2]
+            end
+        end
+        local base = equip.m_attr.pri_val
+        --跟服务器统一
+        attrs[poolcfg.atype] = math.floor((base * rate / 50) * level + base + 0.5)
+        equip.mattr = poolcfg.atype
+    end
+    return attrs
+end
+
+--计算符石副属性
+function Equip:CalcSecondAttr(equip)
+    local attrs = {}
+    local poolcfg
+    if equip.ex_attrs ~= nil then
+        for _ ,attr in ipairs(equip.ex_attrs) do
+            poolcfg = self:getPoolCfgById(attr.id)
+            attrs[poolcfg.atype] = attr.all_val
+        end
+    end
+    return attrs
+end

@@ -1,0 +1,509 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 14:24:15
+-- brief :
+--
+Task = Task or {}
+
+function Task:Ctor()
+end
+
+function Task:Clear()
+    for _, v in pairs(self._tasks) do
+        v.state = Task.STATE_NOT_DONE
+    end
+end
+
+function Task:GetTask(cfgid)
+    if self._tasks[cfgid] == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!!![Quest]配置表出错了，找不到id = " .. cfgid)
+    end
+    return self._tasks[cfgid]
+end
+
+function Task:GetPrevId(cfgid)
+    local lastid = 0
+    for _, v in pairs(self._lists) do
+        lastid = v[1]
+        for i = 2, #v do
+            if v[i] == cfgid then
+                return lastid
+            else
+                lastid = v[i]
+            end
+        end
+    end
+    return lastid
+end
+
+function Task:OnTaskJudgeInsert(v)
+    if v.Quest_Open[1] == Task.OPEN_TYPE_LEVEL then
+        if Player:GetLevel() < v.Quest_Open[2] then
+            return false
+        end
+        if v.listid <= 1 then
+            return (v.taskTimeId == 0) or CTime:IsOpen(v.taskTimeId)
+        else
+            local task = self:GetTask(self:GetPrevId(v.cfgid))
+            return (task ~= nil and Task.STATE_NOT_DONE ~= task.state)
+        end
+    elseif v.Quest_Open[1] == Task.OPEN_TYPE_VIP then
+        local serverdata = Operation:GetData();
+        if v.listid <= 1 then
+            return serverdata.monthcards[v.Quest_Open[2]] ~= nil;
+        else
+            local task = self:GetTask(self:GetPrevId(v.cfgid))
+            return (task ~= nil and Task.STATE_NOT_DONE ~= task.state)and (serverdata.monthcards[v.Quest_Open[2]] ~= nil)
+        end
+    elseif v.Quest_Open[1] == Task.OPEN_TYPE_CHAPTER then
+        local level = Chapter:GetLevel(v.Quest_Open[2])
+        if level ~= nil then
+            if v.listid <= 1 then
+                return level.open
+            else
+                local task = self:GetTask(self:GetPrevId(v.cfgid))
+                return (task ~= nil and Task.STATE_NOT_DONE ~= task.state) and level.open
+            end
+        else
+            CS.Logger.LogError(" task cfg error!!!!   task id = {0}", v. cfgid)
+        end
+    end
+    return false
+end
+
+function Task:GetTasks(showtype)
+    local ret = {}
+    for _, v in pairs(self._tasks) do
+        if v.showtype == showtype then
+            if self:OnTaskJudgeInsert(v) then
+                table.insert(ret, v.cfgid)
+            end
+        end
+    end
+    return ret
+end
+
+function Task:GetSubTasks(subtype)
+    local ret = {}
+    for _, v in pairs(self._tasks) do
+        if v.subtype == subtype then
+            if self:OnTaskJudgeInsert(v) then
+                table.insert(ret, v.cfgid)
+            end
+        end
+    end
+    return ret
+end
+
+
+function Task:NewerTaskRemainTime()
+    --CTime.HOUR_SEC * 3 为东8时区偏移, 游戏内偏移时间为5个小时
+    local diff = Player:GetNewerTaskDays() * CTime.DAY_SEC - (CTime:GetServerTime() - self._newer_days * CTime.DAY_SEC + CTime.HOUR_SEC * 3);
+    return diff
+end
+
+function Task:NewerTaskDays()
+    return CTime:GetOffsetDay() - self._newer_days + 1
+end
+
+function Task:NewerIsOpen()
+    return self:NewerTaskRemainTime() > 0
+end
+
+function Task:GetNewerScoreTask()
+    local ret = {}
+    for _, v in pairs(self._tasks) do
+        if v.showtype == Task.TYPE_NEWER_SCORE then
+            table.insert(ret, v.cfgid)
+        end
+    end
+    table.sort(ret, function(a, b)
+            return a < b
+        end)
+    return ret
+end
+
+function Task:GetNewerTaskScore()
+    local c = 0
+    for _, v in pairs(self._tasks) do
+        if v.showtype == Task.TYPE_NEWER then
+            if v.state == Task.STATE_HAS_RECV then
+                c = c + 1
+            end
+        end
+    end
+    return c
+end
+
+function Task:SortTaskIds(taskids)
+    local ids = {}
+    for i, taskid in ipairs(taskids) do
+        local task = Task:GetTask(taskid)
+        local sortid = taskid * 10
+        if task.state == Task.STATE_HAS_DONE then
+            sortid = taskid * 0.1
+        elseif task.state == Task.STATE_HAS_RECV then
+            sortid = taskid * 100
+        end
+        table.insert(ids, {taskid = taskid, sortid = sortid})
+    end
+    local ret = {}
+    table.sort(ids, function(a, b)
+            return a.sortid < b.sortid
+        end)
+    for i, v in ipairs(ids) do
+        table.insert(ret, v.taskid)
+    end
+    return ret
+end
+
+function Task:GetNewerRecv()
+    local ret = {}
+    local days = self:NewerTaskDays()
+    local recv, ids = false, nil
+    for i = 1, days do
+        recv = false
+        ids = self:GetSubTasks(i + Task.DAY_TASK_INDEX)
+        for _, v in pairs(ids) do
+            local data = self:GetTask(v)
+            if Task.STATE_HAS_DONE == data.state then
+                recv = true
+                break
+            end
+        end
+        table.insert(ret, recv)
+    end
+    return ret
+end
+
+function Task:GetNewerTaskRedTips()
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) then
+        return false
+    end
+    if false == self:NewerIsOpen() then
+        return false
+    end
+    local ids = self:GetNewerScoreTask()
+    for i = 1, #ids do
+        local data = Task:GetTask(ids[i])
+        if(data.state == Task.STATE_HAS_DONE)then
+            return true;
+        end
+    end
+    local ret = self:GetNewerRecv()
+    for _, v in pairs(ret) do
+        if true == v then
+            return true
+        end
+    end
+    return false
+end
+
+function Task:GetTaskRecv()
+    local ret = {}
+    for _, v in pairs(Task.SHOW_TYPE) do
+        local brecv = false
+        local ids = Task:GetTasks(v)
+        for _, v in pairs(ids) do
+            local data = self:GetTask(v)
+            if Task.STATE_HAS_DONE == data.state then
+                brecv = true
+                break
+            end
+        end
+        ret[v] = brecv
+    end
+    return ret
+end
+
+function Task:IsSubTaskCanRecv(subtype)
+    local data
+    local taskids = self:GetSubTasks(subtype)
+    for _, v in pairs(taskids) do
+        data = self:GetTask(v)
+        if Task.STATE_HAS_DONE == data.state then
+            return true
+        end
+    end
+    return false
+end
+
+function Task:GetTaskRedTips()
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_task) then
+        return
+    end
+
+    if false == self._hasreq then
+        return self._task_recv
+    else
+        local ret = self:GetTaskRecv()
+        for _, v in pairs(ret) do
+            if true == v then
+                return true
+            end
+        end
+        return false
+    end
+end
+
+function Task:SetRankDailyTaskId(ids)
+    self._ranktaskids = {}
+    for _, v in pairs(ids) do
+        table.insert(self._ranktaskids, v)
+    end
+end
+
+function Task:GetRankTaskRed()
+    local retArr = {};
+    for i, v in ipairs(self._ranktaskids) do
+        if(v ~= 0)then
+            local task = Task:GetNextTask(self:GetTask(v))
+            if Task.STATE_HAS_RECV ~= task.state then
+                table.insert(retArr,task.cfgid);
+            end
+        end
+    end
+    for i, v in ipairs(retArr) do
+        local task = self:GetTask(v)
+        if Task.STATE_HAS_DONE == task.state then
+            return true
+        end
+    end
+    return false;
+end
+
+function Task:GetRankDailyTaskId()
+    local retIds,task = {};
+    for _, v in pairs(self._ranktaskids) do
+        task = Task:GetNextTask(Task:GetTask(v));
+        table.insert(retIds,task.cfgid);
+    end
+    return retIds
+end
+
+function Task:GetNextTask(task)
+    if(Task.STATE_HAS_RECV == task.state)then
+        if(task.nextid ~= 0)then
+            return self:GetNextTask(Task:GetTask(task.nextid));
+        end
+    end
+    return task;
+end
+
+function Task:GetRankDailyNextTask(taskid)
+    local task = Task:GetTask(taskid)
+    while task.state == Task.STATE_HAS_RECV do
+        if task.nextid == 0 then
+            return task
+        else
+            task = self:GetTask(task.nextid)
+        end
+    end
+    return task
+end
+
+function Task:GetTowerTaskIds()
+    return self._towerIds
+end
+
+function Task:GetBloodTaskIds(subtype)
+    return self._bloodIds[subtype]
+end
+
+function Task:_OnBetterOper(taskids)
+    local better = false
+    for i, taskid in ipairs(taskids) do
+        local task = self:GetTask(taskid)
+        better = better or Task.STATE_HAS_DONE == task.state
+        if better then return better end
+    end
+    return better
+end
+
+function Task:IsBetterOper(tasktype, subtype)
+    local better = false
+    local taskids
+    if tasktype == Task.TYPE_BLOOD then
+        if subtype == nil then
+            for _, taskids in pairs(self._bloodIds) do
+                better = better or self:_OnBetterOper(taskids)
+                if better then return better end
+            end
+            return better
+        else
+            return self:_OnBetterOper(self._bloodIds[subtype])
+        end
+    elseif tasktype == Task.TYPE_RANK and subtype == Task.RANK_TASK_DAILY then
+        taskids = self:GetRankDailyTaskId()
+    elseif tasktype == Task.TYPE_TOWER then
+        taskids = self:GetTowerTaskIds()
+    else
+        if subtype ~= nil then
+            taskids = self:GetSubTasks(subtype)
+        else
+            taskids = self:GetTasks(tasktype)
+        end
+    end
+    return self:_OnBetterOper(taskids)
+end
+
+function Task:GetWhiteNightRedState()
+    local taskIds = Task:GetTasks(Task.TYPE_BLOOD);
+    for _, v in pairs(taskIds) do
+        if(Task:GetTask(v).state == Task.STATE_HAS_DONE)then
+            return true;
+        end
+    end
+    return false;
+end
+
+function Task:UpdateTask(taskid)
+    local task = self:GetTask(taskid)
+    local _statsdata = Stats:GetStatsDataById(task.Statistics_id)
+    self:CheckTaskRedTips(taskid)    
+    if _statsdata.Type < Stats.STATS_TYPE_10000 then
+        -- 客户端模块数据
+        if _statsdata.Type == Stats.STATS_TYPE_PLAYER_LVEL then
+            -- 玩家等级>=X级
+            task.hasValue = math.min(Player:GetLevel(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_FRIEND_NUM then
+            -- 拥有X个好友
+            task.hasValue = math.min(Friend:GetFriendNumber(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_SKIN_NUM then
+            -- 获得皮肤数量
+            task.hasValue = math.min(Hero:GetSkinNumber(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_HERO_LEVEL then
+            -- 魔女等级>=X级的数量
+            task.hasValue = math.min(Hero:GetHeroLevelNumber(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_X_HERO_LEVEL then
+            -- 魔女A的等级为N
+            task.hasValue = math.min(Hero:GetHeroLevel(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_HERO_QLTY then
+            -- 魔女X品质的数量
+            task.hasValue = math.min(Hero:GetHeroQltyNumber(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_HERO_STAR then
+            -- 魔女星数=X星的数量
+            task.hasValue = math.min(Hero:GetHeroStarNumber(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_X_HERO_STAR then
+            -- 魔女A的星级为N
+            task.hasValue = math.min(Hero:GetHeroStar(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_HERO_SKILL_LV then
+            -- 魔女技能>=X级的数量
+            task.hasValue = math.min(Hero:GetHeroSkillLevelNumber(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_X_HERO_FAVORUP then
+            -- 魔女A的升华等级N
+            task.hasValue = math.min(Hero:GetHeroFavorUpLevel(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_X_HERO_FAVOR then
+            -- 魔女A好感度等级为N
+            task.hasValue = math.min(Hero:GetHeroFavorLevel(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_HERO_NUMBER then
+            -- 魔女个数
+            task.hasValue = math.min(Hero:GetOwnerHeroNumber(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_BUILD_LV then
+            -- 法典最大等级
+            task.hasValue = math.min(Build:GetBuildMaxLevel(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_BUILD_TYPE_LV then
+            -- 法典A类型等级
+            task.hasValue = math.min(Build:GetBuildTypeLevel(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_BUILD_X_DOT_LV then
+            -- 法典A类型任意分支最高点数
+            task.hasValue = math.min(Build:GetBuildTypeDotMaxPoint(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_BUILD_ANY_DOT_LV then
+            -- 法典任意分支最高点数
+            task.hasValue = math.min(Build:GetBuildDotMaxPoint(), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_BUILD_HERO_IN_DOT then
+            -- 全部法典类型，上阵A稀有度魔女N个
+            task.hasValue = math.min(Build:GetBuildTypeMaxHeroQlty(_statsdata.Cond_1), task.Count_cmp)
+        elseif _statsdata.Type == Stats.STATS_TYPE_PASS_LEVEL then
+            local level = Chapter:GetLevel(task.Count_cmp)
+            if level.open then
+                task.hasValue = 1
+            else
+                task.hasValue = 0
+            end
+        elseif _statsdata.Type == Stats.STATS_TYPE_LEVEL_STAR then
+            task.hasValue = Chapter:GetPlotLevelStarNumber()
+        elseif _statsdata.Type == Stats.STATS_TYPE_ETHER_CUR_LV then
+            task.hasValue = Ether:GetEtherCurStrategyLevel()
+        elseif _statsdata.Type == Stats.STATS_TYPE_ETHER then
+            local _hasValue = Ether:GetEtherChapterHistoryLevel(_statsdata.Cond_1)
+            if _hasValue >= task.cmpValue then
+                task.hasValue = 1
+            else
+                task.hasValue = 0
+            end
+        elseif _statsdata.Type == Stats.STATS_TYPE_AFFIX_MAX_LV then
+            task.hasValue = Ether:GetEtherAffixHistoryLevel(_statsdata.Cond_1)        
+        elseif _statsdata.Type == Stats.STATS_TYPE_NIL then
+            if _statsdata.TimeId == 0 then
+                task.hasValue = 1
+            else
+                if CTime:IsOpen(_statsdata.TimeId) then
+                    task.hasValue = 1
+                else
+                    task.hasValue = 0
+                end
+            end
+        else
+            AppMgr:LogError("================客户端未处理的统计类型================".._statsdata.Type)
+        end
+    else
+        -- 服务器统计数据
+        if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_SHOW_COUNT_FIX) then
+            if task.Type_cmp == Task.CMP_TYPE_LESS_EQUAL then
+                if _statsdata.Inited and _statsdata.Count <= task.cmpValue then
+                    task.hasValue = 1
+                else
+                    task.hasValue = 0
+                end
+            else
+                if _statsdata.Count >= task.cmpValue then
+                    task.hasValue = 1
+                else
+                    task.hasValue = 0
+                end
+            end
+        else
+            task.hasValue = _statsdata.Count
+        end
+    end
+    self:_refreshTaskState(task)
+end
+
+function Task:_refreshTaskState(task)
+    if task.recv_number >= task.Quest_times then
+        task.hasValue = task.showValue
+        task.state = Task.STATE_HAS_RECV
+    else
+        local canRecv = math.floor(task.hasValue / task.showValue) - task.recv_number
+        if canRecv > 0 then
+            task.state = Task.STATE_HAS_DONE
+        else
+            task.state = Task.STATE_NOT_DONE
+        end
+    end
+end
+
+function Task:UpdateTasks()
+    for id, data in pairs(self._tasks) do
+        self:UpdateTask(id)
+    end
+end
+
+local _debug = true
+-- brief: 获取任务可以领取的次数
+function Task:GetTaskCanRecvCount(taskid)
+    local task = self:GetTask(taskid)
+    if task.hasValue < task.cmpValue then
+        return 0
+    end
+    if 1 >= task.Quest_times then
+        return 1
+    end
+    return math.floor(task.hasValue / task.cmpValue) - task.recv_number
+end
+
+function Task:ClearRecvNumber(taskid)
+    local task = self:GetTask(taskid)
+    task.recv_number = 0
+end

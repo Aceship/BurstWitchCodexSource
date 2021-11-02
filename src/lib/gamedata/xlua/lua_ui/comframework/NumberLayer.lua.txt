@@ -1,0 +1,140 @@
+--
+-- author: haosun
+-- date  : 2018-12-26 11:15:04
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CNumberLayer = class("CNumberLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    ok      = "container/button_ok",
+    no      = "container/button_no",
+    max     = "container/button_max",
+}
+
+function CNumberLayer:ctor(super, params)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_NumberLayer",
+    }
+    self._uitype = 2
+    self._params = params
+    self._number = 1
+    self._dt = 0
+    self._var = 0
+    self:onEnter()
+end
+
+function CNumberLayer:initObj()
+    self._sliderObj = self.layer.transform:Find("container/slider"):GetComponent("Slider")
+    self._numberObj = self.layer.transform:Find("container/text_number"):GetComponent("Text")
+end
+
+function CNumberLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerEvent()
+    self:show()
+end
+
+function CNumberLayer:onExit()
+    self._params = nil
+    CBaseLayer.onExit(self)
+end
+
+function CNumberLayer:onUpdate(dt)
+    if self._press then
+        self._dt = self._dt + dt
+        if self._dt >= 0.3 then
+            self._dt = self._dt - 0.05
+            self:calcNumber()            
+        end
+    end
+end
+
+function CNumberLayer:registerEvent()
+    self:registerButtonEvent(BUTTON_TYPE)
+    local onUp = function()
+        self._press = false
+        self:calcNumber()
+    end
+    local listener = CS.EventTriggerListener.Get(self.layer.transform:Find("container/button_add").gameObject)
+    listener.onDown = function()
+        self._dt = 0
+        self._var = 1
+        self._press = true
+    end
+    listener.onUp = onUp
+
+    local listener = CS.EventTriggerListener.Get(self.layer.transform:Find("container/button_sub").gameObject)
+    listener.onDown = function()
+        self._dt = 0
+        self._var = -1
+        self._press = true
+    end
+    listener.onUp = onUp
+    self.layer.transform:Find("container/slider"):GetComponent("Slider").onValueChanged:AddListener(
+        function(value)
+            self._number = math.ceil(value)
+            self:setShowNumber()
+        end)
+end
+
+function CNumberLayer:onBackClick()
+    self._number = 0
+    if self._params.callback ~= nil then
+        self._params.callback(self._number)
+    end
+    self:onPopLayer()
+end
+
+function CNumberLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.max then
+        self._number = self._params.max
+        self:setSlider()
+    elseif itype == BUTTON_TYPE.ok then
+        if self._params.callback ~= nil then
+            self._params.callback(self._number)
+        end
+        self:onPopLayer()
+    elseif itype == BUTTON_TYPE.no then
+        if self._params.callback ~= nil then
+            self._params.callback(0)
+        end
+        self:onPopLayer()
+    end
+end
+
+function CNumberLayer:show()
+    play_effect_show()
+    self.layer.transform:Find("container/text_max"):GetComponent("Text").text = self._params.max    
+    self.layer.transform:Find("container/slider"):GetComponent("Slider").maxValue = self._params.max
+    self._number = 1
+    self:setShowNumber()
+    self:setSlider()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function CNumberLayer:calcNumber()
+    self._number = self._number + self._var
+    if self._number < 1 then
+        self._number = 1
+    end
+    if self._number > self._params.max then
+        self._number = self._params.max
+    end
+    self:setSlider()
+    self:setShowNumber()
+end
+
+function CNumberLayer:setSlider()    
+    self._sliderObj.value = self._number
+end
+
+function CNumberLayer:setShowNumber()    
+    self._numberObj.text = self._number
+end
+
+return CNumberLayer
+

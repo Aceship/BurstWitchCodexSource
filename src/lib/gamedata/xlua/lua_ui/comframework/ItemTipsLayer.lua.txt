@@ -1,0 +1,321 @@
+--
+-- author: haosun
+-- date  : 2018-12-04 15:53:35
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CItemTipsLayer = class("CItemTipsLayer", CBaseLayer)
+
+local _inst = nil
+function CItemTipsLayer.GetInstance()
+    if _inst == nil then
+        _inst = CItemTipsLayer:new()
+    end
+    return _inst
+end
+
+function CItemTipsLayer.DestoryInstance()
+    if _inst ~= nil then
+        _inst:onExit()
+        _inst = nil
+    end
+end
+
+function CItemTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_ItemTipsLayer",
+    }
+
+    self:onEnter()
+end
+
+function CItemTipsLayer:onEnter()
+    self:createPnl()
+    -- init
+    self._attrCObjArr   = CAttr:NewAttrObjArr(self.layer:Get("container"), 6)
+    self._nameCom       = self.layer:GetTextComponent("container/text_name")
+    self._descCom       = self.layer:GetTextComponent("container/text_desc")
+    self._qltyObj       = self.layer:Get("container/image_qlty")
+    self._attrib        = self.layer:Get("container/img_attrib");
+    self._img_attrib    = self.layer:GetImageComponent("container/img_attrib")
+    self._ownerObj      = self.layer:Get("container/text_ower")
+    self._ownerCom      = self._ownerObj:GetComponent("Text")
+    self._clsObj        = Equip:CtorEquipCObj(self.layer:Get("container/prefab"))
+    self._belongObj     = self.layer:Get("container/equip_belong")
+    self._belongArr     = Equip:InitBelongTypes(self._belongObj)
+    self._button_back   = self.layer:Get("button_back");
+end
+
+function CItemTipsLayer:onExit()
+    self._nameCom       = nil
+    self._descCom       = nil
+    self._qltyObj       = nil
+    self._attrib        = nil
+    self._img_attrib    = nil
+    self._ownerObj      = nil
+    self._ownerCom      = nil
+    self._belongObj     = nil
+    self._button_back   = nil
+    CBaseLayer.onExit(self)
+end
+
+function CItemTipsLayer:onBackClick()
+    self:hideLayer()
+end
+
+function CItemTipsLayer:show(trans)
+    play_effect_show()
+    self._fading = false
+    self:showLayer()
+    self:refreshPos(trans)
+    self:playAni("ItemTipsLayerAni")
+end
+
+function CItemTipsLayer:refreshPos(trans)
+    -- 计算位置
+    if(trans.position == nil)then
+        trans = trans.transform;
+    end
+    self.layer.transform:Find("container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local rect = self.layer.transform:Find("container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-rect.sizeDelta.x/2,rect.sizeDelta.x/2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y * 1.5 > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y/2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y/2 - 50;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2)+ transRect.sizeDelta.y/2 - 50;
+    end
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+function CItemTipsLayer:showById(trans, itype, cfgid, isuid,shownum,isPass)
+    if isPass then
+        self._button_back:GetComponent("PassEvent").isPassEvent = true
+    else
+        self._button_back:GetComponent("PassEvent").isPassEvent = false
+    end
+
+    if itype == Bag.TYPE_ITEM then
+        self:showItem(trans, cfgid, shownum)
+    elseif itype == Bag.TYPE_EQUIP then
+        if isuid then
+            self:showEquip(trans, Equip:GetEquip(cfgid))
+        else
+            local equip = Equip:InitEquip(tonumber(cfgid))
+            Equip:SetAttr(equip)
+            self:showEquip(trans, equip)
+        end
+    elseif(itype == Bag.TYPE_MUSIC)then
+        return;
+    elseif(itype == Bag.TYPE_HERO)then
+        self:showHero(trans, cfgid)
+    end
+end
+
+function CItemTipsLayer:showItem(trans, cfgid, shownum)
+    self._descCom.color = COLOR_TYPE.Gray55;
+    self._bagtype = Bag.TYPE_ITEM
+    self:_refreshItem(cfgid)
+    local cfg = Item:GetCfg(cfgid)
+    self:_refresNameDesc(cfg.Name, cfg.itemInfo)
+
+    self:_refreshAttr()
+    self:_resetContainerSize(0)
+    self:_refreshLayer()
+    self._attrib:SetVisible(false);
+
+    local showowner = tonumber(cfg.countmax) ~= 1 and tonumber(cfg.itemType) ~= Item.TYPE_MUSIC_BOOK
+    self._ownerObj:SetVisible(showowner)
+    if showowner then
+        self._ownerCom.text = LanguageMgr:GetTextByID(40034) .. tostring(shownum or Item:GetCount(cfgid))
+    end
+
+    Equip:HideEquipCObj(self._clsObj)
+
+    self:show(trans)
+end
+
+function CItemTipsLayer:showEquip(trans, equip)
+    self._descCom.color = COLOR_TYPE.Gray55;
+    self._bagtype = Bag.TYPE_EQUIP
+    if equip.uid == nil then
+        self:_refreshItem(equip.uid, true)
+    else
+        self:_refreshItem(equip.cfgid)
+    end
+    local cfg = Equip:GetCfg(equip.cfgid)
+    self:_refresNameDesc(cfg.Name, cfg.itemInfo)
+    local showattr = Equip:SetEquipAttr(self._attrCObjArr, equip)
+    self:_refreshLayer()
+    Equip:EquipBelongTypes(self._belongArr, equip.cfgid)
+    self:setEquipSkill(equip)
+    self:_resetContainerSize(#showattr/2)
+    self:show(trans)
+end
+
+--显示其他玩家的装备
+function CItemTipsLayer:showRestPlayerEquip(trans,equips,itype)
+    self._descCom.color = COLOR_TYPE.White;
+    self._bagtype = Bag.TYPE_EQUIP
+    local equip = equips[itype];
+    if equip.uid == nil then
+        self:_refreshItem(equip.uid, true)
+    else
+        self:_refreshItem(equip.cfgid)
+    end
+    local cfg = Equip:GetCfg(equip.cfgid)
+    self:_refresNameDesc(cfg.Name, cfg.itemInfo)
+    local showattr = Equip:SetEquipAttr(self._attrCObjArr, equip)
+    self:_refreshLayer()
+    self._attrib:SetVisible(false);
+    Equip:EquipBelongTypes(self._belongArr, equip.cfgid)
+    self:setRestPlayerEquipSkill(equips,equip)
+    self:_resetContainerSize(#showattr/2)
+    self:show(trans)
+end
+
+function CItemTipsLayer:showHero(trans, heroid)
+    self._descCom.color = COLOR_TYPE.Gray55;
+    self._bagtype = Bag.TYPE_HERO
+    self:_refreshItem(heroid)
+    local cfg = Hero:GetCfg(heroid)
+    self:_refresNameDesc(cfg.Name, cfg.itemInfo)
+
+    local hero = Hero:GetHero(heroid)
+    Hero:SetHeroQlty(self._qltyObj, hero.qlty)
+    self._img_attrib:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(cfg.attri_type)])
+    self._attrib:SetVisible(true);
+    self:_refreshAttr()
+    self:_resetContainerSize(0)
+    self:_refreshLayer()
+
+    Equip:HideEquipCObj(self._clsObj)
+
+    self:show(trans)
+end
+
+function CItemTipsLayer:_refreshItem(cfgid, isUid)
+    if self._bagtype == Bag.TYPE_EQUIP then
+        if isUid then
+            Equip:SetEquipCObjByUid(self._clsObj, cfgid)
+        else
+            Equip:SetEquipCObjByCfgid(self._clsObj, cfgid)
+        end
+    else
+        Bag:SetComSimpleGoodsUi(self._clsObj.clsbag, self._bagtype, cfgid)
+    end
+end
+
+function CItemTipsLayer:_refresNameDesc(name, desc)
+    self._nameCom.text = name
+    if(desc == nil)then
+        desc = ""
+        self._descCom.text = desc
+        return;
+    end
+    self._descCom.text = lua_color_str(desc)
+end
+
+function CItemTipsLayer:_refreshAttr()
+    for i, cls in ipairs(self._attrCObjArr) do
+        cls:Visible(false)
+    end
+end
+
+function CItemTipsLayer:_resetContainerSize(num)
+    self.layer:Get("container"):SetSizeY(self._descCom.preferredHeight + 300 + num * 60)
+end
+
+function CItemTipsLayer:_refreshLayer()
+    self._ownerObj:SetVisible(false)
+    self._qltyObj:SetVisible(self._bagtype == Bag.TYPE_HERO)
+    self._belongObj:SetVisible(self._bagtype == Bag.TYPE_EQUIP)
+end
+
+--设置武器符石特效
+function CItemTipsLayer:setEquipSkill(equip)
+    local skills = {}
+    for _, v in pairs(equip.skills) do
+        table.insert(skills, {skilltype = 1, cfgid = v})
+    end
+    if #skills == 0 then
+        for _, v in pairs(equip.init_skills) do
+            table.insert(skills, {skilltype = 1, cfgid = v})
+        end
+    end
+    if equip.suitid ~= 0 then
+        local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM)
+        for _, v in pairs(suitcfgids) do
+            table.insert(skills, {skilltype = 2, cfgid = v})
+        end
+    end
+    local cellnum = #skills
+    local skillcfg
+    local des = ""
+    for i = 1, cellnum do
+        if skills[i] ~= nil then
+            skillcfg = Equip:GetEquipSuitCfg(skills[i].cfgid)
+            local cfg = Skill:GetCfgByTypeIdStr(skillcfg.skill)
+            if cfg then
+                local desc = lua_color_str(cfg.desc)
+                    desc = string.format("[%d/%d]", skillcfg.num, skillcfg.num) .. desc
+                if i > 1 then
+                    des = des.. "\n"..desc
+                else
+                    des = des..desc
+                end
+            end
+        end
+    end
+    if des == "" then
+        self._descCom:SetTextById(72000026)
+    else
+        self._descCom .text = des
+    end
+end
+
+--设置其他玩家武器符石特效
+function CItemTipsLayer:setRestPlayerEquipSkill(equips,equip)
+    local des = ""
+
+    local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM)
+    local suitcfg, deskillcfg, tmpdesc
+    local suitnum = 0   -- 已达成的数量
+    for _, v in pairs(suitcfgids) do
+        suitcfg = Equip:GetEquipSuitCfg(v)
+        deskillcfg = Skill:GetCfgByTypeIdStr(suitcfg.skill)
+        local c = 0
+        for _, eid in pairs(equips) do
+            if eid ~= 0 then
+                if equip.suitid == eid.suitid then
+                    c = c + 1
+                end
+            end
+        end
+        suitnum = (equip.heroid == 0) and 0 or c
+        suitnum = lua_math_in_range(suitnum,0,suitcfg.num);
+        tmpdesc = string.format(LanguageMgr:GetTextByID(99000042), suitnum, suitcfg.num, deskillcfg.desc)
+        if suitnum < suitcfg.num then
+            tmpdesc = string.format(LanguageMgr:GetTextByID(99000043), tmpdesc)
+        end
+        if des == nil then
+            des = tmpdesc
+        else
+            des = des .. "\n" .. tmpdesc
+        end
+    end
+    if des == "" then
+        self._descCom:SetTextById(72000026)
+    else
+        self._descCom .text = lua_color_str(des)
+    end
+end
+
+return CItemTipsLayer
+

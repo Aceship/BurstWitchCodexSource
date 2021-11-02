@@ -1,0 +1,154 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-22 11:07:52
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local AddDetailsLayer = class("AddDetailsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function AddDetailsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_AddDetailsLayer",
+    }
+
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function AddDetailsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function AddDetailsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function AddDetailsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function AddDetailsLayer:Init()
+    self._heroId = Archive:GetCurSelectHeroId();
+    self._hero = Hero:GetHero(self._heroId);
+    self:InitUI();
+end
+
+--初始化UI
+function AddDetailsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/trans_title/txt_title");
+	self._txtTitleE = self.layer:GetTextComponent("trans_container/trans_title/txt_title_E");
+	self._txtAddContent = self.layer:GetTextComponent("trans_container/trans_attr_add/txt_add_content");
+	self._txtPercentAddTitle = self.layer:GetTextComponent("trans_container/trans_percent_add/txt_percent_add_title");
+	self._txtPercentAddContent = self.layer:GetTextComponent("trans_container/trans_percent_add/txt_percent_add_content");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self:SetUI();
+end
+
+--显示UI
+function AddDetailsLayer:show()
+    self:playAni("TipsAnim");
+    self:showLayer();
+end
+
+--释放
+function AddDetailsLayer:onExit()
+
+    self._txtTitle = nil;
+	self._txtTitleE = nil;
+	self._txtAddContent = nil;
+	self._txtPercentAddTitle = nil;
+	self._txtPercentAddContent = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function AddDetailsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function AddDetailsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function AddDetailsLayer:SetUI()
+    local star = 0;
+    if Archive:GetHeroStarById(self._heroId) < self._hero.maxStar then
+        local heroCfg = Hero:GetCfg(self._heroId);
+        star = Archive:GetHeroStarById(self._heroId) - tonumber(heroCfg.Star) + 2;
+    end
+    if(star <= 0)then
+        star = 1;
+    end
+    local addCfg = Archive:GetHandBookCfgByHeroId(self._heroId);
+    local buildAdd,attrAdd = 0,0;
+    if(star ~= 0)then
+        self._txtTitle:SetTextById(7120033);
+        self._txtTitleE:SetTextById(7120034);
+        buildAdd = addCfg.buildAdd[star][1] or 0;
+        attrAdd = addCfg.attrAdd[star][2] or 0;
+    else
+        for _, v in pairs(addCfg.buildAdd) do
+            buildAdd = buildAdd + v[1];
+        end
+        for _, v in pairs(addCfg.attrAdd) do
+            attrAdd = attrAdd + v[2];
+        end
+        self._txtTitle:SetTextById(7120035);
+        self._txtTitleE:SetTextById(7120036);
+    end
+    local att = CAttr:GetCfg(addCfg.attrAdd[1][1]);
+    if(att.show_type == 2)then
+        self._txtAddContent.text = string.format(LanguageMgr:GetTextByID(7120037),att.name,attrAdd/10).."%";
+    else
+        self._txtAddContent.text = string.format(LanguageMgr:GetTextByID(7120037),att.name,attrAdd);
+    end
+    self._txtPercentAddTitle.text = string.format(LanguageMgr:GetTextByID(7120038),
+    LanguageMgr:GetTextByID(71200000 + tonumber(self._hero.atktype)));
+    self._txtPercentAddContent.text = string.format(LanguageMgr:GetTextByID(7120039),buildAdd/10);
+end
+
+return AddDetailsLayer;

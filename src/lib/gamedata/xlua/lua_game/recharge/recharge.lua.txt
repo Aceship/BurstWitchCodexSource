@@ -1,0 +1,87 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 14:26:28
+-- brief : 
+--
+Recharge = Recharge or {}
+
+function Recharge:Ctor()
+    Recharge:InitData();
+end
+
+
+--获取礼包开启状态
+function Recharge:GetChargeOpenStateById(id)
+    local cfg = Recharge:GetData(id);
+    if(cfg == nil)then
+        return false,"";
+    end
+    if(cfg.openData ~= -1)then
+        for _, v in ipairs(cfg.openData) do
+            if(v[1] == Recharge.OpenType.Chapter)then
+                --Chapter:chapterOrLevelIsOpen(chapter, level)
+            elseif(v[1] == Recharge.OpenType.Lv)then
+                if(Player:GetLevel() < v[2])then
+                    return false,Recharge.OpenType.Lv,v[2];
+                end
+            elseif(v[1] == Recharge.OpenType.LastGift)then
+                if(Operation:GetGiftBagBoughtNum(v[2]) <= 0)then
+                    return false,Recharge.OpenType.LastGift,v[2];
+                end
+            end
+        end
+    end
+    return true;
+end
+
+--获取礼包可购买数(不考虑购买消耗)
+function Recharge:GetGiftBagBuyNum(id)
+    local charge = Recharge:GetData(id);
+    local isBuy = false;
+    local canBuyNum = 0;
+    if(charge.lockData == Recharge.LockType.NotHave)then--锁定方式--无
+        isBuy = true;
+        canBuyNum = charge.oneBuyNum;
+    elseif(charge.lockData[1] == Recharge.LockType.One)then--锁定方式--一个锁定
+        isBuy = Item:GetCount(charge.lockData[2]) < 1;
+        canBuyNum = 1 - Item:GetCount(charge.lockData[2]);
+    elseif(charge.lockData[1] == Recharge.LockType.Double)then--锁定方式--指定个数锁定
+        isBuy = Item:GetCount(charge.lockData[2]) < charge.lockData[3];
+        canBuyNum = charge.lockData[3] - Item:GetCount(charge.lockData[2]);
+    end
+    if(not isBuy or canBuyNum <= 0)then--锁定,不允许购买
+        return canBuyNum,isBuy;
+    end
+    local buyNum = Operation:GetGiftBagBoughtNum(id);
+    local num = 0;
+    if(charge.stock > 0)then--限购礼包
+        if(charge.stock - buyNum > 0)then
+            if(charge.oneBuyNum > charge.stock - buyNum)then--一次性购买数大于周期可购买数, 以周期购买数为主
+                num = charge.stock - buyNum;
+            else
+                num = charge.oneBuyNum;
+            end
+        else--无购买次数
+            isBuy = false;
+            canBuyNum = 0;
+        end
+    else
+        num = charge.oneBuyNum;
+    end
+    if(num < canBuyNum)then
+        canBuyNum = num;
+    end
+    return canBuyNum or 0,isBuy;
+end
+
+function Recharge:RechargeSuccess()
+    if self._orderData ~= nil then
+        GZSDKHelper:operationalActivityWithPlayerInfo(self._orderData.code, self._orderData.code, "充值行为", "充值类", "成功")
+    end
+end
+
+function Recharge:RechargeFailed()
+    if self._orderData ~= nil then
+        GZSDKHelper:operationalActivityWithPlayerInfo(self._orderData.code, self._orderData.code, "充值行为", "充值类", "失败")
+    end
+end

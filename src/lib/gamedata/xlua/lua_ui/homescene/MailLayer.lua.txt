@@ -1,0 +1,245 @@
+--
+-- author: cjj
+-- date  : 2018-12-25 12:05:51
+-- brief : 
+--
+local CBaseLayer    = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MailLayer = class("MailLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    onedelete   = "container/button_onedelete",
+    oneget      = "container/button_oneget",
+}
+
+local SHOW_TYPE = {
+    mail_home   = 1,
+    mail_info   = 2,
+}
+
+function MailLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_mail/UI_Mail",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_MAIN,
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._loadAsync = true
+    self._addStack = true
+    self._hideOtherLayer = true;
+    -- self:onEnter()
+    self:loadAsync()
+end
+
+function MailLayer:initObj()
+    self._cellsObj      = {}
+    self._tvController  = UIController:CtorTableView(self.layer:Get("container/TableViewController"))
+    self._imgEmpty = self.layer:Get("container/image_empty")
+end
+
+function MailLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_ONE_GET, 
+        function()
+            self:onProcessAllGet()
+            self.btnGet.interactable = Mail:GetMailGetStart();
+            self.btnDelete.interactable = Mail:GetMailDeleteStart();
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_ONE_DELETE, 
+        function()
+            self.btnGet.interactable = Mail:GetMailGetStart();
+            self.btnDelete.interactable = Mail:GetMailDeleteStart();
+            self:onProcessAllDel()            
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_READ, 
+        function(mailid)
+            self:onProcessMail(mailid, Mail.OPER_READ)
+            self:showMailInfoLayer(mailid)
+        end)
+    self:addEventListener(EVENT_TYPE.DELETE_MAIL,self.__cname,function ()
+        self:dataGen()
+        self:refreshLayer()
+    end);
+    self._spine = self.layer:Get("spine_xinge")
+end
+
+function MailLayer:onExit()
+    self._tvController:Clear()
+    self._tvController = nil
+
+    self._spine = nil 
+    self._mails = nil
+    self._cellsObj = nil
+    self._imgEmpty = nil
+    
+    self.btnGet = nil
+    self.btnDelete = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function MailLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.onedelete then
+        if not Mail:OnekeyDeleteMailReq() then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150027))
+        end
+    elseif itype == BUTTON_TYPE.oneget then
+        if not Mail:OnekeyRecvReq() then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150028))
+        end
+    end
+end
+
+function MailLayer:show()
+    self:dataGen()
+    self:refreshLayer()
+    self:showLayer()
+    self:playAni("MailFadeIn")
+    if(self.btnDelete == nil)then
+        self.btnDelete = self.layer:GetButtonComponent(BUTTON_TYPE.onedelete)
+        self.btnGet = self.layer:GetButtonComponent(BUTTON_TYPE.oneget)
+    end
+    self.btnDelete.interactable = Mail:GetMailDeleteStart();
+    self.btnGet.interactable = Mail:GetMailGetStart();
+end
+
+function MailLayer:dataGen()
+    self._mails = Mail:GetMailArray()
+    local function sort_mail(a,b)
+        local readA = 0;
+        local readB = 0;
+        if #a.units > 0 and a.bread == 0 then
+            readA = readA + 100000;
+        end
+        if #b.units > 0 and b.bread == 0 then
+            readB = readB + 100000;
+        end
+        if a.bread == 0 then
+            readA = readA + 10000;
+        end
+        if b.bread == 0 then
+            readB = readB + 10000;
+        end
+        if a.sendtime > b.sendtime then
+            readA = readA + 1000;
+        elseif a.sendtime < b.sendtime then
+            readB = readB + 1000;
+        end
+        readA = readA - a.id
+        readB = readB - b.id
+        return readA > readB;
+    end
+    table.sort(self._mails, sort_mail);
+end
+
+function MailLayer:refreshLayer()
+    if not self._init then
+        self._tvController:Init(#self._mails, true, 
+            function(cell, row, play)
+                self:refreshUnitCell(cell, row+1)
+            end, 0.3, 0.1)
+        
+        self._init = true
+    else
+        self._tvController:Reload(#self._mails)
+    end
+
+    self._imgEmpty:SetVisible(#self._mails == 0)
+    self._spine:SetVisible( #self._mails > 0)
+end
+
+function MailLayer:refreshUnitCell(cell, row)
+    local cls = self._cellsObj[cell.name]
+    if cls == nil then
+        cls = Mail:NewMailClsUi(cell, 
+            function(mailid)
+                if not self._fading then
+                    self:onSelectMail(mailid)
+                end
+            end)
+        self._cellsObj[cell.name] = cls
+    end
+    Mail:SetMailClsUi(cls, self._mails[row])
+end
+
+function MailLayer:refreshUnitCellByRow(row)
+    local cell = self._tvController:GetCellAtRow(row-1)
+    if cell ~= nil then
+        self:refreshUnitCell(cell, row)
+    end
+end
+
+function MailLayer:onProcessAllGet()
+    for i, v in ipairs(self._mails) do
+        self:refreshUnitCellByRow(i)
+    end
+end
+
+function MailLayer:onProcessAllDel()
+    self:dataGen()
+    self:refreshLayer()
+    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150031))
+end
+
+function MailLayer:onSelectMail(mailid)
+    local data = Mail:GetMail(mailid)
+    if data ~= nil and #data.units == 0 and data.bread == Mail.STATE_UNREAD then
+        Mail:ReadMailReq(data.id)
+    else
+        self:showMailInfoLayer(data.id)
+    end
+end
+
+function MailLayer:showMailInfoLayer(mailid)
+    core.require("xlua/lua_UI/HomeScene/MailInfoLayer.txt"):new(self.layer):show(mailid,
+        function(mailid, oper)
+            self.btnGet.interactable = Mail:GetMailGetStart();
+            self.btnDelete.interactable = Mail:GetMailDeleteStart();
+            self:onProcessMail(mailid, oper)
+        end)
+end
+
+function MailLayer:onProcessMail(mailid, oper)
+    local idx = -1
+    for i, v in ipairs(self._mails) do
+        if mailid == v.id then
+            idx = i
+            break
+        end
+    end
+    self.btnDelete.interactable = Mail:GetMailDeleteStart();
+    self.btnGet.interactable = Mail:GetMailGetStart();
+    if idx ~= -1 then
+        if oper == Mail.OPER_DEL then
+            table.remove(self._mails, idx)
+            self:refreshLayer()
+        else
+            self:refreshUnitCellByRow(idx)
+        end
+    end
+end
+
+function MailLayer:onPerSecondUpdate()
+    if(self._cellsObj == nil)then
+        return;
+    end
+    for _, cls in pairs(self._cellsObj) do
+        if(cls.mail.duration > Mail.DURATION_FOREVER)then--有时限邮件
+            if(not Mail:GetMailIsPastDue(cls.mail))then--未过期的邮件
+                Mail:UpdateMailTimeTxt(cls.deltimeTxtCom,cls.mail);
+            end
+        end
+    end
+end
+
+return MailLayer

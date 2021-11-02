@@ -1,0 +1,298 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-26 17:22:49
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DiceWelfareLayer = class("DiceWelfareLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnGetDice = "trans_container/btn_get_dice",
+	--@ButtonEnd
+}
+local MaxTaskItemNUm = 5;
+--构造函数
+function DiceWelfareLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_DiceWelfareLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function DiceWelfareLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DiceWelfareLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnGetDice)then 
+	   self:OnBtnGetDiceClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function DiceWelfareLayer:Init()
+
+    self._sendMaxIndex = 0;
+    self:InitUI();
+end
+
+function DiceWelfareLayer:UpdateData()
+
+    local tasks,finishIds = Task:GetSubTasks(Task.ChessTask_Welfare),{};
+    for _, taskId in pairs(tasks) do
+        local task = Task:GetTask(taskId);
+        if(task.state == Task.STATE_HAS_DONE)then
+            if(Task:GetTaskCanRecvCount(taskId) >= 1)then
+                table.insert(finishIds,taskId);
+            end
+        end
+    end
+    self._taskIds = Task:SortTaskIds(finishIds);
+    self._getDiceTaskId = Task:GetSubTasks(Task.ChessTask_GetDice)[1];
+
+end
+
+--初始化UI
+function DiceWelfareLayer:InitUI()
+
+
+    --@ImageEnd
+
+    self._txtCurPlan = self.layer:GetTextComponent("trans_container/txt_cur_plan");
+    self._txtMaxPlan = self.layer:GetTextComponent("trans_container/txt_max_plan");
+    self._txtIsGetNum = self.layer:GetTextComponent("trans_container/txt_is_get_num");
+    --@TextEnd
+
+    self._transTaskBg = self.layer:Get("trans_container/trans_task_bg");
+    self._transSlider = self.layer:Get("trans_container/trans_slider");
+    self._transGetDice = self.layer:Get("trans_container/btn_get_dice");
+	self._transCurPlan = self.layer:Get("trans_container/txt_cur_plan");
+	--@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._sliderPlan = self._transSlider:GetComponent("Slider");
+    self._txtAnimCurPlan = self._transCurPlan:GetComponent("TextAnimation");
+    self._effectTaskGet = self._transSlider:GetComponent("ParticleBehaviour");
+    self._effectTaskGet:Stop();
+
+    self._itemPos = {};
+    self._taskItems = {};
+
+    for i = 1, MaxTaskItemNUm do
+        self._itemPos[i] = self._transTaskBg:Get(string.format("item_pos_%s",i)).localPosition;
+    end
+end
+
+--显示UI
+function DiceWelfareLayer:show()
+    self._taskAnimTime = 0;
+    self:UpdateData();
+    self:SetUI();
+    self:showLayer();
+end
+
+function DiceWelfareLayer:showLayer()
+    CBaseLayer.showLayer(self);
+    self:playAni("DiceWelfareLayerAni");
+end
+
+--退出按钮事件
+function DiceWelfareLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function DiceWelfareLayer:onExit()
+
+    self._taskIds = nil;
+    self._sendIds = nil;
+    self._taskItems = nil;
+
+    self._transTaskBg = nil;
+	self._txtCurPlan = nil;
+	self._txtMaxPlan = nil;
+	self._txtIsGetNum = nil;
+	self._transSlider = nil;
+	self._transGetDice = nil;
+	self._transCurPlan = nil;
+    self._txtAnimCurPlan = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function DiceWelfareLayer:OnBtnGetDiceClick()
+    local task = Task:GetTask(self._getDiceTaskId);
+    if(task.state == Task.STATE_HAS_DONE)then
+        if(Task:GetTaskCanRecvCount(self._getDiceTaskId) >= 1)then
+            Task:GetRewardReq({self._getDiceTaskId});
+        end
+    end
+ end
+
+function DiceWelfareLayer:OnBtnTaskItemClick()
+    if(self._sendMaxIndex > 0)then
+        return;
+    end
+    self._sendIds = {};
+    for i = 1, MaxTaskItemNUm do
+        if(self._taskIds[i] ~= nil)then
+            table.insert(self._sendIds,self._taskIds[i]);
+            self._sendMaxIndex = i;
+        else
+            break;
+        end
+    end
+    Task:GetRewardReq(self._sendIds);
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+
+
+
+
+function DiceWelfareLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.TASK_GET_REP,self.__cname,function()
+        if(#self._sendIds > 1 or self._sendIds[1] ~= self._getDiceTaskId)then
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+            for i = 1, MaxTaskItemNUm do
+                if(self._taskIds[i] ~= nil)then
+                    self:DoItemMoveAnim(i,function ()
+                        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
+                        self._sendIds = {};
+                        self._taskIds = {};
+                        self:UpdateData();
+                        self:SetUI();
+                        self._effectTaskGet:Stop();
+                        self._effectTaskGet:Play();
+                        local task = Task:GetTask(self._getDiceTaskId);
+                        if(task.state == Task.STATE_HAS_DONE)then
+                            if(Task:GetTaskCanRecvCount(self._getDiceTaskId) >= 1)then
+                                table.insert(self._sendIds,self._getDiceTaskId);
+                                Task:GetRewardReq(self._sendIds);
+                            end
+                        end
+                    end);
+                end
+            end
+            self._taskAnimTime = 0.2;
+        else
+            self._sendIds = {};
+            self:UpdateData();
+            self:SetUI();
+        end
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DiceWelfareLayer:SetUI()
+    local getDiceTask = Task:GetTask(self._getDiceTaskId);
+
+    local hasValue = getDiceTask.hasValue - getDiceTask.cmpValue * getDiceTask.recv_number;
+    self._txtMaxPlan:SetText(string.format("/%s",getDiceTask.cmpValue));
+    self._sliderPlan.maxValue = getDiceTask.cmpValue;
+    local value = getDiceTask.cmpValue - hasValue;
+    if(value < 0)then
+        value = 0;
+    end
+    self._txtAnimCurPlan:TxtAnimation(self._txtCurPlan,tonumber(self._txtCurPlan.text), hasValue, false, self._taskAnimTime * 3,1.1);
+    self._sliderPlan:DOValue(value,self._taskAnimTime);
+    self._txtIsGetNum:SetText(string.format(LanguageMgr:GetTextByID(90362),getDiceTask.rewards[1][3] * getDiceTask.recv_number));
+    self:SetTaskUI();
+end
+
+function DiceWelfareLayer:SetTaskUI()
+    for i = 1, MaxTaskItemNUm do
+        local cls = self._taskItems[i];
+        if(cls == nil)then
+            cls = self:NewTaskItem(self._transTaskBg:Get(string.format("item_%s",i)));
+            self._taskItems[i] = cls;
+        end
+        cls:Visible(self._taskIds[i] ~= nil);
+        if(self._taskIds[i] ~= nil)then
+            self:SetTaskItem(cls,self._taskIds[i]);
+        end
+    end
+end
+
+function DiceWelfareLayer:NewTaskItem(trans)
+    local cls = clsbase:new(trans);
+    cls.transRed = cls:Find("img_red");
+    cls.txtGetNum = cls:GetTextComponent("txt_get_num");
+    cls.txtTaskDes = cls:GetTextComponent("txt_task_des");
+    cls.txtFinishNum = cls:GetTextComponent("txt_finish_num");
+    cls.btn = cls.transform:GetComponent("Button");
+    cls.btn.onClick:AddListener(function ()
+        self:OnBtnTaskItemClick();
+    end);
+    return cls;
+end
+
+function DiceWelfareLayer:SetTaskItem(cls,taskId)
+    local task = Task:GetTask(taskId);
+    local getNum = Task:GetTaskCanRecvCount(taskId) or 1;
+    cls.transform:DOScale(1,self._taskAnimTime);
+    cls.transRed:SetVisible(getNum > 1);
+    cls.txtFinishNum:SetEnabled(getNum > 1);
+    if(getNum > 1)then
+        cls.txtFinishNum:SetText(getNum);
+        if(getNum < 10)then
+            cls.transRed:SetScale(0.7 ,0.7 ,0.7);
+        elseif(getNum < 100)then
+            cls.transRed:SetScale(0.85 ,0.85 ,0.85);
+        else
+            cls.transRed:SetScale(1 ,1 ,1);
+        end
+    end
+    cls.txtTaskDes:SetText(Language:GetTxtBuyId(task.Quest_des));
+    cls.txtGetNum:SetText(string.format("+%s",task.ActivePiece_point));
+end
+
+function DiceWelfareLayer:DoItemMoveAnim(index,animOverCallback)
+    local cls = self._taskItems[index];
+    cls.transform:DOMove(self._transGetDice.position,0.5):SetDelay(index * 0.1);
+    cls.txtTaskDes:SetText("");
+    cls.transform:DOScale(0.2,0.5):SetDelay(index * 0.1):OnComplete(function ()
+        cls.transform:SetPosition(self._itemPos[index].x,self._itemPos[index].y,self._itemPos[index].z,true);
+        if(self._sendMaxIndex > 0)then
+            if(self._sendMaxIndex == index)then
+                if(animOverCallback ~= nil)then
+                    animOverCallback();
+                    self._sendMaxIndex = 0;
+                end
+            end
+        end
+        cls:Visible(false);
+    end);
+end
+
+return DiceWelfareLayer;

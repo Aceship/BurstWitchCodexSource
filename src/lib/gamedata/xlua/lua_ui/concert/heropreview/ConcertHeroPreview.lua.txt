@@ -1,0 +1,562 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-08-25 20:38:50
+---
+---scroll.content.DOLocalMove(Vector3.zero, 0.2f);
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertHeroPreview = class("ConcertHeroPreview", CBaseLayer)
+--按钮
+local BTNS = {
+    Fiter               = "obj_bottom/uibtn_fiter",
+    SelectCloseBg       = "obj_filterUI/uibtn_selectCloseBg",
+}
+
+local table_width = 208
+local MIN_HERO_SCALE    = 1
+local MAX_HERO_SCALE    = 1.1
+
+local maxInstrumentItemCount = 3;
+
+--构造函数
+function ConcertHeroPreview:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertHeroPreview",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertHeroPreview:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self._objTop)
+end
+
+--按钮事件
+function ConcertHeroPreview:onButtonClick(itype)
+	if (itype == BTNS.Fiter) then 
+		self:onFiter();
+	elseif (itype == BTNS.SelectCloseBg) then 
+		self:onSelectCloseBg();
+	else
+
+	end
+end
+
+--初始化
+function ConcertHeroPreview:Init()
+    self:InitUI();
+    self:InitSelf();
+end
+
+--初始化UI
+function ConcertHeroPreview:InitUI()
+    self._texBg = self.layer:GetRawImageComponent("tex_bg");
+    self._objTop = self.layer:GetRectTransformComponent("obj_top").gameObject;
+    self._imgQlty = self.layer:GetImageComponent("obj_top/img_qlty");
+    self._txtHeroName = self.layer:GetTextComponent("obj_top/txt_heroName");
+    self._txtHeroNameEN = self.layer:GetTextComponent("obj_top/txt_heroName_EN");
+    self._objBottom = self.layer:GetRectTransformComponent("obj_bottom").gameObject;
+    self._uibtnFiter = self.layer:GetUIButtonComponent("obj_bottom/uibtn_fiter");
+    self._txtTitle = self.layer:GetTextComponent("obj_bottom/uibtn_fiter/txt_title");
+    self._imgSelectIcon = self.layer:GetImageComponent("obj_bottom/uibtn_fiter/img_selectIcon");
+    self._tvController = UIController:CtorTableView(self.layer:Get("obj_bottom/tv_Controller"));
+    self._cellHero = self.layer:GetRectTransformComponent("obj_bottom/tv_Controller/cell_hero").gameObject;
+    self._cellInstrument = self.layer:GetRectTransformComponent("obj_bottom/cell_instrument").gameObject;
+    self._objInstrumentRoot = self.layer:GetRectTransformComponent("obj_bottom/obj_instrumentRoot").gameObject;
+    self._objFilterUI = self.layer:GetRectTransformComponent("obj_filterUI").gameObject;
+    self._uibtnSelectCloseBg = self.layer:GetUIButtonComponent("obj_filterUI/uibtn_selectCloseBg");
+    self._cellSelectItem = self.layer:GetRectTransformComponent("obj_filterUI/cell_select_item").gameObject;
+    self._objSelectItemRoot = self.layer:GetRectTransformComponent("obj_filterUI/root/tog_bg/view_port/obj_selectItemRoot").gameObject;
+    self._objMusicTags = self.layer:GetRectTransformComponent("music_tags/obj_music_tags").gameObject;
+    self._cellTag = self.layer:GetRectTransformComponent("music_tags/cell_tag").gameObject;
+
+    self.musicTags = {}
+    local cls = nil
+    for i =1, Concert.MUSIC_TAG_NUM do
+        cls =  Concert:CtorHeroMusicTags(self._objMusicTags:AddChild(self._cellTag))
+        cls.obj:SetVisible(true)
+        self.musicTags[i] = cls
+    end
+end
+
+--显示UI
+function ConcertHeroPreview:show()
+    self:showLayer();
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_OPEN_HERO_PREVIEW);
+    Concert:ClearAllActor();
+    self:onChangeSelectHero();
+    self:RefreshFilterUIState();
+    self:RefreshFilterItem();
+    self:updateSelectIds();
+    self:RefreshHeroList();
+
+    Concert:PlayCameraAni("tujian");
+    Concert:PlayMainTrack();
+end
+
+--退出按钮事件
+function ConcertHeroPreview:onBackClick()
+    self:onPopLayer();
+end
+
+function ConcertHeroPreview:onFiter()
+    if(self._isFilterOpen) then
+        return ;
+    else
+        self._isFilterOpen = true;
+        self:RefreshFilterUIState();
+    end
+    self._objSelectItemRoot:SetPositionY(-550,true)
+end
+
+function ConcertHeroPreview:onSelectCloseBg()
+    if(not self._isFilterOpen) then
+        return ;
+    else
+        self._isFilterOpen = false;
+        self:RefreshFilterUIState();
+    end
+end
+
+--释放
+function ConcertHeroPreview:onExit()
+    self._texBg = nil;
+    self._objTop = nil;
+    self._imgQlty = nil;
+    self._txtHeroName = nil;
+    self._txtHeroNameEN = nil;
+    self._objBottom = nil;
+    self._uibtnFiter = nil;
+    self._txtTitle = nil;
+    self._imgSelectIcon = nil;
+    self._tvController:Clear();
+    self._tvController = nil;
+    self._cellHero = nil;
+    self._cellInstrument = nil;
+    self._objInstrumentRoot = nil;
+    self._objFilterUI = nil;
+    self._uibtnSelectCloseBg = nil;
+    self._cellSelectItem = nil;
+    self._objSelectItemRoot = nil;
+    self._objMusicTags = nil;
+    self._cellTag = nil;
+
+
+    for i, v in pairs(self.musicTags) do
+        v:clear()
+    end
+    self.musicTags = nil;
+
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_CLOSE_HERO_PREVIEW_WIN);
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+
+
+end
+
+
+--------------------------------private----------------------------------------
+
+function ConcertHeroPreview:RefreshHeroList()
+    self._tvController:Reload(#self._selectIds, false);
+end
+
+function ConcertHeroPreview:RefreshFilterItem()
+    local count = lua_table_len(self._instrumentFilterItems);
+    local curTmp;
+    local isSelect;
+
+    for i = 1,count do
+        curTmp = self._instrumentFilterItems[i];
+        isSelect = curTmp._instrumentType == self._curSelectFilterType;
+        curTmp._objSelect:SetVisible(isSelect);
+        curTmp._objUnselect:SetVisible(not isSelect);
+    end   
+
+    if(self._curSelectFilterType == 0) then
+        self._imgSelectIcon:SetMonoGameobjectActive(false);
+        self._txtTitle.text = LanguageMgr:GetTextByID(Concert.AllMusicTextId);
+    else
+        self._imgSelectIcon:SetMonoGameobjectActive(true);
+        local curMData = Concert:GetMusicalByCfgId(self._curSelectFilterType);
+        self._txtTitle.text = curMData.Name;
+        self._imgSelectIcon:LoadSprite(curMData.itemPath);
+    end
+end
+
+
+function ConcertHeroPreview:RefreshFilterUIState()
+    self._objFilterUI:SetVisible(self._isFilterOpen);
+end
+
+function ConcertHeroPreview:initData()
+
+    --初始化heroList
+    self._heroIds = Hero:GetHeroIds();
+
+    table.sort(self._heroIds, function(a, b)
+        local aData = Hero:GetHero(a);
+        local bData = Hero:GetHero(b);
+        if(aData.owner ~= bData.owner) then
+            return aData.owner;
+        end
+        if( aData.star ~= bData.star) then
+            return aData.star>bData.star;
+        end
+        return aData.id>bData.id;
+    end)
+
+    self._selectIds = nil;
+    self._curSelectIndex = 1;
+    self.heroHeads = {};
+    self._instrumentItems = {};
+    self._instrumentFilterItems = {};
+    self._curSelectFilterType = 0;
+    self._selectHeroItem = nil;
+    self._curHero = nil;
+    self._curSeletInstrumentIndex = 1;
+    self._isFilterOpen = false;
+
+    self._heroIdMappingByInstrumentType ={};
+end
+
+function ConcertHeroPreview:InitSelf()
+
+
+    self:initData();
+    --设置背景 
+    Concert:SetRtBg(self._texBg);
+
+    self:initHeroListUI(self._curSelectIndex);
+    self:initInstrumentFilterItemList();
+    --初始化乐器图标
+
+    for i = 1,maxInstrumentItemCount do
+        local curNode = self._objInstrumentRoot:AddChild(self._cellInstrument);
+        local nodeCom = self:CreateInstrumentNodeCom(curNode,i);
+        self._instrumentItems[i] = nodeCom;
+    end   
+    self._cellInstrument:SetVisible(false);
+    self._cellSelectItem:SetVisible(false);
+end
+
+function ConcertHeroPreview:CreateInstrumentNodeCom(node,index)
+    local res = {};
+    res._obj = node;
+	res._uibtnInstrumentSelect = node:GetUIButtonComponent("uibtn_instrumentSelect");
+	res._objSelectEffect = node:GetRectTransformComponent("obj_selectEffect").gameObject;
+	res._imgIcon = node:GetImageComponent("img_icon");
+	res._txtInstrumentName = node:GetTextComponent("txt_instrumentName");
+    res._uibtnInstrumentSelect:AddButtonListener(
+        function()
+                self:onClickInstrumentNode(res)
+        end);
+    res._index = index;
+    return res;
+end
+
+function ConcertHeroPreview:CreateInstrumentFilterItemCom(node,v)
+    local res = {};
+	res._uibtnFilterItemSelect = node:GetUIButtonComponent("uibtn_filterItemSelect");
+	res._objSelect = node:GetRectTransformComponent("obj_select").gameObject;
+	res._objUnselect = node:GetRectTransformComponent("obj_unselect").gameObject;
+	res._imgIcon = node:GetImageComponent("nameObj/img_icon");
+	res._txtName = node:GetTextComponent("nameObj/txt_name");
+    res._instrumentType = v;
+
+    res._uibtnFilterItemSelect:AddButtonListener(
+        function()
+                self:onClickFilterSelectBtn(res)
+        end);
+
+    if(v == 0) then
+        res._imgIcon:SetMonoGameobjectActive(false);
+        res._txtName.text = LanguageMgr:GetTextByID(Concert.AllInstrumentTextId);
+    else
+        local mData = Concert:GetMusicalByCfgId(v);
+        res._txtName.text = mData.Name;
+        res._imgIcon:LoadSprite(mData.itemPath);
+    end
+
+    return res;
+end
+
+function ConcertHeroPreview:onClickInstrumentNode(nodeCom)
+    self._curSeletInstrumentIndex = nodeCom._index;
+    self:updateInstrumentItemList();
+end
+
+function ConcertHeroPreview:initHeroListUI(index)
+    self:updateSelectIds();
+    for i = 1, #self._heroIds, 1 do
+        if i == index then
+            self._tvController:InitCustomRowWidth(i-1, table_width* MAX_HERO_SCALE)
+        else
+            self._tvController:InitCustomRowWidth(i-1, table_width * MIN_HERO_SCALE)
+        end
+    end
+    self._tvController:Init(#self._heroIds, true,
+        function(cell, row)
+            self:refreshUnitCell(self._selectIds,cell, row + 1)
+        end)
+    if self._sortingOrder ~= nil then
+        self._tvController._controller.gameObject.transform:GetComponent("Canvas").sortingOrder = self._sortingOrder
+    end
+    self._tvController:SetCanvasOrder(2026);
+end
+
+function ConcertHeroPreview:initInstrumentFilterItemList()
+    local instrumentTable = Concert.instrummentFilterList;
+    local count= lua_table_len(instrumentTable);
+    local tmpType;
+    for i = 1,count do
+        tmpType = instrumentTable[i];
+        local curNode = self._objSelectItemRoot:AddChild(self._cellSelectItem);
+        local nodeCom = self:CreateInstrumentFilterItemCom(curNode,tmpType);
+        self._instrumentFilterItems[i] = nodeCom;
+    end
+    self._objSelectItemRoot:SetPositionY(-550,true)
+end
+
+
+function ConcertHeroPreview:refreshUnitCell(ids,cell, row)
+    local cellKey = cell.cellInstanceIndex;
+    local curCellCom = self.heroHeads[cellKey] ;
+    if(curCellCom == nil)then
+        curCellCom = Hero:CtorHeroCObj(cell.transform:Find("prefab_hero"));
+        self.heroHeads[cellKey] =  curCellCom;
+        local _transform = curCellCom.transform
+
+
+        curCellCom.objCall        = _transform:Get("basic/obj_call")
+        curCellCom.imgDark        = _transform:GetImageComponent("basic/img_dark")
+
+  
+        curCellCom.imgBorder      = _transform:Find("basic/img_border")
+        curCellCom.imgWakeUp      = _transform:GetImageComponent("basic/img_WakeUp")
+
+        curCellCom.wakeUpPrefab   = curCellCom.imgWakeUp.transform;
+
+        curCellCom.imgLock        = cell.transform:Find("prefab_hero/image_lock");
+        curCellCom.heroPrefab     = cell.transform:Find("prefab_hero");
+        curCellCom.heroPrefab:GetComponent("Button"):AddButtonListener(
+            function()
+                if self._curSelectIndex ~= curCellCom.index then
+                    self:updateCurSelect(curCellCom.index)
+                end
+            end)
+            curCellCom.clsbag.isMain = true;
+    end
+
+    local curId = ids[row];
+
+    curCellCom.transform:SetVisible(curId ~= nil);
+    if(curId == nil) then     
+        return ;
+    end
+
+    local hero = Hero:GetHero(curId);
+    curCellCom.index = row;
+    Hero:SetHeroCObj(curCellCom,hero);
+    self:setWakeUpSate(curCellCom,hero);
+
+    if row == self._curSelectIndex then
+        curCellCom.heroPrefab:SetScale(MAX_HERO_SCALE, MAX_HERO_SCALE, MAX_HERO_SCALE)
+        curCellCom.wakeUpPrefab:SetScale(MAX_HERO_SCALE, MAX_HERO_SCALE, MAX_HERO_SCALE)
+        curCellCom.checkbg:SetVisible(true)
+    else
+        curCellCom.heroPrefab:SetScale(MIN_HERO_SCALE, MIN_HERO_SCALE, MIN_HERO_SCALE)
+        curCellCom.checkbg:SetVisible(false)
+        curCellCom.wakeUpPrefab:SetScale(MIN_HERO_SCALE, MIN_HERO_SCALE, MIN_HERO_SCALE)
+    end
+
+    curCellCom.imgLock:SetVisible(not hero.owner)
+end
+
+function ConcertHeroPreview:setWakeUpSate(cls, hero)
+    if hero == nil then return end
+    if Hero:IsHeroWakeUp(hero) and hero.qlty >= Bag.QLTY_SR then
+        Hero:SetHeroWakeUpBorder(cls, hero.qlty)
+        cls.imgBorder:SetVisible(false)
+        cls.wakeUpPrefab:SetVisible(true)
+    else
+        cls.imgBorder:SetVisible(true)
+        cls.wakeUpPrefab:SetVisible(false)
+    end
+end
+
+function ConcertHeroPreview:updateCurSelect(index)
+    self:refreshUnitCellScale(self._curSelectIndex, MIN_HERO_SCALE, false)
+    self._curSelectIndex = index;
+    self:refreshUnitCellScale(self._curSelectIndex, MAX_HERO_SCALE , true)
+    self:onChangeSelectHero();
+end
+
+function ConcertHeroPreview:updateCurSelectHeroData()
+    local curHeroID= self._selectIds[self._curSelectIndex];
+    local hero = Hero:GetHero(curHeroID);
+    self._curHero = hero;
+    self._curSeletInstrumentIndex = 1;
+end
+
+function ConcertHeroPreview:onClickFilterSelectBtn(nodeCom)
+    if(nodeCom._instrumentType == self._curSelectFilterType) then
+        return ;
+    end
+    self._curSelectFilterType = nodeCom._instrumentType;
+    self:RefreshFilterItem();
+    self:updateSelectIds();
+    self:RefreshHeroList();
+    self._curSelectIndex = 1;
+    self:updateCurSelectHeroData();
+    self:updateCurSelectHeroUI();
+end
+
+function ConcertHeroPreview:updateCurSelectHeroUI()
+    
+    --3d模型
+
+    --顶部ui
+    self:UpdateTopUI()
+    --乐器列表
+    self:updateInstrumentItemList();
+end
+
+function ConcertHeroPreview:UpdateTopUI()
+    self._txtHeroName.text = self._curHero.config.Name
+    self._txtHeroNameEN.text = self._curHero.config.Name_EN
+    Hero:SetHeroQlty(self._imgQlty.transform,self._curHero.qlty,true)
+    self:SetTagInfo()
+end
+
+function ConcertHeroPreview:SetTagInfo()
+    local apprs = self._curHero.apperance
+    local iconPath
+    local appId
+    local tagItem
+    local tagCfg
+    for i = 1,Concert.MUSIC_TAG_NUM do
+        appId = apprs[i]
+        tagItem = self.musicTags[i]
+        set_com_enabled(tagItem.icon,appId ~= nil)
+        set_com_enabled(tagItem.txtDes,appId ~= nil)
+
+        if appId ~= nil then
+            tagCfg = Concert:GetAddTagByCfgId(appId)
+            tagItem.icon:LoadSprite(tagCfg.tagPath);
+            tagItem.txtDes.text = tagCfg.name
+        end
+    end
+end
+
+function ConcertHeroPreview:updateInstrumentItemList()
+    local musics = self._curHero.musics;
+    local dataCount = lua_table_len(musics);
+    local tmpInstrumentId = nil;
+    for i = 1,maxInstrumentItemCount do
+        local nodeCom = self._instrumentItems[i];
+        if(i>dataCount) then
+            nodeCom._obj:SetVisible(false);
+        else
+            tmpInstrumentId = musics[i].mtype;
+            nodeCom._obj:SetVisible(true);
+            self:flushInstrumentItemShow(nodeCom,tmpInstrumentId);
+        end
+    end   
+    if(tmpInstrumentId~=nil)then
+        Concert:ClearActorByIndex(0);
+        local curInstrumentId = musics[self._curSeletInstrumentIndex].mtype
+        Concert:SetEmptyActor(self._curHero.skinid,curInstrumentId);
+        Concert:ChangeInstrumentTrack(self._curHero.id,curInstrumentId);
+    end
+end
+
+function ConcertHeroPreview:flushInstrumentItemShow(nodeCom,instrumentId)
+    local isSelect = nodeCom._index == self._curSeletInstrumentIndex;
+    nodeCom._objSelectEffect:SetVisible(isSelect);
+    local data = Concert:GetMusicalByCfgId(instrumentId);
+    nodeCom._txtInstrumentName.text = data.Name;
+    nodeCom._imgIcon:LoadSprite(data.itemPath);
+end
+
+function ConcertHeroPreview:onChangeSelectHero()
+    self:updateCurSelectHeroData();
+    self:updateCurSelectHeroUI();
+end
+
+function ConcertHeroPreview:refreshUnitCellScale(row, scale, isCheck)
+    row = row - 1
+    self._tvController:UpdateCellHeight(row, table_width * scale )
+    local cell = self._tvController:GetCellAtRow(row)
+    if cell ~= nil then
+        local curSelect = self.heroHeads[cell.cellInstanceIndex];
+        if(curSelect ~= nil) then
+            curSelect.heroPrefab:SetScale(scale, scale, scale)
+            curSelect.wakeUpPrefab:SetScale(scale, scale, scale)
+            curSelect.checkbg:SetVisible(isCheck)
+        end
+    end
+end
+
+function ConcertHeroPreview:updateSelectIds()
+    self._curSelectIndex = 1;
+    local array = self._heroIdMappingByInstrumentType[self._curSelectFilterType];
+    if(array ~= nil) then
+        self._selectIds = array;
+        return ;
+    end
+    if(self._curSelectFilterType == 0) then
+        self._heroIdMappingByInstrumentType[0] = self._heroIds;
+        self._selectIds = self._heroIds;
+        return ;
+    end
+
+    local count = lua_table_len(self._heroIds);
+    local res = {};
+    local tmpId = nil;
+    local tmpHeroData = nil;
+    local tmpMusics,tmpDataCount,tmpInstrumentId;
+    for i = 1,count do
+        tmpId = self._heroIds[i];
+        tmpHeroData = Hero:GetHero(tmpId);
+
+        tmpMusics = tmpHeroData.musics;
+        tmpDataCount = lua_table_len(tmpMusics);
+
+        for j = 1,tmpDataCount do
+            tmpInstrumentId = tmpMusics[j].mtype;
+            if(tmpInstrumentId == self._curSelectFilterType) then
+                table.insert(res, tmpId)
+                break;
+            end
+        end   
+    end  
+    self._heroIdMappingByInstrumentType[self._curSelectFilterType] = res;
+    self._selectIds = res;
+    return;
+end
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertHeroPreview:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return ConcertHeroPreview;

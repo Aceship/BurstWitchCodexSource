@@ -1,0 +1,339 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-24 15:03:06
+---
+---    local per = exp > 0 and self._hero.exp/exp or 0
+---    self._sliderExp.value = per
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TurnsAwardLayer = class("TurnsAwardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBack = "btn_back",
+	--@ButtonEnd
+}
+--构造函数
+function TurnsAwardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_TurnsAwardLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function TurnsAwardLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_NAME.GET_TURNS_OF_AWARD,self.__cname,function ()
+        self:SetTurnsNum();
+        self:SetRewardBoxs()
+        self:SetItemStart(self._selectItem);
+    end);
+    self:Init();
+end
+
+--按钮事件
+function TurnsAwardLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then
+	   self:OnBtnBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function TurnsAwardLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function TurnsAwardLayer:Init()
+    self._data = Activity:GetAllChessNumCfg();
+    self._serverData = Activity:GetChessServerData();
+    --self._serverData.curTurns = 51
+    local cfg = Activity:GetQuanShuShowById(2)
+    self._max = tonumber(cfg.turns)
+    self._awardItem = {};
+    self:InitUI();
+end
+
+--初始化UI
+function TurnsAwardLayer:InitUI()
+    self._sliderExp     = self.layer:GetSliderComponent("container/reward_node/slider_exp")
+
+    --@ImageEnd
+
+    self._txtTurnsNum = self.layer:GetTextComponent("container/txt_turns_num");
+	--@TextEnd
+
+    self._transContent = self.layer:Get("container/obj_award_bg/view_port/trans_content");
+    --@TransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._TableViewController   = self.layer:Get("container/TableViewController")
+    self._tvController          = UIController:CtorTableView(self._TableViewController)
+    self._curGetIndex = -1;
+    for i, data in ipairs(self._data) do
+        if(not Activity:CoilsNumAwardIsGet(data.id))then
+            if((data.pos <= Activity:GetCurTurnsNum()))then
+                self._curGetIndex = i - 1;
+                break;
+            end
+        end
+    end
+    self._tvController:Init(#self._data, false,
+            function(cell, row)
+                self:refreshUnitCell(cell, row + 1)
+            end, 0.15, 0.1)
+    if(self._curGetIndex >= 0)then
+        self._tvController:ScrollToRow(self._curGetIndex, 0.3);
+    end
+end
+
+--显示UI
+function TurnsAwardLayer:show()
+    self:SetTurnsNum()
+    self:SetRewardBoxs()
+    self:showLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function TurnsAwardLayer:OnBtnBackClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function TurnsAwardLayer:onExit()
+
+	self._transContent = nil;
+	self._txtTurnsNum = nil;
+    self._sliderExp     = nil
+
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function TurnsAwardLayer:refreshUnitCell(cell, row)
+    local cls = self._awardItem[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.txtDes = cls:GetTextComponent("txt_des");
+        cls.btn = cls:GetButtonComponent("btn");
+        cls.imgCanReceive = cls:GetImageComponent("img_can_receive");
+        cls.btn.onClick:AddListener(function ()
+            self._selectItem = cls;
+            Activity:GetNumAwardReq(cls.data.id);
+        end);
+        cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("item"),function (cls,id)
+            local cfg = Item:GetCfg(id);
+            local isSkin = tonumber(cfg.itemType) == Item.TYPE_ROLE_ATTIRE;
+            if(isSkin)then
+                self:OnBtnBackClick();
+            end
+            SingletonMgr:ShowItemTipsLayer(cls.transform, Bag.TYPE_ITEM, id)
+    end);
+        cls.objGet = cls.item.transform:Find("img_get").gameObject;
+        self._awardItem[cell] = cls;
+    end
+    local data = self._data[row];
+    cls.data = data;
+    cls.index = row;
+    local isSend = false;
+    if(not Activity:CoilsNumAwardIsGet(data.id))then
+        if((data.pos <= Activity:GetCurTurnsNum()))then
+            isSend = true;
+        end
+    end
+    cls.btn.gameObject:SetVisible(isSend);
+    cls.txtDes.text = string.format(LanguageMgr:GetTextByID(90139),data.pos);
+    self:SetItemStart(cls);
+end
+
+function TurnsAwardLayer:SetItemStart(cls)
+    local data = cls.data;
+    Bag:SetComSimpleGoodsUi(cls.item,data.item[1],data.item[2],data.item[3],true);
+    if(Activity:CoilsNumAwardIsGet(data.id))then
+        cls.objGet:SetVisible(true);
+        cls.btn.gameObject:SetVisible(false);
+        set_com_enabled(cls.imgCanReceive,false);
+        cls.txtDes.color = COLOR_TYPE.White_Gray;
+    else
+        cls.objGet:SetVisible(false);
+        local isCanGet = data.pos < Activity:GetCurTurnsNum();
+        if(Activity:GetCurTurnsNum() == #self._data)then
+            isCanGet = true;
+        end
+        cls.btn.gameObject:SetVisible(isCanGet);
+        if(isCanGet)then
+            cls.txtDes.color = COLOR_TYPE.Black;
+        else
+            cls.txtDes.color = COLOR_TYPE.White_Gray;
+        end
+        set_com_enabled(cls.imgCanReceive,isCanGet);
+    end
+end
+
+function TurnsAwardLayer:SetTurnsNum()
+    --serverData.curTurns = 50
+    self._txtTurnsNum.text = self._serverData.curTurns or 0;
+    local per = self._max > 0 and self._serverData.curTurns/self._max or 0
+    self._sliderExp.value = per
+end
+
+function TurnsAwardLayer:SetBorder(cls,qlty)
+    cls.spine_border = cls:Find("img_border/spine_border")
+    cls.spine_border_ur =  cls:Find("img_border/spine_border_ur")
+    cls.spine_border_sr =  cls:Find("img_border/spine_border_sr")
+    set_com_enabled(cls.imgBorder, qlty <  Bag.QLTY_SR)
+    cls.imgBorder.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res","Common_Btn_WuPing_n_".. qlty);
+    if qlty ==  Bag.QLTY_SSR then
+        if cls.spine_border == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border", cls.objBorder)
+            spineborder.name = "spine_border"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_border = spineborder
+            cls.spine_border:SetScale(0.5, 0.5, 1)
+
+        end
+    elseif qlty ==  Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_ur", cls.objBorder)
+            spineborder.name = "spine_border_ur"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ur = spineborder
+            cls.spine_border_ur:SetScale(0.5, 0.5, 1)
+
+        end
+    elseif qlty == Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_sr", cls.objBorder)
+            spineborder.name = "spine_border_sr"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_sr = spineborder
+            cls.spine_border_sr:SetScale(0.5, 0.5, 1)
+        end
+    end
+
+    if cls.spine_border ~= nil then
+        set_obj_active(cls.spine_border, qlty == Bag.QLTY_SSR)
+    end
+    if cls.spine_border_ur ~= nil then
+        set_obj_active(cls.spine_border_ur, qlty == Bag.QLTY_UTR)
+    end
+    if cls.spine_border_sr ~= nil then
+        set_obj_active(cls.spine_border_sr, qlty == Bag.QLTY_SR)
+    end
+end
+
+local stepUpItemNum = 2
+function TurnsAwardLayer:SetRewardBoxs()
+    local quanshushow = Activity:GetAllQuanShuShow()
+
+    if(self._stepUpItems == nil)then
+        self._stepUpItems = {};
+        for i = 1, stepUpItemNum do
+            local cls = clsbase:new(self.layer:Get("container/reward_node/item_cost_"..i));
+            cls.btn = cls.transform:GetComponent("Button");
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+            cls.txtName = cls:GetTextComponent("txt_name");
+            cls.mvpObj = cls:GetImageComponent("img_mvp")
+            cls.imgBorder = cls:GetImageComponent("img_border")
+            cls.objBorder = cls.imgBorder.transform:GetComponent("Transform")
+            cls.levelSign = cls:GetImageComponent("img_level")
+            cls.rightObj = cls.transform:Find("img_get")
+            cls.txtGetNum = cls:GetTextComponent("get_Bg/get_num")
+            cls.txtSignNum = cls:GetTextComponent("sign_Bg/sign_num")
+            cls.ObjGetNum = cls.transform:Find("get_Bg")
+            cls.btn:AddButtonListener(function ()
+                --Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item, cls.data[1], Bag.TYPE_ITEM, cls.costCnt)
+                --print("点击英雄头像")
+                self:ClickItem(cls,i)
+            end);
+            self._stepUpItems[i] = cls;
+        end
+    end
+    local quanshuData = nil
+    for i, cls in ipairs(self._stepUpItems) do
+        quanshuData = quanshushow[i]
+        cls.transform:SetVisible(quanshuData ~= nil);
+        if quanshuData ~= nil then
+            cls.data = quanshuData;
+            local itemType = tonumber(quanshuData.icon[1])
+            local itemId = tonumber(quanshuData.icon[2])
+            local cfg = nil
+            --print("道具类型  : "..itemType)
+            if itemType == Bag.TYPE_HERO then
+                cfg = Hero:GetCfg(itemId)
+                Hero:SetHeroHeadSprite(cls.imgIcon, itemId, false, true, false)
+            elseif itemType == Bag.TYPE_ITEM then
+                cfg = Item:GetCfg(itemId)
+                Item:SetItemIcon(cls.imgIcon.transform, itemId)
+            end
+            cls.txtSignNum.text = quanshuData.turns
+            self:SetBorder(cls,tonumber(cfg.Quality))
+            set_obj_active(cls.rightObj,self._serverData.curTurns >= tonumber(quanshuData.turns))
+            local num = self:GetNumReceive(quanshuData)
+            local extra = cfg.Name
+            local curTurn = 0;
+            if(self._serverData._isMax)then
+                curTurn = self._max;
+            else
+                curTurn = math.floor(Activity:GetNextTurnsAward(self._serverData.curTurns - 1).pos * 0.1) * 10--:(.).
+            end
+            curTurn = Activity:GetCurTurns(curTurn)
+            if curTurn > num then
+                curTurn = num
+            end
+            if  num > 0 then
+                extra = string.format("%s(%s/%s)",cfg.Name,curTurn,num)
+            end
+            cls.txtName:SetText(extra);
+            cls.txtGetNum:SetText(string.format(LanguageMgr:GetTextByID(90252),quanshuData.turns));
+        end
+    end
+end
+
+function TurnsAwardLayer:GetNumReceive(quanshuData)
+    local num = 0
+    if quanshuData.itemsShow ~= nil and quanshuData.itemsShow[1] ~= "-1" then
+        for i = 1, #quanshuData.itemsShow do
+            num = num + Activity:GetChessById(quanshuData.itemsShow[i])
+        end
+    else
+        return -1
+    end
+    return num
+end
+
+function TurnsAwardLayer:ClickItem(cls,index)
+    local data = Activity:GetQuanShuShowById(index)
+    if data ~= nil and data.icon ~= nil then
+        if tonumber(data.icon[1]) == 1 then
+            self:OnBtnBackClick()
+            Hero:OpenWitchHeroSkillLayer(tonumber(data.icon[2]))
+        else
+            local cfg = Item:GetCfg(tonumber(data.icon[2]));
+            local isSkin = tonumber(cfg.itemType) == Item.TYPE_ROLE_ATTIRE;
+            if(isSkin)then
+                self:OnBtnBackClick();
+            end
+            SingletonMgr:ShowItemTipsLayer(cls.transform, Bag.TYPE_ITEM, tonumber(data.icon[2]))
+        end
+    end
+end
+
+return TurnsAwardLayer;

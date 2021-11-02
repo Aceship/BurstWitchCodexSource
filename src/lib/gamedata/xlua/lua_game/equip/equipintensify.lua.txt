@@ -1,0 +1,125 @@
+--
+-- author: haosun
+-- date  : 2018-12-14 15:14:12
+-- brief : 
+--
+
+Equip = Equip or {}
+
+function Equip:LvUpAttrs(equip, level)
+    local addattrs = {}
+    if equip.attrs[equip.mattr] > 0 then
+        table.insert(addattrs, {attrtype = equip.mattr, addvalue = 0})
+    end
+    
+    if level ~= nil and equip.level ~= level then
+        local _old = self:CalcEquipAttr(equip, equip.level)
+        local _new = self:CalcEquipAttr(equip, level)
+        for _, v in pairs(addattrs) do
+            addattrs[_].addvalue = math.floor(_new[v.attrtype]) - math.floor(_old[v.attrtype])
+        end
+    end
+    return addattrs
+end
+
+-- 
+-- brief:升级所需魂晶
+-- 不升级：进度增加百分比 * 当前级数消耗数
+-- 升级：当前等级剩余百分比 + 完整等级 + 升级后百分比 
+-- 
+function Equip:GetLvUpCostCoin(equip, level, exp)
+    local _coin = 0
+    if equip.level == level then
+        return 0
+    else
+        for i = equip.level, level-1, 1 do
+            local _cfg = self:GetLvUpCfg(self._lvupGid[equip.cfgid], i)
+            _coin = _coin + _cfg.coin
+        end
+    end
+    return _coin
+end
+
+-- 
+-- brief: 升级需要经验
+-- 
+function Equip:GetLevelCostExp(cfgid, level)
+    local cfg = self:GetLvUpCfg(self._lvupGid[cfgid], level)
+    if cfg == nil then
+        return 0
+    end
+    return cfg.exp
+end
+
+function Equip:AddExpToLevel(equip, addExp)
+    if addExp > 0 then
+        local level, maxlevel = equip.level, equip.curr_max_level
+        local allExp = equip.exp + addExp
+        for i = level, maxlevel do
+            local costExp = self:GetLevelCostExp(equip.cfgid, level)
+            if allExp >= costExp then
+                level = level + 1
+                allExp = allExp - costExp
+            else
+                break
+            end
+        end    
+        return level, allExp
+    else
+        return equip.level, 0
+    end
+end
+
+function Equip:CurMaxLevelExp(equip)
+    local exp = 0
+    if equip.curr_max_level == equip.max_level then
+        for i = equip.level, equip.curr_max_level-1, 1 do
+            exp = exp + self:GetLevelCostExp(equip.cfgid, i)
+        end
+        exp = exp - equip.exp
+    else            
+        for i = equip.level, equip.curr_max_level, 1 do
+            exp = exp + self:GetLevelCostExp(equip.cfgid, i)
+        end
+        exp = exp - equip.exp - 1
+    end
+    return exp
+end
+
+-- 
+-- brief: 获取未装备的装备（区分武器、符石）
+-- 
+function Equip:GetNotUseEquip(uid)
+    local _weap  = false
+
+    local datas = {}
+    for _, v in pairs(self._equips) do
+        if v.heroid == 0 and v.uid ~= uid and (v.lock == Equip.EquipLockStart.UnLock) then
+           table.insert(datas, {itype = Bag.TYPE_EQUIP, uid = v.uid, sortid = v.level * 100000 + v.qlty})
+        end
+    end
+    table.sort(datas, function(a, b) return a.sortid < b.sortid end)
+    return datas
+end
+
+-- 
+-- brief: 获得装备的累积经验
+-- 
+function Equip:GetEquipSumExp(uid)
+    local equip = self:GetEquip(uid)
+    if equip == nil then return 0 end
+    local exp = equip.exp
+    for i = 1, equip.level-1, 1 do
+        exp = exp + self:GetLevelCostExp(equip.cfgid, i)
+    end
+    return exp
+end
+
+-- 
+-- brief: 装备被升级使用时获得经验 = 装备累计经验 * 装备被吞折损系数 + 初始经验
+-- 
+function Equip:GetTransExp(uid)
+    local sumExp    = self:GetEquipSumExp(uid)
+    local cfg       = self:GetCfgByUid(uid)
+    return math.floor(sumExp * tonumber(cfg.trans_exp_as_material)) + tonumber(cfg.equip_base_exp)
+end

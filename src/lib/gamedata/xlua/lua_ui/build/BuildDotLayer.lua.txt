@@ -1,0 +1,769 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-04 10:48:35
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildDotLayer = class("BuildDotLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnLvUp = "trans_container/trans_dot_info/btn_lv_up",
+	BtnPreview = "trans_container/btn_preview",
+	BtnMinus = "trans_container/trans_build_dot/btn_minus",
+	BtnAdd = "trans_container/trans_build_dot/btn_add",
+	BtnLvUpLock = "trans_container/trans_dot_info/btn_lv_up_lock",
+    BtnPlay = "trans_container/btn_play",
+	--@ButtonEnd
+}
+
+local HeroItemNum = 3;
+local TalentNum = 4
+
+--构造函数
+function BuildDotLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildDotLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,--顶部货币菜单栏
+        --topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuildDotLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function BuildDotLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnLvUp)then 
+	   self:OnBtnLvUpClick();
+    elseif(itype == BTNS.BtnPreview)then 
+	   self:OnBtnPreviewClick();
+    elseif(itype == BTNS.BtnMinus)then 
+	   self:OnBtnMinusClick();
+    elseif(itype == BTNS.BtnAdd)then 
+	   self:OnBtnAddClick();
+    elseif(itype == BTNS.BtnLvUpLock)then 
+	   self:OnBtnLvUpLockClick();
+    elseif(itype == BTNS.BtnPlay)then
+        self:OnBtnPlayClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+	
+	
+
+end
+
+--初始化
+function BuildDotLayer:Init()
+    self._pointNum = 0;
+    Build:SetCurSelectDotId(0);
+    self._curSelectBuildType = nil;
+    self:UpdateData();
+    self._init = true;
+    self._showPreview = false;--是否打开预览, 从预览界面切换回来时需要重载数据
+    self._changeDotData = {};
+    self:InitUI();
+end
+
+--初始化UI
+function BuildDotLayer:InitUI()
+
+	--@ImageEnd
+
+    self._txtPointNum = self.layer:GetTextComponent("trans_container/trans_point_bg/txt_point_num");
+    self._txtPointTitle = self.layer:GetTextComponent("trans_container/trans_point_bg/txt_point_title");
+	self._txtAddNum = self.layer:GetTextComponent("trans_container/trans_build_dot/txt_add_num");
+	self._txtBuildLv = self.layer:GetTextComponent("trans_container/trans_dot_info/txt_build_lv");
+	self._txtPointName = self.layer:GetTextComponent("trans_container/trans_dot_info/txt_point_name");
+	self._txtCurLvDes = self.layer:GetTextComponent("trans_container/trans_dot_info/cur_lv_des_bg/txt_cur_lv_des");
+	--@TextEnd
+
+    self._transBuildPointItemBg = self.layer:Get("trans_container/trans_build_point_bg/trans_build_scroll/view_port/trans_build_point_item_bg");
+    self._transSelect = self.layer:Get("trans_container/trans_select");
+	self._transPointLvBg = self.layer:Get("trans_container/trans_build_dot/trans_point_lv_bg");
+	self._transLvUp = self.layer:Get("trans_container/trans_dot_info/btn_lv_up");
+	self._transLvUpLock = self.layer:Get("trans_container/trans_dot_info/btn_lv_up_lock");
+	--@TransformEnd
+
+    self._rectAddNum = self.layer:GetRectTransformComponent("trans_container/trans_build_dot/txt_add_num");
+    --@RectTransformEnd
+
+    self._objBuildPoint = self.layer:Get("trans_container/item_hide/item_build_point").gameObject;
+    self._objPoint = self.layer:Get("trans_container/item_hide/obj_point").gameObject;
+	--@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._transLvUp:SetVisible(Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up));
+    self._transLvUpLock:SetVisible(not Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up));
+
+    self._transSelect:CreateChild(Bag.SPINE_BUILD_SELECT);
+
+    self._objAddTips = self.layer:Get("trans_container/trans_build_dot/btn_add/obj_tips")
+
+    self:InitHeroItems();
+    Build:OpenBuildTypeLayer(false);
+end
+
+--显示UI
+function BuildDotLayer:show()
+    self:showLayer();
+end
+
+function BuildDotLayer:showLayer()
+    self:playAni("BuildDotLayerAnim");
+    self:SetBuildUI();
+    if(not self._init)then
+        self._changeDotData = Build:GetChangeBuildDotIds();
+        for id, isAdd in pairs(self._changeDotData) do
+            for _, cls in ipairs(self._buildItems) do
+                if(cls ~= nil and cls.dotId == id)then
+                end
+            end
+        end
+        self:SetHeroDotState(Build:GetCurSelectDotId());
+    else
+        self._init = false;
+        self._transSelect:SetScale(1,1,1);
+    end
+    Build:ShowBuildTypeLayer(Build.ShowLayerType.BuildDot);
+    self._transLvUp:Get("obj_tips"):SetVisible(Build:GetBuildLvIsUp(self._atkType))
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function BuildDotLayer:onBackClick()
+    Build:BuildDotNumChangeReq();
+    self:onPopLayer();
+end
+
+function BuildDotLayer:hide()
+    Build:BuildDotNumChangeReq();
+    self:hideLayer();
+end
+
+--释放
+function BuildDotLayer:onExit()
+
+    self._selectDotItem = nil;
+    self._dotCfg = nil;
+    self._pointItems = nil;
+
+    self._txtPointNum = nil;
+    self._txtPointTitle = nil;
+    self._transBuildPointItemBg = nil;
+    self._objBuildPoint = nil;
+    self._objPoint = nil;
+    self._objBigPoint = nil;
+    self._buildData = nil;
+    self._buildCurLvData = nil;
+    self._haveEffectIds = nil;
+    self._buildItems = nil;
+    self._changeDotData = nil;
+	self._transSelect = nil;
+	self._transPointLvBg = nil;
+	self._txtAddNum = nil;
+	self._txtBuildLv = nil;
+	self._txtPointName = nil;
+	self._txtCurLvDes = nil;
+	self._transLvUp = nil;
+	self._transLvUpLock = nil;
+    self._rectAddNum = nil;
+	--@CloseEnd
+    self._objAddTips = nil
+
+    Build:CloseBuildTypeLayer();
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuildDotLayer:OnBtnBuildDotClick(dotId)
+    Build:SetCurSelectDotId(dotId);
+    self._transSelect:SetParent(self._selectDotItem.transform,true);
+    self._transSelect:SetPosition(0,0,0,true);
+    self._transSelect:SetAsFirstSibling();
+    self._transSelect:SetScale(1, 1, 1)
+    self:UpdateDotData();
+    self:SetCurDotPointUI();
+    self:SetSelectDotInfo();
+    self:SetHeroDotState(dotId);
+end
+
+function BuildDotLayer:OnBtnAddClick()
+    local dotId = Build:GetCurSelectDotId();
+    local addData = Build:GetDotAddLvById(dotId);
+    if(addData.addLv + addData.heroAddLv < Build:GetBuildDotLvNumById(dotId) and self._pointNum > 0)then
+        local allLv = addData.heroAddLv + addData.addLv;
+        Build:BuildDotNumChange(dotId,Build.BodChangeType.Add);
+        self:SetPointItem(self._pointItems[allLv + 1],true);
+        self:SetDotAddUI();
+    else
+        if(addData.addLv + addData.heroAddLv >= Build:GetBuildDotLvNumById(dotId))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702101));
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702056));
+        end
+    end
+end
+
+function BuildDotLayer:OnBtnMinusClick()
+    local dotId = Build:GetCurSelectDotId();
+    local addData = Build:GetDotAddLvById(dotId);
+    local allLv = addData.heroAddLv + addData.addLv;
+    if(addData.addLv > 0)then
+        Build:BuildDotNumChange(dotId,Build.BodChangeType.Minus);
+        self:SetPointItem(self._pointItems[allLv],false);
+        self:SetDotAddUI();
+    end
+end
+function BuildDotLayer:OnBtnLvUpClick()
+    core.require("xlua/lua_UI/Build/BuildLvUpLayer.txt"):new():show();
+end
+function BuildDotLayer:OnBtnPreviewClick()
+    core.require("xlua/lua_UI/Build/OperantWitchTipsLayer.txt"):new():show(self._atkType);
+    --self._showPreview = true;
+    --core.require("xlua/lua_UI/Build/BuildDotLvPreviewLayer.txt"):new():show();
+end
+function BuildDotLayer:OnBtnLvUpLockClick()
+    Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.build_lv_up);
+ end
+
+function BuildDotLayer:OnBtnPlayClick()
+    self._showPreview = true;
+    core.require("xlua/lua_UI/Build/BuildDotLvPreviewLayer.txt"):new():show();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuildDotLayer:RegisterHandler()
+
+    self:addEventListener(EVENT_TYPE.CUT_SELECT_BUILD_TYPE,self.__cname, function()
+        if(self._atkType == Build:GetCurSelectAtkType())then
+            return;
+        end
+        self._atkType = Build:GetCurSelectAtkType();
+        self:SetBuildUI();
+    end)
+
+
+    self:addEventListener(EVENT_TYPE.UPDATE_BUILD_LV_DATA,self.__cname, function()
+        self:UpdateData();
+
+        self:SetPointNum();
+    end)
+
+    self:addEventListener(EVENT_TYPE.BUILD_DOT_LV_CHANGE,self.__cname, function(dotData)
+        self:UpdateData();
+        self:SetPointNum();
+        local tempCls;
+        for _, cls in ipairs(self._buildItems) do
+            if(dotData.dotId == cls.dotId)then
+                tempCls = cls;
+                break;
+            end
+        end
+        if(self:SetBuildItem(tempCls,dotData.dotId))then
+            --构筑点等级发生变化, 修改播放数据
+            self:PlayerPreview();
+        end
+    end)
+
+    self:addEventListener(EVENT_TYPE.UI_ACTION,EVENT_NAME.CLOSE_BUILD_DOT_TIPS,function ()
+        self:SetHeroDotState();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuildDotLayer:UpdateData()
+    if(self._init)then
+        return;
+    end
+    self._atkType = Build:GetCurSelectAtkType();
+    self._buildData = Build:GetBuildServerDataByAtkType(self._atkType);
+    self._buildCurLvData = Build:GetBuildLvDataByAtkType(self._atkType);
+    self._haveEffectIds = Build:GetAtkTypeHaveEffectIds(self._atkType);
+    self._buildUnlockLv = Build:GetBuildHeroUnlockLvByType(self._atkType);
+end
+
+
+------------------------------------------------------Attrs------------------------------------------------------------------------
+
+function BuildDotLayer:SetPointNum()
+    local pointData = self._buildCurLvData.pointAdd;
+    local dotLvData;
+    for _, v in ipairs(self._buildData.dotIds) do
+        dotLvData = Build:GetDotAddLvById(v);
+        pointData = pointData - dotLvData.addLv;
+    end
+    self._pointNum = pointData;
+    self._txtPointNum.text = "x"..pointData;
+    self._objAddTips:SetVisible(pointData > 0)
+end
+
+--------------------------------------------------hero---------------------------------------------------------------------------------
+function BuildDotLayer:InitHeroItems()
+    self._heroItems = {};
+    for i = 1, HeroItemNum do
+        local transform = self.layer:Get("trans_container/trans_hero_item/trans_hero_item"..i)
+        local cls = {
+            transform = transform,
+        }
+        cls.index = i;
+        cls.heroId = 0;
+        cls.txtName     = transform:GetTextComponent("item/txt_name");
+        cls.imgIcon     = transform:GetImageComponent("item/img_icon");
+        cls.imgLock     = transform:GetImageComponent("img_un_lock");
+        cls.imgNotHave  = transform:GetImageComponent("img_not_have");
+        cls.txtUnLockLv = transform:GetTextComponent("img_un_lock/txt_un_lock_lv");
+        cls.borderCom   = transform:GetImageComponent("item/img_border");
+        cls.imgBg       = transform:GetImageComponent("item/img_bg");
+        cls.rectBg      = transform:Get("img_bg");
+        cls.objTalentBg = transform:Get("item/obj_talent_bg");
+        cls.transStar   = transform:Get("item/trans_star_bg");
+        --星级
+        cls.imgStar = {};
+        for i = 1, 6 do
+            cls.imgStar[i] = transform:Get("item/trans_star_bg/img_star_"..i);
+        end
+        --天赋(构筑点)
+        cls.talents = {};
+        for i = 1, TalentNum do
+            cls.talents[i] = {
+                transform   = transform:Get("item/obj_talent_bg/obj_talent_"..i),
+                imgBg       = transform:GetImageComponent("item/obj_talent_bg/obj_talent_"..i),
+                imgIcon     = transform:GetImageComponent("item/obj_talent_bg/obj_talent_"..i.."/img_icon"),
+            }
+            cls.talents[i].effect = cls.talents[i].transform:GetComponent("ParticleBehaviour");
+        end
+        cls.parent = cls.transform.parent;
+        transform:GetButtonComponent("img_bg"):AddButtonListener(function()
+            if(cls.isOpen)then
+                --Build:SetCurHeroItemIndex(i);
+                Build:HideBuildTypeLayer();
+                core.require("xlua/lua_UI/Build/WitchSelectLayer.txt"):new():show();
+            else
+                --等级不够,未开启
+                Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(702005),tonumber(self._buildUnlockLv[i])));
+            end
+        end);
+        self._heroItems[i] = cls;
+    end
+end
+
+function BuildDotLayer:SetHeroItems()
+    for i = 1, HeroItemNum do
+        self:SetHeroItem(i);
+    end
+end
+
+function BuildDotLayer:SetHeroItem(index)
+    local cls = self._heroItems[index];
+    local id = self._buildData.heroIds[index];
+    local hero;
+    local cutHero = false;
+
+    --解锁相关
+    cls.isOpen = tonumber(self._buildUnlockLv[index]) <= self._buildCurLvData.lv;
+    cls.imgIcon:SetEnabled(cls.isOpen);
+    cls.imgNotHave:SetVisible(cls.isOpen);
+    cls.objTalentBg:SetVisible(cls.isOpen);
+    cls.transStar:SetVisible(cls.isOpen);
+    cls.borderCom.gameObject:SetVisible(cls.isOpen);
+    cls.imgBg:SetVisible(cls.isOpen);
+    cls.txtName:SetEnabled(cls.isOpen);
+    cls.imgLock.gameObject:SetVisible(not cls.isOpen);
+    cls.openLv = tonumber(self._buildUnlockLv[index]);
+    cls.txtUnLockLv.text = string.format(LanguageMgr:GetTextByID(702149),cls.openLv);
+
+    if(cls.isOpen)then
+        set_com_enabled(cls.imgIcon,id ~= 0);
+        cls.imgNotHave.gameObject:SetVisible(id == 0);
+        cls.borderCom.gameObject:SetVisible(id ~= 0);
+        cls.txtName:SetEnabled(id ~= 0);
+        cls.imgBg:SetVisible(id ~= 0);
+        cls.objTalentBg:SetVisible(id ~= 0);
+        cls.transStar:SetVisible(id ~= 0);
+        if(id ~= 0)then
+            if( cls.heroId ~= id)then
+                cutHero = true;
+                cls.heroId = id;
+            end
+            hero = Hero:GetHero(id);
+            cls.txtName:SetText(hero.config.Name);
+            Bag:SetStarSprite(cls.imgStar, hero.star);
+            cls.imgIcon.sprite = AssetLoader:LoadSprite("source_avatar/hero/head_" .. hero.skinid)
+            Bag:SetGoodsBorderByQlty(cls ,hero.qlty);
+            for i = 1, TalentNum do
+                set_com_enabled( cls.talents[i].imgIcon,hero.sortDots[i] ~= nil);
+                if(hero.sortDots[i] ~= nil)then
+                    local cfg = Build:GetBuildAttrCfgByCfgId(hero.sortDots[i].id);
+                    Build:SetBuildImage(cls.talents[i].imgIcon,cfg.iconPath);
+                    set_com_enabled( cls.talents[i].imgIcon,hero.dots[cfg.id] > 0 and hero.star >= hero.sortDots[i].star);
+                    if(self._haveEffectIds[hero.sortDots[i].id] ~= nil)then
+                        cls.talents[i].imgIcon:DOColor(COLOR_TYPE.White,0);
+                    else
+                        cls.talents[i].imgIcon:DOColor(COLOR_TYPE.TaskDone,0);
+                    end
+                    if(hero.dots[cfg.id] > 0)then
+                        cls.talents[i].imgBg:DOColor(COLOR_TYPE.White,0);
+                    else
+                        cls.talents[i].imgBg:DOColor(COLOR_TYPE.White_a_50,0);
+                    end
+                else
+                    cls.talents[i].imgBg:DOColor(COLOR_TYPE.White_a_50,0);
+                end
+            end
+        else
+            cls.heroId = 0;
+        end
+    end
+    if(cls.heroId > 0 and cutHero)then
+        cls.rectBg:SetPositionX(22, true);
+    elseif(cls.heroId <= 0)then
+        cls.rectBg:SetPositionX(322, true);
+    end
+end
+
+--------------------------------------------------------buildDot--------------------------------------------------------------------
+function BuildDotLayer:InitBuildItems()
+    if(self._buildItems == nil)then
+        self._buildItems = {};
+    end
+    local lvIsChange = false;
+    for _, dotId in ipairs(self._buildData.dotIds) do
+        local cls = self._buildItems[_];
+        if(cls == nil)then
+            cls = self:NewBuildItem();
+            self._buildItems[_] = cls;
+        end
+        if(self:SetBuildItem(cls,dotId))then
+            lvIsChange = true;
+        end
+    end
+    local num = #self._buildData.dotIds;
+    if(num < #self._buildItems)then
+        num = #self._buildItems;
+        for i = #self._buildData.dotIds + 1, num do
+            self._buildItems[i].dotId = -1;--重置dotId
+            self._buildItems[i]:Visible(false);
+        end
+    end
+    local selectDotId = Build:GetCurSelectDotId();
+    local index = 1;
+    if(selectDotId > 0)then
+        for i, v in ipairs(self._buildItems) do
+            if(v.dotId == selectDotId)then
+                index = i;
+                break;
+            end
+        end
+    end
+
+    if(self._showPreview)then
+        --进入过预览界面
+        self._showPreview = false;
+        lvIsChange = true;
+    end
+
+    self._selectDotItem = self._buildItems[index];
+    self:OnBtnBuildDotClick(self._buildItems[index].dotId);--默认选中第一个
+    if(lvIsChange or self._showPreview)then
+        --构筑点等级发生变化, 设置预览数据
+        self:PlayerPreview();
+    end
+
+end
+
+function BuildDotLayer:NewBuildItem()
+    local cls = clsbase:new(self._transBuildPointItemBg:AddChild(self._objBuildPoint));
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.btn = cls.transform:GetComponent("Button");
+    cls.imgBg = cls.transform:GetComponent("Image");
+    cls.txtLv = cls:GetTextComponent("txt_lv");
+    cls.txtName = cls:GetTextComponent("txt_name");
+
+    --[[cls.heroIcons = {};
+    cls.heroBgs = {};
+    cls.heroTrans = {};
+    cls.heroEffects = {};
+    for i = 1, 3 do
+        cls.heroBgs[i] = cls:GetImageComponent(string.format("hero_%s",i));
+        cls.heroIcons[i] = cls:GetImageComponent(string.format("hero_%s/img_icon",i));
+        cls.heroTrans[i] = cls.heroIcons[i].transform;
+        cls.heroEffects[i] = cls.heroBgs[i].transform:GetComponent("ParticleBehaviour");
+    end]]--
+    cls.btn.onClick:AddListener(function ()
+        if(self._selectDotItem == cls)then
+            return;
+        end
+        self._selectDotItem = cls;
+        self:OnBtnBuildDotClick(cls.dotId);
+    end);
+    return cls;
+end
+
+--返回等级是否变化
+function BuildDotLayer:SetBuildItem(cls,dotId)
+    cls.dotId = dotId;
+    cls:Visible(true);
+    local cfg = Build:GetBuildDotCfgById(dotId);
+    local attrCfg = Build:GetBuildAttrCfgByCfgId(cfg.effectID);
+    local lvIsChange = false;
+    Build:SetBuildImage(cls.imgIcon,attrCfg.iconPath);
+    cls.txtName:SetText(cfg.name);
+    local dotLvData = Build:GetDotAddLvById(cls.dotId);
+    cls.curAllLv = dotLvData.heroAddLv + dotLvData.addLv;
+    --self:SetDotHeroIcon(cls);
+    local lv = Build:GetBuildDotLv(cls.dotId);
+    if(cls.lv ~= lv)then
+        cls.lv = lv;
+        lvIsChange = true;
+    end
+    set_com_enabled(cls.txtLv,lv > 0);
+    if(lv > 0)then
+        cls.txtLv.text = uistr.com_stepstr[lv];
+    end
+    return lvIsChange;
+end
+
+function BuildDotLayer:SetDotHeroIcon(cls)
+    local delayIndex = 0;
+    local dt;
+    for i, v in ipairs(cls.heroIcons) do
+        if(self._buildData.heroIds[i] > 0)then
+            local cfg = Build:GetBuildDotCfgById(cls.dotId);
+            local hero = Hero:GetHero(self._buildData.heroIds[i]);
+            if(hero.dots[cfg.effectID] ~= nil and hero.dots[cfg.effectID] > 0)then
+                if(self._changeDotData[cls.dotId])then--Hero变动引发构筑点变化,使用DT动画
+                    v:SetEnabled(false);
+                    cls.heroTrans[i]:SetScale(2,2,2);
+                    dt = cls.heroTrans[i]:DOScale(1, 0.25):SetDelay(0.3 * delayIndex);
+                    delayIndex = delayIndex + 1;
+                    dt:OnStart(function ()
+                        v:SetEnabled(true);
+                        cls.heroEffects[i]:Play();
+                        v:LoadSprite(string.format("source_avatar/hero/head_%s",hero.skinids[1]));
+                        cls.heroBgs[i]:SetColorA(1);
+                    end)
+                else--不适用DT动画
+                    v:SetEnabled(true);
+                    v:LoadSprite(string.format("source_avatar/hero/head_%s",hero.skinids[1]));
+                    cls.heroBgs[i]:SetColorA(1);
+                end
+            else
+                v:SetEnabled(false);
+                cls.heroBgs[i]:SetColorA(0.5);
+            end
+        else
+            cls.heroBgs[i]:SetColorA(0.5);
+            v:SetEnabled(false);
+        end
+        if(i >= HeroItemNum and self._changeDotData[cls.dotId])then--关闭DT动画
+            self._changeDotData[cls.dotId] = false;
+        end
+    end
+    if(dt ~= nil)then
+        dt:OnComplete(function ()
+        end);
+    end
+end
+
+
+function BuildDotLayer:SetBuildUI()
+    self:UpdateData();
+    self:InitBuildItems();
+    self:SetHeroItems();
+    self:SetPointNum();
+    --设置标题
+    self._txtPointTitle:SetText(string.format(LanguageMgr:GetTextByID(702027),string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + self._atkType))));
+    self._txtBuildLv:SetText(string.format(LanguageMgr:GetTextByID(702145),LanguageMgr:GetTextByID(71200000 + self._atkType),self._buildCurLvData.lv))
+end
+
+function BuildDotLayer:SetHeroDotState(selectDot)
+    --开启角色Dot特效显示
+    local id,cls,hero,cfg;
+    for j = 1, HeroItemNum do
+        id = self._buildData.heroIds[j];
+        if(id > 0)then
+            cls = self._heroItems[j];
+            hero = Hero:GetHero(id);
+            for i = 1, TalentNum do
+                local isShowEffect = false;
+                if(hero.sortDots[i] ~= nil)then
+                    cfg = Build:GetBuildDotCfgById(selectDot);
+                    if(cfg.effectID == hero.sortDots[i].id)then
+                        if(hero.star >= hero.sortDots[i].star)then--该构筑点以解锁,点亮特效
+                            isShowEffect = true;
+                        end
+                    end
+                end
+                if(isShowEffect)then
+                    cls.talents[i].effect:Play();
+                else
+                    cls.talents[i].effect:Stop();
+                end
+            end
+        end
+    end
+end
+
+function BuildDotLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+--------------------------------------------------构筑通用UI, 和预览界面UI相同, 后续可能会优化--------------------------
+
+--更新构筑点数据
+function BuildDotLayer:UpdateDotData()
+    local curDotId = Build:GetCurSelectDotId();
+    self._curDotPointMaxNum = 0;
+    self._dotCfg = Build:GetBuildDotCfgById(curDotId);
+    for _, num in ipairs(self._dotCfg.levelGroup) do--计算当前构筑的构筑点上限
+        self._curDotPointMaxNum = self._curDotPointMaxNum + num;
+    end
+end
+
+--设置当前构筑点
+function BuildDotLayer:SetCurDotPointUI()
+    local curIndex = 0;
+    if(self._pointItems == nil)then
+        self._pointItems = {};
+    end
+    for lv, num in ipairs(self._dotCfg.levelGroup) do
+        for i = 1, num do
+            curIndex = curIndex + 1;
+            local cls = self._pointItems[curIndex];
+            if(cls == nil)then
+                cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objPoint,self._transPointLvBg));
+                cls.index = curIndex;
+                cls.txtLv = cls:GetTextComponent("txt_lv");
+                cls.imgIcon = cls.transform:GetComponent("Image");
+                cls.rect = cls.transform:GetComponent("RectTransform");
+                cls.effectClick = cls.transform:GetComponent("ParticleBehaviour");
+                cls.effectHero = cls:GetComponent("hero_add_effect","ParticleBehaviour");
+                cls.effectAdd = cls:GetComponent("build_add_effect","ParticleBehaviour");
+                cls.effectHero:Stop();
+                cls.effectAdd:Stop();
+                cls.effectClick:Stop();
+                self._pointItems[curIndex] = cls;
+            end
+            cls:Visible(true);
+            cls.isBig = i == num;
+            cls.txtLv:SetEnabled(cls.isBig);
+            if(cls.isBig)then
+                cls.rect:SetSize(54,54);
+                cls.txtLv:SetText(uistr.com_stepstr[lv]);
+            else
+                cls.rect:SetSize(41,41);
+            end
+            self:SetPointItem(cls);
+        end
+    end
+
+    self:SetDotAddUI();
+    --关闭多余的点
+    if(curIndex < #self._pointItems)then
+        for i = curIndex + 1, #self._pointItems do
+            self._pointItems[i]:Visible(false);
+        end
+    end
+end
+
+function BuildDotLayer:SetPointItem(cls,isAdd)
+    local dotLvData = Build:GetDotAddLvById(Build:GetCurSelectDotId());
+    local allLv = dotLvData.heroAddLv + dotLvData.addLv;
+    self._txtAddNum:SetText("+"..dotLvData.addLv);
+    if(cls.index <= dotLvData.heroAddLv)then
+        Build:SetBuildImage(cls.imgIcon,Build.HeroAddLvImagePath);
+        if(cls.isBig)then
+            cls.effectHero:Play();
+        else
+            cls.effectHero:Stop();
+        end
+        cls.effectAdd:Stop();
+    elseif(cls.index <= allLv)then
+        Build:SetBuildImage(cls.imgIcon,Build.AddLvImagePath);
+        if(cls.isBig)then
+            cls.effectAdd:Play();
+        else
+            cls.effectAdd:Stop();
+        end
+        cls.effectHero:Stop();
+        if(isAdd)then
+            cls.effectClick:Stop();
+            cls.effectClick:Play();
+        end
+    else
+        Build:SetBuildImage(cls.imgIcon,Build.NoAddLvImagePath);
+        cls.effectHero:Stop();
+        cls.effectAdd:Stop();
+    end
+end
+
+--设置当前构筑点的信息
+function BuildDotLayer:SetSelectDotInfo()
+    local lv = self._selectDotItem.lv;
+    local title,des =  Build:GetBuildDotDesAndTitleByLv(Build:GetCurSelectDotId(),lv);
+    self._txtPointName:SetText(title);
+    self._txtCurLvDes:SetText(des);
+end
+
+--播放预览
+function BuildDotLayer:PlayerPreview()
+    local allDotData = {};
+    for _, dotId in pairs(self._buildData.dotIds) do
+        local dotLvData = Build:GetDotAddLvById(dotId);
+        allDotData[dotId] = {
+            heroAddLv = dotLvData.heroAddLv,
+            addLv = dotLvData.addLv,
+        };
+    end
+    self:SetSelectDotInfo();
+    Build:PlayerPreview(allDotData);
+end
+
+--额外加点数设置
+function BuildDotLayer:SetDotAddUI()
+    local dotLvData = Build:GetDotAddLvById(Build:GetCurSelectDotId());
+    local allLv = dotLvData.addLv + dotLvData.heroAddLv;
+    self._txtAddNum:SetEnabled(dotLvData.addLv > 0);
+    if allLv > 0 then
+        self._txtAddNum.transform.parent = self._pointItems[allLv].transform
+        self._rectAddNum:SetAnchoredPosition(0,45);
+    end
+end
+
+
+return BuildDotLayer;

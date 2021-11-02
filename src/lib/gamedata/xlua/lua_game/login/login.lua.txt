@@ -1,0 +1,304 @@
+--
+-- author: haosun
+-- date  : 2019-10-10 19:54:58
+-- brief : 
+--
+
+--[[
+    //区角色信息
+    message ZoneRoleInfo
+    {
+        optional uint32 zoneid      = 1;    //区id
+        optional uint32 frameid     = 2;    //头像框id
+        optional uint32 iconid      = 3;    //头像id
+        optional uint32 level       = 4;    //等级
+        optional uint32 logintime   = 5;    //最后登录时间
+        optional uint32 nickname    = 6;    //玩家昵称
+    }
+    message BanData
+    {
+        optional uint32 createtime  = 1;    //封禁创建时间
+        optional uint32 overtime    = 2;    //封禁总时间
+        optional string reason      = 3;    //封禁原因
+    }
+    message ZoneInfo
+    {
+        optional uint32     zoneid      = 1;
+        optional uint32     state       = 2;        //区状态
+    }
+    optional ErrorCode      errcode         = 1;    //错误码
+    repeated ZoneInfo       zoneinfos       = 2;    //所有的区
+    repeated ZoneRoleInfo   last_zoneroles  = 3;    //最后进入的区角色列表(只记录最后3个)
+    optional BanData        bandata         = 4;    //封禁数据
+    optional uint32         servertime      = 5;    //服务器时间
+    optional uint32         timezone        = 6;    //服务器时区
+    optional bool           bfull           = 7;    //开放帐号已满(禁止新创建帐号)
+    optional bool           bgetverify      = 8;    //是否领取身份验证奖励
+    optional unit32         pertime         = 9;    //当日在线时间
+]]--
+
+Login = Login or {}
+
+function Login:Ctor()
+    self._registerfull  = false
+    self._stimeinfo     = {
+        servertime  = 0,
+        timezone    = 8,
+        ostime      = 0
+    }
+    self._userUid       = 0
+    self._tokenErr      = false
+    self._noticeList    = {};
+    self._accUnActivity = false;
+    self._enterLoginLayer  = false;
+end
+
+function Login:Clear()
+    self._registerfull          = false
+    self._stimeinfo.servertime  = 0
+    self._stimeinfo.timezone    = 8
+    self._stimeinfo.ostime      = 0
+    self._userUid               = 0
+    self._tokenErr              = false
+end
+
+function Login:GetEnterLoginLayer()
+    return self._enterLoginLayer
+end
+
+function Login:SetEnterLoginLayer(isEnter)
+    self._enterLoginLayer  = isEnter;
+end
+
+function Login:GetLoginIpPort(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        return server.ip, server.port
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return "", 0
+end
+
+function Login:GetGameIpPort(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        local r = math.random(1, #server.games)
+        return server.games[r][1], server.games[r][2]
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return "", 0
+end
+
+function Login:GetHttpIpPort(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        return server.httpIp, server.httpPort
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return nil, nil
+end
+
+function Login:GetChatIpPort(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        return server.chatIp, server.chatPort
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return nil, nil
+end
+
+function Login:GetUpLoadIpPort(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        return server.videoUploadIp, server.videoUploadPort
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return nil, nil
+end
+
+function Login:GetUpLoadUrl(zoneid)
+    local server = self._serverlist[zoneid]
+    if server ~= nil then
+        return server.videoUrl
+    end
+    AppMgr:LogError("can't find zoneid = " .. zoneid)
+    return nil
+end
+
+function Login:TestLogin()
+    if AppMgr:IsEditor() then
+        self._last_login_id     = 3
+    else
+        self._last_login_id     = 1
+    end
+    self._last_logins       = {}
+    self._stimeinfo.servertime  = os.time()
+    self._stimeinfo.timezone    = -8
+    self._stimeinfo.ostime      = os.time()
+    self._registerfull          = false
+
+    -- 进行服务器列表检测，如果没有，则取第一个服务器
+    if self._serverlist[self._last_login_id] == nil then
+        AppMgr:LogError("缺失默认服务器id!!! " .. self._last_login_id)
+        for _, v in pairs(self._serverlist) do
+            self._last_login_id = v.zoneid
+            break
+        end 
+    end
+end
+
+function Login:GetServerIds()
+    local ids = {}
+    for _, v in pairs(self._serverlist) do
+        table.insert(ids, v.zoneid)
+    end
+    return ids
+end
+
+function Login:GetServerDataById(id)
+    if self._serverlist[id] ~= nil then
+        return self._serverlist[id]
+    end
+    AppMgr:LogError("area err!!! " .. id)
+    return nil
+end
+
+function Login:GetLastServer()
+    return self:GetServerDataById(self._last_login_id)
+end
+
+function Login:GetLoinDataById(zoneid)
+    for _, v in pairs(self._last_logins) do
+        if v.zoneid == zoneid then
+            return v
+        end
+    end
+    return nil
+end
+
+function Login:SetLastLoginId(serverid)
+    self._last_login_id = serverid
+end
+
+function Login:GetLoginServerId()
+    return self._last_login_id
+end
+
+function Login:GetLoginServerName()
+    return self._serverlist[self._last_login_id].zonename
+end
+
+function Login:LoginSucc(uid)
+    -- http Ip、Port
+    self:SdkTokenError(false)
+    local ip, port = self:GetHttpIpPort(self._last_login_id)
+    AppMgr:LogInfo(string.format("---------- http ip:port = %s:%d", ip, port))
+
+    Rank:SetRankIpPort(ip, port)
+    Player:SetRankIpPort(ip, port)
+    Comment:SetCommentIpPort(ip, port)
+
+    UpLoadVideo:SetIpPort(self:GetUpLoadIpPort(self._last_login_id));
+
+    Item:SetItemAfterLoginSucc()
+    Network:ChatServerLogin(self._last_login_id)
+    Lottery:SetNewLottery(false)
+    UnIndulge:LoginCallBack()
+    Build:SetAllBuildDotHeroAddLv();
+    Archive:UpdateAdd();
+    Hero:CalAllHeroAttr()
+    Hero:InitLastFighting();
+    Hero:SetSkinBuyId();        --关联皮肤表礼包ID
+    Hero:SetHeroClipInfo();     --关联碎片
+    Comment:InitCommentData();
+    TpsHelper:OnTp2UserLogin(Player:GetLoginServerId(), uid, Player:GetId().."")
+    Network:ClearWait()
+    Activity:SetDialData();
+    Activity:InitActivityChapterIds();
+    Chapter:AddCount();
+    MidNight:CalcCurSeasonId()
+    Talk:LoadLocalTalker();
+    Task:SetTaskServerData()
+    Operation:InitLastBloodCycleLv();
+
+    --设置段位数据
+    MidNight:SetDanGradingData();
+
+    --记录本次登录时间
+    self:SetLoginTime(CTime:GetServerTime())
+
+    GTemp:SetSkipFightTalk(false)
+    GTemp:SetAutoFightTalk(false)
+    -- 触发礼包检测
+    Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_LOGIN_DAY})
+
+    GZSDKHelper:playerLoginWithPlayerInfo()
+    HttpUpload:InitHttpUpload()
+end
+
+function Login:IsRegisterFull()
+    return self._registerfull
+end
+
+local _switchUser    = false
+function Login:SetSwitchUser(bvalue)
+    _switchUser = bvalue
+end
+
+function Login:OnBeginLogin()
+    if _switchUser then
+        _switchUser = false
+        GameSdkMgr:SwitchUser()
+    else
+        GameSdkMgr:Login()
+    end
+end
+
+local _autoLogin    = true
+function Login:SetAutoLogin(bvalue)
+    _autoLogin = bvalue
+end
+
+function Login:IsAutoLogin()
+    if _autoLogin then
+        GameSdkMgr:Login()
+    else
+        _autoLogin = true
+    end
+end
+
+function Login:SetUserUid(uid)
+    self._userUid = uid
+end
+
+function Login:GetUserUid()
+    return self._userUid
+end
+
+function Login:SdkTokenError(value)
+    self._tokenErr = value
+end
+
+function Login:IsTokenErr()
+    return self._tokenErr
+end
+
+function Login:GetTimeZone()
+    return self._stimeinfo.timezone
+end
+
+function Login:GetAccUnActivityState()
+    return self._accUnActivity or false;
+end
+
+function Login:SetAccUnActivityState(state)
+    self._accUnActivity  = state or false;
+end
+
+function Login:SetLoginTime(time)
+    self._loginTime = time
+end
+
+function Login:GetLoginTime()
+    return self._loginTime
+end

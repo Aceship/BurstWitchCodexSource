@@ -1,0 +1,195 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 11:09:47
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ShopBuyLayer = class("ShopBuyLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    buy     = "container/buy_content/button_buy",
+    btnAdd  = "container/num_content/button_add",
+    btnSub  = "container/num_content/button_sub",
+}
+
+function ShopBuyLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_ShopBuyLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+function ShopBuyLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:InitUI();
+end
+
+function ShopBuyLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback(false)
+    end
+    if(self._heroObj ~= nil)then
+        CS.UnityEngine.GameObject.Destroy(self._heroObj);
+        self._heroObj = nil;
+    end
+    self:hide()
+end
+
+function ShopBuyLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.buy then
+        play_effect_buy()
+        if self._callback ~= nil then
+            self._callback(true,self._buyNum)
+        end
+        if(self._heroObj ~= nil)then
+            CS.UnityEngine.GameObject.Destroy(self._heroObj);
+            self._heroObj = nil;
+        end
+        self:hide()
+    elseif(itype == BUTTON_TYPE.btnAdd)then
+        local canBuyNum = math.floor(Item:GetCount(self._data.costcfgid) / self._data.price);
+        local resNunm = self._data.stock - self._data.buyCount;
+        if(resNunm <= 0)then
+            resNunm = 1;
+        end
+        if(self._silder.value == self._silder.maxValue)then
+            if(canBuyNum < resNunm)then
+                UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(79000014))
+            else
+                UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(79000013))
+            end
+            return;
+        end
+        self._silder.value = self._silder.value + 1;
+        self._buyNum = self._silder.value;
+    elseif(itype == BUTTON_TYPE.btnSub)then
+        self._silder.value = self._silder.value - 1;
+        self._buyNum = self._silder.value;
+    end
+end
+
+function ShopBuyLayer:InitUI()
+    self._container = self.layer:GetRectTransformComponent("container")
+    self._item = Bag:CtorComSimpleGoodsUi(self.layer:Get("container/item_content/prefab_item"),function () end);
+    self._txtName = self.layer:GetTextComponent("container/item_content/text_name")
+    self._nameBg = self.layer:Get("container/item_content/name_bg")
+    self._remain = self.layer:Get("container/item_content/remain_bg")
+    self._double = self.layer:Get("container/item_content/text_double")
+    self._labelOwner = self.layer:Get("container/item_content/label_owner")
+    self._labelOwnerBg = self.layer:Get("container/item_content/label_ownerBg")
+    self._txtOwner = self.layer:Get("container/item_content/text_owner")
+    self._txtOwnerBg = self.layer:Get("container/item_content/text_ownerBg")
+    self._txtDes = self.layer:GetTextComponent("container/item_content/text_desc")
+    self._spine = self.layer:Get("spine");
+    self._heroSpine = self.layer:Get("spine/hero_spine")
+    self._imgBack = self.layer:GetImageComponent("button_back");
+    self._imgIcon = self.layer.transform:Get("container/buy_content/image_icon")
+    self._txtCost = self.layer:Get("container/buy_content/text_cost")
+    self._silder = self.layer:Get("container/num_content/slider"):GetComponent("Slider");
+    self._silder.onValueChanged:AddListener(function (value)
+        if(value == 0)then
+            value = 1;
+        end
+        self._txtBuyNum.text = math.floor(value);
+        self._buyNum = value;
+        set_cost_color(self._txtCost, self._data.costcfgid, math.floor(self._data.price * value));
+    end)
+    self._silderRect = self.layer:Get("container/num_content/slider"):GetComponent("RectTransform");
+    self._maxSilerX = self._silderRect.sizeDelta.x;
+    self._silderV2 = self._silderRect.sizeDelta;
+    self._numContent = self.layer:Get("container/num_content");
+    self._txtBuyNum = self.layer:GetTextComponent("container/num_content/text_number");
+    self._txtMaxNum = self.layer:GetTextComponent("container/num_content/text_max");
+    self._txtMinNum = self.layer:GetTextComponent("container/num_content/text_min");
+end
+function ShopBuyLayer:show(data, callback)
+    play_effect_show()
+    self._callback = callback
+    self:setBuyInfo(data)
+end
+
+function ShopBuyLayer:setBuyInfo(data)
+    self._buyNum = 1;
+    self._data = data;
+    if(self._topData ~= nil)then
+        if(data.showtype ~= -1)then
+            Groble_UIMgr:SetTopData(self._topData,Shop.SHOW_COINS[data.showtype]);
+        end
+    end
+    set_cost_color(self._txtCost, data.costcfgid, data.price)
+    Bag:SetComSimpleGoodsUi(self._item,data.buytype,data.cfgid);
+    set_obj_active(self._numContent,data.oneBuyNum > 1);
+    if(data.oneBuyNum > 1)then
+        self:SetNumContentUI(data);
+    end
+    self._txtName.text = data.name
+    set_com_nameBg(self._txtName.transform,self._nameBg);
+    local cfg
+    local isSkin = false
+    if data.buytype == Bag.TYPE_EQUIP then
+        cfg = Equip:GetCfg(data.cfgid)
+    else
+        cfg = Item:GetCfg(data.cfgid)
+        isSkin = tonumber(cfg.itemType) == Item.TYPE_ROLE_ATTIRE
+    end
+    set_obj_active(self._spine, isSkin)
+    if isSkin then
+        self:playAni("SkinShopAnim")
+        set_obj_active(self._spine,true);
+        Hero:LoadSpineAsync(self.__cname,self._heroSpine, data.cfgid, Hero.SPINE_UI_TYPE_BUYSKIN,function (obj)
+            self._heroObj = obj;
+            self:showLayer()
+        end)
+        self._container.anchoredPosition = CS.UnityEngine.Vector2(self._container.anchoredPosition.x,0 - 520)
+        self._imgBack.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", "Common_Img_TouMingHei_80")
+    else
+        self:playAni("CommonLayerFadeInAni")
+        self:showLayer()
+        set_obj_active(self._spine,false);
+        self._container.anchoredPosition = CS.UnityEngine.Vector2(self._container.anchoredPosition.x,0)
+        self._imgBack.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", "Common_Img_TouMingHei_70")
+    end
+    local showhas = cfg.isShowShopNum == "1"
+    set_obj_active(self._remain,data.hasDouble)
+    set_obj_active(self._double, data.hasDouble)
+    set_obj_active(self._labelOwnerBg, showhas)
+    set_obj_active(self._labelOwner, showhas)
+    set_obj_active(self._txtOwner, showhas)
+    set_obj_active(self._txtOwnerBg, showhas)
+    if showhas then
+        self._txtOwner.text = Item:GetCount(data.cfgid)
+    end
+
+    self._txtDes.text = lua_color_str(cfg.itemInfo)
+    Item:SetItemIcon(self._imgIcon, data.costcfgid)
+end
+
+function ShopBuyLayer:SetNumContentUI(data)
+    local resNunm = 0;
+    local canBuyNum = math.floor(Item:GetCount(data.costcfgid) / data.price);
+    if(data.stock == 0)then
+        resNunm = data.oneBuyNum;
+    else
+        resNunm = data.stock - data.buyCount;
+        if(resNunm <= 0)then
+            resNunm = 1;
+        end
+    end
+    if(canBuyNum < resNunm)then
+        resNunm = canBuyNum;
+    end
+    self._silder.value = 1;
+    self._silder.minValue = 1
+    self._silder.maxValue = resNunm
+    self._silderV2.x = self._maxSilerX * (resNunm / data.oneBuyNum)
+    self._silderRect.sizeDelta = self._silderV2
+    self._txtBuyNum.text = 1;
+    self._txtMaxNum.text = data.oneBuyNum;
+    self._txtMinNum.text = 1;
+end
+return ShopBuyLayer
+

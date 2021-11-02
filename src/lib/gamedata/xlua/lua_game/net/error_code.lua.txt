@@ -1,0 +1,570 @@
+--
+-- Copyright 2008 MoleGame Inc.
+--
+-- author
+-- date 2018-10-13 16:00:00 CST
+-- brief 错误码， 客户端服务端通用脚本
+--
+---------------------------------------------------------------
+ErrorCode = ErrorCode or {};
+
+ErrorCode.SUCCESS                       = 0
+ErrorCode.SERVER_BUSY                   = 1                 --服务器忙碌
+ErrorCode.SERVER_CLOSE                  = 2                 --服务器维护
+ErrorCode.SYSTEM_ERROR                  = 3                 --系统错误
+ErrorCode.SDK_CONFIG_NIL                = 4                 --找不到sdk配置, p1 sdkid
+ErrorCode.CLIENT_REQ_OFTEN              = 5                 --客户端请求过于频繁(多用于http请求)
+
+--GM错误
+ErrorCode.ERROR_GM_LEVEL_LIMIT          = 101;              --GM权限不足
+ErrorCode.ERROR_GM_MAIL_ERROR           = 102;              --邮件数据错误
+
+
+--通用错误
+ErrorCode.ERROR_LACK                    = 100001;           -- 参数缺失
+ErrorCode.ERROR_PARAM                   = 100002;           -- 参数类型错误, p1:协议id
+ErrorCode.ERROR_PLAYER_VALUE_LACK       = 100003;           -- 玩家对应value值不足： p1:value_id, p2:need_value
+ErrorCode.ERROR_TIME_NO_OPEN            = 100004;           -- 未开放的时间
+ErrorCode.ERROR_OFFTEN_REQ              = 100006;           -- 请求过于频繁
+ErrorCode.ERROR_WALL_LOCK               = 100007;           -- 功能未开启 p1:功能id(表 player_levelProject)
+ErrorCode.ERROR_RDSCARD_NOT_EXIST       = 100009;           -- Redis玩家名片不存在
+
+--背包规则和掉落
+ErrorCode.ERROR_BAG_NO_DROP_ID          = 101001;           -- 不存在的掉落id
+
+--玩家信息
+ErrorCode.ERROR_NAME_UNLAWFUL           = 101101;         -- 非法昵称
+ErrorCode.ERROR_FRAME_TYPE              = 101102;         -- 头像框穿戴 物品类型错误，p1:frameid
+ErrorCode.ERROR_ICON_NO                 = 101103;         -- 头像穿戴 物品未拥有
+ErrorCode.ERROR_NAME_REPEAT             = 101105;         -- 昵称修改 昵称相同或已被使用
+ErrorCode.ERROR_LEGAL_GIFT_CODE         = 101106;         -- 兑换码使用 非法兑换码
+ErrorCode.ERROR_GUIDE_STEP_NO_CONFIG    = 101107;         -- 引导记录 引导配置不存在, p1: guideid
+ErrorCode.ERROR_GUIDE_REWARD_GOT        = 101109;         -- 引导物品领取 已经领取, p1: guideid
+ErrorCode.ERROR_NO_GUIDE_REWARD         = 101110;         -- 引导物品领取 引导配置无物品, p1: guideid
+ErrorCode.ERROR_ADD_SPIRIT_NUM_MAX      = 101111;         -- 钻石购买体力 次数达上限 p1:num_now p2:num_max
+ErrorCode.ERROR_VERIFY_ID_AWARD_GOT     = 101112;         -- 身份证验证奖励领取 已领取
+ErrorCode.ERROR_ICON_TYPE               = 101113;         -- 头像穿戴 物品类型错误，p1:iconid
+ErrorCode.ERROR_FRAME_DEFAULT_NO        = 101114;         -- 头像框穿戴 默认头像框和穿戴魔女显示品质不对应，frameid
+ErrorCode.ERROR_SHARE_GIFT_GOT          = 101115;         -- 领取分享奖励 已领取
+ErrorCode.ERROR_NAME_DEFINE             = 101116;         -- 昵称修改 系统默认名判断不通过
+ErrorCode.ERROR_HUMANVAL_ID_WRONG       = 101117;         -- 善恶值（玩家剧情走向选择）设置 配置不存在 hv_id
+ErrorCode.ERROR_ICON_NO_ROLE_FASHION    = 101118;         -- 头像框设置 头像不为魔女皮肤头像，却要设置默认品质头像框 iconid frameid
+ErrorCode.ERROR_TEACHER_NO_CFG          = 101120;         -- 导师选择 导师配置没有找到 p1:tch_id
+ErrorCode.ERROR_TEACHER_CHOSED          = 101121;         -- 导师选择 导师已经选择 p1：old_tch_id
+ErrorCode.ERROR_RED_POINT_NO_CFG        = 101122;         -- 红点标记设置 对应没有配置存在 p1:u_type, p2:u_id
+ErrorCode.ERROR_RED_POINT_NO_DEF        = 101123;         -- 红点标记设置 对应配置无记录需求 p1:u_type p2:u_id
+ErrorCode.ERROR_URL_GIFT_NO_CFG         = 101124;         -- 对应url奖励id没有配置对应 p1:url_gift_id
+ErrorCode.ERROR_URL_GIFT_GOT            = 101125;         -- 对应url奖励id已经被领取 p1:url_gift_id
+
+--item
+ErrorCode.ERROR_ITEM_NO_CONFIG          = 101201;         -- 物品配置不存在, p1:配置id
+ErrorCode.ERROR_ITEM_LACK               = 101202;         -- 物品数量不足，p1:配置id
+ErrorCode.ERROR_ITEM_NO_USE             = 101203;         -- 物品使用 配置不可使用, p1:配置id
+ErrorCode.ERROR_ITEM_NO_SELL            = 101204;         -- 物品出售 配置不可出售, p1:配置id
+--ErrorCode.ERROR_ITEM_NO_RESOLVE         = 101205;         -- 物品分解 物品不能分解, p1:配置id
+ErrorCode.ERROR_ITEM_CLOCK_TYPEWRONG    = 101207;         -- 闹钟物品使用 对应关卡类型错误，p1:配置id
+ErrorCode.ERROR_ITEM_USE_POS_WRONG      = 101209;         -- 物品（自选礼包）使用  使用位置越界
+
+--魔女
+ErrorCode.ERROR_HERO_NO_CONFIG          = 101301;         -- 魔女配置不存在, p1:配置id
+ErrorCode.ERROR_HERO_OWNER              = 101302;         -- 魔女已经拥有,不可重复获得 p1:配置id
+ErrorCode.ERROR_HERO_NO_OWNER           = 101303;         -- 魔女为拥有 不可获取对应信息 p1:配置id
+ErrorCode.ERROR_HERO_UP_ITEM_MATERIAL   = 101308;         -- 魔女升级 使用道具子类型错误, p1:heroid, p2:itemid
+ErrorCode.ERROR_HERO_MAX_STAR           = 101309;         -- 魔女升星 星级已经最大, p1:heroid
+ErrorCode.ERROR_HERO_LV_UP_NO_GROUP                 = 101313;           -- 魔女升级 找不到魔女升级组 p1:heroid
+ErrorCode.ERROR_HERO_LV_UP_NO_CFG                   = 101314;           -- 魔女升级 找不到魔女升级组内对应等级配置 p1:heroid p2:herolv
+ErrorCode.ERROR_HERO_NO_STAR_SHOW                   = 101315;           -- 魔女星级对应显示品质不存在 p1:star
+ErrorCode.ERROR_HERO_STARMARK_USE_WRONG             = 101316;           -- 魔女刻印 对应星级刻印消耗物品配置有误 heroid, star
+ErrorCode.ERROR_HERO_STEP_NO_CFG                    = 101317;           -- 魔女对应阶级配置不存在 step
+ErrorCode.ERROR_HERO_LV_STEP_LIMIT                  = 101318;           -- 魔女升级 已到达阶级限制的魔女等级 heroid, step
+ErrorCode.ERROR_HERO_STEP_MAX                       = 101319;           -- 魔女升阶 阶级最大 heroid
+ErrorCode.ERROR_HERO_STEP_UP_LV_LOW                 = 101320;           -- 魔女升阶 未达到魔女限制等级 heroid
+ErrorCode.ERROR_HERO_STEP_NO_COST                   = 101321;           -- 魔女升阶 魔女属性对应消耗不存在 step
+ErrorCode.ERROR_HERO_STARMARK_SUPER_PIECE_LESS      = 101322;           -- 魔女刻印 万能碎片不足 heroid
+
+ErrorCode.ERROR_HERO_SKILL_NO_BASE      = 101322;         -- 魔女技能升级 对应技能组不存在, err_msg:hero_id, skill_slot
+ErrorCode.ERROR_HERO_SKILL_UP_MAX       = 101324;         -- 魔女技能升级 等级已达最大, err_msg:hero_id, skill_slot, lv_now, add_lv
+ErrorCode.ERROR_HERO_SKILL_NO_CONFIG    = 101325;         -- 魔女技能升级 技能组中对应等级无配置, err_msg:hero_id, skill_slot
+ErrorCode.ERROR_HERO_SKILL_HLV_LIMIT    = 101327;         -- 魔女技能升级 魔女等级限制 err_msg:hero_id, skill_slot lv_now add_lv
+
+ErrorCode.ERROR_HERO_SKIN_WEARED                = 101351;   -- 魔女皮肤穿戴 已穿戴该皮肤 p1:heroid p2:skinid
+ErrorCode.ERROR_HERO_SKIN_NOT_GET               = 101352;   -- 魔女对应皮肤没有获得 p1：skinid
+ErrorCode.ERROR_HERO_SKIN_NOT_WEAR              = 101353;   -- 魔女皮肤穿戴 非该魔女皮肤 p1:heroid p2:skinid
+ErrorCode.ERROR_HERO_SKIN_NO_CAN_WEAR           = 101354;   -- 对应皮肤的魔女未获得操作终止 p1:skinid
+
+ErrorCode.ERROR_HERO_INTIMACY_LEVEL_MAX         = 101361;   -- 好感度礼物赠送 魔女好感度等级已经最大 p1:heroid
+ErrorCode.ERROR_HERO_INTIMACY_ITEM_TYPE_WORNG   = 101362;   -- 好感度礼物赠送 礼物配置类型错误 p1:itemid
+ErrorCode.ERROR_HERO_INTIMACY_NO_GROUP          = 101363;   -- 好感度礼物赠送 对应魔女好感度组配置不存在 p1:heroid p2:goupid
+ErrorCode.ERROR_HERO_INTIMACY_LV_NO_CFG         = 101364;   -- 好感度礼物赠送 对应魔女好感度组的等级配置不存在 p1:heroid p2:groupid p3:lv
+ErrorCode.ERROR_HERO_INITMACY_ADVENTURES_MAX    = 101365;   -- 好感度礼物赠送触发奇遇 超过每日次数上限
+ErrorCode.ERROR_HERO_ADVENTURE_NO_RAND_CFG      = 101366;   -- 好感度礼物赠送触发奇遇 服务器生成奇遇配置失败 p1:heroid
+ErrorCode.ERROR_HERO_ADVENTURE_NO_GIFTS         = 101367;   -- 奇遇奖励领取 对应魔女未触发奇遇 p1:heroid
+ErrorCode.ERROR_HERO_INTIMACY_NO_RAISEUP_CFG    = 101368;   -- 好感度升华 对应升华配置不存在 p1:升华id p2:升华等级
+ErrorCode.ERROR_HERO_INTIMACY_RAISEUP_LV_LOW    = 101369;   -- 好感度升华 好感度等级不够 p1:升华id p2:升华等级
+
+-- 副本
+ErrorCode.ERROR_DUNGEON_NO_CONFIG               = 101601;         -- 副本章节配置不存在 p1:dungeonid
+ErrorCode.ERROR_DUNGEON_UNLOCK                  = 101602;         -- 副本章节解锁 已经解锁 p1:dungeonid
+ErrorCode.ERROR_DUNGEON_EX_LOCK                 = 101603;         -- 副本章节解锁 前置章节未解锁 p1 dungeonid
+ErrorCode.ERROR_DUNGEON_LOCK                    = 101604;         -- 副本章节未解锁 p1 dungeonid
+ErrorCode.ERROR_LEVEL_NO_CONFIG                 = 101605;         -- 副本关卡配置不存在 p1 levelid
+ErrorCode.ERROR_LEVEL_LOCK                      = 101606;         -- 副本关卡未解锁 p1:levelid
+ErrorCode.ERROR_LEVEL_NO_GAMING                 = 101607;         -- 副本关卡挑战结算 没有进行中关卡
+ErrorCode.ERROR_LEVEL_NO_THREE_STAR             = 101608;         -- 副本关卡不满足三星 p1: levelid
+ErrorCode.ERROR_DUNGEON_NO_STAGE_RD             = 101609;         -- 副本章节阶段奖励领取失败 无奖励或未达到条件 p1:dungeonid, p2: stage
+ErrorCode.ERROR_LEVEL_NO_COUNT                  = 101610;         -- 副本关卡挑战(或扫荡)请求 关卡挑战次数不足  p1 levelid
+ErrorCode.ERROR_DUNGEON_NO_COUNT                = 101611;         -- 副本关卡挑战(或扫荡)请求 章节挑战次数不足  p1 dungeonid
+ErrorCode.ERROR_PLAYER_LEVEL_LIMIT              = 101612;         -- 副本关卡挑战请求 玩家等级不足 p1 levelid
+ErrorCode.ERROR_LEVEL_NO_PASS                   = 101613;         -- 副本关卡扫荡请求 未通关的关卡 p1 levelid
+ErrorCode.ERROR_DUNGEON_GOT_STAGE_RD            = 101614;         -- 副本章节阶段奖励领取失败 已领取 p1:dungeonid, p2: stage
+ErrorCode.ERROR_SCORE_UNUSUAL                   = 101615;         -- 副本关卡挑战结算 深夜积分异常 p1:levelid
+ErrorCode.ERROR_MONSTER_NO_CONFIG               = 101617;         -- 副本关卡挑战结算 找不到怪物配置, p1: monsterid
+ErrorCode.ERROR_DUNGEON_ADD_ITEM_LIMIT          = 101618;         -- 副本关卡挑战结算 增加道具不在限制内, p1: itemid
+ErrorCode.ERROR_DUNGEON_SETTLING                = 101619;         -- 副本关卡挑战请求 深夜永久结算中, p1: levelid
+ErrorCode.ERROR_LEVEL_CANNOT_MOVE_UP            = 101622;         -- 副本关卡扫荡请求 不能扫荡的副本类型 p1:levelid
+ErrorCode.ERROR_DUNGEON_SHENYE_ID_WORNG         = 101623;         -- 副本关卡挑战请求 深夜副本id出错 p1:levelid
+ErrorCode.ERROR_LEVEL_RIFT_NO_OPEN              = 101626;         -- 副本关卡挑战请求 幽暗秘境对应关卡当天不开放 p1:rift_floor
+ErrorCode.ERROR_LEVEL_RIFT_NO_CFG               = 101627;         -- 副本关卡挑战请求 幽暗秘境对应层数没有配置 p1:rift_floor
+ErrorCode.ERROR_LEVEL_RIFT_BUFF_NO_CHOOSE       = 101628;         -- 副本关卡挑战请求 幽暗秘境在未选择奖励buff之前不能进入
+ErrorCode.ERROR_LEVEL_RIFT_LOCK                 = 101629;         -- 副本关卡挑战请求 幽暗秘境对应层数还未解锁 p1:rift_floor
+ErrorCode.ERROR_DUNGEON_RIFT_NOT_SETTLE         = 101630;         -- 幽暗秘境结算 不可结算或已经结算过了
+ErrorCode.ERROR_DUNGEON_RIFT_REWARD_MAX         = 101631;         -- 幽暗秘境奖励次数增加 奖励次数已经最大
+ErrorCode.ERROR_DUNGEON_RIFT_REWARD_ADD_MAX     = 101632;         -- 幽暗秘境奖励次数增加 奖励增加次数已经超过上限
+ErrorCode.ERROR_DUNGEON_CANT_ADD_COUNT          = 101633;         -- 增加章节的挑战次数 章节本身不能增加
+ErrorCode.ERROR_DUNGEON_COUNT_ENOUGH            = 101634;         -- 增加章节的挑战次数 当前次数充足
+ErrorCode.ERROR_DUNGEON_ADD_COUNT_MAX           = 101635;         -- 增加章节的挑战次数 增加的次数已达上限
+ErrorCode.ERROR_LEVEL_MOVE_UP_NUM_TOO_BIG       = 101636;         -- 副本关卡扫荡请求 扫荡次数单次过大
+ErrorCode.ERROR_DUNGEON_YITAI_HERO_USED         = 101637;         -- 副本关卡挑战请求（以太边境），魔女已经被其他以太使用 p1:hero_id
+ErrorCode.ERROR_YITAI_WORD_NO_CFG               = 101638;         -- 以太边境词缀id没有对应的配置 p1:yt_word_id
+ErrorCode.ERROR_YITAI_WORD_POS_LARGE            = 101639;         -- 副本关卡挑战请求（以太边境）词缀等级超过最大 p1:yt_word_id, p2, pos
+ErrorCode.ERROR_YITAI_WORD_LV_MAX_LOW           = 101640;         -- 副本关卡挑战请求（以太边境）词缀未激活（等级之和过小） p1:yt_word_id
+ErrorCode.ERROR_YITAI_WORD_PRE_LOCK             = 101641;         -- 副本关卡挑战请求（以太边境）词缀未激活（前置未激活） p1:yt_word_id
+ErrorCode.ERROR_YITAI_WORD_NO_BELONG_DUNGEON    = 101642;         -- 副本关卡挑战请求（以太边境）词缀不属于对应章节 p1:yt_word_id, p2:dungeon_id
+ErrorCode.ERROR_YITAI_SUP_POINT_LOW             = 101643;         -- 副本关卡挑战请求（以太边境）魔女支援点数不够
+ErrorCode.ERROR_YITAI_RESET_NO_WORD_IDS         = 101644;         -- 以太边境重置 对应章节没有词缀点 p1:dungeon_id
+ErrorCode.ERROR_DAILY_NO_MAX_SCORE              = 101645;         -- 副本关卡扫荡请求 分数过低 p1:level_id
+ErrorCode.ERROR_SY_KILL_BOSS_NUM_NO_AWARD       = 101646;         -- 副本关卡挑战请求（深夜） 击杀boss数没有对应的奖励 p1:boss_num
+ErrorCode.ERROR_YT_LAST_LV0                     = 101647;         -- 领取以太总层数奖励 当前记录层数为0
+ErrorCode.ERROR_YT_LAST_LV_NO_AWARD             = 101648;         -- 领取以太总层数奖励 当前记录层数没有对应的层数奖励
+ErrorCode.ERROR_DUNGEON_SY_NO_CLOCK             = 101649;         -- 副本关卡挑战请求（深夜）没有使用闹钟 p1:level_id
+ErrorCode.ERROR_DUNGEON_ALL_STAR_NIL            = 101650;         -- 章节星级阶段奖励领取 奖励为空 p1:dungeon_id
+ErrorCode.ERROR_DUNGEON_TRIGGER_LEVEL_WRONG     = 101651;         -- 副本关卡挑战请求 触发关卡不对应
+ErrorCode.ERROR_LEVEL_ONCE_RATE_BUT_NOT_CLEAR   = 101651;         -- 副本关卡挑战请求 单次倍率不为1，但未通关 p1:level_id;
+ErrorCode.ERROR_LEVEL_ONCE_RATE_UNKNOW          = 101652;         -- 副本关卡挑战请求 单次倍率错误 p1:level_id;
+ErrorCode.ERROR_LEVEL_MOP_TYPE_WRONG            = 101653;         -- 副本关卡扫荡请求 类型错误 p1:level_id;
+
+--buff
+ErrorCode.ERROR_BUFF_NO_CONFIG          = 101801;         -- buff配置未找到 p1:buffid
+ErrorCode.ERROR_BUFF_SY_NO_CONFIG       = 101802;         -- 深夜buff配置未找到 p1:sy_buffid
+ErrorCode.ERROR_BUFF_SY_HAVED           = 101803;         -- 购买深夜buff失败 已购买 p1:sy_buffid
+ErrorCode.ERROR_BUFF_RIFT_NO_CHOOSE     = 101804;         -- 选择秘境buff 没有可供选择 p1:floor p2:key
+
+-- 装备
+ErrorCode.ERROR_EQUIP_NO_CONFIG         = 101901;         -- 装备配置不存在, p1:cfgid
+ErrorCode.ERROR_EQUIP_NO_OWNER          = 101902;         -- 装备未拥有, p1:uid
+ErrorCode.ERROR_EQUIP_LEVEL_UP_MAX      = 101904;         -- 装备升级 等级最大 p1:uid
+ErrorCode.ERROR_EQUIP_DRESS_BELONE      = 101905;         -- 装备穿戴 专属无法穿戴, p1:heroid, equip_configid, belone_id
+ErrorCode.ERROR_EQUIP_DRESS_TYPE        = 101906;         -- 装备穿戴 对应类型无法穿戴 p1:uid
+ErrorCode.ERROR_EQUIP_BE_DRESS          = 101907;         -- 装备销毁 已被穿戴的装备无法销毁, p1:equipid，heroid(穿戴的英雄id)
+ErrorCode.ERROR_EQUIP_NO_UNDRESS        = 101909;         -- 装备脱下失败 p1:equipid, equiptype
+ErrorCode.ERROR_EQUIP_NO_SELL           = 101910;         -- 装备不能出售, p1:equipid, configid
+ErrorCode.ERROR_EQUIP_UP_ITEM_MATERIAL  = 101911;         -- 装备升级 材料类型错误, err_msg:equipid, material_id
+ErrorCode.ERROR_EQUIP_DEPT              = 101919;         -- 装备穿戴 装备属性错误, err_msg:p1:equipid, p2:equip_configid
+ErrorCode.ERROR_EQUIP_COST_OWN          = 101920;         -- 装备升级 使用自己作为材料, err_msg:p1:equipid, p2:equip_configid
+ErrorCode.ERROR_EQUIP_UNDRESS_EMPTY             = 101934;         -- 装备脱下 装备列表为空
+ErrorCode.ERROR_EQUIP_DRESS_EMPTY               = 101935;         -- 装备穿戴 装备列表为空
+ErrorCode.ERROR_EQUIP_DRESS_SAME_POS            = 101936;         -- 装备穿戴 装备列表有相同需求位置 p1:equip_pos(Type)
+ErrorCode.ERROR_EQUIP_DRESS_REPEATE             = 101937;         -- 装备穿戴 装备已被该魔女穿戴 p1:equip_uid p2:heroid
+ErrorCode.ERROR_EQUIP_NO_LV_GROUP               = 101938;         --装备没有的对应等级组
+ErrorCode.ERROR_EQUIP_NO_LV_CFG                 = 101939;         --装备对应的等级组中，没有对应的等级数据
+
+
+
+-- 邮件
+ErrorCode.ERROR_MAIL_NO_ID              = 102101;         --不存在的邮件, p1: mailid
+ErrorCode.ERROR_MAIL_LIST_REQ_COUNT     = 102102;         --不允许多次请求邮件列表
+ErrorCode.ERROR_MAIL_READ_UNIT          = 102103;         --有附件的邮件只能领取, 无法读取
+ErrorCode.ERROR_MAIL_READED             = 102104;         --已经读取的邮件
+ErrorCode.ERROR_MAIL_GET_NIL            = 102105;         --没有附近领取
+ErrorCode.ERROR_MAIL_GOT_UNIT           = 102106;         --已经领取的附近
+ErrorCode.ERROR_MAIL_DEL_READ           = 102107;         --不能删除未读邮件
+ErrorCode.ERROR_MAIL_DEL_NIL            = 102108;         --不能删除未读邮件
+ErrorCode.ERROR_MAIL_TIME_OUT           = 102109;         --邮件已经过期 无法领取 p1:mailid
+
+-- 排行
+ErrorCode.ERROR_RANK_TYPE               = 102201          --排行榜类型错误
+ErrorCode.ERROR_RANK_NIL                = 102202          --玩家未入排行 
+ErrorCode.ERROR_RANK_LIST_REQS          = 102203          --排行列表请求过于频繁 
+ErrorCode.ERROR_RANK_CARD_REQS          = 102204          --排行名片请求频繁
+ErrorCode.ERROR_RANK_MODIFY_REPEAT      = 102205          --每次登陆只允许修正一次
+ErrorCode.ERROR_RANK_MODIFY_NEEDLESS    = 102206          --不必要的修正
+ErrorCode.ERROR_RANK_SETTLE_NIL         = 102207          --找不到历史排行数据
+ErrorCode.ERROR_RANK_SCORE_COIN_NIL     = 102208          --没有要结算的竞技币
+ErrorCode.ERROR_RANK_LAST_REPEAT_REQ    = 102209          --重复请求历史排行
+ErrorCode.ERROR_RANK_LAST_NIL           = 102210          --空的历史排行
+ErrorCode.ERROR_RANK_NOT_ENROLL         = 102211          --排行榜未注册
+ErrorCode.ERROR_RANK_ENROLLED           = 102212          --排行榜已经注册
+ErrorCode.ERROR_RANK_REWARD_NIL         = 102213          --没有要领取的奖励
+ErrorCode.ERROR_RANK_SCORE_NIL          = 102214          --没有分数；分数为0
+
+-- 商店
+ErrorCode.ERROR_SHOP_NO_CONFIG          = 102301;         --不存在的商店配置, p1: shopid
+ErrorCode.ERROR_SHOP_NO_SHOPITEM        = 102302;         --找不到商品, p1: shopid
+ErrorCode.ERROR_SHOP_NO_COUNT           = 102303;         --购买次数不足, p1: shopid
+ErrorCode.ERROR_SHOP_NO_TYPE            = 102304;         --不存在的类型, p1: shoptype
+ErrorCode.ERROR_SHOP_NO_REQ             = 102305;         --未请求商店数据, p1: shopid
+ErrorCode.ERROR_SHOP_NO_TYPE_UP         = 102306;         --不支持的刷新类型, p1: shoptype
+ErrorCode.ERROR_SHOP_NO_RCOUNT          = 102307;         --刷新次数不足, p1:shoptype
+ErrorCode.ERROR_SHOP_REPEAT_REQ         = 102308;         --重复请求商店数据, p1:shoptype
+ErrorCode.ERROR_SHOP_LOTTERY_DROP_NIL   = 102309;         --掉落空的, p1:lotteryid
+ErrorCode.ERROR_SHOP_RANK_GIFT_NO_CFG   = 102310;         -- 排行商店 对应累计次数奖励组不存在（策划配的没有或者全过期）
+ErrorCode.ERROR_SHOP_RANK_GIFT_NUM_EMPTY= 102311;         -- 排行商店 对应累计次数奖励组的 累计次数奖励不存在 p1:num_need
+ErrorCode.ERROR_SHOP_RANK_GIFT_NUM_LOW  = 102312;         -- 排行商店 对应累计次数 玩家次数不足 p1:num_need p2:num_now
+ErrorCode.ERROR_SHOP_RANK_GIFT_GOT      = 102313;         -- 排行商店 对应位礼包已经领取
+ErrorCode.ERROR_SHOR_ITEM_NO_PRICE      = 102314;         -- 找不到商品价格
+ErrorCode.ERROR_SHOP_SELFBUY_CANNOT     = 102315;         -- 不能自主购买类型
+ErrorCode.ERROR_SHOP_SELFBUY_NUM_MAX    = 102316;         -- 自主购买类型 超过持有上限
+ErrorCode.ERROR_SHOP_LOTTERY_COUNT_LACK = 102317;         -- 抽奖池可抽奖次数不足, p1:lotteryid
+ErrorCode.ERROR_SHOP_BUY_TIME_LIMIT     = 102318;         -- 商店购买次数不足
+ErrorCode.ERROR_SHOP_UNLOCK_DATA_WRONG  = 102319;         -- 未达到解锁条件，不能购买
+ErrorCode.ERROR_SHOP_ID_LOCK            = 102320;         -- 商品被条件锁定 无法购买
+ErrorCode.ERROR_SHOP_ONCE_TIME_LIMIT    = 102321;         -- 商店单次购买达上限
+ErrorCode.ERROR_SHOP_CFG_LIST_WRONG     = 102322;         -- 生成随机商店（集市）槽位的时候获取表配置不对
+ErrorCode.ERROR_SHOP_LOTTERY_NO_CFG     = 102323;         -- 抽奖配置不存在
+ErrorCode.ERROR_SHOP_LOTTERY_NO_LIST_ID = 102324;         -- 抽奖池没有配置listId p1:lotteryid
+ErrorCode.ERROR_SHOP_LOTTERY_NO_LIST_CFG= 102325;         -- 抽奖列表配置不存在 p1:lottery_list_id
+ErrorCode.ERROR_SHOP_LOTTERY_TEST_NO_TEMP_DATA  = 102326; -- 测试抽奖确认时候，临时数据不存在 p1:lottery_list_id
+-- 102323 - 102328 触发商店
+ErrorCode.ERROR_SHOP_CHIP_NO_HERO_ID    = 102329;         -- 转化魔女碎片的时候 魔女碎片没有对应的魔女id p1:chip_item_id
+ErrorCode.ERROR_SHOP_CHIP_HERO_STAR_LESS= 102330;         -- 转化魔女碎片的时候 魔女没有达到最大星级 p1:hero_id
+ErrorCode.ERROR_SHOP_CHIP_QUALITY_WRONG = 102331;         -- 转化魔女碎片的时候 魔女品质没有对应转换 p1:hero_id
+ErrorCode.ERROR_SHOP_CHIP_EXNUM_WRONG   = 102332;         -- 转化魔女碎片的时候 转化过来的数量<=0 p1:chip_item_id p2:ex_num
+ErrorCode.ERROR_SHOP_LOTTERY_SY_WRONG   = 102333;         -- 深夜抽奖，对应的分段错误 p1: lottery_list_id
+ErrorCode.ERROR_SHOP_LOTTERY_VOW_ONEKEY_EMPTY       = 102334  -- 深夜抽奖许愿一键领取 领取为空
+ErrorCode.ERROR_SHOP_LOTTERY_VOW_ONEKEY_NUM_WRONG   = 102335  -- 深夜抽奖许愿一键领取 单个领取数量计算错误 p1:slot_id
+
+-- 任务
+ErrorCode.ERROR_QUEST_NO_CONFIG         = 102401;         --找不到任务配置, p1:questid
+ErrorCode.ERROR_QUEST_NO_GET_NUM        = 102404;         --领取次数不足 p1:questid
+ErrorCode.ERROR_QUEST_NO_GET            = 102405;         --为满足领取条件, p1:questid
+ErrorCode.ERROR_QUEST_NO_OPEN           = 102406;         --任务未达到开启条件, p1:questid
+ErrorCode.ERROR_QUEST_GOT_BEFORE        = 102407;         --已经领取过的礼包 p1:questid
+ErrorCode.ERROR_QUEST_NO_CONDITION      = 102408;         --不满足领取条件(任务时间关闭或自身领取条件不足) p1:questid
+ErrorCode.ERROR_QUEST_ROOKIE_DAY_WRONG  = 102409;         --暮光礼赞领取天数错误
+ErrorCode.ERROR_QUEST_STQ_COUNT_WRONG   = 102409;         --统计计数获取失败
+
+-- 宠物
+-- （废弃）102501 - 102512 旧宠物使用
+
+-- 活動
+ErrorCode.ERROR_ACTIVE_NOT_CONFIG                   = 102701;       -- 未找到active配置  p1:active_id
+ErrorCode.ERROR_ACTIVE_ITEM_NOT_CONFIG              = 102702;       -- 未找到active_item奖励配置    p1:active_item_id
+ErrorCode.ERROR_ACTIVE_REACH_COUNT_MAJOR_WORNG      = 102703;       -- 具有达成条件的活动大周期次数错误 p1:active_id
+ErrorCode.ERROR_ACTIVE_NOT_OPEN                     = 102704;       -- 活动未开启 p1:active_id
+ErrorCode.ERROR_ACTIVE_SEVEN_DAYS_GOT               = 102705;       -- 7日活动奖励已经领取
+ErrorCode.ERROR_ACTIVE_DALIY_SIGN_DONE              = 102706;       -- 日签到 当天奖励已经领取
+ErrorCode.ERROR_ACTIVE_DALIY_SIGN_WRONG             = 102707;       -- 日签到 要领取的奖励天数不对
+ErrorCode.ERROR_ACTIVE_DALIY_SIGN_AWARD_WRONG       = 102708;       -- 日签到 要领取的奖励不存在
+ErrorCode.ERROR_ACTIVE_PLAYER_LV_LOW                = 102709;       -- 玩家等级奖励 玩家等级过低
+ErrorCode.ERROR_ACTIVE_PLAYER_LV_GOT                = 102710;       -- 玩家等级奖励 对应礼包已经领取
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_DICE_TYPE_WRONG   = 102711;       -- 玩棋盘 未定义的骰子类型
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_CYC_MAX           = 102711;       -- 达到圈数上限
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_DICE_NUM_WRONG    = 102712;       -- 玩棋盘的时候 骰子数量错误
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_SPECIAL_NUM_WRONG = 102713;       -- 玩棋盘(特殊)的时候 对应点数不对
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_DICE_RAND_FALSE   = 102714;       -- 玩棋盘(普通)的时候 骰子随机点数失败
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_NORMAL_ALL_FAIL   = 102715;       -- 玩棋盘(普通)的时候 没有一次成功的
+ErrorCode.ERROR_ACTIVE_PLAY_CHESS_CHARGE_FAIL       = 102715;       -- 玩棋盘的时候 充值购买失败
+ErrorCode.ERROR_ACTIVE_CHESS_AWARD_NOT_CFG          = 102716;       -- 棋盘奖励没有对应的奖励配置
+ErrorCode.ERROR_ACTIVE_CHESS_GET_AWARD_COILS_LOW    = 102717;       -- 棋盘奖励领取失败，圈数不足
+ErrorCode.ERROR_ACTIVE_CHESS_GET_AWARD_GOT          = 102719;       -- 棋盘奖励领取失败，已经被领取
+ErrorCode.ERROR_ACTIVE_TURNTABLE_ONCE_TOO_MORE      = 102720;       -- 转盘单次转的次数超过最大上限
+ErrorCode.ERROR_ACTIVE_TURNTABLE_AWARD_NO_CFG       = 102721;       -- 转盘次数奖励表没找到对应配置
+ErrorCode.ERROR_ACTIVE_TURNTABLE_RAND_CFG_NIL       = 102722;       -- 随机转盘配置的时候为空；
+ErrorCode.ERROR_ACTIVE_TURNTABLE_RAND_RATE_NIL      = 102723;       -- 随机转盘配置倍率的时候为空； p1:turntable_cfg_id
+ErrorCode.ERROR_ACTIVE_TURNTABLE_COUNT_LOW          = 102724;       -- 领取转盘次数奖励时 累计次数不足
+ErrorCode.ERROR_ACTIVE_TURNTABLE_AWARD_GOT          = 102725;       -- 领取转盘次数奖励时 奖励已经领取
+ErrorCode.ERROR_ACTIVE_NOTICE_DAY_NO_CFG            = 102726;       -- 预热活动配置不存在 p1:get_day
+ErrorCode.ERROR_ACTIVE_NOTICE_DAY_GOT               = 102727;       -- 预热活动对应天奖励已经领取 p1:get_day
+ErrorCode.ERROR_ACTIVE_NOTICE_DAY_DAY_FUTURE        = 102728;       -- 预热活动领取的天数为未来 p1:get_day
+ErrorCode.ERROR_ACTIVE_NO_LOAD_START_DAY            = 102729;       -- 没有预先载入开始天数
+ErrorCode.ERROR_ACTIVE_GET_SIXTH_CLASS_GIFT_DAY_WRONG           = 102730;       -- 第六封印类活动领取天奖励，天错误 p1:active_id p2:day
+ErrorCode.ERROR_ACTIVE_GET_SIXTH_CLASS_GIFT_NO_DROPS            = 102731;       -- 第六封印类活动领取天奖励，掉落不存在 p1:active_id p2:day
+ErrorCode.ERROR_ACTIVE_GET_SIXTH_CLASS_GIFT_GOT                 = 102732;       -- 第六封印类活动领取天奖励，已经领取 p1:active_id p2:day
+
+
+-- 102801 - 102803 (废弃)魔女评论板
+
+--好友
+ErrorCode.ERROR_PFRIEND_TIME_GET_DATA_LIMIT     = 102901;       -- 获得好友数据时间间隔限制 p1：time_limit p2: 1.请求一类数据，2.好友简介 3.推荐列表
+ErrorCode.ERROR_PFRIEND_ID_WRONG                = 102902;       -- p_id有误，不存在或者是自己的 p1:p_id
+ErrorCode.ERROR_PFRIEND_IS_FRIEND_BEFORE        = 102903;       -- 执行操作之前已经是好友了 p1:p_id
+ErrorCode.ERROR_PFRIEND_PF_FULL                 = 102904;       -- 【好友】【ADD】好友列表已满 p1:p_id
+ErrorCode.ERROR_PFRIEND_PF_HAVE                 = 102905;       -- 【好友】【ADD】已经在好友列表 p1:p_id
+ErrorCode.ERROR_PFRIEND_PF_NOT_HAVE             = 102906;       -- 【好友】【DEL】不在好友列表 p1:p_id
+ErrorCode.ERROR_PFRIEND_REQUEST_FULL            = 102907;       -- 【好友申请】【ADD】好友申请列表已满 p1:p_id
+ErrorCode.ERROR_PFRIEND_REQUEST_HAVE            = 102908;       -- 【好友申请】【ADD】已经再好友申请列表中了 p1:p_id
+ErrorCode.ERROR_PFRIEND_REQUEST_IN_BLACK        = 102909;       -- 【好友申请】【ADD】黑名单中 p1:p_id
+ErrorCode.ERROR_PFRIEND_REQUEST_NOT_HAVE        = 102910;       -- 【好友申请】【DEL】不在好友申请列表中 p1:p_id
+ErrorCode.ERROR_PFRIEND_UNFRIEND_HAVE           = 102911;       -- 【黑名单】【ADD】已经在黑名单中 p1:p_id
+ErrorCode.ERROR_PFRIEND_UNFRIEND_FULL           = 102912;       -- 【黑名单】【ADD】黑名单已满 p1:p_id
+ErrorCode.ERROR_PFRIEND_UNFRIEND_IN_PFLIST      = 102913;       -- 【黑名单】【ADD】在好友列表中，无法拉黑 p1:p_id
+ErrorCode.ERROR_PFRIEND_UNFRIEND_NOT_HAVE       = 102914;       -- 【黑名单】【DEL】不在黑名单 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINSEND_NOT_FRIEND   = 102915;       -- 【好友币发送】不是好友 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINSEND_SEND_BEFORE  = 102916;       -- 【好友币发送】已经发送过了 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINSEND_MAN_MAX      = 102917;       -- 【好友币发送】已经发送上限 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINGET_NOT_FRIEND    = 102918;       -- 【好友币领取】不在好友列表中 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINGET_NOT_GET       = 102919;       -- 【好友币领取】未收到好友币或者已经领取 p1:p_id
+ErrorCode.ERROR_PFRIEND_PFCOINGET_NOT_GOT_MAX   = 102920;       -- 【好友币领取】领取已达上限 p1:p_id
+
+ErrorCode.ERROR_PFRIEND_OPT_WRONG               = 102999;       -- 好友操作系数错误（现在基本用不到）
+
+-- 聊天
+-- 103001 - 103008 舍弃
+
+-- 乐器
+-- 1030201 - 1030210 del
+
+-- 音乐演奏
+-- 1003301
+
+ErrorCode.ERROR_PICTORIAL_ICHERO_ATTR_GOT           = 103501;       -- 领取魔女图鉴数据错误， 已经被领取过的数据
+
+--ErrorCode.ERROR_CHARGE_NO_CONFIG            = 103601;       -- 充值对应id没有配置 p1:charge_id
+--ErrorCode.ERROR_CHARGE_NUM_MAX              = 103602;       -- 对应充值礼包次数已经超过限购次数 p1:Charge_id
+--ErrorCode.ERROR_CHARGE_LV_LOW               = 103603;       -- 对应充值礼包次数等级限制 p1:Charge_id
+--ErrorCode.ERROR_CHARGE_PRE_NOT_BUY          = 103604;       -- 对应重置礼包的前置礼包未购买 p1:Charge_id
+----ErrorCode.ERROR_CHARGE_MONTHCARD_REPEAT_BUY = 103605;       -- 对应月卡礼包重复购买 p1:Charge_id
+--ErrorCode.ERROR_CHARGE_LIMITBAG_CANOT_BUY   = 103606;       -- 对应时限礼包不能不购买（未触发） p1:Charge_id
+--ErrorCode.ERROR_CHARGE_LIMITBAG_TIME_WORNG  = 103607;       -- 对应时限礼包不能不购买（时间错误） p1:Charge_id
+--ErrorCode.ERROR_CHARGE_GROW_UP_PLAN_GIFT_NO_CONFIG  = 103608    -- 对应成长等级礼包不存在 p1:plan_gift_id
+--ErrorCode.ERROR_CHARGE_GROW_UP_PLAN_GIFT_LV_LOW     = 103609    -- 对应成长等级礼包 等级不足 p1:plan_gift_id
+--ErrorCode.ERROR_CHARGE_GROW_UP_PLAN_NOT_BUY         = 103610    -- 对应成长计划还未购买 p1:charge_ID
+--ErrorCode.ERROR_CHARGE_GROW_UP_PLAN_GIFT_GOT        = 103611    -- 对应成长等级礼包已经被领取 p1:plan_gift_id
+--ErrorCode.ERROR_CHARGE_DAILY_BAG_CANNOT_BUY = 103612        -- 对应日刷礼包不能购买（不在购买池）p1:charge_ID
+--ErrorCode.ERROR_CHARGE_RECHARGE_NO_CONFIG   = 103613        -- 充值累计礼包配置不存在 p1:id(累充id)
+--ErrorCode.ERROR_CHARGE_RECHARGE_MONEY_LOW   = 103614        -- 充值累计礼包不能领取（充值不够）p1:id(累充id)
+--ErrorCode.ERROR_CHARGE_RECHARGE_GET_BEFORE  = 103615        -- 充值累计礼包不能领取（领取过的）p1:id(累充id)
+--ErrorCode.ERROR_CHARGE_TIME_NO_OPEN         = 103616        -- 充值当前时间不开启p1:charge_id p2 time_id
+--ErrorCode.ERROR_CHARGE_TIME_ACTIVED         = 103617        -- 活动时间规则已经激活 p1:charge_type
+--ErrorCode.ERROR_CHARGE_TIME_NOT_ACTIVE      = 103618        -- 活动时间规则未激活 p1:charge_type
+--ErrorCode.ERROR_CHARGE_HANDBOOK_NO_CFG      = 103619        -- 对应手书配置不存在 p1:handbook_lv
+--ErrorCode.ERROR_CHARGE_HANDBOOK_GIFT_GOT    = 103620        -- 对应手书礼包已经被领取过了 p1:handbook_lv p2:handbook_type
+--ErrorCode.ERROR_CHARGE_HANDBOOK_NO_TYPE     = 103621        -- 对应手书礼包的类型不存在
+--ErrorCode.ERROR_CHARGE_HANDBOOK_NOT_GET     = 103622        -- 对应手书礼包不能领取，经验等级不够 p1:handbook_lv p2:handbook_type
+--    -- 103623 - 103626  （舍弃）占卜
+--ErrorCode.ERROR_MONTHCARD_BUY_MAX           = 103627;       -- 对应月卡礼包购买超过最大 p1:Charge_id
+ErrorCode.ERROR_FIRST_CHARGE_NO_DONE        = 103628;       -- 未进行过首充无法领取
+ErrorCode.ERROR_FIRST_CHARGE_GIFT_GOT       = 103629;       -- 首充礼包已经领取过了
+--ErrorCode.ERROR_CHARGE_HANDBOOK_REPEAT_ID   = 103630;       -- 领取礼包的时候传入了两个相同的ID p1：handbook_lv p2:handbook_type
+ErrorCode.ERROR_CHARGE_WG_ID_NO_CFG                 = 103631;       -- 对应魔女币礼包没有配置 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_BUY_NUM_MAX               = 103632;       -- 购买魔女币礼包的时候 已达购买上限 p1:wg_id(魔女币礼包id);
+ErrorCode.ERROR_CHARGE_WG_PRE_NOT_BUY               = 103633;       -- 购买魔女币礼包的时候 前置礼包没有购买 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_PLV_LOW                   = 103634;       -- 购买魔女币礼包的时候 玩家等级过低 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_TIME_CLOSE                = 103635;       -- 魔女币礼包的 时间未开启 p1:wg_id;
+ErrorCode.ERROR_CHARGE_WG_TIME_OUT                  = 103636;       -- 魔女币礼包的 礼包过期 p1:wg_id;
+ErrorCode.ERROR_CHARGE_WGF_COND_NOT_MATCH           = 103637;       -- 购买魔女币礼包的时候 对应栏位条件未满足 p1:wg_id;
+ErrorCode.ERROR_CHARGE_WG_UNLOCK_FAIL               = 103638;       -- 购买魔女币礼包的时候 对应礼包未解锁 p1:wg_id;
+ErrorCode.ERROR_CHARGE_WG_LOCK_FAIL                 = 103639;       -- 购买魔女币礼包的时候 对应礼包锁定 p1:wg_id;
+ErrorCode.ERROR_CHARGE_WG_ONCE_NUM_MAX              = 103640;       -- 购买魔女币礼包的时候 单次超过上限 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_TYPE_ONCE_NUM_MAX         = 103641;       -- 购买魔女币类型礼包的时候 单次超过上限 p1:wg_id p2:num p3:num_max
+ErrorCode.ERROR_CHARGE_WG_PRIVILEGE_NO_CFG          = 103642;       -- 特权礼包没有配置 p1:wg_privilege_id
+ErrorCode.ERROR_CHARGE_WG_PRIVILEGE_DAY_MAX         = 103643;       -- 特权礼包购买的时候天数已经超过最大上限 p1:wg_privilege_id
+ErrorCode.ERROR_CHARGE_WG_BALE_NOT_REGISTER         = 103644;       -- 互斥礼包 没有注册 相应的互斥id p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_BALE_NO_CFG               = 103645;       -- 互斥礼包 互斥配置不存在 p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_WG_BALE_EFFECTING            = 103646;       -- 互斥礼包 不能购买，生效中 p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_WG_BALE_FREE_ID_WRONG        = 103647;       -- 互斥礼包 不能购买，免费礼包id不对应 p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_WG_BALE_DENY_BOUGHT          = 103648;       -- 互斥礼包 不能购买，付费小礼包已经买了 p1:wg_bale_id p2:deny_id
+ErrorCode.ERROR_CHARGE_WG_BALE_FREE_NO_ID           = 103649;       -- 互斥礼包 不能购买，免费礼包id未找到 p1:wg_bale_id p2:deny_id
+ErrorCode.ERROR_CHARGE_GET_WGBALE_NO_EFFECT         = 103650;       -- 互斥礼包天奖励领取 错误 未生效 p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_GET_WGBALE_SMALL_NOT_FIRST   = 103651;       -- 互斥礼包 领取小礼包的时候不是第一天 p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_GET_WGBALE_SMALL_NO_BLONE    = 103652;       -- 互斥礼包 不属于同一类互斥类型 p1:wg_bale_id p2:small_wg_id
+ErrorCode.ERROR_CHARGE_GET_WGBALE_SMALL_GET_MAX     = 103653;       -- 互斥礼包 第一天的小礼包领取数量超过上限 p1:wg_bale+id, p2:small_wg_id
+ErrorCode.ERROR_CHARGE_GET_WGBALE_DAY_WRONG         = 103654;       -- 互斥礼包天奖励领取 错误 天偏移错误(重复或者领取过去) p1:wg_bale_id
+ErrorCode.ERROR_CHARGE_WG_HB_GOT                    = 103655;       -- 手书礼包购买的时候已经获取了该权限 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_HB_NOT_GET                = 103656;       -- 手书礼包领取层级奖励的时候，没有购买手书权限 p1:wg_id 
+ErrorCode.ERROR_CHARGE_GET_WGHB_WG_TYPE_WRONG       = 103657;       -- 手书礼包领取层级奖励的时候，礼包类型并非手书礼包 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WGHB_NOTHING             = 103658;       -- 手书礼包领取层级奖励的时候，没有任何的领取 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WGHB_SAME_GIFT           = 103659;       -- 手书礼包领取层级奖励的时候，领取列表中有相同的id p1:hb_gift_id p2:hb_gift_type
+ErrorCode.ERROR_CHARGE_GET_WGHB_GIFT_GOT            = 103660;       -- 手书礼包领取层级奖励的时候，已经领取对应层级奖励 p1:wg_id, p2:hb_lv
+ErrorCode.ERROR_CHARGE_WG_HB_GIFT_NO_CFG            = 103661;       -- 手书礼包 无对应层级礼包 p1:hb_gift_id
+ErrorCode.ERROR_CHARGE_GET_WGHB_GIFT_CON_WRONG      = 103662;       -- 手书礼包 条件未完成 p1:wg_id, p2:hb_id;
+ErrorCode.ERROR_CHARGE_GET_WGHB_GIFT_WG_ID_WRONG    = 103663;       -- 手书礼包领取的时候，领取列表中有不同类的手书 p1:hb_id
+ErrorCode.ERROR_CHARGE_UNLOCK_WGHB_GIFT_TYPE_WRONG  = 103664;       -- 手书礼包解锁的时候 不是对应经验类型 p1:hb_id
+ErrorCode.ERROR_CHARGE_UNLOCK_WGHB_GIFT_CANNOT      = 103665;       -- 手书礼包解锁的时候 不能解锁对应配置 p1:hb_id
+ErrorCode.ERROR_CHARGE_UNLOCK_WGHB_GIFT_EXP_ENOUGH  = 103666;       -- 手书礼包解锁的时候 经验值已经足够 p1:hb_id
+ErrorCode.ERROR_CHARGE_UNLOCK_WGHB_GIFT_NO_PRE      = 103667;       -- 手书礼包解锁的时候，没有前置的id p1:hb_id
+ErrorCode.ERROR_CHARGE_UNLOCK_WGHB_GIFT_PRE_LESS    = 103668;       -- 手书礼包解锁的时候，前置经验不足 p1:hb_id
+ErrorCode.ERROR_CHARGE_WG_TRIGGER_NO_NUM            = 103669;       -- 触发礼包没有购买次数 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_TRIGGER_TYPE_WRONG        = 103670;       -- 触发礼包 对应礼包类型错误 p1:wg_id p2:type
+ErrorCode.ERROR_CHARGE_WG_TRIGGER_BUY_MAX           = 103671;       -- 触发礼包 对应礼包已经到最大次数了不能触发 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_TRIGGER_ING               = 103672;       -- 触发礼包 对应礼包正在触发中 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_TRIGGER_COUNT_MAX         = 103673;       -- 触发礼包 对应礼包触发次数已经最大 p1:wg_id
+ErrorCode.ERROR_CHARGE_WG_RG_NO_CFG                 = 103674;       -- 重复礼包 配置不存在 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WG_RG_TYPE_WRONG         = 103675;       -- 领取重复礼包 类型错误 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WG_RG_NO_DATA            = 103676;       -- 领取重复礼包 无数据（未激活或已过期） p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WG_RG_GOT                = 103677;       -- 领取重复礼包 当天已经领取了 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WG_RG_ALL_DONE           = 103678;       -- 领取重复礼包 已经领取完毕 p1:wg_id
+ErrorCode.ERROR_CHARGE_GET_WG_RG_DAY_LESS           = 103679;       -- 领取重复礼包 领取的天数不足 p1:wg_id
+
+ErrorCode.ERROR_CHARGE_PLAT_ERROR           = 103694        -- 渠道错误
+ErrorCode.ERROR_CHARGE_MONEY_NO_USED_DATA   = 103695        -- 是充值，但是charge表中没有找到对应预先生成数据
+ErrorCode.ERROR_CHARGE_MONEY_NUM_NOT_1      = 103696        -- 充值的时候 个数大于1
+ErrorCode.ERROR_CHARGE_MONEY_NO_CFG         = 103697        -- 充值的时候 充值配置不存在 p1:charge_money_id
+ErrorCode.ERROR_CHARGE_WITCH_COIN_LACK      = 103698        -- 购买礼包的时候，魔女币不足
+ErrorCode.ERROR_CHARGE_ERROR_NTF            = 103699        -- 充值失败 通知 p1:失败原因（1 限购礼包正在充值中, 2 生成订单id失败）
+
+
+
+--ErrorCode.ERROR_BULLETBUILD_BUILD_NO_CFG        = 103801        -- 对应构筑id 配置不存在 p1:build_id
+--ErrorCode.ERROR_BULLETBUILD_BUILD_POINT_NO_CFG  = 103802        -- 对应构筑内天赋点id 配置不存在 p1:build_point_id
+--ErrorCode.ERROR_BULLETBUILD_HERO_NUM_WRONG      = 103803        -- 修改构筑点 魔女列表时 魔女数量不对
+--ErrorCode.ERROR_BULLETBUILD_HERO_POS_CLOSE      = 103804        -- 修改构筑点 魔女列表时 对应位置尚未开启 p1:pos p2:hero_id
+--ErrorCode.ERROR_BULLETBUILD_HERO_ID_REPEATE     = 103805        -- 修改构筑点 魔女队列时 队列中有重复的魔女
+--ErrorCode.ERROR_BULLETBUILD_POINT_NO_IN         = 103806        -- 构筑点 天赋点升级时 对应天赋点不在构筑内 p1:build_id, p2:build_point_id
+--ErrorCode.ERROR_BULLETBUILD_POINT_CLOSE         = 103807        -- 构筑点 天赋点升级时 对应天赋点尚未开启 p1:build_point_id
+--ErrorCode.ERROR_BULLETBUILD_POINT_LEFT_NUM_LOW  = 103808        -- 构筑点 天赋点升级时 剩余的升级次数不足开启特殊点 p1:build_id, p2:build_point_id
+--ErrorCode.ERROR_BULLETBUILD_POINT_LV_MAX        = 103809        -- 构筑点 天赋点升级时 已经达到最大等级 p1:build_point_id
+--ErrorCode.ERROR_BULLETBUILD_BUILD_RESET_EMPTY   = 103810        -- 构筑点 天赋点重置时 是空的 p1:build_id
+--ErrorCode.ERROR_BULLETBUILD_HERO_TYPE_WRONG     = 103811        -- 修改构筑点 魔女队列时 构筑类型没有对应数据 p1:build_type
+--ErrorCode.ERROR_BULLETBUILD_BUILD_TIME_LIMIT    = 103812        -- 构筑点 天赋点重置时 是 p1:build_id
+
+ErrorCode.ERROR_BULLETBUILD_BUILD_TYPE_NO_CFG       = 103801        -- 构筑类型不存在
+ErrorCode.ERROR_BULLETBUILD_HERO_NUM_WRONG          = 103802        -- 修改构筑点 魔女列表时 魔女数量不对
+ErrorCode.ERROR_BULLETBUILD_BUILD_TYPE_LV_NO_CFG    = 103803        -- 升级构筑 对应等级的对应类型配置不存在
+ErrorCode.ERROR_BULLETBUILD_DOT_DEAL_NO_DEFINE      = 103804        -- 构筑点加点 未定义操作
+ErrorCode.ERROR_BULLETBUILD_DOT_ID_NO_CFG           = 103805        -- 构筑点加点 构筑点id配置不存在
+ErrorCode.ERROR_BULLETBUILD_DOT_DEAL_RANGE_WORNG    = 103806        -- 构筑点加点 操作之后 超过有效范围
+ErrorCode.ERROR_BULLETBUILD_DOT_DEAL_NUM_LIMIT      = 103807        -- 构筑点加点 加点时候点数不够
+ErrorCode.ERROR_BULLETBUILD_DOT_DEAL_NOT_SAME_TYPE  = 103808        -- 构筑点加点 点数修改列表中，有不同类型的点
+ErrorCode.ERROR_BULLETBUILD_HERO_REPEATE            = 103809        -- 修改构筑点 魔女列表时 魔女重复使用 p1:hero_id
+ErrorCode.ERROR_BULLETBUILD_BUILD_TYPE_NO_HERO_LIST = 103810        -- 激活构筑类型数据的时候 没有对应魔女列表 p1:build_type
+ErrorCode.ERROR_BULLETBUILD_BUILD_TYPE_HERO_NO_OWNER= 103811        -- 激活构筑类型数据的时候 对应枪型魔女，没有拥有任何一个 p1:build_type
+ErrorCode.ERROR_BULLETBUILD_BUILD_LV_LOW_USE_HERO   = 103812        -- 修改构筑点 魔女列表时 对应位置 未激活 p1:pos
+ErrorCode.ERROR_BULLETBUILD_DOT_TEMP_DATA_WORNG     = 103813        -- 构筑点加点 获取点数临时数据的时候失败(基本为未激活构筑) p1:build_type
+
+
+ErrorCode.ERROR_POKERCARD_CARD_TYPE_WRONG               = 103901        -- 翻牌的时候，翻牌类型错误 p1:card_type
+ErrorCode.ERROR_POKERCARD_CARD_GOT                      = 103902        -- 翻牌的时候，对应翻牌位置已经被使用
+ErrorCode.ERROR_POKERCARD_CARD_TYPE_NO_CHANCE           = 103903        -- 翻牌的时候，对应翻牌类型 没有可执行机会 p1:card_type
+ErrorCode.ERROR_POKERCARD_CARD_TYPE_NUM_LEFT_LOW        = 103904        -- 翻牌的时候，对应翻牌类型 没有机会次数不够 p1:card_type
+
+
+
+
+-- 评论模块错误码  104001~104099
+ErrorCode.ERROR_COMMENT_USERCMT_REACH_MAX                = 104001        -- 玩家评论数量到达上限
+ErrorCode.ERROR_COMMENT_USERRPL_REACH_MAX                = 104002        -- 玩家回复数量到达上限
+ErrorCode.ERROR_COMMENT_USERLIKE_REACH_MAX               = 104003        -- 玩家点赞数量到达上限
+ErrorCode.ERROR_COMMENT_MSGLEN_REACH_MAX                 = 104004        -- 玩家消息字数达到上限 
+ErrorCode.ERROR_COMMENT_SYSCMT_REACH_MAX                 = 104005        -- 系统评论数量到达总上限
+ErrorCode.ERROR_COMMENT_SYSRPL_REACH_MAX                 = 104006        -- 系统回复数量到达总上限
+ErrorCode.ERROR_COMMENT_MSG_ID_NOT_EXIST                 = 104007        -- 请求的评论或回复id不存在
+
+-- 演奏
+ErrorCode.ERROR_MUSICSHOW_BOOK_NO_CFG                   = 104101        -- 未找到对应的乐谱配置 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_HALL_NO_CFG                   = 104102        -- 未找到对应的大厅配置 p1:hall_id
+ErrorCode.ERROR_MUSICSHOW_AWARD_ADD_NO_CFG              = 104103        -- 未找到对应的增幅物品配置 p1:hall_id
+ErrorCode.ERROR_MUSICSHOW_TIME_SPACE_LONG               = 104104        -- 客户端和服务器之间结算时间间隔过长
+ErrorCode.ERROR_MUSICSHOW_START_HALL_NO_OPEN            = 104105        -- 开始演奏 大厅未开放 p1:hall_id
+ErrorCode.ERROR_MUSICSHOW_START_HALL_IS_USING           = 104106        -- 开始演奏 大厅占用中 p1:hall_id
+ErrorCode.ERROR_MUSICSHOW_START_BOOK_NOT_LERANED        = 104107        -- 开始演奏 乐谱未习得 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_START_ITEM_SUBTYPE_WRONG      = 104108        -- 开始演奏 使用增幅道具类型错误 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_START_HERO_LEN_WORNG          = 104109        -- 开始演奏 魔女队列长度不对 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_START_HERO_IS_USING           = 104110        -- 开始演奏 魔女使用中 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_START_HERO_REPEAT             = 104111        -- 开始演奏 对应位置魔女重复使用 p1:book_id p2:pos
+ErrorCode.ERROR_MUSICSHOW_START_HERO_LEN_EMPTY          = 104112        -- 开始演奏 对应魔女队列是空的
+ErrorCode.ERROR_MUSICSHOW_STOP_HALL_IS_FREE             = 104113        -- 结束演奏 对应大厅空闲 p1:hall_id
+ErrorCode.ERROR_MUSICSHOW_STOP_CALC_AWARD_RATE_NIL      = 104114        -- 结束演奏 无对应评分的奖励倍率
+ErrorCode.ERROR_MUSICSHOW_GET_GIFTS_HERO_FREE           = 104115        -- 领取魔女奖励 魔女空闲 p1:hero_id;
+ErrorCode.ERROR_MUSICSHOW_GET_GIFTS_TMP_WORNG           = 104116        -- 领取魔女奖励 临时数据有问题
+ErrorCode.ERROR_MUSICSHOW_GET_GIFTS_HERO_WORNG          = 104117        -- 领取魔女奖励 魔女不是正确魔女 p1:hero_id
+ErrorCode.ERROR_MUSICSHOW_GET_GIFTS_NUM_LESS            = 104118        -- 领取魔女奖励 可领取数量不足 p1:hero_id
+ErrorCode.ERROR_MUSICSHOW_BOOK_CANNOT_COMPOSE           = 104119        -- 乐谱合成 配置不支持合成 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_BOOK_COMPOSE_ITEM_LIMIT       = 104120        -- 乐谱合成 材料不足 p1:book_id
+ErrorCode.ERROR_MUSICSHOW_GET_GIFTS_NULL                = 104121        -- 领取魔女奖励 对应乐谱没有配置奖励 p1:book_id
+
+function ErrorCode:OnErrorRep(err_code, ...)
+    local args = {...}
+    Network:ClearWait()
+    Network:CacheMsgClear()
+    if err_code ~= ErrorCode.SUCCESS then
+        Chapter:ClearAutoData()
+    end
+    if err_code == ErrorCode.SUCCESS then
+        -- 无返回协议，清除网络状态
+    elseif err_code == ErrorCode.ERROR_SHOP_REPEAT_REQ then
+        
+    elseif err_code == ErrorCode.ERROR_DUNGEON_SETTLING then
+        Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(120023),
+                function()
+                    uimgr:onMainScene()
+                end, nil, true)
+    elseif err_code == ErrorCode.ERROR_VERSION then
+        local errmsg = ""
+        for i, v in ipairs(args) do
+            errmsg = errmsg .. " " .. v
+        end
+        Groble_UIMgr:ShowMessageBox(true, false, errmsg)
+    elseif err_code == ErrorCode.ERROR_DUNGEON_SETTLING then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880014)
+    elseif err_code == ErrorCode.SERVER_BUSY then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880015)
+    elseif err_code == ErrorCode.ERROR_REQ_FAST then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880016)
+    elseif err_code == ErrorCode.ERROR_NAME_UNLAWFUL then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880017)
+    elseif err_code == ErrorCode.ERROR_COMMENT_MSGLEN_REACH_MAX then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880017)
+    elseif err_code == ErrorCode.ERROR_CHARGE_ERROR_NTF then
+        local errmsg = ""
+        if tostring(args[1]) == "1" then
+            errmsg = LanguageMgr:GetTextByID(8880018)
+        elseif tostring(args[1]) == "2" then
+            errmsg = LanguageMgr:GetTextByID(8880019)
+        elseif tostring(args[1]) == "3" then
+            errmsg = LanguageMgr:GetTextByID(8880020)
+        end
+        Groble_UIMgr:ShowMsgLayer(errmsg, function()end, false, true)
+    elseif err_code == ErrorCode.ERROR_CHARGE_NUM_MAX then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880021)
+    elseif err_code == ErrorCode.ERROR_REVED_AUTH_GIFT then
+        UnIndulge:GiftFireEvent()
+    elseif err_code == ErrorCode.ERROR_PFRIEND_PF_FULL then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880025)
+    elseif err_code == ErrorCode.ERROR_MAIL_GOT_UNIT then
+        Groble_UIMgr:ShowGameWordTipsLayer(8880026)
+    elseif err_code == ErrorCode.ERROR_COMMENT_MSG_ID_NOT_EXIST then
+        --评论被删除
+        Groble_UIMgr:ShowGameWordTipsLayer(ErrorCode.ERROR_COMMENT_MSG_ID_NOT_EXIST)
+        Comment:RemoveComment();
+
+    elseif err_code == ErrorCode.ERROR_RANK_SETTLE_NIL then
+        -- 找不到历史排行数据
+    elseif err_code == ErrorCode.ERROR_CHARGE_WG_TRIGGER_ING then
+        -- 礼包正在触发
+    elseif err_code == ErrorCode.ERROR_CHARGE_WG_TRIGGER_COUNT_MAX then
+        
+    elseif err_code == ErrorCode.ERROR_WALL_LOCK then
+        Groble_UIMgr:ShowGameWordTipsLayer(880084)
+    --调查问卷错误领取 
+    elseif err_code == ErrorCode.ERROR_LEVEL_NO_GAMING then
+        -- 关卡已结算
+        Groble_UIMgr:ShowMessageBox(true, true, "关卡已结算，奖励已获取",
+            function()
+                uimgr:onMainScene()
+            end, nil, true)
+    elseif err_code == ErrorCode.ERROR_URL_GIFT_NO_CFG or err_code == ErrorCode.ERROR_URL_GIFT_GOT then
+        --啥也不干
+    else
+    --print("---------------------------------err code : ", err_code, " err msg : ", table.unpack(args))
+        local errmsg = "net error code: " .. err_code .. " msg: "
+        for i, v in ipairs(args) do
+            errmsg = errmsg .. " " .. v
+        end
+        Groble_UIMgr:ShowMessageBox(true, false, errmsg)
+    end
+end
+
+----------------------------------------注册回调---------------------------
+c2s[c2s.ERROR_CODE_NTF]                 = {ErrorCode, ErrorCode.OnErrorRep}
+

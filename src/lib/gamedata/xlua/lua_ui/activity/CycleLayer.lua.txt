@@ -1,0 +1,178 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-22 17:46:40
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CycleLayer = class("CycleLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnClose = "btn_close",
+	--@ButtonEnd
+}
+--构造函数
+function CycleLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_CycleLayer",
+    }
+    self._uitype = 2;
+    self._fading = true;
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function CycleLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GET_CYCLE_AWARD,function(id)
+        self:SetAwardItemData(self._selectItem);
+    end);
+    self:Init();
+end
+
+--按钮事件
+function CycleLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnClose)then
+	   self:OnBtnCloseClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function CycleLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function CycleLayer:Init()
+    self._itemData = Activity:GetCurDialFrequencyCfgs();
+    self._startNum = Activity:GetDialStartNum();
+    self._awardItem = {};
+    self._closeTimer = CTime:GetServerTime();
+    self:InitUI();
+end
+
+
+--初始化UI
+function CycleLayer:InitUI()
+
+    --@ImageEnd
+
+    self._txtNum = self.layer:GetTextComponent("container/img_bg/txt_num");
+    self._txtCloseTimer = self.layer:GetTextComponent("container/img_bg/txt_close_timer");
+    --@TextEnd
+
+    --@TransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._TableViewController   = self.layer:Get("container/TableViewController")
+    self._tvController          = UIController:CtorTableView(self._TableViewController)
+    self._tvController:Init(#self._itemData, true,
+            function(cell, row)
+                self:SetAwardItem(cell, row + 1)
+            end, 0.3, 0.1)
+    self._scrollRect = self._TableViewController:Find("TableView"):GetComponent("ScrollRect");
+    self._scrollRect.vertical = false;
+    self._aniPanelFadeInEndCallback = function()
+        self._scrollRect.vertical = true;
+    end
+end
+
+--显示UI
+function CycleLayer:show()
+    self._txtNum.text = string.format(LanguageMgr:GetTextByID(90147),self._startNum);
+    local closeTime = CTime:GetServerTime() - CTime:GetCurStartTimeById(tonumber(Activity:GetActivityByUId(Operation.ActivityID.Dial).info.Time)) + 45 * CTime.DAY_SEC;
+    self._txtCloseTimer.text = string.format(LanguageMgr:GetTextByID(90149),CTime:UTime2YDTStr(closeTime));
+    self:showLayer();
+end
+
+function CycleLayer:onPerSecondUpdate()
+    if(self._closeTimer ~= nil or self._closeTimer > 0)then
+        self._closeTimer = self._closeTimer - 1
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90153));
+        self:OnBtnCloseClick();
+    end
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function CycleLayer:OnBtnCloseClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function CycleLayer:onExit()
+    self._awardItem = nil;
+    self._itemData = nil;
+    self._txtNum = nil;
+	self._txtCloseTimer = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function CycleLayer:SetAwardItem(cell, row)
+    local cls = self._awardItem[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.txtDes = cls:GetTextComponent("txt_des");
+        cls.btn = cls:GetButtonComponent("btn");
+        cls.slider = cls:GetSliderComponent("slider");
+        cls.imgSliderBg = cls:GetImageComponent("slider/Fill Area/Fill");
+        cls.imgCanReceive = cls:GetImageComponent("img_can_receive");
+        cls.btn.onClick:AddListener(function ()
+            self._selectItem = cls;
+            Activity:GetCycleAwardReq(cls.data.id);
+        end);
+        cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("item"));
+        cls.objGet = cls.item.transform:Find("img_get").gameObject;
+        self._awardItem[cell] = cls;
+    end
+    local data = self._itemData[row];
+    cls.data = data;
+    cls.index = row;
+    self:SetAwardItemData(cls);
+end
+
+function CycleLayer:SetAwardItemData(cls)
+    local data = cls.data;
+    Bag:SetComSimpleGoodsUi(cls.item, tonumber(data.items[1]),data.items[2],data.items[3],true);
+    cls.txtDes.text = string.format(LanguageMgr:GetTextByID(90152),data.fre);
+    if(self._startNum >= data.fre)then--达成领取条件
+        cls.imgSliderBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_tips_layer", "comm_load_2_con_c");
+        local isGet = Activity:DialNumAwardIsGet(data.id);
+        cls.btn.gameObject:SetVisible(not isGet);
+        cls.objGet:SetVisible(isGet);
+        cls.slider.maxValue = data.fre;
+        cls.slider.value = self._startNum;
+        if(isGet)then--已领取
+            cls.txtDes.color = COLOR_TYPE.White_Gray;
+            set_com_enabled(cls.imgCanReceive,false);
+        else--未领取
+            cls.txtDes.color = COLOR_TYPE.Black;
+            set_com_enabled(cls.imgCanReceive,true);
+        end
+    else
+        cls.txtDes.color = COLOR_TYPE.White_Gray;
+        set_com_enabled(cls.imgCanReceive,false);
+        cls.imgSliderBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_tips_layer", "comm_load_2_con_a");
+        cls.btn.gameObject:SetVisible(false);
+        cls.objGet:SetVisible(false);
+        cls.slider.maxValue = data.fre;
+        cls.slider.value = self._startNum;
+    end
+end
+
+return CycleLayer;

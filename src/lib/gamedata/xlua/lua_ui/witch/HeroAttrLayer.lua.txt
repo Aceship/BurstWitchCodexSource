@@ -1,0 +1,91 @@
+--
+-- author: haosun
+-- date  : 2019-12-16 15:04:05
+-- brief :
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HeroAttrLayer = class("HeroAttrLayer", CBaseLayer)
+
+function HeroAttrLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_HeroAttrLayer"
+    }
+    self._uitype = 2
+    self._fading = true
+
+    self:onEnter()
+end
+
+function HeroAttrLayer:onEnter()
+    self:createPnl()
+end
+
+function HeroAttrLayer:show(hero)
+    play_effect_show()
+    self:initLayer(hero)
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function HeroAttrLayer:initLayer(hero)
+    local clsArr = CAttr:NewAttrObjArr(self.layer.transform:Find("container"), #CAttr.HERO_DETAILS)
+    for i, cls in ipairs(clsArr) do
+        CAttr:SetAttrCObj(cls, CAttr.HERO_DETAILS[i], hero.attrs[CAttr.HERO_DETAILS[i]], false)
+    end
+    --暴击概率
+    local text_str = self.layer:GetTextComponent("container/attr_4/text_str")
+    local text_str1 = self.layer:GetTextComponent("container/attr_4/text_str1") --名称= 暴击概率
+    local text_value1 = self.layer:GetTextComponent("container/attr_4/text_value1") --暴击概率数值
+    local but_des_ = self.layer:GetButtonComponent("container/attr_4/but_des_") --暴击值介绍
+    local but_bg_1 = self.layer:GetButtonComponent("container/attr_4/img_bg") --暴击值介绍
+    text_str1:SetText(CAttr:GetCfg(CAttr.TYPE_HIT_RATE).name)
+    text_value1:SetText(
+        string.format(
+            LanguageMgr:GetTextByID(71000015),
+            math.floor(Hero:CalcHitValue(hero) * 100 + 0.5),
+            math.floor(Hero:GetCritvalue() * 100)
+        )
+    )
+    
+    but_des_:AddButtonListener(
+        function()
+            SingletonMgr:ShowNameDescTipsLayer(but_des_.transform,  LanguageMgr:GetTextByID(70000027), LanguageMgr:GetTextByID(70000026))
+        end
+    )
+    but_bg_1:AddButtonListener(
+        function()
+            SingletonMgr:ShowNameDescTipsLayer(but_bg_1.transform, LanguageMgr:GetTextByID(70000027), LanguageMgr:GetTextByID(70000026))
+        end
+    )
+    --暴伤倍率
+    local text_str = self.layer:GetTextComponent("container/attr_5/text_str")
+    local text_str1 = self.layer:GetTextComponent("container/attr_5/text_str1") --名称= 暴伤概率
+    local text_value1 = self.layer:GetTextComponent("container/attr_5/text_value1") --暴伤概率数值
+    local but_des_ = self.layer:GetButtonComponent("container/attr_5/but_des_") --暴击值介绍
+    local but_bg_1 = self.layer:GetButtonComponent("container/attr_5/img_bg") --暴击值介绍
+    text_str1:SetText(CAttr:GetCfg(CAttr.TYPE_DMG_RATE).name)
+    text_value1:SetText(
+        string.format(
+            LanguageMgr:GetTextByID(71000015),
+            math.floor(Hero:CalcDmgValue(hero) * 100 + 0.5),
+            math.floor(Hero:GetCritrate() * 100)
+        )
+    )
+    but_des_:AddButtonListener(
+        function()
+            SingletonMgr:ShowNameDescTipsLayer(but_des_.transform,LanguageMgr:GetTextByID(70000029), LanguageMgr:GetTextByID(70000028))
+        end
+    )
+    
+
+    but_bg_1:AddButtonListener(
+        function()
+            SingletonMgr:ShowNameDescTipsLayer(but_bg_1.transform, LanguageMgr:GetTextByID(70000029), LanguageMgr:GetTextByID(70000028))
+        end
+    )
+
+end
+
+return HeroAttrLayer

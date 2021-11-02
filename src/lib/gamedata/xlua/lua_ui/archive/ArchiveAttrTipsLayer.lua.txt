@@ -1,0 +1,137 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-07 15:15:18
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ArchiveAttrTipsLayer = class("ArchiveAttrTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function ArchiveAttrTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_ArchiveAttrTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function ArchiveAttrTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ArchiveAttrTipsLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--退出按钮事件
+function ArchiveAttrTipsLayer:onBackClick()
+    if(self._callBack ~= nil)then
+        self._callBack();
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function ArchiveAttrTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ArchiveAttrTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objAllAdd = self.layer:Get("container/add_bg/obj_all_add").gameObject;
+	self._objBuildAdd = self.layer:Get("container/add_bg/obj_build_add").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    local scale = 2;
+    if(CS.UnityEngine.Screen.height / 1080 > scale)then
+        scale = CS.UnityEngine.Screen.height / 1080;
+    end
+    self.layer.transform:Find("container/image_bg").localScale = CS.UnityEngine.Vector3(scale,scale,scale);
+
+    self._attrAddItem = CAttr:CtorAttrCObj(self._objAllAdd.transform);
+    self._buildAddItem = Archive:NewBuildAddItem(self._objBuildAdd.transform);
+end
+
+--显示UI
+function ArchiveAttrTipsLayer:show()
+    self:showLayer();
+    self:SetUI();
+    self:playAni("ArchiveAddTipsLayerAnim");
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function ArchiveAttrTipsLayer:onExit()
+
+    self._objAllAdd = nil;
+	self._objBuildAdd = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ArchiveAttrTipsLayer:SetUI()
+    local hero = Hero:GetHero(Archive:GetCurSelectHeroId());
+    local buildAdd = Archive:GetHeroBuildAdd(hero.id,Archive:GetHeroStarById(hero.id));
+    for _, add in pairs(buildAdd) do
+        self._objBuildAdd:SetVisible(add ~= nil);
+        if(add ~= nil)then
+            Archive:SetBuildAddItemData(self._buildAddItem,hero.config.AtkType,add.addNum);
+        end
+        break;
+    end
+
+    local attrAdd = Archive:GetHeroAttrAdd(hero.id,Archive:GetHeroStarById(hero.id));
+    local cfg;
+    for k, add in pairs(attrAdd) do
+        self._objAllAdd:SetVisible(add ~= nil);
+        cfg = CAttr:GetCfg(k);
+        if(add ~= nil)then
+            local des = ""
+            if(cfg.show_type == CAttr.SHOW_TYPE_PER)then
+                des = add.addNum  / 10 .."%";
+            else
+                des = add.addNum;
+            end
+            CAttr:SetAttrCObj(self._attrAddItem,k, "+ "..des,nil,true);
+        end
+        break;
+    end
+end
+
+function ArchiveAttrTipsLayer:SetCallBack(callback)
+    self._callBack = callback;
+end
+
+return ArchiveAttrTipsLayer;

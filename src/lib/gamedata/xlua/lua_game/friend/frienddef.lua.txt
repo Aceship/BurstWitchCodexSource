@@ -1,0 +1,52 @@
+--
+-- author: haosun
+-- date  : 2019-06-27 11:31:38
+-- brief : 
+--
+
+Friend = Friend or {}
+
+Friend.REQ_INTERVAL             = 1200  -- 
+Friend.REQ_RECOMMED_INTERVAL    = 10    -- 请求推荐列表时间间隔
+Friend.REQ_LOOK_INTERVAL        = 2     -- 请求查找时间间隔
+
+Friend.REQ_TYPE_FRIEND_LIST     = 1     -- 好友列表
+Friend.REQ_TYPE_APPLY_LIST      = 2     -- 申请列表
+Friend.REQ_TYPE_BLACK_LIST      = 3     -- 黑名单
+
+Friend.SEND_COIN_ONE    = 1     -- 单人赠送
+Friend.SEND_COIN_ALL    = 2     -- 一键赠送
+
+Friend.RECV_COIN_ONE    = 1     -- 单人领取
+Friend.RECV_COIN_ALL    = 2     -- 一键领取
+
+Friend.FIND_TYPE_ID     = 1
+Friend.FIND_TYPE_NAME   = 2
+
+Friend.FIND_TYPES = {
+    Friend.FIND_TYPE_ID,
+    Friend.FIND_TYPE_NAME,
+}
+
+Friend.STATE_OFFLINE    = 0
+Friend.STATE_ONLINE     = 1
+
+Friend.SHOW_FRIENDS     = 1
+Friend.SHOW_RECOMMEND   = 2
+Friend.SHOW_APLLY       = 3
+Friend.SHOW_BLACKLIST   = 4
+Friend.SHOW_INVITE      = 5     --应援邀请
+Friend.COIN_STATE_NULL  = 0     -- 好友币未获得 or 未赠送
+Friend.COIN_STATE_RECV  = 1     -- 好友币可领取 or 已赠送
+Friend.COIN_STATE_DONE  = 2     -- 好友币以领取
+
+Friend.OPER_RECV        = 1
+Friend.OPER_SEND        = 2
+Friend.OPER_CAN_RECV    = 3
+
+Friend.REQ_LIST_TYPE0   = 0     -- 
+Friend.REQ_LIST_TYPE1   = 1     -- 好友界面
+Friend.REQ_LIST_TYPE2   = 2     -- 深夜排行
+Friend.REQ_LIST_TYPE3   = 3     -- 应援邀请
+
+

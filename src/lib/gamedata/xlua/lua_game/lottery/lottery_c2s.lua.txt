@@ -1,0 +1,126 @@
+--
+-- author: haosun
+-- date  : 2019-02-21 15:52:53
+-- brief :
+--
+Lottery = Lottery or {}
+
+function Lottery:LotteryReq(lotteryid, costId, useNum)
+    CS.Logger.Log("lottery pool id = " .. lotteryid)
+    local cfg = self:GetLotteryCfgById(lotteryid)
+    if(cfg == nil)then
+        return false;
+    end
+    if(tonumber(cfg.id) == Lottery.LotteryType.Equip or tonumber(cfg.id) == Lottery.LotteryType.Friendship or tonumber(cfg.id) == Lottery.LotteryType.LateNight)then
+        if(Equip:GetEquipNumWhetherMax())then
+            Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+            return false;
+        end
+    end
+    Network:CallServerScript({c2s.SHOP_LOTTERY_REQ, lotteryid})
+
+    Lottery._costId = costId
+    Lottery._useNum = useNum
+    self:SetNewLottery(false)
+    return true;
+end
+
+function Lottery:LotteryRep(lotteryid, drops, num, b_test,missnum)
+    self._lotteryid = lotteryid
+    local cfg = self:GetLotteryCfgById(tonumber(lotteryid))
+    AppMgr:LogInfo(string.format("~~~~~~~~~~~~~~~~~~~~~~~~~~~已召唤 = %d~~~~~~~~~~~~~~~~~~~~~~~", num))
+    local drop_number = #drops
+    local cfgid = tonumber(cfg.id)
+    if(self._poolData[cfgid] == nil)then
+        self._poolData[cfgid] = {};
+        self._poolData[cfgid].count = 0;
+        self._poolData[cfgid].precount = 0;
+        self._poolData[cfgid].missnum = 0;
+        self._poolData[cfgid].id = 0;
+    end
+    if cfgid == Lottery.LotteryType.FirstTime then        
+        local newTimese = self:SetFistTimes()
+        if newTimese == cfg.lifeCycle then
+            self._poolData[cfgid].count = cfg.lifeCycle
+        end
+    else
+        self._poolData[cfgid].count = self._poolData[cfgid].count + drop_number
+        self._poolData[cfgid].missnum = missnum
+        self:AddSumLotteryCnt(drop_number)
+    end
+    if(self._poolClasses[cfg.ctype] == nil)then
+        self._poolClasses[cfg.ctype] = 0;
+    end
+    self._poolClasses[cfg.ctype] = num or 0;
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+    GEvent:fireEvent(EVENT_NAME.LOTTRY_RESULT, drops)
+    if Lottery.LotteryType.LateNight == cfg.id then
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    end
+    Guide:RecoverGuide()
+    
+    if Lottery._costId then
+        ThinkingMgr:SendTrack("draw_cards", {
+            draw_type           = cfg.ntype,
+            draw_id             = lotteryid,
+            draw_number         = #drops,
+            cost_token_id       = Lottery._costId,
+            cost_token_number   = Lottery._useNum
+        })
+
+    else
+        ThinkingMgr:SendTrack("draw_cards", {
+            draw_type       = cfg.ntype,
+            draw_id         = lotteryid,
+            draw_number     = #drops
+        })
+    end
+    for i, v in pairs(drops) do
+        ThinkingMgr:SendTrack("character_increase",{
+            character_id = drops[i].id
+        })
+    end
+    local lottery_mode = drop_number > 1 and Lottery.LOTTERY_MODE_10 or Lottery.LOTTERY_MODE_1
+    GZSDKHelper:gachaWithPlayerInfo(lotteryid, cfg.ntype, lottery_mode, drops, 
+        Lottery._costId or Player.ITEM_LOTTERY_TICKET, 
+        Lottery._useNum or 1)
+    
+    Lottery._costId = nil
+    Lottery._useNum = nil
+
+    Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_LOTTERY_CNT})
+end
+
+-- 新手抽奖
+function Lottery:LotteryTestReq(lotteryid)
+    local cfg = self:GetLotteryCfgById(tonumber(lotteryid))
+    if(cfg == nil)then
+        return false;
+    end
+
+    if self:GetFirstFinish() then
+        return
+    end
+    self:SetNewLottery(false)
+    Network:CallServerScript({c2s.SHOP_CONFIRM_TEST_LOTTERY_REQ, lotteryid})
+    return true;
+end
+
+-- 新手抽奖
+function Lottery:LotteryTestRep(lotteryid)
+    if not self._poolData[Lottery.LotteryType.FirstTime] then
+        self._poolData[Lottery.LotteryType.FirstTime] = {};
+    end
+    local cfg = self:GetLotteryCfgById(tonumber(lotteryid))
+    if cfg then
+        self._poolData[Lottery.LotteryType.FirstTime].count = cfg.lifeCycle
+        self:AddSumLotteryCnt(10)
+    end
+    GEvent:fireEvent(EVENT_TYPE.LOTTERY_FIRST_RESULT)
+    Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_LOTTERY_CNT})
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.SHOP_LOTTERY_RES]               = {Lottery, Lottery.LotteryRep}
+c2s[c2s.SHOP_CONFIRM_TEST_LOTTERY_RES]  = {Lottery, Lottery.LotteryTestRep}
+

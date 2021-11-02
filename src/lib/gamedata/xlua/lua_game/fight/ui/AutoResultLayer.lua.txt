@@ -1,0 +1,77 @@
+--
+-- author: haosun
+-- date  : 2020-04-15 18:27:26
+-- brief : 
+--
+
+UI_AutoResultLayer = UI_AutoResultLayer or {}
+
+function UI_AutoResultLayer:AutoResultLayerCreator(super)
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiHome/ui_fight/UI_AutoResultLayer")
+    self._prefabObj = self.layer:Get("container/prefab_item").gameObject
+    self._scroll    = self.layer:GetScrollRectComponent("container/scrollview")
+
+    self._scroll.vertical = false
+    self:initAutoResultLayerLayer()
+
+    local containerTrans = self.layer:Get("container")
+
+    containerTrans:SetScale(0,0,0)
+    containerTrans:DOScale(1.1, 0.3):OnComplete(
+        function()
+            containerTrans:DOScale(1, 0.05)
+            self._scroll.vertical = true
+            Guide:ContinueGuideEvent(self.__cname)
+        end)
+    self.layer:AddButtonListener("button_back", 
+        function()
+            self:closeAutoResultLayerLayer()
+        end)
+    if Chapter:GetAutoStopSeason() == nil then
+        AppMgr:LogInfo("-------------------没有托管结束原因")
+        self.layer:GetTextComponent("container/txt_reason"):SetTextById(3009100)
+    else
+        AppMgr:LogInfo("-------------------托管结束原因 = " .. Chapter:GetAutoStopSeason())
+        self.layer:GetTextComponent("container/txt_reason"):SetTextById(3009100 + Chapter:GetAutoStopSeason())
+    end
+    Chapter:ClearAutoData()
+    self._inited = true
+end
+
+function UI_AutoResultLayer:AutoResultLayerDestructor()
+    self:closeAutoResultLayerLayer()
+end
+
+function UI_AutoResultLayer:closeAutoResultLayerLayer()
+    self._prefabObj = nil
+    self._scroll    = nil
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function UI_AutoResultLayer:initAutoResultLayerLayer()
+    -- fight count
+    local succ, fail = Chapter:GetAutoFightCount()
+    self.layer:GetTextComponent("container/txt_succ").text = string.format(LanguageMgr:GetTextByID(3009020), succ)
+    self.layer:GetTextComponent("container/txt_fail").text = string.format(LanguageMgr:GetTextByID(3009021), fail)
+    -- items
+    local drops = Chapter:GetAutoItems()
+    if #drops == 0 then
+        self._prefabObj:SetVisible(false)
+        self.layer:Get("container/scrollview"):SetVisible(false)
+    else
+        self.layer:GetTextComponent("container/txt_empty").text = ""
+        local content = self.layer.transform:Find("container/scrollview/viewport/content")
+        for i, data in pairs(drops) do
+            local obj   = content:AddChild(self._prefabObj)
+            local cls   = Bag:CtorGoodsUi(obj)
+            Bag:SetGoodsUiEx(cls, data[1], data[2], data[3], true)
+            cls.numCom.text = data[3]
+        end
+        self._prefabObj:SetVisible(false)
+    end
+end
+
+

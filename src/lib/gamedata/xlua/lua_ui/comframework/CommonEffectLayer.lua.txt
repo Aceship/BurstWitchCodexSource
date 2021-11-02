@@ -1,0 +1,46 @@
+--
+-- author: haosun
+-- date  : 2018-12-12 16:53:45
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CCommonEffectLayer = class("CCommonEffectLayer", CBaseLayer)
+
+function CCommonEffectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/need_preload/UI_CommonEffectLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function CCommonEffectLayer:onEnter()
+    self:createPnl()
+    self._aniPanelFadeInEndCallback = function()
+        if self._callback ~= nil then
+            self._callback()
+            self._callback= nil
+        end
+        self:onPopLayer()
+    end
+    self.txtTitles = {};
+    for i = 1, 4 do
+        self.txtTitles[i] = self.layer.transform:Find("content/txt_title_"..i):GetComponent("Text");
+    end
+end
+
+function CCommonEffectLayer:show(id, callback)
+    if id ~= nil then
+        local str = lua_str_split(LanguageMgr:GetTextByID(id),"|");
+        for i = 1, 4 do
+            self.txtTitles[i].text = str[i];
+        end
+    end
+    self._callback = callback
+    self:showLayer()
+end
+
+return CCommonEffectLayer
+

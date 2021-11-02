@@ -1,0 +1,406 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-09 14:29:15
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildLvUpLayer = class("BuildLvUpLayer", CBaseLayer)
+local DelayTime = 0.5;--延迟时间
+
+--按钮
+local BTNS = {
+	BtnLvUp = "trans_container/trans_expend/btn_lv_up",
+	BtnOperantWitch = "trans_container/btn_operant_witch",
+	BtnPreview = "trans_container/trans_top/btn_preview",
+	--@ButtonEnd
+}
+--构造函数
+function BuildLvUpLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildLvUpLayer",
+    }
+	self._topData = {
+		showBtnBack     = true,
+		showPlayerInfo  = false,
+		showTopInfo     = false,--顶部货币菜单栏
+		--topInfo        = Player.CURRENCY_MAIL,--货币类型
+	};
+	--背景设置
+	self._bgData = {
+		showEffect = true,
+		bgType = BackBgPath.BG_DEF,
+	}
+	self._addStack = true;
+	self._fading = false;
+	self._hideOtherLayer = true;
+	self._binstack = true;
+    self:onEnter();
+end
+
+--进入Ui调用一次
+function BuildLvUpLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+function BuildLvUpLayer:onExit()
+	CBaseLayer.onExit(self)
+end
+
+--按钮事件
+function BuildLvUpLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnLvUp)then
+	   self:OnBtnLvUpClick();
+    elseif(itype == BTNS.BtnOperantWitch)then
+	   self:OnBtnOperantWitchClick();
+    elseif(itype == BTNS.BtnPreview)then
+	   self:OnBtnPreviewClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function BuildLvUpLayer:Init()
+	self._lvUp = true;
+	self._isSend = false;
+	self._isDelay = false;
+	self._uiIsLvMax = nil;
+	self._lvUpDelayTime = 0;
+	self._curLvAddAttrs = {};
+	self._curSelectBuildType = nil;
+	self:UpdateData();
+	self:InitUI();
+end
+
+--初始化UI
+function BuildLvUpLayer:InitUI()
+	self._imgSkillIcon = self.layer:GetImageComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/img_skill_icon");
+	--@ImageEnd
+
+	self._txtPointAdd = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_point_add/txt_point_add");
+	self._txtCurAtkAdd = self.layer:GetTextComponent("trans_container/trans_cur_add/trans_attr_view/txt_cur_atk_add");
+	self._txtAtkAddNum = self.layer:GetTextComponent("trans_container/trans_cur_add/trans_attr_view/txt_cur_atk_add/txt_atk_add_num");
+	self._txtLvTitle = self.layer:GetTextComponent("trans_container/trans_top/txt_lv_title");
+	self._txtLvTitleE = self.layer:GetTextComponent("trans_container/trans_top/txt_lv_title_E");
+	self._txtSkillDes = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/scr_skill_des/Viewport/Content");
+	self._txtSkillAdd = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/txt_skill_add");
+	self._txtSkillLvAddNum = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/txt_skill_add/txt_skill_lv_add_num");
+	self._txtBuildLv = self.layer:GetTextComponent("trans_container/trans_cur_lv/txt_build_lv");
+	self._txtPointNextAdd = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_point_add/txt_point_next_add");
+	self._txtSkillNextAdd = self.layer:GetTextComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/txt_skill_next_add");
+	--@TextEnd
+
+	self._transCurAdd = self.layer:Get("trans_container/trans_cur_add");
+	self._transAddItemBg = self.layer:Get("trans_container/trans_cur_add/trans_attr_view/trans_add_item_bg");
+	self._transPointAdd = self.layer:Get("trans_container/trans_cur_add/obj_point_add");
+	self._transSkillAnim = self.layer:Get("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/txt_skill_add/obj_skill_anim");
+	self._transAddPointAnim = self.layer:Get("trans_container/trans_cur_add/obj_point_add/obj_add_point_anim");
+	self._transSkillLock = self.layer:Get("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/img_skill_lock");
+	--@TransformEnd
+
+	self._rectAttrView = self.layer:GetRectTransformComponent("trans_container/trans_cur_add/trans_attr_view");
+	self._rectAddItemBg = self.layer:GetRectTransformComponent("trans_container/trans_cur_add/trans_attr_view/view_port/trans_add_item_bg");
+	self._rectCurAdd = self.layer:GetRectTransformComponent("trans_container/trans_cur_add");
+	self._rectAddItem = self.layer:GetRectTransformComponent("trans_container/item_hide/obj_add_item");
+	self._rectTop = self.layer:GetRectTransformComponent("trans_container/trans_top");
+	self._rectCurLv = self.layer:GetRectTransformComponent("trans_container/trans_cur_lv");
+	self._rectSkillDes = self.layer:GetRectTransformComponent("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/scr_skill_des");
+	--@RectTransformEnd
+	self._objPointAdd = self.layer:Get("trans_container/trans_cur_add/obj_point_add").gameObject;
+	self._objLvUpAtkAnim = self.layer:Get("trans_container/trans_cur_add/trans_attr_view/txt_cur_atk_add/obj_lv_up_atk_anim").gameObject;
+	self._objExpend = self.layer:Get("trans_container/trans_expend").gameObject;
+	self._objAddItem = self.layer:Get("trans_container/item_hide/obj_add_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+	self._effectCurAtkAdd = self.layer:Get("trans_container/trans_cur_add/trans_attr_view/txt_cur_atk_add/img_bg"):GetComponent("ParticleBehaviour");
+	self._effectPointAdd = self.layer:Get("trans_container/trans_cur_add/obj_point_add/img_point_bg"):GetComponent("ParticleBehaviour");
+	self._effectSkillAdd = self.layer:Get("trans_container/trans_cur_add/obj_Cut_atk_type_Skill/txt_skill_add/img_bg"):GetComponent("ParticleBehaviour");
+
+	self._uicostctrl = UICostCtrl:new(self.layer:Get("trans_container/trans_expend/trans_expend_bg"), 5)
+	self:InitAttrAddUI();
+end
+
+--显示UI
+function BuildLvUpLayer:show()
+    self:showLayer();
+end
+
+function BuildLvUpLayer:showLayer()
+	self:SetBuildUI();
+	self:playAni("BuildLvUpLayerAnim");
+	Build:ShowBuildTypeLayer(Build.ShowLayerType.LvUP);
+	CBaseLayer.showLayer(self);
+	self.layer:DelayInvoke(0.6, 
+		function()
+			Guide:ContinueGuideEvent(self.__cname)
+		end)
+end
+
+--退出按钮事件
+function BuildLvUpLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function BuildLvUpLayer:onExit()
+
+	self._transCurAdd = nil;
+	self._txtPointAdd = nil;
+	self._txtCurAtkAdd = nil;
+	self._effectCurAtkAdd = nil;
+	self._objLvUpAtkAnim = nil;
+	self._txtAtkAddNum = nil;
+	self._objExpend = nil;
+	self._effectPointAdd = nil;
+	self._objAddItem = nil;
+	self._txtLvTitle = nil;
+	self._txtLvTitleE = nil;
+	self._rectAttrView = nil;
+	self._rectAddItemBg = nil;
+	self._rectCurAdd = nil;
+	self._curLvAddAttrs = nil;
+	self._transPointAdd = nil;
+	self._imgSkillIcon = nil;
+	self._txtSkillDes = nil;
+	self._txtSkillAdd = nil;
+	self._transSkillAnim = nil;
+	self._txtSkillLvAddNum = nil;
+	self._txtBuildLv = nil;
+	self._transAddPointAnim = nil;
+	self._txtPointNextAdd = nil;
+	self._txtSkillNextAdd = nil;
+	self._transSkillLock = nil;
+	self._rectTop = nil;
+	self._rectCurLv = nil;
+	self._rectSkillDes = nil;
+
+	if self._uicostctrl ~= nil then
+        self._uicostctrl:UICostCtrlDtor()
+        self._uicostctrl = nil
+    end
+	--@CloseEnd
+	CBaseLayer.onExit(self);
+end
+
+function BuildLvUpLayer:hide()
+	self:hideLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuildLvUpLayer:OnBtnLvUpClick()
+	if(self._lvUp)then
+		if(self._lvUpDelayTime > 0)then
+			return;
+		end
+		self._isSend = true;
+		Build:BuildLevelUpReq();
+	else
+		Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702048));
+	end
+ end
+function BuildLvUpLayer:OnBtnOperantWitchClick()
+	core.require("xlua/lua_UI/Build/OperantWitchTipsLayer.txt"):new():show(self._atkType);
+ end
+function BuildLvUpLayer:OnBtnPreviewClick()
+	core.require("xlua/lua_UI/Build/BuildLvPreViewTipsLayer.txt"):new():show();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuildLvUpLayer:RegisterHandler()
+	self:addEventListener(EVENT_TYPE.CUT_SELECT_BUILD_TYPE,self.__cname, function()
+		self:SetBuildUI();
+	end)
+
+	self:addEventListener(EVENT_TYPE.UPDATE_BUILD_LV_DATA,self.__cname, function()
+		self._isSend = false;
+		local lvUpCfg = Build:GetBuildLevelUpCfgById(self._nextLvData.id);
+		--枪型加成特效
+		if(lvUpCfg.pointInFight > 0)then
+			self._effectCurAtkAdd:Play();
+		else
+			self._effectCurAtkAdd:Stop();
+		end
+		--属性特效
+		for _, v in ipairs(lvUpCfg.pointOutFight) do
+			for i, cls in ipairs(self._curLvAddAttrs) do
+				if(v[1] == cls.attrtype)then
+					cls.lvUpEffect:Play();
+				end
+			end
+		end
+		--构筑点加成特效
+		if(lvUpCfg.pointAdd > 0)then
+			self._effectPointAdd:Play();
+		else
+			self._effectPointAdd:Stop();
+		end
+
+		--技能特效
+		local skillId = Build:GetChangerSkillIdByAtkType(self._atkType,self._nextLvData.lv);
+		if(self._curSkillId ~= skillId)then
+			self._effectSkillAdd:Play();
+		end
+		self._isDelay = true;
+		self._lvUpDelayTime = DelayTime;
+		SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.All,DelayTime * 2);
+	end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuildLvUpLayer:onUpdate(dt)
+	if(self._isDelay)then
+		if(self._lvUpDelayTime > 0)then
+			self._lvUpDelayTime = self._lvUpDelayTime - dt;
+			if(self._lvUpDelayTime <= 0)then
+				self._isDelay = false;
+				self:UpdateData();
+				self:SetCurLvUI();
+				self:SetSkillUI();
+				Guide:ContinueGuideEvent(self.__cname);
+			end
+		end
+	end
+end
+
+function BuildLvUpLayer:UpdateData()
+	self._atkType = Build:GetCurSelectAtkType();
+	self._buildServerData = Build:GetBuildServerDataByAtkType(self._atkType);
+	self._curLvData = Build:GetBuildLvDataByAtkType(self._atkType);
+	self._nextLvData = Build:GetNextLvData(self._atkType,self._curLvData);
+end
+
+--设置当前Lv数据
+function BuildLvUpLayer:SetCurLvUI()
+	--设置构筑等级
+	Build:SetAddAttr(self._curLvAddAttrs,self._curLvData,self._nextLvData);
+	Build:SetAtkTypeAdd(self._txtCurAtkAdd,self._atkType,self._curLvData.pointInFight);
+	set_com_enabled(self._txtAtkAddNum,self._curLvData.pointInFight < self._nextLvData.pointInFight);
+	self._objLvUpAtkAnim:SetVisible(self._curLvData.pointInFight < self._nextLvData.pointInFight);
+	if(self._curLvData.pointInFight < self._nextLvData.pointInFight)then
+		self._txtAtkAddNum.text = string.format("%s%%",lua_math_round(self._nextLvData.pointInFight * 1000)/10);
+	end
+	self._objExpend:SetVisible(not self._curLvData.lvMax);
+	self._objPointAdd:SetVisible(not self._curLvData.lvMax);
+	local str = string.format(LanguageMgr:GetTextByID(702145),LanguageMgr:GetTextByID(71200000 + self._atkType),Build:GetBuildLvDataByAtkType(self._atkType).lv);
+	if(self._curLvData.lvMax)then
+		self._txtLvTitle:SetTextById(702053);
+		self._txtLvTitleE:SetTextById(702054);
+		self._objPointAdd:SetVisible(false);
+		str = string.format("%s(MAX)",str);
+	else
+		self._lvUp = true;
+		self._txtLvTitle:SetTextById(702051);
+		self._txtLvTitleE:SetTextById(702052);
+		local lvUpCfg = Build:GetBuildLevelUpCfgById(self._nextLvData.id);
+		self._transAddPointAnim:SetVisible(lvUpCfg.pointAdd > 0);
+		self._txtPointAdd:SetEnabled(lvUpCfg.pointAdd > 0);
+		self._txtPointNextAdd:SetEnabled(lvUpCfg.pointAdd <= 0);
+		if(lvUpCfg.pointAdd > 0)then
+			self._txtPointAdd:SetText(string.format("+%s",lvUpCfg.pointAdd));
+		else
+			local lv,num = Build:GetNextPointAddLvAndNum(self._atkType,self._nextLvData.lv);
+			self._txtPointNextAdd:SetText(string.format(LanguageMgr:GetTextByID(702151),lv,num));
+		end
+		self:SetExpendUI();
+	end
+	self._txtBuildLv:SetText(str);
+	self:SetUIPos();
+end
+
+--设置升级消耗UI
+function BuildLvUpLayer:SetExpendUI()
+	local lvUpCfg = Build:GetBuildLevelUpCfgById(self._nextLvData.id);
+	local cfgId = self._uicostctrl:UpdateUICostCtrl(lvUpCfg.costs)
+	self._lvUp = cfgId == 0
+end
+
+function BuildLvUpLayer:SetUIPos()
+	if(self._uiIsLvMax == self._curLvData.lvMax)then
+		return;
+	end
+	self._uiIsLvMax = self._curLvData.lvMax;
+	if(self._curLvData.lvMax)then
+		self._rectTop:SetAnchoredPosition(0,1358);
+		self._rectCurAdd:SetAnchoredPosition(0,772);
+		self._rectCurLv:SetAnchoredPosition(0,294);
+		self._rectSkillDes:SetSizeY(300);
+	else
+		self._rectTop:SetAnchoredPosition(0,1580);
+		self._rectCurAdd:SetAnchoredPosition(0,996);
+		self._rectCurLv:SetAnchoredPosition(0,482);
+		self._rectSkillDes:SetSizeY(122);
+	end
+end
+
+----------------------------------------------------------------------AttrAdd-----------------------------------------------
+function BuildLvUpLayer:InitAttrAddUI()
+	Build:NewAddAttr(self._curLvAddAttrs,self._transAddItemBg,self._objAddItem,#self._curLvData.attrSortIds);
+	for _, v in ipairs(self._curLvAddAttrs) do
+		if(v.lvUpEffect == nil)then
+			v.lvUpEffect = v.transform:GetComponent("ParticleBehaviour");
+		end
+	end
+end
+
+function BuildLvUpLayer:KeyFrameCall(intkey)
+	-- if intkey == 99 then
+ --        Guide:ContinueGuideEvent(self.__cname)
+ --    end
+end
+
+--更新UI(一般用于切换构筑)
+function BuildLvUpLayer:SetBuildUI()
+	self:UpdateData();
+	if(self._curSelectBuildType == self._atkType)then
+		return;
+	end
+	self._curSelectBuildType = self._atkType;
+	self:SetCurLvUI();
+	self:SetSkillUI();
+	
+end
+
+--设置技能相关
+function BuildLvUpLayer:SetSkillUI()
+	local skillId,skillLv,skillUpLv,skillType = Build:GetChangerSkillIdByAtkType(self._atkType,self._curLvData.lv);
+	local nextSlillId,nextSkillLv = Build:GetChangerSkillIdByAtkType(self._atkType,self._nextLvData.lv);
+	self._curSkillId = skillId;
+	local skillCfg = Skill:GetHeroSkillShowCfg(skillId);
+	self._txtSkillDes:SetText(skillCfg.desc);
+	local str = string.format(LanguageMgr:GetTextByID(702148),skillCfg.name,skillLv);
+	if(self._curLvData.lvMax)then
+		str = string.format("%s(MAX)",str);
+	end
+	self._txtSkillAdd:SetText(str);
+	self._transSkillAnim:SetVisible(nextSkillLv > skillLv);
+	self._transSkillLock:SetVisible(skillType == Build.ChangeSkillLock);
+	if(nextSkillLv > skillLv)then
+		self._txtSkillLvAddNum:SetText(string.format("LV.%s",nextSkillLv));
+	else
+		self._txtSkillLvAddNum:SetText("");
+	end
+	self._imgSkillIcon:LoadSprite(skillCfg.icon);
+
+	self._txtSkillNextAdd:SetEnabled(skillUpLv > self._nextLvData.lv);
+	if(skillType == Build.ChangeSkillLock)then
+		self._txtSkillNextAdd:SetText(string.format(LanguageMgr:GetTextByID(702153),skillUpLv));
+	end
+	if(skillUpLv > self._nextLvData.lv)then
+		self._txtSkillNextAdd:SetText(string.format(LanguageMgr:GetTextByID(702152),skillUpLv));
+	end
+end
+
+return BuildLvUpLayer;

@@ -1,0 +1,235 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-12 20:34:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuyHighAwardTipsLayer = class("BuyHighAwardTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnBuy = "trans_container/btn_buy",
+	--@ButtonEnd
+}
+--构造函数
+function BuyHighAwardTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_BuyHighAwardTipsLayer",
+    }
+    self._topData = {};
+    self._uitype = 2;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuyHighAwardTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function BuyHighAwardTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnBuy)then 
+	   self:OnBtnBuyClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+end
+
+--初始化
+function BuyHighAwardTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function BuyHighAwardTipsLayer:InitUI()
+
+	self._imgRmbTitle = self.layer:GetImageComponent("trans_container/btn_buy/img_rmb_title");
+	self._imgHero = self.layer:GetImageComponent("trans_container/img_hero");
+	-- self._imgAD = self.layer:GetImageComponent("trans_container/img_AD");
+	--@ImageEnd
+
+	self._txtCountDown = self.layer:GetTextComponent("trans_container/obj_time/txt_count_down");
+	self._txtCostPrice = self.layer:GetTextComponent("trans_container/btn_buy/txt_cost_price");
+	self._txtPrice = self.layer:GetTextComponent("trans_container/btn_buy/txt_price");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objTime = self.layer:Get("trans_container/obj_time").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self._item = self.layer:Get("trans_container/img_bg_table/item1")
+    self._content = self.layer:Get("trans_container/img_bg_table/content")
+
+    self._objDiscount = self.layer:Get("trans_container/btn_buy/img_icon")
+
+    self._txt_zhe = self.layer:GetTextComponent("trans_container/btn_buy/img_icon/txt_2zhe")
+end
+
+--显示UI
+function BuyHighAwardTipsLayer:show(cfg)
+    self._cfg = cfg;
+    self._chargeCfg = Recharge:GetData(self._cfg.charges[1]);
+    self._price     = 1
+    self._discount  = 1
+    if -1 == self._chargeCfg.chargeMoneyId then
+        self._price = self._chargeCfg.price
+        self._discount = self._chargeCfg.discount
+    else
+        local config = Recharge:GetRechargeMoneyCfg(self._chargeCfg.chargeMoneyId)
+        self._price = config.price
+        self._discount = config.discount
+    end
+
+    self:SetUI(cfg);
+    self:playAni("CommTipsLayer");
+    self:showLayer();
+end
+
+--退出按钮事件
+function BuyHighAwardTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--秒更新
+function BuyHighAwardTipsLayer:onPerSecondUpdate()
+    if(self._curTime == nil)then
+        return;
+    end
+    self._curTime = self._curTime - 1;
+    if(self._curTime > 0)then
+        self:SetCountDownTxt()
+    else
+        self:onPopLayer();
+    end
+end
+
+--释放
+function BuyHighAwardTipsLayer:onExit()
+    self._objDiscount = nil
+    self._txtCountDown = nil;
+	self._imgRmbTitle = nil;
+	self._txtCostPrice = nil;
+	self._imgHero = nil;
+	self._imgAD = nil;
+    self._cfg = nil;
+    self._chargeCfg = nil;
+	self._txtPrice = nil;
+	self._objTime = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuyHighAwardTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+function BuyHighAwardTipsLayer:OnBtnBuyClick()
+    if -1 == self._chargeCfg.chargeMoneyId then
+        Operation:Buy(self._chargeCfg,function ()
+            Operation:SendMessage(tonumber(self._cfg.UID),{id = self._cfg.charges[1],num = 1});
+        end);
+    else
+        Operation:SendMessage(tonumber(self._cfg.UID),{id = self._cfg.charges[1],num = 1});
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuyHighAwardTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+            self:onBackClick();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuyHighAwardTipsLayer:SetUI(cfg)
+    --价格
+    local costPrice = self._price * self._discount;
+    if -1 == self._chargeCfg.chargeMoneyId then
+        self._imgRmbTitle:LoadSprite(Item:GetItemIconPathByName(self._chargeCfg.priceId))
+        self._imgRmbTitle:SetEnabled(true)
+        self._txtPrice:SetText(math.ceil(costPrice));
+    else
+        self._imgRmbTitle:SetEnabled(false)
+        self._txtPrice:SetText(uistr.com_rmb .. math.ceil(costPrice));
+    end
+    --倒计时
+    self._objTime:SetVisible(self._cfg.openConditions ~= -1);
+    self._curTime = 1;
+    if(self._cfg.openConditions ~= -1)then
+        self._curTime = CTime:GetRemainTime(self._cfg.openConditions[1][2]);
+        self:SetCountDownTxt();--设置倒计时
+    end
+    --广告字
+    -- local adData;
+    -- if(cfg.TipsADImage ~= "-1")then
+    --     adData = lua_parse_cfg(cfg.TipsADImage);
+    -- end
+    -- --设置广告图
+    -- if(adData ~= nil)then
+    --     self._imgAD:LoadSprite(adData[1][1]);
+    --     self._imgAD:SetAnchoredPosition(tonumber(adData[1][2]),tonumber(adData[1][3]));
+    --     self._imgAD:ResetSize();
+    --     self._imgHero:LoadSprite(adData[2][1]);
+    --     self._imgHero:SetAnchoredPosition(tonumber(adData[2][2]),tonumber(adData[2][3]));
+    --     self._imgHero:ResetSize();
+    -- end
+    -- 折扣信息
+    self._txtCostPrice:SetVisible(self._discount < 1)
+    self._objDiscount:SetVisible(self._discount < 1)
+    if self._discount < 1 then
+        self._txtCostPrice:SetText(self._price)
+        self._discount:GetTextComponent("txt_2zhe")SetText(
+            string.format(LanguageMgr:GetTextByID(90248), math.ceil(self._discount * 10)))
+    end
+    -- 可获得奖励
+    local goods = self._chargeCfg.goods
+    for i = 1, #goods do
+        if tonumber(goods[i][2]) ~= tonumber(Player.ITEM_VALUE_HANDBOOK_EXP) then
+            local prefab = Groble_ResMgr:Instantiate(self._item, self._content)
+            prefab.name = "item"..i
+            local item1 = Bag:CtorComSimpleGoodsUi(prefab)
+            Bag:SetComSimpleGoodsUi(item1, goods[i][1], goods[i][2], goods[i][3])
+        end
+    end
+    self._item:SetVisible(false)
+
+end
+
+--设置倒计时显示
+function BuyHighAwardTipsLayer:SetCountDownTxt()
+    if(self._curTime > 0)then
+        self._txtCountDown:SetText(CTime:Time2Str_2(self._curTime));
+    else
+        self._txtCountDown.text = string.format(LanguageMgr:GetTextByID(50027),0);
+    end
+end
+
+return BuyHighAwardTipsLayer;

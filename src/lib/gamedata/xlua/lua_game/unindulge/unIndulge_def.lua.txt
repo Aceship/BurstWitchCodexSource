@@ -1,0 +1,54 @@
+--
+-- author: liangxt
+-- date  : 2020年3月19日13:42:41
+-- brief : 
+--
+UnIndulge = UnIndulge or {}
+
+UnIndulge.Account_Type =
+{
+    tourist     = 1 ,  --游客
+    unRealNamed = 2,   --未实名
+    children    = 3,   --未成年
+    normal      = 4,   -- 正常账号
+}
+
+UnIndulge.CurrentType =
+{
+    type101 = 101,
+    type102 = 102,
+    type201 = 201,
+    type202 = 202,
+    type203 = 203,
+    type301 = 301,
+    type302 = 302,
+    type303 = 303,
+    type304 = 304,
+    type305 = 305,
+
+}
+UnIndulge.NoticeTimeSec =
+{
+    -- time50 = 120,
+    --  time55 = 180,
+    --  time60 = 240,
+    time50 = 3000,
+    time55 = 3300,
+    time60 = 3600,
+    time70 = 4200,
+    time80 = 4800,
+    time90 = 5400,
+    time120 = 7200,
+    time150 = 9000,
+    time180 = 10800,
+}
+UnIndulge.NoticeTime =
+{
+    time50 = 50,
+    time55 = 55,
+    time60 = 60,
+    time70 = 70,
+    time80 = 80,
+    time120 = 120,
+    time150 = 150,
+}

@@ -1,0 +1,158 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 20:30:14
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailySweepLayer = class("DailySweepLayer", CBaseLayer)
+
+local BTNS = 
+{
+    ok    = "container/button_ok",
+    no    = "container/button_no",
+    add   = "container/time/button_add",
+    sub   = "container/time/button_sub",
+}
+
+
+function DailySweepLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_DailySweepLayer",
+    }
+   
+    self._uitype = 2
+    self._dropItems = {}
+    self._update = false
+    self._index = 1
+    self:onEnter()
+end
+
+function DailySweepLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:initObj()
+end
+
+
+function DailySweepLayer:onButtonClick(itype)
+    if itype == BTNS.ok then
+        Chapter:LevelSweepReq( self._level.id, self._count,  self._callback, false, false)
+        self:onPopLayer()
+    elseif itype == BTNS.no then
+        self:onBackClick()
+    elseif itype == BTNS.add then
+        local energy = Player:GetValue(Player.VALUE_POWER)
+        if self._cost * (self._count +1) > energy then
+            return
+        end
+        self._count = math.min(self._count +1, self._maxcount)
+        self:setDrops()
+    elseif itype == BTNS.sub then
+        if self._count > 1 then
+            self._count = self._count -1
+            self:setDrops()
+        end
+    end
+end
+
+function DailySweepLayer:onBackClick()
+    
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+
+
+
+function DailySweepLayer:show( levelid ,callback )
+    self._level = Chapter:GetLevel(levelid)
+    self._chapter = Chapter:GetChapter(self._level.chapterid)
+    self._callback = callback
+    self._count = 1
+
+    local chapter = Chapter:GetChapterByLevelId(levelid)
+    self._maxcount = Player:GetMaxSweepNumber(chapter.sub_type)
+
+    if(chapter.fight_count > 0) then
+        local remain = chapter.fight_count - chapter.pass_count
+        self._maxcount = math.min(self._maxcount, remain)
+    end
+
+    self._cost =  self._level.cost_power
+    local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
+    local type = levelList[1].type
+    local suffix = ""    
+    local score = self._level.max_score
+    if(type == 1) then
+    elseif(type == 2) then
+        if(self._level.p_rate ~= nil
+            and self._level.p_rate[2] ~= nil) then
+            score = self._level.p_rate[2]
+        end
+        suffix = LanguageMgr:GetTextByID(20095)
+    elseif(type == 3) then
+        if(self._level.p_rate ~= nil
+            and self._level.p_rate[3] ~= nil) then
+            score = self._level.p_rate[3]
+        end
+        suffix = LanguageMgr:GetTextByID(20094)
+    elseif(type == 4) then
+        if(self._level.p_rate ~= nil
+            and self._level.p_rate[4] ~= nil) then
+            score = self._level.p_rate[4]
+        end
+        suffix = LanguageMgr:GetTextByID(20094)
+    end
+    self._score = score
+    local dropid = Chapter:GetScoreDrop(self._level.rewards[2] , self._score)
+    self._drops = Item:GetDrops(dropid)
+    self.layer:GetTextComponent("container/txt_score").text = "="..score .. suffix
+    self:setDrops()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function DailySweepLayer:TimesDrops()
+    local drops = {}
+    for _, v in pairs(self._drops) do
+        table.insert(drops, {v[1],v[2],v[3] * self._count, v[4]})
+    end
+    local remain = math.max(0, self._chapter.count - self._chapter.pass_count)
+    if remain > 0 then
+        local dropid = Chapter:GetScoreDrop(self._level.fight_rewards[2], self._score)
+        local fdrop = Item:GetDrops(dropid)
+        for _, v in pairs(fdrop) do
+            table.insert(drops, {v[1], v[2], v[3] * math.min(remain, self._count), Bag.TYPE_EXDROP})
+        end
+    end
+    return drops
+end
+
+function DailySweepLayer:initObj()
+    self._txtTime = self.layer:GetTextComponent("container/time/txt_time")
+    self._txtCost = self.layer:GetTextComponent("container/cost/txt_cost")
+    self._scrollview = self.layer:Get("container/reward/scrollview")
+    
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SWEEP_LEVEL,
+            function()
+               self:onBackClick()
+            end)
+    
+end
+
+
+
+
+function DailySweepLayer:setDrops()
+    local drops = self:TimesDrops()
+    self._txtTime.text = string.format(LanguageMgr:GetTextByID(3002024), self._count)
+    self._txtCost.text = self._count * self._cost
+    self._dropItems = Bag:SetScrollGoods(self._dropItems ,self._scrollview, drops, 3, 715, 160, 0.55, 90, false, true)
+  
+end
+
+return DailySweepLayer
+

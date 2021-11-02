@@ -1,0 +1,284 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Ether = Ether or {};
+
+function Ether:LoadCfg()
+    self:LoadConditionCfg();
+    self:LoadBossChanlengeSupCfg();
+    self:LoadBossChanlengeCfg();
+    self:LoadEtherAwardCfg();
+    Ether:LoadEtherBossLvAddAttrCfg();
+end
+
+-----------------------------------------BossChanlengeLvevlup---------------------------------
+
+--Boss战略等级增加属性相关
+function Ether:LoadEtherBossLvAddAttrCfg()
+    self._BossChanlengeLvevlup = {};
+    for _, cfg in pairs(CfgLoader:LoadCfg("BossChanlengeLvevlup")) do
+        self._BossChanlengeLvevlup[tonumber(cfg.AttrLv)] = lua_parse_cfg(cfg.AddValue, true)
+    end
+end
+
+function Ether:GetBossAddAttrCfgByLv(lv)
+    return self._BossChanlengeLvevlup[lv]
+end
+
+-----------------------------------------EtherAwardCfg----------------------------------------
+function Ether:LoadEtherAwardCfg()
+    self._etherAwardCfgs = {};
+    local cfgs = CfgLoader:LoadCfg("YiTaiBianJieEveryDayAward");
+    local data,id;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        data = {
+            id = id,
+            getLv = tonumber(cfg.grade),
+            awards = lua_parse_cfg(cfg.award,true),
+        };
+        self._etherAwardCfgs[id] = data;
+    end
+end
+
+function Ether:GetAllEtherAwardCfgs()
+    local retArr = {};
+    for _, v in pairs(self._etherAwardCfgs) do
+        table.insert(retArr,v);
+    end
+    table.sort(retArr, function (a,b)
+        return a.getLv < b.getLv;
+    end);
+    return retArr;
+end
+
+function Ether:GetEtherAwardCfgById(cfgId)
+    cfgId = tonumber(cfgId);
+    if(self._etherAwardCfgs[cfgId] == nil)then
+        CS.Logger.LogError("err self._etherAwardCfgs[cfgId] is null path = ** Ether:GetEtherAwardCfgById **   cfgId = "..cfgId);
+    end
+    return self._etherAwardCfgs[cfgId];
+end
+
+
+---------------------------------------BossChanlenge---------------------------------------
+function Ether:LoadBossChanlengeCfg()
+    local cfgs = CfgLoader:LoadCfg("BossChanlenge");
+    self._AffixCfgs = {};
+    local id = 0
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id)
+        self._AffixCfgs[id] = {
+            id          = id,
+            name        = Language:GetTxtBuyId(cfg.AttrName),
+            name_E      = Language:GetTxtBuyId(cfg.AttrNameEn),
+            des         = Language:GetTxtBuyId(cfg.AttrDes),
+            icon        = cfg.AttrIcon,--路径
+            targetType  = tonumber(cfg.AttrType),--生效目标(0:环境,1:Boss,2:角色)
+            attrType    = tonumber(cfg.AttrType2),--属性加成类型
+            chapterId   = tonumber(cfg.BelongLevel),--副本Id
+            unLockType  = tonumber(cfg.UnlockType),
+            unLockValue = tonumber(cfg.UnlockValue),
+            param       = tonumber(cfg.param),
+            affixLvs    = lua_str_split(cfg.AttrLv, "|", true),
+            affixValues = lua_str_split(cfg.AttrValue,"|", true),
+            effect_id   = lua_str_split(cfg.effect_id,"|", true),
+            isChange    = cfg.isChange == "1",                      -- 是否替换AI路径
+        };
+    end
+    cfgs = nil
+end
+
+function Ether:LoadBossChanlengeSupCfg()
+    local cfg = CfgLoader:LoadCfg("BossChanlengeSup");
+    self._support = {};
+    for i, v in pairs(cfg) do
+        self._support[tonumber(v.id)] = {
+            id = tonumber(v.id),
+            condId = tonumber(v.CondID),
+            chapterId = tonumber(v.DungeonID),
+            supPoint = tonumber(v.SupPoint),
+        };
+        self._support[tonumber(v.id)].condition = self:GetConditionCfgById(self._support[tonumber(v.id)].condId);
+    end
+end
+
+function Ether:LoadConditionCfg()
+    local cfg = CfgLoader:LoadCfg("Condition");
+    self._conditionCfgs = {};
+    for i, v in pairs(cfg) do
+        local id = tonumber(v.id);
+        local data = {
+            id = id,
+            name = Language:GetTxtBuyId(tonumber(v.CondName)),
+            condType = tonumber(v.CondType),
+            count = tonumber(v.CondCount),
+            value = lua_str_split(v.CondValue,"|"),
+        };
+        self._conditionCfgs[id] = data;
+    end
+end
+
+function Ether:GetConditionCfgById(id)
+    local retCfg = self._conditionCfgs[id];
+    if(retCfg == nil)then
+        CS.Logger.LogError("conditionCfg is nil conditionId = "..id);
+    end
+    return retCfg;
+end
+
+
+function Ether:GetSupportPointState(supportId)
+    local heroIds = self:GetCurHeroIds();
+    local supportCfg = self:GetSupportCfgById(supportId);
+    local isGet = true;
+    local heros = {};
+    for i, id in ipairs(heroIds) do
+        if(id > 0)then
+            table.insert(heros,{hero = Hero:GetHero(id),isGet = false});
+        end
+    end
+    if(supportCfg.condition.count == Ether.SupportPointGetConditionType.All)then
+        for _, value in ipairs(supportCfg.condition.value) do
+            for i, hero in ipairs(heros) do
+                if(supportCfg.condition.condType == Ether.SupportPointConditionType.Lv)then
+                    if(hero.hero.level < tonumber(value))then
+                        isGet = false;
+                        return isGet;
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Attr)then
+                    if(hero.hero.attri_type ~= tonumber(value))then
+                        isGet = false;
+                        return isGet;
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Atk)then
+                    if(hero.hero.atktype ~= tonumber(value))then
+                        isGet = false;
+                        return isGet;
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Grade)then
+                    if(hero.hero.qlty < tonumber(value))then
+                        isGet = false;
+                        return isGet;
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Star)then
+                    if(hero.hero.star < tonumber(value))then
+                        isGet = false;
+                        return isGet;
+                    end
+                end
+            end
+        end
+    else
+        local getNum = 0;
+        local allStar = 0;
+        for _, value in ipairs(supportCfg.condition.value) do
+            table.sort(heros,function  (a,b)
+                return a.hero.level < b.hero.level;
+            end);
+            for i, hero in ipairs(heros) do
+                if(supportCfg.condition.condType == Ether.SupportPointConditionType.Lv)then
+                    if(hero.isGet == false)then
+                        if(hero.hero.level >= tonumber(value))then
+                            hero.isGet = true;
+                            getNum = getNum + 1;
+                        end
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Attr)then
+                    if(hero.isGet == false)then
+                        if(hero.hero.attri_type == tonumber(value))then
+                            hero.isGet = true;
+                            getNum = getNum + 1;
+                        end
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Atk)then
+                    if(hero.isGet == false)then
+                        if(hero.hero.atktype == tonumber(value))then
+                            hero.isGet = true;
+                            getNum = getNum + 1;
+                        end
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Grade)then
+                    if(hero.isGet == false)then
+                        if(hero.hero.qlty >= tonumber(value))then
+                            hero.isGet = true;
+                            getNum = getNum + 1;
+                        end
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.Star)then
+                    if(hero.isGet == false)then
+                        if(hero.hero.star == tonumber(value))then
+                            hero.isGet = true;
+                            getNum = getNum + 1;
+                        end
+                    end
+                elseif(supportCfg.condition.condType == Ether.SupportPointConditionType.AllStar)then
+                    allStar = allStar + hero.hero.star
+                end
+            end
+        end
+        if(supportCfg.condition.condType == Ether.SupportPointConditionType.AllStar)then
+            if(allStar < tonumber(supportCfg.condition.value))then
+                isGet = true;
+                return isGet;
+            end
+        end
+        return  getNum >= #supportCfg.condition.value;
+    end
+    return isGet;
+end
+
+function Ether:GetSupportCfgById(id)
+    local retCfg = self._support[id];
+    if(retCfg == nil)then
+        CS.Logger.LogError("supportCfg is nil supportId = "..id);
+    end
+    return retCfg;
+end
+
+function Ether:GetSupportByChapterId(id)
+    local retArr = {};
+    for i, v in pairs(self._support) do
+        if(v.chapterId == id)then
+            table.insert(retArr,v);
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a.id < b.id;
+    end);
+    return retArr;
+end
+
+--[[function Ether:LoadConditionCfg()
+    local cfg = CfgLoader:LoadCfg("Condition");
+end]]--
+
+function Ether:GetAffixCfgById(affixId)
+    if(affixId == nil or affixId == 0)then
+        CS.Logger.LogError("affixId is nil");
+        return;
+    end
+    local cfg = self._AffixCfgs[affixId];
+    if(cfg == nil)then
+        CS.Logger.LogError("affixCfg is nil  cfgId = "..affixId);
+    end
+    return cfg;
+end
+
+function Ether:GetAffixCfgIdsByChapterId(cid)
+    if(cid == nil or cid == 0)then
+        CS.Logger.LogError("cid is nil");
+        return;
+    end
+    local cfgIds = {};
+    for _, cfg in pairs(self._AffixCfgs) do
+        if(cfg.chapterId == cid)then
+            table.insert(cfgIds,cfg.id);
+        end
+    end
+    table.sort(cfgIds,function  (a,b)
+        return a < b;
+    end)
+    return cfgIds;
+end

@@ -1,0 +1,174 @@
+--
+-- author: haosun
+-- date  : 2018-11-08 14:24:21
+-- brief : 
+--
+
+Chapter.LEVEL_TYPE_NORMAL               = "1"     -- 普通
+Chapter.LEVEL_TYPE_DIFFICULTY           = "2"     -- 困难
+Chapter.LEVEL_TYPE_GUIDE                = "4"     -- 引导
+
+Chapter.LEVEL_STAR_NUM                  = 3     -- 每关的星级数
+
+Chapter.LEVEL_GRADE_STAR				= 1		-- 每关的星级
+
+Chapter.ENEMY_TYPE_BOSS                 = "1"
+Chapter.ENEMY_TYPE_ELITIST              = "2"
+Chapter.ENEMY_TYPE_BATMEN               = "3"
+
+Chapter.LEVEL_SWEEP_MIN_NUM             = 1     -- 关卡扫荡最小次数
+Chapter.LEVEL_SWEEP_MAX_NUM             = 10    -- 关卡扫荡最大次数
+
+Chapter.MAX_FIGHT_NUM                   = 3     -- 出战的最大人数
+
+Chapter.LEVEL_STAR_0                    = 0
+Chapter.LEVEL_STAR_1                    = 1
+Chapter.LEVEL_STAR_2                    = 2
+Chapter.LEVEL_STAR_3                    = 4
+
+Chapter.LEVEL_STAR                      = {
+    Chapter.LEVEL_STAR_1,
+    Chapter.LEVEL_STAR_2,
+    Chapter.LEVEL_STAR_3,
+}
+
+Chapter.LEVEL_ACHIEVE_0                    = 0
+Chapter.LEVEL_ACHIEVE_1                    = 1
+Chapter.LEVEL_ACHIEVE_2                    = 2
+Chapter.LEVEL_ACHIEVE_3                    = 4
+
+Chapter.LEVEL_ACHIEVE                      = {
+    Chapter.LEVEL_ACHIEVE_1,
+    Chapter.LEVEL_ACHIEVE_2,
+    Chapter.LEVEL_ACHIEVE_3,
+}
+
+Chapter.REWARD_STATE_NOT            = 0
+Chapter.REWARD_STATE_CAN            = 1
+Chapter.REWARD_STATE_HAS            = 2
+
+-- 战斗显示分类
+Chapter.SHOW_TYPE_BEGIN              = 1
+Chapter.SHOW_TYPE_PLOT               = 1     -- 剧情
+Chapter.SHOW_TYPE_DAILY              = 2     -- 日常
+Chapter.SHOW_TYPE_ACTIVITY           = 3     -- 活动
+Chapter.SHOW_TYPE_END                = 3
+
+Chapter.FIGHT_TYPE_PLOT               = 1     -- 剧情
+Chapter.FIGHT_TYPE_DAILY              = 2     -- 日常挑战
+Chapter.FIGHT_TYPE_TEST               = 3     -- 试炼
+Chapter.FIGHT_TYPE_NIGHT              = 4     -- 深夜
+Chapter.FIGHT_TYPE_TOWER              = 5     -- 爬塔
+Chapter.FIGHT_TYPE_MEMORY             = 6     -- 回忆
+Chapter.FIGHT_TYPE_MYSTERY            = 7     -- 秘境
+Chapter.FIGHT_TYPE_ACTIVITY           = 8     -- 活动
+Chapter.FIGHT_TYPE_ETHER              = 9     -- 以太边界
+Chapter.FIGHT_TYPE_WORLD_BOSS         = 10    -- 世界Boss
+Chapter.FIGHT_TYPE_TRIGGER            = 11    -- 触发关（爽关）
+
+-- 章节小类
+Chapter.MODE_PLOT_N             = 101       -- 剧情普通
+Chapter.MODE_PLOT_D             = 102       -- 剧情困难
+Chapter.MODE_PLOT_S             = 103       -- 剧情深渊
+Chapter.MODE_COIN               = 201       -- 海地祭祀阵（魂晶 卡律布狄斯）
+Chapter.MODE_MATERIAL           = 202       -- 
+Chapter.MODE_DRUG               = 203       -- 天狱之上（经验、闪避  奥德修斯之狱）
+Chapter.MODE_HEART              = 204       -- 塞壬的游戏（轮盘）
+Chapter.MODE_EQUIP              = 205       -- 符文法典（符石 弃神魔纹）
+Chapter.MODE_LIGHT              = 301       -- 光进阶材料本
+Chapter.MODE_DARK               = 302       -- 暗进阶材料本
+Chapter.MODE_CHAOS              = 303       -- 混沌进阶材料本
+Chapter.MODE_NIGHT              = 401       -- 深夜永久
+Chapter.MODE_TOWER              = 501       -- 爬塔
+Chapter.MODE_MEMORY             = 601       -- 回忆
+Chapter.MODE_MYSTERY            = 701       -- 秘境
+Chapter.MODE_ACTIVITY_LEVEL_COMMON= 801       -- 活动关卡普通
+Chapter.MODE_ACTIVITY_LEVEL_HARD  = 802       -- 活动关卡困难
+Chapter.MODE_ACTIVITY_LEVEL_SPECIAL  = 803       -- 活动关卡深渊
+Chapter.MODE_ETHER_1            = 901       -- 以太边界
+Chapter.MODE_ETHER_2            = 902       -- 以太边界
+Chapter.MODE_ETHER_3            = 903       -- 以太边界
+Chapter.MODE_ETHER_4            = 904       -- 以太边界
+Chapter.MODE_WORLD_BOSS         = 1001       -- 世界boss (圣光的印证?)
+
+Chapter.MODE_COIN_CID           = 0         -- 金币本章节ID
+Chapter.MODE_MATERIAL_CID       = 0         -- 强化材料本章节ID
+Chapter.MODE_DRUG_CID           = 0         -- 经验药水本章节ID
+Chapter.MODE_EQUIP_CID          = 0         -- 符文法典
+Chapter.MODE_HEART_CID          = 0         -- 心之宝库章节ID
+Chapter.MODE_TOWER_CID          = 0         -- 爬塔章节ID
+Chapter.MODE_MYSTERY_CID        = 0         -- 秘境章节ID
+
+Chapter.PLOT_MODES = {
+    Chapter.MODE_PLOT_N,
+    Chapter.MODE_PLOT_D,
+    Chapter.MODE_PLOT_S,
+}
+
+
+Chapter.EFFECT_FILES = {
+    "prefab_uiEffect/UI_Xkuang",
+    "prefab_uiEffect/UI_Xkuang01",
+    "prefab_uiEffect/UI_Xkuang02",
+}
+
+Chapter.levelIcon = {}
+Chapter.levelIcon[1] = "img_zhanqian_cji"
+Chapter.levelIcon[2] = "img_zhanqian_bji"
+Chapter.levelIcon[3] = "img_zhanqian_aji"
+Chapter.levelIcon[4] = "img_zhanqian_sji"
+
+Chapter.levelIconJ = {}
+Chapter.levelIconJ[1] = "text_rchang_jiesuan_C"
+Chapter.levelIconJ[2] = "text_rchang_jiesuan_B"
+Chapter.levelIconJ[3] = "text_rchang_jiesuan_A"
+Chapter.levelIconJ[4] = "text_rchang_jiesuan_S"
+
+Chapter.levelIconT = {}
+Chapter.levelIconT[1] = "text_rchang_tanchuang_C"
+Chapter.levelIconT[2] = "text_rchang_tanchuang_B"
+Chapter.levelIconT[3] = "text_rchang_tanchuang_A"
+Chapter.levelIconT[4] = "text_rchang_tanchuang_S"
+
+Chapter.levelIconD = {}
+Chapter.levelIconD[1] = "text_rchang_tanchuang_dandu_C"
+Chapter.levelIconD[2] = "text_rchang_tanchuang_dandu_B"
+Chapter.levelIconD[3] = "text_rchang_tanchuang_dandu_A"
+Chapter.levelIconD[4] = "text_rchang_tanchuang_dandu_S"
+
+Chapter.TYPE_ACHIEVE_PREVIEW = 1
+Chapter.TYPE_ACHIEVE_COMPLETE = 2
+
+Chapter.LEVEL_END_SUCCESS   = 0     -- 关卡胜利
+Chapter.LEVEL_END_FAIL      = 1     -- 关卡失败
+Chapter.LEVEL_END_QUIT      = 2     -- 主动退出
+Chapter.LEVEL_END_TIMEOUT   = 3     -- 战斗超时
+
+Chapter.MAINLAYER_ANI_LEVEL = 100108
+
+
+Chapter.FLIP_TYPE_NORMAL      = 1;        -- 普通翻牌
+Chapter.FLIP_TYPE_GOLD        = 2;        -- 消费翻牌
+
+Chapter.LevelIdStr = "LevelIdStr";
+
+Chapter.DROP_NORMAL = 1 --通常掉落
+Chapter.DROP_SCORE  = 2 --分数掉落
+
+Chapter.AUTO_FIGHT_NIL      = 0     -- 
+Chapter.AUTO_FIGHT_AWEEP    = 1     -- 扫荡
+Chapter.AUTO_FIGHT_DEPOSIT  = 2     -- 托管
+
+Chapter.AUTO_STOP_NORMAL    = 0     -- 条件达到
+Chapter.AUTO_STOP_AUTO      = 1     -- 玩家主动停止
+Chapter.AUTO_STOP_NO_POWER  = 2     -- 体力不足
+Chapter.AUTO_STOP_NO_CNT    = 3     -- 战斗次数用完
+Chapter.AUTO_STOP_NO_ITEM   = 4     -- 战斗所需道具不足
+Chapter.AUTO_STOP_MAT       = 5     -- 材料够了
+Chapter.AUTO_STOP_EQUIP_MAX = 6     -- 装备超出上限
+Chapter.AUTO_STOP_GUIDE     = 7     -- 触发引导
+Chapter.AUTO_STOP_FAIL      = 8     -- 战斗失败，未勾选失败继续
+
+
+Chapter.GoFightLevel        = 1     --出战等级
+Chapter.GoFightPower        = 2     --出战战力

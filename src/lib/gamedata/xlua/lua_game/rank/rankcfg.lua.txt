@@ -1,0 +1,106 @@
+--
+-- author: haosun
+-- date  : 2019-01-07 11:49:36
+-- brief : 
+--
+Rank = Rank or {}
+
+function Rank:_LoadCfg()
+    self:_LoadRankBlessCfg()
+    self:_LoadRankBossCfg()
+    Rank:_loadRankMiscCfg();
+end
+
+function Rank:_loadRankMiscCfg()
+    local cfgs = CfgLoader:LoadCfg("RankMiscCfg");
+    self._rankMiscCfg = {};
+    local id;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        self._rankMiscCfg[id] = cfg;
+    end
+end
+
+function Rank:GetRankDaySettleTimeById(cfgId)
+    return tonumber(self._rankMiscCfg[cfgId].DaySettleHour) or 0;
+end
+
+function Rank:_LoadRankBlessCfg()
+    self._blessCfgs = {}
+    self._blessCfgArray = {}
+    local cfgs = CfgLoader:LoadCfg("MidNightBlessing")
+    local id = 0
+    for _, v in ipairs(cfgs) do
+        id = tonumber(v.id)
+        self._blessCfgs[id] = {
+            cfgid       = id,
+            name        = Language:GetTxtBuyId(v.Name),
+            desc        = Language:GetTxtBuyId(v.Des),
+            deskill     = v.Deskill_id,
+            freeCount   = tonumber(v.FreeTime),
+            price       = v.Price,
+            effect      = v.Effect,
+            sortid      = tonumber(v.sortID),
+            blesstype   = tonumber(v.blesstype),
+            param1      = tonumber(v.param1),
+        }
+        if v.enable == "1" then
+            table.insert(self._blessCfgArray, self._blessCfgs[id])
+        end
+    end
+    table.sort(self._blessCfgArray, function(a, b)
+            return a.sortid < b.sortid
+        end)
+end
+
+function Rank:GetAllBlessCfg()
+    return self._blessCfgArray
+end
+
+function Rank:_LoadRankBossCfg()
+    local cfgs = CfgLoader:LoadCfg("MidNightBossInfo")
+    self._bossinfo = {}
+    local levelid
+    for i, v in pairs(cfgs) do
+        levelid = tonumber(v.levelID)
+        if self._bossinfo[levelid] == nil then
+            self._bossinfo[levelid] = {}
+        end
+        self._bossinfo[levelid][tonumber(v.rate)] = {
+            avatar = v.avatar,
+            attri_type = tonumber(v.attri_type),
+            boss_id = v.boss_id,
+            des = Language.LanguageTxt[tonumber(v.des)],
+            power = v.combat_effectiveness,
+            SpinePos = lua_str_split(v.SpinePos, "&", true),
+            SpineScale = lua_str_split(v.SpineScale, "&", true)
+        }
+    end
+end
+
+function Rank:GetBossInfoCfg(levelid)
+    if self._bossinfo[levelid] == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!![MidNightBossInfo]配置表错误 levelid = " .. levelid)
+        return {}
+    end
+    return self._bossinfo[levelid]
+end
+
+
+--[[function Rank:GetRankPkData(score)
+    -- 检测分数是否大于前10名
+    if self._top_min_score > 0 and score >= self._top_min_score then
+        for i = #self._rankdata.list, 1, -1 do
+            if score < self._rankdata.list[i].score then
+                return self._rankdata.list[i].score, 1
+            end
+        end
+    end
+    -- 从配置中获取数据
+    for i, v in ipairs(self._rank_pk_cfg) do
+        if score >= v.score_area[1] and score <= v.score_area[2] then
+            return math.floor(score * v.score_times), math.random(v.pass_number[1], v.pass_number[2])
+        end
+    end
+    return math.floor(score * 33.33), math.random(10, 30)
+end]]--

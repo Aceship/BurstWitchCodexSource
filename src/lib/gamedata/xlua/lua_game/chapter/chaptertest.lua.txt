@@ -1,0 +1,70 @@
+--
+-- author: haosun
+-- date  : 2019-12-11 10:04:02
+-- brief : 
+--
+
+Chapter = Chapter or {}
+
+local function GmCheckLevelDrops()
+    for _, level in pairs(Chapter:GetAllLevels()) do
+        local drops
+        if level.rewards ~= "-1" then
+            drops = Item:GetDrops(level.rewards[2])
+            for _, v in pairs(drops) do
+                local cfg = Bag:GetCfgByTypeCfgid(v[1], v[2])
+                if cfg == nil then
+                    CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!cfg error.levelid = {0} type = {1} id = {2}", level.id, v[1], v[2])
+                end
+            end
+            if #drops == 0 then
+                CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!普通奖励配置错误. levelid = {0}", level.id)                
+            end
+        end
+        if level.fight_rewards ~= "-1" then
+            drops = Item:GetDrops(level.fight_rewards[2])
+            for _, v in pairs(drops) do
+                local cfg = Bag:GetCfgByTypeCfgid(v[1], v[2])
+                if cfg == nil then
+                    CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!cfg error.levelid = {0} type = {1} id = {2}", level.id, v[1], v[2])
+                end
+            end
+            if #drops == 0 then
+                CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!挑战奖励配置错误. levelid = {0}", level.id)
+            end
+        end
+        if level.first_rewards ~= "-1" then
+            drops = Item:GetDrops(level.first_rewards[2])
+            for _, v in pairs(drops) do
+                local cfg = Bag:GetCfgByTypeCfgid(v[1], v[2])
+                if cfg == nil then
+                    CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!cfg error.levelid = {0} type = {1} id = {2}", level.id, v[1], v[2])
+                end
+            end
+            if #drops == 0 then
+                CS.Logger.LogError("~~~~~~~~~~~~~~~~~~~~~~~~~~ !!!!!!!!首通奖励配置错误. levelid = {0}", level.id)
+            end
+        end
+    end
+end
+
+local function GmCheckLevelAchieve()
+    for _, level in pairs(Chapter:GetAllLevels()) do
+    end
+end
+
+function Chapter:GmCheckOper()
+    GmCheckLevelDrops()
+    GmCheckLevelAchieve()
+end
+
+function Chapter:GmCheckItemOrigin(itemId, levelId)
+    local level = self:GetLevel(levelId)
+    local baseDropCnt, maybeDrop = Item:GetDropNumberById(level.rewards[2], itemId)
+    if not maybeDrop then
+        if baseDropCnt == 0 then
+            local msgErr = string.format("----------- 所需道具ID = %s 关卡ID = %d 掉落ID = %d", itemId, levelId, level.rewards[2])
+            AppMgr:LogError(msgErr)
+        end
+    end
+end

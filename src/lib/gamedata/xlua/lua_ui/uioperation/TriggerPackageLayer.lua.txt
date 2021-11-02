@@ -1,0 +1,457 @@
+--
+-- author: haosun
+-- date  : 2021-07-16 17:10:25
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TriggerPackageLayer = class("TriggerPackageLayer", CBaseLayer)
+
+local buttons = {
+    btn_buy     = "container/btn_buy",
+    btn_left    = "container/btn_left",
+    btn_left1   = "container/obj_banner/item_l",
+    btn_right   = "container/btn_right",
+    btn_right1  = "container/obj_banner/item_r",
+    btn_back    = "btn_back",
+}
+
+function TriggerPackageLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_TriggerPackageLayer",
+    }
+    self._uitype    = 2
+    self._fading    = false
+    self._priceId   = 0
+    self._titlePath = ""
+    self._showItems = {}
+    self._isExpire  = false
+    self._txtTimeColor  = -1    -- 倒计时颜色：0白色 1红色
+    self:onEnter()
+end
+
+function TriggerPackageLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(buttons)
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG, self.__cname,
+        function()
+            self:refreshComUI()
+        end)
+    self._objSellout    = self.layer:Get("container/obj_sellout")
+    self._objTimeTips   = self.layer:GetTextComponent("container/obj_time_cd")
+    self._objTimeOver   = self.layer:GetTextComponent("container/obj_time_over")
+    self._objTimeOver:SetVisible(false)
+    self._txtTimeCd = self.layer:GetTextComponent("container/txt_time_cd")
+    self._objBuy    = self.layer:Get("container/btn_buy")
+    self._txtPrice  = self.layer:GetTextComponent("container/btn_buy/txt_price")
+    self._imgPrice  = self.layer:GetImageComponent("container/btn_buy/img_price")
+    self._imgCursor = self.layer:GetImageComponent("container/btn_buy/img_cursor")
+    self._txtCursor = self.layer:GetTextComponent("container/btn_buy/txt_cursor")
+    self._imgTitle  = self.layer:GetImageComponent("container/img_title")
+    self._objLeft   = self.layer:Get("container/btn_left")
+    self._objRight  = self.layer:Get("container/btn_right")
+    self._spineContainer = self.layer:Get("spine")
+
+    self._transScroll   = self.layer:Get("container/scrollview")
+    self._compScroll    = self._transScroll:GetComponent("ScrollRect")
+    self._transContent  = self._transScroll:Get("content")
+
+    self._obj_item = self.layer:Get("container/item_hide/obj_item").gameObject
+    self:onInitBanner()
+
+    InitEventTriggerEx(self.layer:Get("graphic_drag"),
+        function(arg)
+            self._beginPos = arg
+        end,
+        function(arg)
+        end,
+        function(arg)
+            self:onEndDrag(arg)
+        end)
+end
+
+function TriggerPackageLayer:onExit()
+    self._rechargeIds   = nil
+    if self._showItems ~= nil then
+        for _, v in pairs(self._showItems) do
+            v.clsBag:clear()
+            v.clsBag = nil
+            v.transform = nil
+        end
+    end
+    self._showItems     = nil
+    
+    self._objTimeTips   = nil
+    self._objTimeOver   = nil
+    self._txtTimeCd = nil
+    self._txtPrice  = nil
+    self._imgPrice  = nil
+    self._imgTitle  = nil
+    self._objLeft   = nil
+    self._objRight  = nil
+    self._obj_item  = nil
+
+    self._transScroll   = nil
+    self._compScroll    = nil
+    self._transContent  = nil
+    Operation:ClearTriggerPackageLayer()
+
+    CBaseLayer.onExit(self)
+end
+
+function TriggerPackageLayer:onButtonClick(buttontype)
+    if buttontype == buttons.btn_buy then
+       self:doBuyClick()
+    elseif buttontype == buttons.btn_left or buttontype == buttons.btn_left1 then
+        self:doLeftRight(-1)
+    elseif buttontype == buttons.btn_right  or buttontype == buttons.btn_right1 then
+        self:doLeftRight(1)
+    elseif buttontype == buttons.btn_back then
+        Operation:CloseTriggerPackageLayer()
+    end
+end
+
+--显示UI
+function TriggerPackageLayer:show()
+    self._showIndex = Operation:GetTriggerPackageIndex()
+    self._rechargeIds = Operation:GetTriggerPackageArr()
+    self._maxIndex = #self._rechargeIds
+    self:onInitDots()
+    self:refreshDots()
+    self:refreshComUI()
+    self:refreshBanner()
+    self:showLayer()
+end
+
+function TriggerPackageLayer:doLeftRight(value)
+    if self._moving then return end
+
+    self._showIndex = self._showIndex + value
+    self:refreshDots()
+    self:refreshComUI()
+    self:scrollBanner(value == 1)
+end
+
+function TriggerPackageLayer:doBuyClick()
+    if self._data.left <= 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(90184)
+    elseif self._data.expire <= CTime:GetServerTime() then
+        Groble_UIMgr:ShowGameWordTipsLayer(90186)
+    else
+        if self._buyByRmb then
+            Operation:ChargedBagByIdReq(self._curRechargeId, 1)
+        else
+            if Item:GetCount(self._priceId) < self._numPrice then
+                if self._priceId == Player.ITEM_VALUE_WITCH_COIN or self._priceId == Player.ITEM_VALUE_MONEY then
+                    Groble_UIMgr:ShowMessageBox(true, true, 
+                        string.format(LanguageMgr:GetTextByID(90055), Item:GetCfg(self._priceId).Name),
+                        function()
+                            if self._priceId == Player.ITEM_VALUE_WITCH_COIN then
+                                Operation:OpenOperationMainLayer(nil, Operation.ActivityID.WitchCoin, false)
+                            elseif self._priceId == Player.ITEM_VALUE_MONEY then
+                                Operation:OpenOperationMainLayer(nil, Operation.ActivityID.ShopSundryGoods, false)
+                            end
+                            Operation:HideTriggerPackageLayer()
+                        end)
+                else
+                    Groble_UIMgr:ShowLackCurrencyTips(self._priceId)
+                end
+            else
+                local msgtips = string.format(LanguageMgr:GetTextByID(90057), self._numPrice, Item:GetCfg(self._priceId).Name)
+                Groble_UIMgr:ShowMsgBy2CallLayer(msgtips,
+                    function()
+                        -- do nothing
+                    end,
+                    function()
+                        Operation:ChargedBagByIdReq(self._curRechargeId, 1)
+                    end)
+            end
+        end
+    end
+end
+
+function TriggerPackageLayer:onEndDrag(argPos)
+    if self._beginPos == nil then return end
+
+    local disx = argPos.x - self._beginPos.x
+    if math.abs(disx) < 100 then return end
+
+    if disx > 0 then
+        if self._showIndex > 1 then
+            self:doLeftRight(-1)
+        end
+    else
+        if self._showIndex < self._maxIndex then
+            self:doLeftRight(1)
+        end
+    end
+    self._beginPos = nil
+end
+
+function TriggerPackageLayer:refreshComUI()
+    self._objLeft:SetVisible(self._showIndex > 1)
+    self._objRight:SetVisible(self._showIndex < self._maxIndex)
+    self:refreshGift()
+end
+
+function TriggerPackageLayer:refreshGift()
+    self._curRechargeId = self._rechargeIds[self._showIndex]
+    -- 标题
+    local cfgTrigger = Operation:GetTriggerPackageCfgByRechargeId(self._curRechargeId)
+    if self._titlePath ~= cfgTrigger.ImgTitlePath then
+        self._imgTitle:LoadSprite(cfgTrigger.ImgTitlePath)
+        self._titlePath = cfgTrigger.ImgTitlePath
+    end
+    self._buyByRmb = false
+    self._data = Operation:GetPopUpDataById(self._curRechargeId)
+    -- 奖励物品
+    local cfgRecharge = Recharge:GetData(self._curRechargeId)
+    self:SetScrollGoods(cfgRecharge.goods, 5, 830, 166, 0.55, nil)
+    -- 售卖价格
+    if self._data.left <= 0 then
+        self._objBuy:SetVisible(false)
+        self._objSellout:SetVisible(true)
+    else
+        self._objBuy:SetVisible(true)
+        self._objSellout:SetVisible(false)
+        local strTag
+        if -1 == cfgRecharge.chargeMoneyId then
+            self._buyByRmb = false
+            self._numPrice = math.ceil(cfgRecharge.price * cfgRecharge.discount)
+            self._txtPrice:SetText(self._numPrice)
+            strTag = string.format(LanguageMgr:GetTextByID(90248), ""..math.ceil(cfgRecharge.discount * 10))
+            if self._priceId ~= cfgRecharge.priceId then
+                self._priceId = cfgRecharge.priceId
+                self._imgPrice:LoadSprite(Item:GetItemIconPath(cfgRecharge.priceId))
+            end
+            self._imgPrice:SetEnabled(true)
+        else
+            self._buyByRmb = true
+            local chargeMoneyConfig = Recharge:GetRechargeMoneyCfg(cfgRecharge.chargeMoneyId)
+
+            self._numPrice = math.ceil(chargeMoneyConfig.price * chargeMoneyConfig.discount)
+            self._txtPrice:SetText(uistr.com_rmb .. self._numPrice)
+            self._imgPrice:SetEnabled(false)
+        end
+        Operation:SetCursorTag(self._imgCursor, self._txtCursor, cfgRecharge.tag, strTag)
+    end
+    -- 加载特效
+    if self._SpecialEffects ~= cfgTrigger.SpecialEffects then
+        local _bg_effect = self.layer:Get("bg_effect")
+        _bg_effect:ClearChildren()
+        if cfgTrigger.SpecialEffects ~= "-1" then
+            _bg_effect:CreateChild(cfgTrigger.SpecialEffects)
+            _bg_effect:SetPosition(cfgTrigger.SpecialEffects_Coordinate[1], cfgTrigger.SpecialEffects_Coordinate[2], 0, true)
+            _bg_effect:SetScale(cfgTrigger.SpecialEffects_Scale, cfgTrigger.SpecialEffects_Scale, cfgTrigger.SpecialEffects_Scale)
+            self._SpecialEffects = cfgTrigger.SpecialEffects
+        end
+    else
+        if cfgTrigger.SpecialEffects ~= "-1" then
+            local _bg_effect = self.layer:Get("bg_effect")
+            _bg_effect:SetPosition(cfgTrigger.SpecialEffects_Coordinate[1], cfgTrigger.SpecialEffects_Coordinate[2], 0, true)
+            _bg_effect:SetScale(cfgTrigger.SpecialEffects_Scale, cfgTrigger.SpecialEffects_Scale, cfgTrigger.SpecialEffects_Scale)
+        end
+    end
+
+    -- 加载Spine
+    if self._spinePath ~= cfgTrigger.SpinePath then
+        self._spinePath = cfgTrigger.SpinePath
+        self._spineHeroId = cfgTrigger.SpineHeroId
+        AssetAsyncLoader:LoadResourceAsync(self._spinePath, 
+            function(obj)
+                if self._spine ~= nil then
+                    self._spine:Release()                    
+                end
+                self._spine = self._spineContainer:AddChild(obj)
+                if self._spineHeroId == 0 then
+                    self._spine:SetPosition(0, 420, 0, true)
+                    self._spine.transform:DOLocalMoveY(460, 2):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+                else
+                    Hero:FixedSpineOrder(self._spine, self._spineHeroId, Hero.SPINE_TRIGGER_PACKAGE)
+                end
+            end)
+    end
+    self:refreshTimeCd()
+end
+
+--
+-- brief；倒计时
+--
+function TriggerPackageLayer:refreshTimeCd()
+    if CTime:GetServerTime() >= self._data.expire then
+        if not self._isExpire then
+            self._txtTimeCd:SetText("")
+            self._objTimeTips:SetVisible(false)
+            self._objTimeOver:SetVisible(true)
+        end
+        self._isExpire = true
+    else
+        if self._isExpire then
+            self._isExpire = false
+            self._objTimeTips:SetVisible(true)
+            self._objTimeOver:SetVisible(false)
+        end
+        local remain = self._data.expire - CTime:GetServerTime()
+        self._txtTimeCd:SetText(CTime:Time2HMS(remain))
+        -- 字体颜色规则，小于30分钟显示红色
+        if remain < 1800 then
+            if self._txtTimeColor ~= 0 then
+                self._txtTimeColor = 0
+                self._txtTimeCd:SetTextColor(0.88, 0.31, 0.24, 1)
+            end
+        else
+            if self._txtTimeCdColor ~= 1 then
+                self._txtTimeColor = 1
+                self._txtTimeCd:SetTextColor(1, 1, 1, 1)
+            end
+        end
+    end
+end
+
+function TriggerPackageLayer:onPerSecondUpdate()
+    if self._data == nil then return end
+
+    self:refreshTimeCd()
+end
+
+function TriggerPackageLayer:onInitDots()
+    local disx = 60
+    local posx = 0 - (self._maxIndex - 1) * disx * 0.5
+    self._objDots = {}
+
+    local obj_dots = self.layer:Get("container/obj_dots")
+    for i = 1, self._maxIndex, 1 do
+        if i == 1 then
+            self._objDots[i] = obj_dots:Get("obj_dot").gameObject
+        else
+            self._objDots[i] = obj_dots:AddChild(self._objDots[1])
+        end
+
+        self._objDots[i]:Get("obj_bright"):SetVisible(false)
+        self._objDots[i]:SetPositionX(posx + (i-1) * disx, true)
+    end
+end
+
+function TriggerPackageLayer:onInitBanner()
+    local names = { "item_l", "item_1", "item_r", "item_2" }
+    local obj = self.layer:Get("container/obj_banner")
+    self._objBanners = {}
+    for i = 1, 4 do        
+        local transform = obj:Get(names[i])
+        local cls = clearbase:new()
+        cls.transform   = transform
+        cls.objLight    = transform:Get("img_light")
+        cls.objMask     = transform:Get("img_mask")
+        cls.imgTitle    = transform:GetImageComponent("img_name")
+        cls.imgIcon     = transform:GetImageComponent("img_icon")
+        self._objBanners[i] = cls
+        cls.refresh = function(index)
+
+            local show = self._rechargeIds[index] or false
+            cls.transform:SetVisible(show)
+            
+            if not show then return end
+
+            local mid = index == self._showIndex
+            local size = mid and 1 or 0.8
+            cls.transform:SetScale(size, size, size)
+            cls.objLight:SetVisible(mid)
+            cls.objMask:SetVisible(not mid)
+            
+            local cfgTrigger = Operation:GetTriggerPackageCfgByRechargeId(self._rechargeIds[index])
+            cls.imgIcon:LoadSprite(cfgTrigger.BgPath)
+            cls.imgTitle:LoadSprite(cfgTrigger.ImgTitlePath)
+        end
+        cls.setPosX = function(posX)
+            if posX ~= nil then
+                cls.transform:SetPositionX(posX, true)
+            end
+        end
+    end
+    self._showBanner = self._objBanners[2]
+    self._hideBanner = self._objBanners[4]
+end
+
+function TriggerPackageLayer:refreshDots()
+    for i, obj in ipairs(self._objDots) do
+        obj:Get("obj_bright"):SetVisible(i == self._showIndex)
+    end
+end
+
+local _G_PosX = {-174, 0, 174}
+function TriggerPackageLayer:refreshBanner(index)
+    local _index = index or self._showIndex
+    self._objBanners[4].transform:SetVisible(false)
+    local index = {_index - 1, _index, _index + 1}
+    for i = 1, 4 do
+        self._objBanners[i].refresh(index[i])
+        self._objBanners[i].setPosX(_G_PosX[i])
+    end
+end
+
+function TriggerPackageLayer:scrollBanner(isLeft)
+    local _time = 0.3
+    self._moving = true
+    
+    self._showBanner.transform:DOLocalMoveX(isLeft and -174 or 174, _time)
+    self._showBanner.transform:DOScale(0.8, _time):OnComplete(function()
+        self._showBanner.transform:SetVisible(false)
+        self._objBanners[1].refresh(self._showIndex - 1)
+        self._objBanners[3].refresh(self._showIndex + 1)
+        self._moving = false
+
+        local temp = self._showBanner
+        self._showBanner = self._hideBanner
+        self._hideBanner = temp
+    end)
+
+    if isLeft then
+        self._objBanners[3].refresh(self._showIndex + 1)
+    else
+        self._objBanners[1].refresh(self._showIndex - 1)
+    end
+
+    self._hideBanner.refresh(self._showIndex)
+    self._hideBanner.transform:SetVisible(true)
+    self._hideBanner.transform:SetPosition(isLeft and 174 or -174, -18, 0, true)
+    self._hideBanner.transform:SetScale(0.8, 0.8, 0.8)
+    self._hideBanner.transform:DOLocalMoveX(0, _time)
+    self._hideBanner.transform:DOScale(1, _time)
+    self._hideBanner.transform:SetAsLastSibling()
+end
+
+
+function TriggerPackageLayer:SetScrollGoods(items, max_num, width, disx, scale, posx)
+    local num = #items
+    if posx == nil then
+        posx = width/2 - (num - 1) * (disx / 2)
+        if num > max_num then
+            posx = width/2 - (max_num - 1) * (disx / 2)
+        end
+    end
+    if num > max_num then
+        self._transContent:SetSizeX(disx * num)
+    end
+    self._compScroll.horizontal = num > max_num
+    self._compScroll.horizontalNormalizedPosition = 0
+    
+    for i = 1, math.max(#self._showItems, #items) do
+        if self._showItems[i] == nil then
+            local transform = self._transContent:AddChild(self._obj_item)
+            self._showItems[i] = {
+                transform   = transform,
+                clsBag      = Bag:CtorComSimpleGoodsUi(transform)
+            }
+            local effect = transform:Get("obj_effect"):CreateChild("prefab_uiEffect/uiEffect/ui_package_border")
+            CS.UnityHelper.SetParticleMask(effect.transform)
+        end
+        
+        self._showItems[i].transform:SetVisible(items[i] ~= nil)
+        if items[i] ~= nil then
+            self._showItems[i].transform:SetPosition(posx + (i - 1) * disx, 0, 0, true)
+            Bag:SetComSimpleGoodsUi(self._showItems[i].clsBag, items[i][1], items[i][2], items[i][3])
+        end
+    end
+end
+
+return TriggerPackageLayer

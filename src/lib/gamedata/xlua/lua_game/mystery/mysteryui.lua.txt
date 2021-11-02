@@ -1,0 +1,137 @@
+--
+-- author: haosun
+-- date  : 2020-02-19 17:32:04
+-- brief : 
+--
+
+Mystery = Mystery or {}
+
+function Mystery:CtorMysteryWordUi(obj, i)
+    local cls       = clsbase:new(obj)
+    cls.bgImgCom    = cls:GetImageComponent("img_bg")
+    cls.iconImgCom  = cls:GetImageComponent("img_icon")
+    cls.lockImgCom  = cls:GetImageComponent("img_lock")
+    cls.nameTxtCom  = cls:GetTextComponent("txt_name")
+    cls.obj:GetComponent("Button").onClick:AddListener(
+        function()
+            self:ShowMysteryWordTips(cls.obj, cls.wordid)
+        end)
+
+    cls.wordid  = self._mysterydata.words[i]
+    local cfg = self:GetMysteryWordCfg(cls.wordid)
+    cls.nameTxtCom.text = cfg.name
+    cls.bgImgCom.color = Mystery.QLTY_COLOR[cfg.level]
+    cls.iconImgCom.sprite = AssetLoader:LoadSprite(cfg.icon)
+
+    return cls
+end
+
+function Mystery:SetMysteryWordUi(cls, lock)
+    if cls.lockImgCom ~= nil then
+        set_com_enabled(cls.lockImgCom, lock)
+    end
+    set_com_enabled(cls.bgImgCom, not lock)
+    set_com_enabled(cls.nameTxtCom, not lock)
+end
+
+function Mystery:ShowBuyMysteryTicket()
+    if self._mysterydata.remain < self._mysterydata.maxLimit then
+        if self._mysterydata.maxBuy - self._mysterydata.buyTimes > 0 then
+            Chapter:BuyRewardCount(Chapter.MODE_MYSTERY_CID, function()
+                    Mystery:MysteryBuyTimesReq()
+                end)            
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(3001053))
+        end
+    else
+       Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(3001052))
+    end
+end
+
+function Mystery:ShowMysteryRankLayer()
+    if self._mysterydata.ranklist == nil then
+        self:MysteryRankListReq()
+    else
+        if os.time() - self._mysterydata.reqtime > Mystery.REQ_RANK_INTERVIAL then
+            self:MysteryRankListReq()
+        else
+            core.require("xlua/lua_UI/HomeScene/mystery/MysteryRankLayer.txt"):new():show()
+        end
+    end
+end
+
+function Mystery:ShowMysteryWordTips(obj, wordid)
+    local cfg = self:GetMysteryWordCfg(wordid)
+    SingletonMgr:ShowNameDescTipsLayer(obj, cfg.name, cfg.desc)
+end
+
+function Mystery:CtorMysteryBuffUi(obj)
+    local cls       = clsbase:new(obj)
+    cls.nameTxtCom  = cls:GetTextComponent("txt_name")
+    cls.descTxtCom  = cls:GetTextComponent("txt_desc")
+    cls.qltyTxtCom  = cls:GetTextComponent("txt_qlty")
+    cls.attrTxtCom  = cls:GetTextComponent("txt_attr")
+    cls.iconImgCom  = cls:GetImageComponent("img_icon")
+    cls.qltyImgCom  = cls:GetImageComponent("img_qlty")
+    cls.attrImgCom  = cls:GetImageComponent("img_attr")
+    cls.buffid      = 0
+    return cls
+end
+
+function Mystery:SetMysteryBuffUi(cls, buffid)
+    local cfg = self:GetMysteryBuffCfg(buffid)
+    cls.buffid = buffid
+    cls.nameTxtCom.text     = cfg.name
+    cls.nameTxtCom.color    = Mystery.QLTY_COLOR[cfg.level]
+    cls.qltyTxtCom.text     = Mystery.QLTY_WORD[cfg.level]
+    cls.qltyTxtCom.color    = Mystery.QLTY_COLOR[cfg.level]
+    cls.descTxtCom.text     = lua_color_str(cfg.desc)
+
+    local targetType = cfg.target[1]
+    local targetValue = cfg.target[2] or 0
+
+    set_com_enabled(cls.attrTxtCom, targetType == Mystery.BUFF_TARGET_ALL)
+    set_com_enabled(cls.attrImgCom, targetType ~= Mystery.BUFF_TARGET_ALL)
+    if targetType ~= Mystery.BUFF_TARGET_ALL then
+        if targetType < Mystery.BUFF_TARGET_ONE then
+            cls.attrImgCom.sprite = AtlasMgr:LoadAtlasAttr(targetType)
+        else
+            cls.attrImgCom.sprite = AssetLoader:LoadSprite("source_icon/player/player_icon_" .. targetType)
+        end
+    end
+
+    cls.iconImgCom.sprite = AssetLoader:LoadSprite(cfg.icon)
+    cls.qltyImgCom.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.MYSTERY_SYS, Mystery.QLTY_ICON[cfg.level])
+end
+
+function Mystery:ShowFightWinLayer(data, parent)
+    core.require("xlua/lua_UI/HomeScene/mystery/MysteryFightLayer.txt"):new():show(data, parent)
+end
+
+function Mystery:ShowMysteryBuffLayer(buffs)
+    core.require("xlua/lua_UI/HomeScene/mystery/MysteryBuffLayer.txt"):new():show(buffs)
+end
+
+function Mystery:GetCurFightFloorTips()
+    if self._mysterydata.oldfloor == Mystery.MAX_FLOOR_NUM or self._inFightFloor == Mystery.MAX_FLOOR_NUM then
+        return LanguageMgr:GetTextByID(3001054)
+    else
+        if self._inFightFloor > self._mysterydata.oldfloor and self._inFightFloor < Mystery.MAX_FLOOR_NUM then
+            return string.format(LanguageMgr:GetTextByID(3001056), self._inFightFloor+1)
+        else
+            return LanguageMgr:GetTextByID(3001055)
+        end
+    end
+    return ""
+end
+
+function Mystery:ShowMysteryLayer()
+    -- local open, desc = Chapter:ChapterIsOpen(Chapter.MODE_MYSTERY_CID)
+    -- if open then
+    --     core.require("xlua/lua_UI/HomeScene/mystery/MysteryLayer.txt"):new():show()
+    --     return true
+    -- else
+    --     Groble_UIMgr:ShowTipsLayer(desc)
+    --     return false
+    -- end
+end

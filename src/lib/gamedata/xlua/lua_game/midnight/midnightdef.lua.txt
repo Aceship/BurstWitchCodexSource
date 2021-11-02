@@ -1,0 +1,56 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief : 
+--
+MidNight = MidNight or {}
+
+
+MidNight.LayerTypeMain     = 1
+MidNight.LayerTypeTask     = 2
+MidNight.LayerTypeFriend   = 3
+MidNight.LayerTypeWish     = 4
+
+MidNight.OrderImgNames      = {"icon_rank_1", "icon_rank_2", "icon_rank_3"}
+
+MidNight.MidNight_Lottery1  = 1
+MidNight.MidNight_Lottery5  = 5
+
+MidNight.LotteryBoxNumber   = 3
+
+MidNight.LotteryBox1        = 1
+MidNight.LotteryBox2        = 2
+MidNight.LotteryBox3        = 4
+MidNight.LotteryBoxOver     = 7
+MidNight.LOTTERY_BOX_STATE  = {
+    MidNight.LotteryBox1,
+    MidNight.LotteryBox2,
+    MidNight.LotteryBox3,
+}
+
+MidNight.LOTTERY_BOX_IDS    = {1000101, 1000102, 1000103}
+
+MidNight.SettleType_Day = 1;--日结算
+MidNight.SettleType_SmallStage = 2;--小阶段
+MidNight.SettleType_BigStage = 3;--大阶段
+
+MidNight.LIST_TYPE_LAST = 1 --上赛季排行
+MidNight.LIST_TYPE_NOW  = 2 --当前赛季
+MidNight.LIST_TYPE_ALL  = 3  --所有
+
+--小阶段结算步骤类型
+MidNight.SmallStageSettleStep_DayAward = 1;--日奖励
+MidNight.SmallStageSettleStep_LastRank = 2;--上赛季排行
+MidNight.SmallStageSettleStep_Trophy = 3;--奖杯结算
+MidNight.SmallStageSettleStep_Dan = 4;--段位变化
+
+MidNight.LEVEL_ICON_PATHS   = {
+    "source_icon/midnight/img_shengye_duanwei_01",
+    "source_icon/midnight/img_shengye_duanwei_02",
+    "source_icon/midnight/img_shengye_duanwei_03",
+    "source_icon/midnight/img_shengye_duanwei_04",
+    "source_icon/midnight/img_shengye_duanwei_05",
+    "source_icon/midnight/img_shengye_duanwei_06",
+    "source_icon/midnight/img_shengye_duanwei_07",
+    "source_icon/midnight/img_shengye_duanwei_08",
+}

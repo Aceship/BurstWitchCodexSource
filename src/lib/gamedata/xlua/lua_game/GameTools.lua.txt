@@ -1,0 +1,127 @@
+GameTools = {}
+
+--[[function GameTools.Split(s, sp)  
+    local res = {}  
+  
+    local temp = s  
+    local len = 0  
+    while true do  
+        len = string.find(temp, sp)  
+        if len ~= nil then  
+            local result = string.sub(temp, 1, len-1)  
+            temp = string.sub(temp, len+1)  
+            table.insert(res, result)  
+        else  
+            table.insert(res, temp)  
+            break  
+        end  
+    end  
+  
+    return res  
+end ]]--
+
+function GameTools.PrintTable( data,numBlank)
+    if data ~= nil then
+        local blank = "";
+        for i=1,numBlank do
+            blank = blank.."  ";
+        end
+        for k,v in pairs(data) do
+            if type(v) == "table" then
+               
+                CS.Logger.Log(blank.."数据类型:"..type(v).."   "..k);
+                GameTools.PrintTable(v,numBlank+1);
+            else
+                local vaule = v;
+                if type(v) == "boolean" then
+                    if v == true then
+                        vaule = 1;
+                    else
+                        vaule = 0;
+                    end
+                end
+                CS.Logger.Log(blank.."数据类型:"..type(v).."   "..k.."  值:"..tostring(vaule));
+            end
+        end
+    end
+end
+function GameTools.GetCsvValueList( dataInfo,spliteStr)
+    local tempstr = string.gsub(dataInfo,"\r","");
+    local tempSpliteStr = "|";
+    if spliteStr ~= nil then
+        tempSpliteStr = spliteStr
+    end
+    return lua_str_split(tempstr,tempSpliteStr);
+end 
+function GameTools.round(value)
+    value = tonumber(value) or 0
+    return math.floor(value + 0.5)
+end
+function GameTools.GetTimesStr(times)
+    local time = math.floor(times);
+    local allHour = math.floor(time / 3600);
+    local hour = "";
+    if allHour < 10 then
+        hour = "0"..allHour..":"
+    elseif allHour >= 10 and allHour < 100 then
+        hour = allHour..":"
+    else
+        hour = "99:"
+    end
+    local allMin = math.floor((time - allHour * 3600) / 60);
+    local min    = "";
+    if allMin < 10 then
+        min = "0"..allMin..":"
+    else
+        min = allMin..":"
+    end
+
+    local allSec = math.floor(time - (allMin * 60 + allHour * 3600));
+    local sec    = "";
+    if allSec < 10 then
+        sec = "0"..allSec
+    else
+        sec = allSec
+    end
+    return hour..min..sec;
+end
+function GameTools.GetTimesStrSecond(times)
+    local time = math.floor(times);
+    local allHour = math.floor(time / 3600);
+    local allMin = math.floor((time - allHour * 3600) / 60);
+    local allSec = math.floor(time - (allMin * 60 + allHour * 3600));
+
+    local left,allMis =  math.modf(times)
+    allMis = math.floor(allMis * 100)
+
+    local min    = "";
+    if allMin < 10 then
+        min = "0"..allMin..":"
+    else
+        min = allMin..":"
+    end
+
+    
+    local sec    = "";
+    if allSec < 10 then
+        sec = "0"..allSec..":"
+    else
+        sec = allSec..":"
+    end
+
+    local mis    = "";
+    if allMis < 10 then
+        mis = "0"..allMis
+    else
+        mis = allMis
+    end
+    return min..sec..mis;
+end
+function GameTools.MathFloor(num)
+    local left,right =  math.modf(num)
+    --print("left:"..left.." right:"..right)
+    if right > 0.999999 then
+        return left + 1;
+    end
+    return left;
+end

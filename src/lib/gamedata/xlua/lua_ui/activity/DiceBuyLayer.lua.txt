@@ -1,0 +1,184 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-11 11:27:01
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DiceBuyLayer = class("DiceBuyLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    --@ButtonEnd
+}
+--构造函数
+function DiceBuyLayer:ctor(super, parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_DiceBuyLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showBtnBack = true, --返回按钮
+        showTopInfo = true, --顶部货币菜单栏
+        topInfo = Player.CURRENCY_MAIL, --货币类型
+    }; 
+    self._fading = false; 
+    self:onEnter();
+end
+
+--进入Ui调用一次
+function DiceBuyLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DiceBuyLayer:onButtonClick(itype)
+end
+
+--初始化
+function DiceBuyLayer:Init()
+    self._commonDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.Common); 
+    self._specialDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.Special); 
+    self._commonFreeDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.CommonFree);
+    self:InitUI();
+end
+
+--初始化UI
+function DiceBuyLayer:InitUI()
+    --@ImageEnd
+    --@TextEnd
+    self._transCommonDice = self.layer:Get("trans_container/trans_common_dice"); 
+    self._transSpecialDice = self.layer:Get("trans_container/trans_special_dice"); 
+    --@TransformEnd
+    
+    --@RectTransformEnd
+    
+    --@GameObjectEnd
+    
+    self._mTogAutoBuy = self.layer:GetMToggleComponent("trans_container/tog_auto_buy"); 
+    --@MToggleEnd
+    
+    self._mTogAutoBuy.onValueChanged:AddListener(function(isOn)
+       self:OnTogAutoBuyClick(isOn);
+   end);
+    --@MToggleCallBackEnd
+    self._mTogAutoBuy.isOn = Activity:GetChessAutoBuyState(); 
+    self._common = self:InitDiceItem(self._transCommonDice, Activity.DiceType.Common); 
+    self._special = self:InitDiceItem(self._transSpecialDice, Activity.DiceType.Special); 
+end
+
+--显示UI
+function DiceBuyLayer:show()
+    self:SetUI();
+    self:showLayer();
+end
+
+function DiceBuyLayer:showLayer()
+    CBaseLayer.showLayer(self);
+    self:playAni("DiceBuyLayerAni");
+end
+
+--退出按钮事件
+function DiceBuyLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function DiceBuyLayer:onExit()
+    self._mTogAutoBuy = nil; 
+    self._transCommonDice = nil; 
+    self._transSpecialDice = nil; 
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function DiceBuyLayer:OnTogAutoBuyClick(isOn)
+    if (isOn ~= Activity:GetChessAutoBuyState()) then
+        Activity:SetChessAutoBuyState(isOn);
+    end
+end
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function DiceBuyLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG, self.__cname, function()
+        self:SetUI();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DiceBuyLayer:SetUI()
+    local buyNum = Operation:GetGiftBagBoughtNum(self._commonFreeDiceCfg[2])
+    if buyNum <= 0 then
+        self:SetDiceItem(self._common, self._commonFreeDiceCfg);
+    else
+        self:SetDiceItem(self._common, self._commonDiceCfg);
+    end
+    self:SetDiceItem(self._special, self._specialDiceCfg);
+end
+
+function DiceBuyLayer:InitDiceItem(trans, type)
+    local cls = clsbase:new(trans); 
+    cls.imgIcon = cls:GetImageComponent("img_icon"); 
+    cls.imgPriceIcon = cls:GetImageComponent("img_price_icon"); 
+    cls.txtName = cls:GetTextComponent("txt_name"); 
+    cls.txtDes = cls:GetTextComponent("txt_des"); 
+    cls.txtHaveNum = cls:GetTextComponent("txt_have_num"); 
+    cls.txtPrice = cls:GetTextComponent("txt_price"); 
+    cls.btn = cls:GetButtonComponent("btn_buy"); 
+    cls.btn.onClick:AddListener(function()
+        if cls.isFree then
+            Operation:SendMessage(Operation.ActivityID.None,{id = cls.chargeId,num = 1});
+        else
+            Recharge:SetCurSelectGiftPagId(cls.chargeId);
+            Recharge:OpenBuyTipsLayer();
+        end
+    end);
+
+    cls.hongdianNode = cls:GetImageComponent("img_hongdian")
+    cls.freeDesNode = cls:GetTextComponent("txt_priceFree")
+    cls.txtPriceTitleNode = cls:GetTextComponent("txt_price_title")
+    cls.type = type
+    return cls;
+end
+
+function DiceBuyLayer:SetDiceItem(cls, data)
+    cls.chargeId = data[2]; 
+    local charge = Recharge:GetData(data[2]); 
+    local num = Item:GetCount(data[1]) or 0; 
+    local cfg = Item:GetCfg(data[1]); 
+    local curAllPrice = math.ceil(charge.price * charge.discount); 
+    
+    cls.isFree = curAllPrice <= 0
+    cls.hongdianNode:SetEnabled(curAllPrice <= 0)
+    cls.freeDesNode:SetVisible(curAllPrice <= 0)
+    cls.imgPriceIcon:SetEnabled(curAllPrice > 0)
+    cls.txtPrice:SetEnabled(curAllPrice > 0)
+    cls.txtPriceTitleNode:SetEnabled(curAllPrice > 0)
+    
+    cls.txtPrice:SetText(curAllPrice);
+    cls.imgPriceIcon.sprite = Item:LoadSprite(charge.priceId); 
+    if (Item:GetCount(charge.priceId) < curAllPrice) then
+        cls.txtPrice:SetTextColor(1.00, 0.40, 0.32, 1.00);
+    else
+        cls.txtPrice:SetTextColor(0, 0, 0, 1);
+    end
+    
+    cls.txtHaveNum:SetText(string.format(LanguageMgr:GetTextByID(90332), num));
+    cls.txtName:SetText(cfg.Name);
+    cls.txtDes:SetText(lua_color_str(cfg.itemInfo));
+    Item:SetItemIcon(cls.imgIcon.transform, data[1]);
+end
+
+return DiceBuyLayer;

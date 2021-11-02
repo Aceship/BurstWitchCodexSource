@@ -1,0 +1,96 @@
+--
+-- author: haosun
+-- date  : 2018-10-18 10:42:56
+-- brief : 
+--
+
+local Event = class("Event")
+
+function Event:ctor()
+    self._listener = {}
+end
+
+function Event:_checkEvt(category, evtname)
+    if self._listener[category] == nil then
+        return false
+    end
+    if self._listener[category][evtname] == nil then        
+        return false
+    end
+    return true
+end
+
+function Event:addEventListener(category, evtname, func)
+    if func == nil then
+        return
+    end
+    if self._listener[category] == nil then
+        self._listener[category] = {}
+    end
+    if self._listener[category][evtname] == func then
+        return
+    end
+    self._listener[category][evtname] = {func = func, state = true}
+end
+
+function Event:removeEventListener(category)
+    if self._listener[category] == nil then
+        return
+    end
+    self._listener[category] = nil
+end
+
+function Event:removeEventListenerByEvt(category, evtname)
+    if self._listener[category] == nil then
+        return
+    end
+    if self._listener[category][evtname] == nil then
+        CS.Logger.LogError("event listener error: " .. category .. "  " .. evtname)
+    end
+    if self:_checkEvt(category, evtname) then
+        self._listener[category][evtname] = nil
+    end
+end
+
+function Event:fireEvent(category, param)
+    if self._listener[category] == nil then
+        return
+    end
+    for handle, listener in pairs(self._listener[category]) do
+        if listener.state then
+            listener.func(param)
+        end
+    end
+end
+
+function Event:fireEventByEvt(category, evtname, param)
+    if self:_checkEvt(category, evtname) then
+        local listener = self._listener[category][evtname]
+        if listener.state then
+            listener.func(param)
+        end
+    end
+end
+
+function Event:closeEventListener(category, evtname)
+    if self:_checkEvt(category, evtname) then
+        self._listener[category][evtname].state = false
+    else
+        CS.Logger.LogError("event listener error: " .. category .. "  " .. evtname)
+    end
+end
+
+function Event:openEventListener(category, evtname)
+    if self:_checkEvt(category, evtname) then
+        self._listener[category][evtname].state = true
+    else
+        CS.Logger.LogError("event listener error: " .. category .. "  " .. evtname)
+    end
+end
+
+function Event:ClearListener()
+    self._listener = {}
+end
+
+return Event
+

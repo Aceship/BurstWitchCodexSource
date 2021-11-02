@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2019-01-18 17:01:01
+-- brief : 
+--
+Shop = Shop or {}
+
+function Shop:SetRmbIcon(img)
+    if GameSdkMgr:IsIssueJuren() then
+        local _currency = GameSdkMgr:GetCurrency()
+        if _currency == "CNY" then
+            img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_RMB)
+        elseif _currency == "TWD" then
+            img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_TW)
+        elseif _currency == "HKD" then
+            img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_HK)
+        elseif _currency == "USD" then
+            img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_US)
+        else
+            img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_TW)
+        end
+    else
+        img.sprite = AtlasMgr:LoadAtlasSprite(Shop.ATLAS_PTAH, Shop.ICON_RMB)
+    end
+end
+
+function Shop:SetBuyCountUi(txtObj, imgObj)
+    local rt = imgObj:GetComponent("RectTransform")
+    local x = rt.localPosition.x + rt.sizeDelta.x + 18
+    u3d_set_localPos(txtObj, x)
+end
+

@@ -1,0 +1,61 @@
+UpLoadVideo = UpLoadVideo or {}
+
+function UpLoadVideo:InitData()
+    self._playerData = nil;
+    self._curVideoType = 0;
+    self._curScore = 0;
+    self._curVideoTime = 0;
+    self._isReport = false;
+end
+
+function UpLoadVideo:SetIsReportState(isReport)
+    self._isReport = isReport or false;
+end
+
+function UpLoadVideo:GetIsReportState()
+    return self._isReport;
+end
+
+function UpLoadVideo:SetVideoTime(videoTime)
+    self._curVideoTime = videoTime or 0;
+end
+
+function UpLoadVideo:CloseVideoTime()
+    self._curVideoTime = 0;
+end
+
+function UpLoadVideo:GetVideoTime()
+    return self._curVideoTime;
+end
+
+function UpLoadVideo:SetPlayerData(playerData)
+    self._playerData = playerData or {};
+end
+
+function UpLoadVideo:GetPlayerData()
+    return  self._playerData or {};
+end
+
+function UpLoadVideo:SetCurVideoType(videoType)
+    self._curVideoType = videoType or 0;
+end
+
+function UpLoadVideo:GetCurVideoType()
+    return self._curVideoType;
+end
+
+function UpLoadVideo:CloseCurVideoType()
+    self._curVideoType = 0;
+end
+
+function UpLoadVideo:SetCurScore(score)
+    self._curScore = score or 0;
+end
+
+function UpLoadVideo:GetCurScore()
+    return self._curScore;
+end
+
+function UpLoadVideo:CloseCurScore()
+    self._curScore = 0;
+end

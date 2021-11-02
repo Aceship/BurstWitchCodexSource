@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2018-11-11 14:00:12
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Skill/skill.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Skill/skillconfig.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Skill/skilldef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Skill/skillui.txt")
+
+Skill:Ctor()
+Skill:_LoadConfig()

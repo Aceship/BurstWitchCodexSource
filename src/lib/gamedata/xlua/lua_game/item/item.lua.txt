@@ -1,0 +1,177 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 16:08:36
+-- brief : 
+--
+Item = Item or {}
+
+function Item:Ctor()
+    self._items = {}
+    self._item_icon_path = {}
+end
+
+function Item:Clear()
+    self:Ctor()
+end
+
+function Item:GetItems()
+    return self._items
+end
+
+function Item:GetCount(configid)
+    configid = tonumber(configid)
+    if Player.kPlayerItem2Value[configid] == nil then
+        if self._items[configid] ~= nil then
+            return self._items[configid].count
+        else
+            return 0
+        end
+    else
+        return Player:GetValue(Player.kPlayerItem2Value[configid])
+    end
+end
+
+function Item:CheckCount(cfgid, value)
+    cfgid = tonumber(cfgid)
+    if Player.kPlayerItem2Value[cfgid] == nil then
+        return self:GetCount(cfgid) >= value
+    else
+        return Player:CheckCurrency(Player.kPlayerItem2Value[cfgid], value)
+    end
+end
+
+function Item:GetItemsBySubType(subtype)
+    local items = {}
+    for _, v in pairs(self._items) do
+        local config = self:GetCfg(v.configid)
+        if config ~= nil and tonumber(config.subType) == subtype then
+            local sortid = tonumber(config.Star) * 100000000 + tonumber(v.configid)
+            if subtype == Item.SUBTYPE_EQUIP_UP or tonumber(config.countmax) == 1 then
+                for i = 1, v.count do
+                    table.insert(items, {sortid = sortid, itype = Bag.TYPE_ITEM, uid = v.configid, count = 1})
+                end
+            else
+                table.insert(items, {sortid = sortid, itype = Bag.TYPE_ITEM, uid = v.configid, count = v.count})
+            end
+        end
+    end
+    return items
+end
+
+--获取装备升级材料
+function Item:GetEquipUpMaterial()
+    local items = {}
+    for _, v in pairs(self._items) do
+        local config = self:GetCfg(v.configid)
+        local sortid = tonumber(config.Star) * 100000000 + tonumber(v.configid)
+        if tonumber(config.subType) == Item.SUBTYPE_EQUIP_UP then
+            table.insert(items, {sortid = sortid, itype = Bag.TYPE_ITEM, uid = v.configid, count = v.count})
+        end
+    end
+    return items
+end
+
+function Item:GetTransExp(cfgid)
+    local cfg = self:GetCfg(cfgid)
+    if cfg == nil then
+        return 0
+    end
+    return tonumber(cfg.trans_exp)
+end
+
+function Item:ExistGift()
+    if true then
+        return false -----暂时屏蔽
+    end
+    if not  Player:IsSysFuncOpen(Player.SYS_FUNC.sys_bag) then
+        return false
+    end
+    for _, v in pairs(self._items) do
+        local cfg = Item:GetCfg(v.configid)
+        if Item.SUBTYPE_GIFT == tonumber(cfg.subType) then
+            return true
+        end
+    end
+    return false
+end
+-- 
+-- Brief: 出售可获取奖励
+-- 
+function Item:SellGetItems(sells)
+    local tbl, tmp, cfg = {}
+    for _, v in pairs(sells) do
+        cfg = self:GetCfg(v.id)
+        tmp = lua_parse_cfg(cfg.canSell)
+        for _, vv in pairs(tmp) do
+            local id = tonumber(vv[1])
+            if tbl[id] == nil then
+                tbl[id] = tonumber(vv[2])*v.count
+            else
+                tbl[id] = tbl[id] + tonumber(vv[2])*v.count
+            end
+        end
+    end
+    local items = {}
+    for id, num in pairs(tbl) do
+        table.insert(items, {Bag.TYPE_ITEM, id, num})
+    end
+    return items
+end
+
+-- 
+-- Brief: 前端出售数据转为服务器需要的数据类型
+-- 
+function Item:Sell2Server(sells)
+    local tbl = {}
+    for _, v in pairs(sells) do
+        local id = tonumber(v.id)
+        if tbl[id] == nil then
+            tbl[id] = v.count
+        else
+            tbl[id] = tbl[id] + v.count
+        end
+    end
+    return tbl
+end
+
+function Item:GetItemsByItemType(itype)
+    local items = {}
+    for _, v in pairs(self._items) do
+        local config = self:GetCfg(v.configid)
+        if config ~= nil and tonumber(config.itemType) == itype then
+            items[v.configid] = { uid = v.configid, count = v.count,sortid = v.configid}
+        
+        end
+    end
+    return items
+end
+--是否有经验药水
+function Item:HasExpMedicine()
+    local ids = Item:GetCfgBySubType(Item.SUBTYPE_HERO_EXP)
+    local count
+    for i, v in ipairs(ids) do
+        count = Item:GetCount(v)
+        if count > 0 then
+            return true
+        end
+    end
+    return false
+end
+
+function Item:SetItemAfterLoginSucc()
+    local drops = self:GetDrops(Item.ITEM_POWER_ID)
+    Item.ITEM_ADD_POWER = drops[1][3]
+    Item.AUTO_ITEM_ID   = Player:GetAutoItemId()
+end
+
+function Item:OnItemTdOper(cfgid, value, reason, param, oldCount, allCount)
+    if reason == nil or reason == 0 then reason = -1 end
+    
+    local cfg = self:GetCfg(cfgid)
+    local count = self:GetCount(cfgid)
+    if value > 0 then
+        GZSDKHelper:itemFlowWithPlayerInfo("add", cfgid, cfg.Name, cfg.itemType, value, oldCount, allCount, logmsg[reason])
+    elseif value < 0 then
+        GZSDKHelper:itemFlowWithPlayerInfo("add", cfgid, cfg.Name, cfg.itemType, value, oldCount, allCount, logmsg[reason])
+    end
+end

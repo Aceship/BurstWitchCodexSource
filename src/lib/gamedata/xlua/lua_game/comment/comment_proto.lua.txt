@@ -1,0 +1,13 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-28 11:54:07
+---
+-----------------------------------------------------------------------proto包名------------------------------------------------------------------------------
+Comment.QueryDiscussReq = "QueryDiscussReq";
+Comment.QueryDiscussRep = "QueryDiscussRep";
+Comment.MessageUnit = "MessageUnit";
+Comment.QueryMoreReplyReq = "QueryMoreReplyReq";
+Comment.QueryMoreReplyRep = "QueryMoreReplyRep";
+Comment.QueryMdlCmtCountReq = "QueryMdlCmtCountReq";
+Comment.QueryMdlCmtCountRep = "QueryMdlCmtCountRep";
+Comment.MdlCmtCountUnit = "MdlCmtCountUnit";

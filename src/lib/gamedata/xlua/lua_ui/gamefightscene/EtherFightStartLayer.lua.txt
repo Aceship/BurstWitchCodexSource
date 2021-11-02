@@ -1,0 +1,56 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-25 10:01:07
+---
+
+local baseanimation = core.require("xlua/lua_UI/BaseAnimation.txt")
+local EtherFightStartLayer = class("EtherFightStartLayer", baseanimation)
+
+--构造函数
+function EtherFightStartLayer:ctor(super)
+    baseanimation.ctor(self)
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiHome/ui_fight/UI_EtherFightStartLayer")
+    self.layer:AddAnimationBehaviour(self)
+    self.layer:SetVisible(false)
+
+    self._strategyAffixs = Ether:GetCurAffixDataByType(Ether.Affix_Strategy,true);
+    self._supportAffixs = Ether:GetCurAffixDataByType(Ether.Affix_Support,true);
+
+    self._strategyItems = {};
+
+    local _item
+    for i = 1, 15 do
+        _item = self.layer:Get("tactic_item_bg/item_"..i)
+        self:SetAffixItem(_item, self._strategyAffixs[i])
+    end
+    
+    for i = 1, 5 do
+        _item = self.layer:Get("support_item_bg/item_"..i)
+        self:SetAffixItem(_item, self._supportAffixs[i])
+    end
+end
+
+function EtherFightStartLayer:SetAffixItem(_item, data)
+    if data ~= nil then
+        local cfg = Ether:GetAffixCfgById(data.id)
+        _item:GetTextComponent("item_affix/txt_index").text = data.curLv
+        _item:GetImageComponent("item_affix/img_icon"):LoadSprite(cfg.icon)
+        _item:GetImageComponent("img_is_null"):SetVisible(false)
+    else
+        _item:Get("item_affix"):SetVisible(false)
+    end
+end
+
+function EtherFightStartLayer:showLayer(callback)
+    self.layer:SetVisible(true)
+    self._callback = callback
+end
+
+function EtherFightStartLayer:onLayerFadeInEndCall()
+    self._callback()
+    self._callback = nil
+    self.layer:Release()
+    self.layer = nil
+end
+
+return EtherFightStartLayer

@@ -1,0 +1,70 @@
+--
+-- author: haosun
+-- date  : 2020-02-18 23:29:42
+-- brief : 
+--
+
+Mystery = Mystery or {}
+
+function Mystery:MysteryRankListReq()
+    Rank:RankListReq(Rank.TYPE_MYSTERY)
+end
+
+-- list = {{玩家id, 层*10000 + (10000 - 通关时间), 玩家名, 等级, 边框, 头像}, ... }
+function Mystery:MysteryRankListRes(list)
+    self._mysterydata.ranklist  = {}
+    local floor = 0
+    -- id, floor, name, level, border, head, sortid
+    for _, v in ipairs(list or {}) do
+        floor = math.floor(tonumber(v[2])/10000)
+        table.insert(self._mysterydata.ranklist, {tonumber(v[1]), floor, v[3], tonumber(v[4]), tonumber(v[5]), tonumber(v[6]), tonumber(v[2])})
+    end
+    
+    self._mysterydata.reqtime   = os.time()
+    if self._mysterydata.floor == 0 then
+        self:ShowMysteryRankLayer()
+    else
+        Rank:GetRankingReq(Rank.TYPE_MYSTERY)
+    end
+end
+
+function Mystery:MysteryRankingRes(ranking)
+    self._mysterydata.ranking = ranking or 0
+    self:ShowMysteryRankLayer()
+end
+
+function Mystery:GetMysteryRankingInfo()
+    return self._mysterydata.ranking or 0,self._mysterydata.floor
+end
+
+function Mystery:MysteryRankRewardReq()
+    Network:CallServerScript({c2s.DUNGEON_SETTLE_RIFT_REQ})
+end
+
+function Mystery:MysteryRankRewardRes(drops)
+    self._mysterydata.settle = 0
+    Bag:ShowDrops(drops)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MYSTERY_SETTLE)
+end
+
+function Mystery:MysteryBuyTimesReq()
+    Network:CallServerScript({c2s.DUNGEON_ADD_RIFT_REWARD_NUM_REQ})
+end
+
+function Mystery:MysteryBuyTimesRes(remain, buynum)
+    self._mysterydata.remain    = remain
+    self._mysterydata.buyTimes  = buynum
+    GEvent:fireEvent(EVENT_TYPE.MYSTERY_BUY_TICKET)
+end
+
+function Mystery:MysteryNotify(words, levelids)
+    self._mysterydata.words = words
+    self._mysterydata.levelids = levelids
+    self._mysterydata.settle = self._mysterydata.floor > 0
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.DUNGEON_SETTLE_RIFT_RES]        = {Mystery, Mystery.MysteryRankRewardRes}
+c2s[c2s.DUNGEON_ADD_RIFT_REWARD_NUM_RES]= {Mystery, Mystery.MysteryBuyTimesRes}
+c2s[c2s.DUNGEON_RIFT_DATA_CHANGE_NTF]   = {Mystery, Mystery.MysteryNotify}

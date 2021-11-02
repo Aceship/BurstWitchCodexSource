@@ -1,0 +1,143 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Build = Build or {}
+
+Build.CostIds = {Player.BUILD_LV_UP_COST,Player.BUILD_LV_UP_HIGH_COST};
+function Build:Ctor()
+    Build:InitData();
+    self._buildDotAddNum = {};
+    self._buildLvData = {};
+    self._bTypeAddAttr = {};
+    self._objBuildBook = nil;
+    self._isFirstOpen = false;
+    self._buildTypeLayer = nil;
+end
+
+function Build:BuildClear()
+    self:CloseScene()
+    self:Ctor()
+end
+
+function Build:GetHeroUseState(heroId)
+    local useState,retType = false;
+    for atkType, data in pairs(self._buildServerData) do
+        for _, v in ipairs(data.heroIds) do
+            if(heroId == v)then
+                useState = true;
+                retType = atkType;
+                break;
+            end
+        end
+    end
+    return useState,retType
+end
+
+function Build:GetBuildLvIsUp(atkType)
+    if(not Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up))then
+        return false;
+    end
+    local curLvData = Build:GetBuildLvDataByAtkType(atkType);
+    local nextLvData = Build:GetNextLvData(atkType,curLvData);
+    if(curLvData.lv == nextLvData.lv)then
+        return false;
+    end
+    local lvUpCfg = Build:GetBuildLevelUpCfgById(nextLvData.id);
+    for _, v in ipairs(lvUpCfg.costs) do
+        if(v ~= nil)then
+            if(Item:GetCount(v[1]) < v[2])then
+                return false;
+            end
+        end
+    end
+    return true;
+end
+
+function Build:GetNextLvData(atkType,curLvData)
+    if(curLvData.lvMax == false)then
+        local nextLvData = Build:NewBuildLvData(atkType);
+        for i = 1, curLvData.lv + 1 do
+            Build:AddBuildLvData(nextLvData,i);
+        end
+        return nextLvData;
+    else
+        return curLvData;
+    end
+end
+
+function Build:GetBuildTypeIsLock(atkType)
+    local heroIds = Hero:GetIdsByAtkType(atkType,true);
+    return #heroIds <= 0;
+end
+
+----------------------------------------------------------------------
+
+function Build:CloseScene()
+    if(self._objBuildBook ~= nil)then
+        self._objBuildBook.transform.parent.gameObject:Release();
+    end
+    self._objBuildBook = nil;
+end
+
+function Build:IsFirstOpen()
+    return self._isFirstOpen;
+end
+
+--获取构筑角色解锁等级
+function Build:GetBuildHeroUnlockLvByType(buildType)
+    local cfg = Build:GetAtkTypeCfgById(buildType);
+    if(cfg == nil)then
+        AppMgr:LogError("cfg is nil   **pos = Build:GetBuildHeroUnlockLvByType**   buildType = " .. buildType);
+        return {};
+    end
+    return cfg.buildUnlockLv;
+end
+
+function Build:SetBuildGuide(state)
+    self._isBuildGuide = state
+end
+
+function Build:IsBuildGuide()
+    if self._isBuildGuide then
+        self._isBuildGuide = false
+        return true
+    end
+    return false
+end
+
+function Build:ExistBuildAddTips()
+    -- 功能是否解锁
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_bulid) then return false end
+    -- 遍历所有构筑类型
+    for _, buildType in pairs(Hero.BuildAtk) do
+        if self:IsBuildAddTips(buildType) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function Build:IsBuildAddTips(buildType)
+    if buildType == nil then return false end
+
+    -- 该类型的法典是否已解锁
+    if self:GetBuildTypeIsLock(buildType) then return false end
+    -- 玩家等级大于30级，表示玩家对法典已熟悉
+    if Player:GetLevel() > 30 then return false end
+    -- 法典构筑点判断
+    local serverData = self:GetBuildServerDataByAtkType(buildType)
+    local buildLvData = self:GetBuildLvDataByAtkType(buildType)
+
+    local data
+    local pointAdd = buildLvData.pointAdd
+    for _, v in ipairs(serverData.dotIds) do
+        data = self:GetDotAddLvById(v)
+        if data ~= nil then
+            pointAdd = pointAdd - (data.addLv or 0)
+        end
+    end
+
+    return pointAdd > 0
+end

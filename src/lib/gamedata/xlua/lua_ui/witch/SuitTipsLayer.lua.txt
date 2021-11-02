@@ -1,0 +1,157 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-21 15:44:54
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SuitTipsLayer = class("SuitTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBack = "btn_close",
+	--@ButtonEnd
+}
+--构造函数
+function SuitTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEquip/UI_SuitTipsLayer",
+    }
+    self._fading = false;
+    self._uitype = 2;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function SuitTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function SuitTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then
+	   self:OnBtnBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+
+
+--初始化
+function SuitTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function SuitTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtDes = self.layer:GetTextComponent("trans_container/txt_des");
+	--@TextEnd
+
+
+end
+
+--显示UI
+function SuitTipsLayer:show(trans, equip, suitnum)
+
+    self:refreshPos(trans)
+    self:setInfo(equip,suitnum)
+    self:showLayer();
+end
+
+function SuitTipsLayer:setInfo(equip ,num)
+    local exist = false
+    exist = equip.suitid ~= Equip.SUIT_NULL
+    local desc = nil
+    local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM) or {}
+    local suitcfg, deskillcfg, tmpdesc
+    local suitnum = 0   -- 已达成的数量
+    for _, v in pairs(suitcfgids) do
+        suitcfg = Equip:GetEquipSuitCfg(v)
+        deskillcfg = Skill:GetCfgByTypeIdStr(suitcfg.skill)
+        if num > 0 then
+            suitnum = num
+        else
+            suitnum = (equip.heroid == 0) and 0 or Hero:EquipSuitExistNum(equip.heroid, equip.suitid)
+            suitnum = lua_math_in_range(suitnum,0,suitcfg.num);
+        end
+        tmpdesc = string.format(LanguageMgr:GetTextByID(99000042), suitnum, suitcfg.num, deskillcfg and deskillcfg.desc or "")
+        if suitnum < suitcfg.num then
+            tmpdesc = string.format(LanguageMgr:GetTextByID(99000043), tmpdesc)
+        end
+        if desc == nil then
+            desc = tmpdesc
+        else
+            desc = desc .. "\n" .. tmpdesc
+        end
+    end
+    self._txtDes.text = lua_color_str(desc)
+
+    self.layer:GetTextComponent("trans_container/txt_title").text = Equip:GetEquipSuitCfg(equip.suitid).name
+end
+
+--释放
+function SuitTipsLayer:onExit()
+
+self._txtDes = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function SuitTipsLayer:OnBtnBackClick()
+    self:onPopLayer();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function SuitTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function SuitTipsLayer:refreshPos(trans)
+    -- 计算位置
+    if(trans.position == nil)then
+        trans = trans.transform;
+    end
+    self.layer.transform:Find("trans_container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local rect = self.layer.transform:Find("trans_container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-rect.sizeDelta.x/2,rect.sizeDelta.x/2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y * 1.5 > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y/2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y/2 - 50;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2)+ transRect.sizeDelta.y/2 - 0;
+    end
+    if posX <= -213 then
+        posX = -213
+    end
+    if posX >= 213 then
+        posX = 213
+    end
+    posY = posY - 360
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+return SuitTipsLayer;

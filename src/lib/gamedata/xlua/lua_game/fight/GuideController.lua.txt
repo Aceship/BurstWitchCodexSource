@@ -1,0 +1,333 @@
+--
+-- author: haosun
+-- date  : 2020-07-15 10:29:58
+-- brief : 
+--
+TutorialController = TutorialController or {}
+
+local _NIL_LEVEL    = 0
+local _FIRST_LEVEL  = 1
+local _LAST_LEVEL   = 4
+
+local s_oper_nil    = 1     -- 补位
+local s_oper_text   = 2     -- 描述
+local s_oper_click  = 3     -- 点击
+
+local s_code_move       = 1     -- 移动教学
+local s_code_point      = 2     -- 红点判定
+local s_code_drop       = 3     -- 道具引导
+local s_code_autoplay   = 4     -- 引导勾选自动必杀
+local s_code_skill      = 5     -- 技能介绍
+local s_code_energy     = 6     -- 精力条
+local s_code_autoskill  = 7     -- 蓄力条
+local s_code_change     = 8     -- 换人介绍
+local s_code_wipe       = 9     -- 擦弹
+local s_code_noenergy   = 10    -- 精力耗尽
+local s_code_hero_gun   = 11    -- 爆鸣系魔女
+local s_code_hero_juhun = 12    -- 聚魂系魔女
+
+function TutorialController:InitTutorialController()
+    if self._tutorial_cfg == nil then
+        self._tutorial_cfg = {}
+        local id
+        local cfgs, id = CfgLoader:LoadCfgTable("tutorial_cfg")
+        for _, v in pairs(cfgs) do
+            id = tonumber(v.id)
+            self._tutorial_cfg[id] = {
+                oper_type   = tonumber(v.oper_type),
+                oper_code   = tonumber(v.oper_code),
+                witch_id    = tonumber(v.witch_id),
+                title_id    = tonumber(v.title_id),
+                text_id     = tonumber(v.text_id),
+                is_auto     = v.is_auto == "1",
+                nextid      = tonumber(v.nextid),
+                nomove      = v.nomove == "1",
+                show_arr    = v.show_arr == "1",
+                show_move   = v.show_move == "1",
+                auto_end    = tonumber(v.auto_end),
+                helpId      = tonumber(v.helpId),
+                mask_click  = v.mask_click == "1",
+                enter_trigger = v.enter_trigger == "1",
+                battlevoice_id = tonumber(v.battlevoice_id),
+            }
+            if v.move_pos ~= "-1" then
+                self._tutorial_cfg[id].move_pos = lua_str_split(v.move_pos, "&", true)
+            end
+            if v.arrow_info ~= "-1" then
+                self._tutorial_cfg[id].arrow_info = lua_str_split(v.arrow_info, "&", true)
+            end
+            if v.pos_info ~= "-1" then
+                self._tutorial_cfg[id].pos_info = lua_str_split(v.pos_info, "&", true)
+            end
+        end
+        cfgs = nil
+    end
+    self._nextid = -1
+    self:UnInitTutorialController()
+end
+
+function TutorialController:UnInitTutorialController()
+    self._tutorial_level = _NIL_LEVEL
+    self._TextTutorialLayer     = nil
+    self._clickTutorialLayer    = nil
+    self._isTutorialLevel       = false
+    self._witchId = -1
+end
+
+function TutorialController:OnTutorialLevel(levelid)
+    if levelid == Guide.GUIDE_LEVEL_ID then
+        self._tutorial_level = _FIRST_LEVEL
+    else
+        self._tutorial_level = _NIL_LEVEL
+    end
+    self._isTutorialLevel = true
+end
+
+function TutorialController:IsTutorialLevel()
+    return self._isTutorialLevel and self._tutorial_level ~= _NIL_LEVEL
+end
+
+function TutorialController:IsFirstTutorial()
+    return self._tutorial_level == _FIRST_LEVEL
+end
+
+function TutorialController:IsTutorialEnd()
+    if self._tutorial_level ~= _LAST_LEVEL then return false end
+    self:UnInitTutorialController()
+    return true
+end
+
+function TutorialController:CheckTutorialLevel()
+    if not self._isTutorialLevel then return end
+    self._trigger = false
+    Timer:AddTimerCall(0.1, function()
+        self:NextTutorial(FightController:GetLevelId())
+    end)
+end
+
+function TutorialController:TutorialTrigger()
+    self._trigger = true
+    self:NextTutorial(self._nextid)
+end
+
+function TutorialController:ExitTutorialController(testid)
+    if self._clickTutorialLayer ~= nil then
+        self._clickTutorialLayer:Release()
+        self._clickTutorialLayer = nil
+    end
+    if self._TextTutorialLayer ~= nil then
+        self._TextTutorialLayer:TextTutorialLayerDestructor()
+        self._TextTutorialLayer = nil
+    end
+    AppMgr:LogInfo("-------- 引导退出 --------" .. testid)
+    FightController:TutorialExit()
+end
+
+function TutorialController:NextTutorial(cfgid)
+    if cfgid == -1 then self:ExitTutorialController(1) return end
+    
+    if self._tutorial_cfg == nil then self:ExitTutorialController(2) return end
+
+    local cfg = self._tutorial_cfg[cfgid]
+    if cfg == nil then self:ExitTutorialController(3) return end
+    
+    if (not cfg.is_auto) and (not self._trigger) then
+        self:ExitTutorialController(4)
+        return
+    end
+    self._nextid    = cfg.nextid
+    self._opercode  = cfg.oper_code
+    self._opertype  = cfg.oper_type
+
+    if cfg.oper_type == s_oper_nil then
+        self._witchId = cfg.witch_id
+        FightController:TutorialEnter()
+        self:NextTutorial(self._nextid)
+    elseif cfg.oper_type == s_oper_text then
+        if cfg.oper_code == s_code_move then
+            AppMgr:LogInfo("-------- 引导移动 --------")
+        elseif cfg.oper_code == s_code_point then
+            AppMgr:LogInfo("-------- 引导红点 --------")
+        elseif cfg.oper_code == s_code_energy then
+            AppMgr:LogInfo("-------- 引导精力 --------")
+        elseif cfg.oper_code == s_code_autoskill then
+            AppMgr:LogInfo("-------- 引导蓄力 --------")
+        elseif cfg.oper_code == s_code_wipe then
+            AppMgr:LogInfo("-------- 引导擦弹圈 --------")
+            UI_FightPlayerLayer:ShowWipeCircle()
+        end
+        self:_showTextTutorial(cfg)
+    elseif cfg.oper_type == s_oper_click then
+        if cfg.oper_code == s_code_skill then
+            AppMgr:LogInfo("-------- 引导技能 --------")
+            self._trigger = false
+            UI_ChangePlayerLayer:ShowChangePlayerSkillEffect()
+        elseif cfg.oper_code == s_code_change then
+            AppMgr:LogInfo("-------- 引导换人 --------")
+            self._trigger = false
+            UI_ChangePlayerLayer:ShowPlayerByTutorial()
+        elseif cfg.oper_code == s_code_noenergy then
+            AppMgr:LogInfo("-------- 引导精力耗尽 --------")
+            self._trigger = false
+            UI_ChangePlayerLayer:ShowPlayerByNoEnergy()
+        end
+        self:_showClickTutorial(cfg)
+    else
+        AppMgr:LogError("--------------未处理的引导类型--------------")
+    end
+end
+
+function TutorialController:TalkTutorialEnd()
+    self:NextTutorial(self._nextid)
+end
+
+function TutorialController:_showTextTutorial(cfg, x, y)
+    if self._TextTutorialLayer == nil then
+        self._TextTutorialLayer = core.require("xlua/lua_Game/Fight/ui/TextTutorialLayer.txt"):new()
+    end
+    self._TextTutorialLayer:TextTutorialLayerEnter(cfg, x, y)
+end
+
+function TutorialController:TextTutorialEnd()
+    if self._opertype == s_oper_text then
+        if self._opercode == s_code_drop or self._opercode == s_code_autoskill then
+            FightController:EnterFightState()
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        elseif self._opercode == s_code_wipe then
+            FightController:EnterFightState()
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+            UI_FightPlayerLayer:DestoryWipeCircle()
+        elseif self._opercode == s_code_hero_gun or self._opercode == s_code_hero_juhun then
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        end
+    end
+    self:NextTutorial(self._nextid)
+end
+
+--
+-- 点击教学完成
+-- 
+function TutorialController:ClickTutorialComplete()
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+        self._timerId = nil
+    end
+    if self._TextTutorialLayer ~= nil then
+        self._TextTutorialLayer:ExitTextTutorialLayer()
+    end
+    UI_ChangePlayerLayer:ClearChangeTutorial()
+    -- if self._opercode == s_code_noenergy then
+    --     LuaScriptController:GamePause(false)
+    -- end
+    if self._clickTutorialLayer == nil then return end
+    self._clickTutorialLayer:SetVisible(false)
+    self:NextTutorial(self._nextid)
+end
+
+function TutorialController:GetTutorial(id)
+    if self._tutorial_cfg == nil then
+        return nil
+    end
+    return self._tutorial_cfg[id]
+end
+
+function TutorialController:IsTutorialTrigger(levelid)
+    if self._tutorial_cfg == nil then
+        LuaScriptController:AwakenEjector()
+        return false
+    end
+
+    local _config = self._tutorial_cfg[levelid]
+    if _config == nil then
+        LuaScriptController:AwakenEjector()
+        return false
+    end
+
+    if _config.oper_code == s_code_autoplay then
+        if Guide:OnceGuideCheck(Guide.FIRST_ENTER_1_6) then
+            UI_FightStaticLayer:ShowAutoSkillTutorial(_config)
+        else
+            LuaScriptController:AwakenEjector()
+        end
+    elseif _config.oper_code == s_code_energy then
+        if Guide:OnceGuideCheck(Guide.FIRST_ENTER_1_2) then
+            LuaScriptController:GamePause(true)
+            self:NextTutorial(levelid)
+        else
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        end
+    elseif _config.oper_code == s_code_point then
+        if Guide:OnceGuideCheck(Guide.FIRST_FIGHT_DRUG2) then
+            FightController:EnterGuideState()
+            LuaScriptController:GamePause(true)
+            self:NextTutorial(levelid)
+        else
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        end
+    elseif _config.oper_code == s_code_noenergy then
+        -- LuaScriptController:GamePause(true)
+        self._trigger = true
+        self:NextTutorial(levelid)
+    elseif _config.oper_code == s_code_hero_gun then
+        if Guide:OnceGuideCheck(Guide.FIRST_FIGHT_RANDOM2) then
+            LuaScriptController:GamePause(true)
+            self:NextTutorial(levelid)
+        else
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        end
+    elseif _config.oper_code == s_code_hero_juhun then
+        if Guide:OnceGuideCheck(Guide.FIRST_ENTER_3_1) then
+            LuaScriptController:GamePause(true)
+            self:NextTutorial(levelid)
+        else
+            LuaScriptController:AwakenEjector()
+            LuaScriptController:GamePause(false)
+        end
+    end
+end
+
+function TutorialController:_showClickTutorial(cfg)
+    if self._clickTutorialLayer == nil then
+        self._clickTutorialLayer = CanvasMgr:CreateCanvasChild("tutorial_dir/tutorial_click")
+    end
+    local x = cfg.pos_info[2]
+    local y = cfg.pos_info[3]
+    if(cfg.pos_info[1] == 3) then
+        if(PrefsController:IsFightRight()) then
+            x = -x
+        end
+    end
+    self._clickTutorialLayer:SetPosition(x, y, 0, true)
+    self._clickTutorialLayer:SetVisible(true)
+    if cfg.helpId ~= -1 then
+        local _config = self._tutorial_cfg[cfg.helpId]
+        if _config.oper_type == s_oper_text then
+            self:_showTextTutorial(_config)
+        end
+    end
+    if cfg.auto_end > 0 then
+        self._timerId = Timer:AddTimerCall(cfg.auto_end, function()
+                self._timerId = nil
+                self:ClickTutorialComplete()
+            end)
+    end
+end
+
+function TutorialController:DropTutorialTrigger(x, y)
+    local level = FightController:GetLevelCfg()
+    if level.open then
+        LuaScriptController:AwakenEjector()
+        return
+    end
+    LuaScriptController:GamePause(true)
+    local _config = self._tutorial_cfg[10010101]
+    self._opertype = _config.oper_type
+    self._opercode = _config.oper_code
+    self:_showTextTutorial(_config, x-84, y-400)
+end

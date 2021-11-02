@@ -1,0 +1,346 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-03-26 18:53:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildTypeLayer = class("BuildTypeLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnCloseBuildSelect = "trans_container/btn_close_build_select",
+	--@ButtonEnd
+}
+
+
+--构造函数
+function BuildTypeLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildTypeLayer",
+    }
+    self._fading = false;
+    self._init = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuildTypeLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("build_item"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_top_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container"))
+
+end
+
+--按钮事件
+function BuildTypeLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnCloseBuildSelect)then
+        self:OnBtnCloseBuildSelectClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+    
+end
+
+--初始化
+function BuildTypeLayer:Init()
+    self._curShowType = nil;
+    self._buildCurLvData = nil;
+    self._buildTypeItems = {};
+    self:InitUI();
+    self:InitBuildTypeItems();
+end
+
+--初始化UI
+function BuildTypeLayer:InitUI()
+
+	--@ImageEnd
+
+    self._txtTopTitle = self.layer:GetTextComponent("trans_top_title/txt_top_title");
+	--@TextEnd
+
+	self._transTopTitleE = self.layer:Get("trans_top_title/txt_top_title_E");
+	self._transTitle1 = self.layer:Get("trans_top_title/img_title_1");
+	self._transTitle2 = self.layer:Get("trans_top_title/img_title_2");
+	--@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    self._mTogItem = self.layer:GetMToggleComponent("build_item");
+	--@MToggleEnd
+
+    self._mTogItem.onValueChanged:AddListener(function (isOn)
+	   self:OnTogItemClick(isOn);
+   end);
+	--@MToggleCallBackEnd 
+
+    --set_com_enabled(self._imgLvUpLock,not Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up));
+    --[[if(not Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up))then
+        self._imgBtnLvUp:SetImageColor(114/255 , 114/255 , 114/255, 1);
+    else
+        self._imgBtnLvUp:SetImageColor(1, 1, 1, 1);
+    end]]--
+    self._buildItem = Build:NewBuildItem(self.layer:Get("build_item"));
+end
+
+--显示UI
+function BuildTypeLayer:show()
+    self:showLayer();
+    self:playAni("BuildLayerAnim")
+end
+
+function BuildTypeLayer:showLayer()
+    if(not self._init)then
+        WitchDemoSkill:InitWitchDemoSkill(Hero.AtkTypeHeroId[self._atkType], nil, true);
+    else
+        self._init = false;
+    end
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function BuildTypeLayer:CloseLayer()
+    self:onPopLayer();
+end
+
+--释放
+function BuildTypeLayer:onExit()
+
+    --数据释放
+    self._buildCurLvData = nil;
+
+    --UI释放
+    self._txtTopTitle = nil;
+    self._buildTypeItems = nil;
+	self._mTogItem = nil;
+	self._transTopTitleE = nil;
+	self._transTitle1 = nil;
+	self._transTitle2 = nil;
+    self._allDotData = nil;
+	--@CloseEnd
+    WitchDemoSkill:DestoryWitchDemoSkill();
+    CBaseLayer.onExit(self);
+end
+
+function BuildTypeLayer:hideLayer()
+    WitchDemoSkill:DestoryWitchDemoSkill();
+    CBaseLayer.hideLayer(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function BuildTypeLayer:OnBtnCloseBuildSelectClick()
+    self._mTogItem.isOn = false;
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+function BuildTypeLayer:OnTogItemClick(isOn)
+    if(isOn)then
+        self:UpdateBuildTypeTxt();
+        if(self._curShowType == Build.ShowLayerType.BuildDot)then
+            Build:BuildDotNumChangeReq();
+        end
+        self:playAni("SelectBuildTypeInAnim");
+    else
+        self:playAni("SelectBuildTypeOutAnim");
+    end
+end
+
+function BuildTypeLayer:OnTogBuildTypeClick(isOn, cls)
+    if(cls.isLock)then
+        return;
+    end
+    if(isOn)then
+        self._mTogItem.isOn = false;
+        if(self._atkType == cls.atkType)then
+            return;
+        end
+        cls.txtName:SetTextColor(0,0,0,1);
+        cls.txtLv:SetTextColor(0,0,0,1);
+        cls.imgIcon:SetImageColor(0,0,0,1);
+        Build:SetCurSelectAtkType(cls.atkType);
+        self:UpdateData();
+        self:SetAtkTypeUI();
+        self:SetBuildLvUI();
+        local _delay = 0
+        if WitchDemoSkill:GetInitState() then
+            _delay = 0.05
+            WitchDemoSkill:DestoryWitchDemoSkill()
+        end
+        if _delay > 0 then
+            self.layer:DelayCall(_delay, function()
+                WitchDemoSkill:InitWitchDemoSkill(Hero.AtkTypeHeroId[cls.atkType], nil, true)
+            end)
+        else
+            WitchDemoSkill:InitWitchDemoSkill(Hero.AtkTypeHeroId[cls.atkType], nil, true)
+        end
+        GEvent:fireEvent(EVENT_TYPE.CUT_BUILD_TYPE,cls.atkType);
+    else
+        cls.txtName:SetTextColor(1,1,1,1);
+        cls.txtLv:SetTextColor(1,1,1,1);
+        cls.imgIcon:SetImageColor(1,1,1,1);
+    end
+
+end
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuildTypeLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+
+    --跳转时隐藏UI
+    self:addEventListener(EVENT_TYPE.JUMP_OVER_EVENT,self.__cname, function()
+        Build:HideBuildTypeLayer();
+    end)
+
+
+    self:addEventListener(EVENT_TYPE.UPDATE_BUILD_LV_DATA,self.__cname, function()
+       self:SetBuildLvUI();
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BuildTypeLayer:SetShowLayerType(showLayerType)
+    if(self._curShowType == showLayerType)then
+        return;
+    end
+    self._curShowType = showLayerType or Build.ShowLayerType.BuildDot;
+end
+
+function BuildTypeLayer:UpdateData()
+    self._atkType = Build:GetCurSelectAtkType();
+    self._buildCurLvData = Build:GetBuildLvDataByAtkType(self._atkType);
+    self._atkCfg = Build:GetAtkTypeCfgById(self._atkType);
+end
+
+function BuildTypeLayer:SetAtkTypeUI()
+    Build:SetBuildItemData(self._buildItem,self._atkType);
+end
+
+function BuildTypeLayer:SetBuildLvUI()
+    self._txtTopTitle:SetText(string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + self._atkType)));
+end
+
+
+function BuildTypeLayer:InitBuildTypeItems()
+    for i = 1, #Hero.BuildAtk do
+        local cls = clsbase:new(self.layer:Get(string.format("trans_container/trans_build_type_select_bg/item_build_type_%s",i)));
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.txtName = cls:GetTextComponent("txt_name");
+        cls.txtLv = cls:GetTextComponent("txt_lv");
+        cls.transLock = cls:Find("trans_lock");
+        cls.btnLock = cls.transLock:GetComponent("Button");
+        --cls.txtLockTips = cls:GetTextComponent("trans_lock/txt_tips");
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.atkType = Hero.BuildAtk[i];
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnTogBuildTypeClick(isOn,cls);
+        end);
+        cls.btnLock.onClick:AddListener(function ()
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702102));
+        end);
+        self._buildTypeItems[i] = cls;
+        self:SetBuildTypeItem(self._buildTypeItems[i]);
+    end
+    self._buildTypeItems[Build:GetCurSelectAtkType()].tog.isOn = true;
+end
+
+function BuildTypeLayer:SetBuildTypeItem(cls)
+    cls.isLock = Build:GetBuildTypeIsLock(cls.atkType);
+    Hero:SetHeroAtkType(cls.imgIcon,cls.atkType);
+    cls.txtName:SetText(string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + cls.atkType)));
+    cls.transLock:SetVisible(cls.isLock);
+    if(cls.isLock)then
+        cls.txtLv:SetText("");
+        cls.txtName:SetTextColor(119/255,119/255,119/255,1);
+        cls.txtLv:SetTextColor(119/255,119/255,119/255,1);
+        cls.imgIcon:SetImageColor(119/255,119/255,119/255,1);
+        --cls.txtLockTips:SetText(string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + cls.atkType)));
+    else
+        cls.txtName:SetTextColor(1,1,1,1);
+        cls.txtLv:SetTextColor(1,1,1,1);
+        cls.imgIcon:SetImageColor(1,1,1,1);
+    end
+end
+
+function BuildTypeLayer:UpdateBuildTypeTxt()
+    local cls;
+    for i = 1, #Hero.BuildAtk do
+        cls = self._buildTypeItems[i];
+        local buildServerData = Build:GetBuildServerDataByAtkType(cls.atkType);
+        if(not cls.isLock)then
+            if(self._curShowType == Build.ShowLayerType.BuildDot)then
+                local haveHeroNum = 3;
+                for _, v in ipairs(buildServerData.heroIds) do
+                    if(v <= 0)then
+                        haveHeroNum = haveHeroNum - 1;
+                    end
+                end
+                cls.txtLv:SetText(string.format("(%s/%s)",haveHeroNum,#buildServerData.heroIds));
+            elseif(self._curShowType == Build.ShowLayerType.LvUP)then
+                cls.txtLv:SetText(string.format("Lv.%s",buildServerData.lv));
+            end
+        end
+    end
+end
+
+function BuildTypeLayer:UpdateSelectBuildTypeLv()
+    local cls = self._buildTypeItems[self._atkType];
+    cls.txtLv:SetText(string.format("Lv.%s",self._buildCurLvData.lv));
+end
+
+function BuildTypeLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        -- Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+
+--播放预览
+function BuildTypeLayer:PlayerPreview(allDotData)
+    -- TODO播放预览
+
+    local builds = {};
+    local cfg, point = nil, 0
+    for id, data in pairs(allDotData) do
+        cfg = Build:GetBuildDotCfgById(id)
+        if cfg ~= nil then
+            point = data.heroAddLv + data.addLv
+            -- calc point level
+            builds[cfg.skillId] = Build:CalcDotLevel(point, cfg)
+        end
+    end
+    local hero = Hero:GetHero(self._atkCfg.previewHeroId);
+    local tblBuild = {}
+    for _, buildid in pairs(hero.build_ids) do
+        local buildcfg = Build:GetBuildDataCfg(buildid)
+        local buildlevel = builds[buildcfg.buildtype] or 0
+        if(buildlevel > buildcfg.maxLevel) then
+            buildlevel = buildcfg.maxLevel
+        end
+        table.insert(tblBuild, { buildId = buildid, buildLevel = buildlevel })
+    end
+
+    WitchDemoSkill:ChangeWitchDemoBuild(tblBuild)
+end
+
+
+function BuildTypeLayer:SetCutBuildTypeTogState(isShow)
+    isShow = isShow or false;
+    self._transTitle1:SetVisible(isShow);
+    self._transTitle2:SetVisible(isShow);
+    self._transTopTitleE:SetVisible(isShow);
+    self._mTogItem.interactable = isShow;
+end
+
+return BuildTypeLayer;

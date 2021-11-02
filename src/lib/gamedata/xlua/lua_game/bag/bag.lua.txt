@@ -1,0 +1,192 @@
+--
+-- author: haosun
+-- date  : 2018-11-13 11:44:11
+-- brief : 
+--
+Bag = Bag or {}
+
+function Bag:GetCfgByTypeCfgid(itype, cfgid, isuid)
+    itype = tonumber(itype)
+    if itype == Bag.TYPE_HERO then
+        return Hero:GetCfg(cfgid)
+
+    elseif itype == Bag.TYPE_PET then
+        return nil
+
+    elseif itype == Bag.TYPE_ITEM then
+        return Item:GetCfg(cfgid)
+
+    elseif itype == Bag.TYPE_EQUIP then
+        return Equip:GetCfg(cfgid)
+        
+    elseif itype == Bag.TYPE_MUSIC then
+        if isuid then
+            return Music:GetMusicCfgByUid(cfgid)
+        else
+            return Music:GetMusicCfg(cfgid)
+        end
+    end
+end
+
+function Bag:GetCfgByTypeUid(itype, uid)
+    itype = tonumber(itype)
+    if itype == Bag.TYPE_HERO then
+        return Hero:GetCfg(uid)
+
+    elseif itype == Bag.TYPE_PET then
+        return nil
+
+    elseif itype == Bag.TYPE_ITEM then
+        return Item:GetCfg(uid)
+
+    elseif itype == Bag.TYPE_EQUIP then
+        local equip = Equip:GetEquip(uid)
+        if equip ~= nil then
+            return Equip:GetCfg(equip.cfgid)
+        else
+            return nil
+        end
+    end
+end
+
+function Bag:GetItemsByShowType(showtype)
+    local ret = {}
+    if showtype == Bag.SHOW_TYPE_PROP or showtype == Bag.SHOW_TYPE_MATE or showtype == Bag.SHOW_TYPE_CHIP then
+        local items = Item:GetItems()
+        for _, v in pairs(items) do
+            local cfg = Item:GetCfg(v.configid)
+            local cansell = Item.SELL_TYPE_NO ~= tonumber(cfg.canSell)
+            if tonumber(cfg.bagType) == showtype then
+                local id = tonumber(v.configid)
+                local sortid = tonumber(cfg.Quality)*100000000 + id
+                if tonumber(cfg.countmax) == Bag.SHOW_MIN then
+                    for i = 1, v.count do
+                        table.insert(ret, {itype = Bag.TYPE_ITEM, id = id, count = 1, cansell = cansell, sortid = sortid})
+                    end
+                else
+                    table.insert(ret, {itype = Bag.TYPE_ITEM, id = id, count = v.count, cansell = cansell, sortid = sortid})
+                end
+            end
+        end
+    elseif showtype == Bag.SHOW_TYPE_RUNE then
+        local equips = Equip:GetEquips()
+        for _, v in pairs(equips) do
+            local sortid = v.qlty*100000000 + v.cfgid
+            local data = {itype = Bag.TYPE_EQUIP, id = v.uid, count = 0, cansell = (v.heroid == 0) and (v.lock == Equip.EquipLockStart.UnLock) , sortid = sortid}
+            table.insert(ret, data)
+        end
+    else
+        -- TODO:
+    end
+
+    table.sort(ret, function(a, b)
+            if showtype == Bag.SHOW_TYPE_CHIP then
+                if a.id == Player.ITEM_RON then
+                    return false
+                elseif b.id == Player.ITEM_RON then
+                    return true
+                end
+            end
+            return a.sortid > b.sortid
+        end)
+    return ret
+end
+
+function Bag:OnDrops2Arr(drops, passexp, passcoin)
+    local exp, coin, arr = 0, 0, {}
+    local pass = false
+    for itype, items in pairs(drops or {}) do
+        for uid, count in pairs(items) do
+            if itype == Bag.TYPE_ITEM then
+                pass = false 
+                if uid == Player.ITEM_VALUE_COIN then
+                    coin = coin + count
+                    pass = passcoin
+                end
+                if uid == Player.ITEM_VALUE_EXP then
+                    exp = exp + count
+                    pass = passexp
+                end
+                if not pass then
+                    table.insert(arr, {itype, uid, count})
+                end
+            else
+                table.insert(arr, {itype, uid, count})
+            end
+        end
+    end
+    return {arr, exp, coin}
+end
+
+-- 
+-- drops = {{{bagtype, id, count}, {bagtype, id, count}}, {{bagtype, id, count}, {bagtype, id, count}}}
+-- 
+function Bag:CfgDrop2Arr(drops)
+    local arr = {
+        [Bag.TYPE_EQUIP] = {},
+        [Bag.TYPE_ITEM]  = {},
+        [Bag.TYPE_MUSIC] = {},
+    }
+    for _, items in ipairs(drops) do
+        for i, data in ipairs(items) do
+            if arr[data[1]][data[2]] == nil then
+                arr[data[1]][data[2]] = 0
+            end
+            arr[data[1]][data[2]] = arr[data[1]][data[2]] + data[3]
+        end
+    end
+    return arr
+end
+
+
+-- drops ={ [1] = { [3] = { [equipuid] = count,  [equipuid] = count } , [4] = {  [itemid] = count } }  ,[2] = { [3] = { [equipuid] = count } , [4] = {  [itemid] = count } } }
+function Bag:SweepDrop2Arr(drops)
+    local arr = {
+        [1]  = {},  -- 物品
+        [2]  = {},  -- 经验
+     }
+    for index, data in ipairs(drops) do
+        arr[1][index] = {}
+        arr[2][index] = {}
+        for itype , items in pairs(data) do
+            if itype == Bag.TYPE_EQUIP then
+                for uid, count in pairs(items) do
+                    table.insert(arr[1][index] , {itype, uid, count })
+                end
+            elseif itype == Bag.TYPE_ITEM then
+                for cfgid, count in pairs(items) do
+                    if cfgid == Item.ID_EXP then
+                        arr[2][index] = count
+                    else
+                        table.insert(arr[1][index] , {itype, cfgid, count })
+                    end
+                end
+            end
+        end
+    end
+    return arr
+end
+
+function Bag:MergeSweepDrops(drops)
+    local arr = {
+        [Bag.TYPE_EQUIP] = {},
+        [Bag.TYPE_ITEM]  = {},
+    }
+    for _, items in pairs(drops) do
+        for itype, data in pairs(items) do
+            for itemid,key in pairs(data) do
+                if arr[itype][itemid] == nil then
+                    arr[itype][itemid] = 0
+                end
+                arr[itype][itemid] =  arr[itype][itemid] + key
+            end
+        end
+    end
+    local tab = {}
+    for itype, val in pairs(arr) do
+        for itemid, key in pairs(val) do
+            table.insert(tab , { itype, itemid, key})
+        end
+    end
+    return tab
+end

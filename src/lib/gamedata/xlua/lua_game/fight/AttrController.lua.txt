@@ -1,0 +1,27 @@
+--
+-- author: haosun
+-- date  : 2020-07-28 10:34:12
+-- brief : 
+--
+
+AttrController = AttrController or {}
+
+function AttrController:InitAttrController()
+    self._heroattrs = {}
+
+    for _, v in pairs(HeroController:GetHeroList()) do
+        self._heroattrs[v:GetActorID()] = {}
+    end
+end
+
+function AttrController:AddHeroAttr(heroid, skillid)
+    if self._heroattrs[heroid] == nil then
+        self._heroattrs[heroid] = {}
+    end
+    self._heroattrs[heroid][skillid] = {}
+end
+
+function AttrController:UpdateHeroAttr()
+
+end
+

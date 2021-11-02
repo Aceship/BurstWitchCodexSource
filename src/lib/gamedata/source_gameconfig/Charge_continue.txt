@@ -1,0 +1,4 @@
+商品ID,领取时间方式,奖励
+id,Collection,Dropid
+number,number,array_&
+999999,1,99200018&99200019&99200020

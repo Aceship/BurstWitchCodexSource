@@ -1,0 +1,282 @@
+--
+-- author: cjj
+-- date  : 2018-12-28 18:52:51
+-- brief :
+--
+local CBaseLayer    = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChangeAvatarLayer = class("ChangeAvatarLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    avatar    = "avatarInfo/avatar_page1",
+    border    = "avatarInfo/avatar_page2",
+    change    = "avatarInfo/button_change",
+}
+local PAGE_AVATAR = {
+    avatar = 1,
+    border = 2,
+}
+
+function ChangeAvatarLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_setting/UI_ChangeAvatar",
+    }
+    self._uitype    = 2
+    self._topData = {
+        showBtnBack = false,
+    }
+    self._curPage    = 0
+    self._curBorder  = Player:GetHeadBorder();
+    self._curAvatar  = Player:GetHeadIcon()
+    self._scrollViewItem2 = {};
+    self._first      = true;
+    self:onEnter()
+end
+
+function ChangeAvatarLayer:initObj()
+    self.txtFrameName = self.layer.transform:Find("lookInfo/txt_frame_name"):GetComponent("Text")
+    self.txtFrameDes = self.layer.transform:Find("lookInfo/txt_frame_des"):GetComponent("Text")
+    self.txtAvatarName = self.layer.transform:Find("lookInfo/txt_avatar_name"):GetComponent("Text")
+end
+
+function ChangeAvatarLayer:onEnter()
+
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_AVATAR,
+        function()
+            self._modify = true
+            self:onBackClick()
+        end)
+    self._aniPanelFadeInEndCallback = function()
+        self:avatarShow()
+    end
+end
+
+function ChangeAvatarLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback(self._modify)
+        self._callback = nil
+    end
+    self:onPopLayer()
+end
+
+function ChangeAvatarLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.avatar then
+        self:SelectPage(PAGE_AVATAR.avatar)
+    elseif itype == BUTTON_TYPE.border then
+        if self._first == true then
+            self:refreshAvatar();
+            self._first = false;
+        end
+        self:SelectPage(PAGE_AVATAR.border)
+    elseif itype == BUTTON_TYPE.change then
+        self:onModifyReq()
+    end
+end
+
+function ChangeAvatarLayer:avatarShow()
+
+end
+
+function ChangeAvatarLayer:show(callback)
+    self._modify = false
+    self._callback = callback
+    self:BorderScrollView();
+    self:AvatarScrollView();
+    self:SelectPage(PAGE_AVATAR.avatar);
+    self:showLayer()
+    self:playAni("ChangeAvatarFadeIn")
+end
+
+function ChangeAvatarLayer:SelectPage(page)
+    if self._curPage == page then
+        return;
+    end
+    self._curPage = page;
+    for _, v in pairs(PAGE_AVATAR) do
+        set_com_title(self.layer.transform:Find("avatarInfo/avatar_page"..v), v ~= page)
+        set_obj_active(self.layer.transform:Find("scrollview" .. v), v == page)
+    end
+
+    if self._curPage == PAGE_AVATAR.avatar then
+        --self:SelectAvatar(self._curAvatar)
+        self.txtFrameDes.text = {};
+        self.txtFrameName.text = {};
+        self.isLock = false;
+        self:SelectBorder(Player:GetHeadBorder());
+        set_com_enabled(self.txtAvatarName,true);
+    else
+        self:SelectBorder(self._curBorder)
+    end
+end
+function ChangeAvatarLayer:refreshAvatar()
+
+end
+
+function ChangeAvatarLayer:AvatarScrollView()
+    local content = self.layer.transform:Find("scrollview1/content")
+    local iconids = Hero:GetOwnerSkinIds()
+    local items = Item:GetItemsBySubType(Item.SUBTYPE_TUTORHEAD);
+    for _, item in pairs(items) do
+        table.insert(iconids, tonumber(item.uid));
+    end
+    table.sort(iconids, function (a,b)
+        return a < b
+    end)
+    
+    if(self.itemPrefab == nil)then
+        self.itemPrefab = self.layer.transform:Find("item_hide/hero_item").gameObject;
+        self.objSelect = self.layer.transform:Find("item_hide/obj_select");
+        self.items = {};
+    end
+
+
+    for i, iconid in ipairs(iconids) do
+        if(self.items[i] == nil)then
+            self.items[i] = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self.itemPrefab,content).transform:Find("prefab_item"),function ()
+                if not self._fading then
+                    self:SelectAvatar(self.items[i])
+                end
+            end);
+            self.items[i].iconid = iconid;
+            self.items[i].parent = self.items[i].transform.parent
+            if(self._curAvatar == iconid)then
+                self:SelectAvatar(self.items[i])
+            end
+        end
+
+        local itemDB = Item:GetCfg(iconid)
+        if tonumber(itemDB.itemType) == Item.TYPE_ROLE_ATTIRE then
+            local heroid, isSkin = Hero:GetHeroIdBySkinId(iconid)
+            Bag:SetComSimpleGoodsUi(self.items[i], Bag.TYPE_HERO, heroid, 0)
+            if(isSkin)then
+                local _filepath = "source_avatar/hero/head_" .. iconid;
+                self.items[i].iconImg.sprite = AssetLoader:LoadSprite(_filepath);
+            end
+        elseif tonumber(itemDB.itemType) == Item.TYPE_HEAD_BORDER then
+            -- 导师头像
+            Bag:SetComSimpleGoodsUi(self.items[i], Bag.TYPE_ITEM, iconid, 0)
+            local _filepath = "source_icon/item/" .. iconid
+            self.items[i].iconImg.sprite = AssetLoader:LoadSprite(_filepath)
+        end
+
+        self.items[i].transform.parent:DOScale(1,0.05):SetDelay(0.025 * i);
+    end
+end
+
+function ChangeAvatarLayer:BorderScrollView()
+    local content = self.layer.transform:Find("scrollview2/content")
+    local sortAvatar = Item:GetCfgBySubType(Item.SUBTYPE_BORDER)
+    local function sort_avatar(a,b)
+        return a < b;
+    end
+    table.sort( sortAvatar, sort_avatar)
+
+    local borderids = { }
+
+    local itemDB = Item:GetCfg(self._curAvatar)
+    if tonumber(itemDB.itemType) == Item.TYPE_ROLE_ATTIRE then
+        local hero = Hero:GetHero(Hero:GetHeroIdBySkinId(self._curAvatar));
+        table.insert(borderids, hero.qlty)
+    elseif tonumber(itemDB.subType) == Item.SUBTYPE_TUTORHEAD then
+        table.insert(borderids, Player.DEFAULT_BORDER_INDEX)
+    else
+        table.insert(borderids, Player:GetHeadBorder())
+    end
+
+    for _, bid in pairs(sortAvatar) do
+        table.insert(borderids, bid)
+    end
+
+    for i, bid in ipairs(borderids) do
+        if(self._scrollViewItem2[i] == nil)then
+            local item = Groble_ResMgr:Instantiate("prefab_comframeWork/prefab_border", content).transform
+            local cls = Hero:NewPlayerBorder(item);
+            cls.transform:GetComponent("Button").onClick:AddListener(function()
+                if not self._fading then
+                    self.isLock = cls.lock or false;
+                    self:SelectBorder(bid);
+                end
+            end)
+            self._scrollViewItem2[i] = { borderid = bid, item = cls }
+        end
+        Hero:SetPlayerBorder(self._scrollViewItem2[i].item, bid)
+    end
+end
+
+function ChangeAvatarLayer:SelectAvatar(item)
+    if self._curAvatar ~= item.iconid then
+        self._curAvatar = item.iconid;
+    end
+    self:setPlayerAvatar()
+    self.objSelect:SetParent(item.parent,false)
+    self.objSelect.localPosition = CS.UnityEngine.Vector3.zero
+    self.objSelect.localScale = CS.UnityEngine.Vector3.one
+    self.txtFrameDes.text = {}
+    self.txtFrameName.text = {};
+    set_com_enabled(self.txtAvatarName,true);
+end
+
+function ChangeAvatarLayer:SelectBorder(borderid)
+    if self._curBorder ~= borderid then
+        self._curBorder = borderid
+    end
+    self:setPlayerAvatar()
+    if self._curPage == PAGE_AVATAR.avatar then
+        return;
+    end
+    for _, v in pairs(self._scrollViewItem2) do
+        if(borderid <= Player.DEFAULT_ICON_INDEX)then
+            set_obj_active(v.item.imgSelect, v.borderid <= Player.DEFAULT_ICON_INDEX)
+        else
+            set_obj_active(v.item.imgSelect, v.borderid == borderid)
+        end
+    end
+
+    if borderid > Player.DEFAULT_ICON_INDEX then
+        self.txtFrameDes.text = Item:GetCfg(borderid).itemInfo
+        self.txtFrameName.text = Item:GetCfg(borderid).Name;
+    else
+        self.txtFrameName:SetTextById(1800080)
+        self.txtFrameDes.text = {};
+    end
+    set_com_enabled(self.txtAvatarName,false);
+end
+
+function ChangeAvatarLayer:setPlayerAvatar()
+    if self._lookAvatar == nil then
+        self._lookAvatar = Player:CtorPlayerIconBorder(self.layer.transform:Find("lookInfo/prefab_player").transform);
+        self._lookAvatar.transform.localScale = CS.UnityEngine.Vector3(0.8, 0.8, 1)
+    end
+    local borderId = self._curBorder;
+    if(self._curBorder <= Player.DEFAULT_ICON_INDEX)then
+
+        local itemDB = Item:GetCfg(self._curAvatar)
+        if tonumber(itemDB.itemType) == Item.TYPE_ROLE_ATTIRE then
+            borderId = Hero:GetHero(Hero:GetHeroIdBySkinId(self._curAvatar)).qlty;
+        elseif tonumber(itemDB.subType) == Item.SUBTYPE_TUTORHEAD then
+            borderId = Player.DEFAULT_BORDER_INDEX
+        else
+            borderId = Player:GetHeadBorder()
+        end
+
+        self._curBorder = borderId
+    end
+    Player:SetPlayerIconBorderObj(self._lookAvatar, self._curAvatar, borderId)
+end
+
+function ChangeAvatarLayer:onModifyReq()
+    if(self.isLock)then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(1800082))
+        return;
+    end
+    if self._curBorder ~= Player:GetHeadBorder() or self._curAvatar ~= Player:GetHeadIcon() then
+        Player:ModifyAvatarReq(self._curAvatar, self._curBorder)
+    else
+        self:onBackClick()
+    end
+end
+
+return ChangeAvatarLayer

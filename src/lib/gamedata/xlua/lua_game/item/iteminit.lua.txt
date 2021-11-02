@@ -1,0 +1,15 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 16:08:28
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/item.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/itemcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/itemdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/itemdrop.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/item_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/itemui.txt")
+
+Item:Ctor()
+Item:_LoadCfg()
+Item:_LoadDropConfig()

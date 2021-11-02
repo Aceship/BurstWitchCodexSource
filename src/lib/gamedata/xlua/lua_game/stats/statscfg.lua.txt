@@ -1,0 +1,43 @@
+--
+-- author: haosun
+-- date  : 2021-05-18 11:44:55
+-- brief : 
+--
+
+function Stats:_LoadStatisticsQuestConfig()
+    self._StatisticsQuest = {}
+    self._allStatsTimeId = {}
+    local cfgs = CfgLoader:LoadCfg("StatisticsQuest")
+    local cfgid, _timeId = 0
+    for _, cfg in ipairs(cfgs) do
+        cfgid = tonumber(cfg.id)
+        _timeId = tonumber(cfg.TimeId)
+        self._StatisticsQuest[cfgid] = {
+            cfgid       = cfgid,
+            Type        = tonumber(cfg.Type),
+            TimeId      = _timeId,
+            ResetType   = tonumber(cfg.ResetType),
+            Cond_1      = tonumber(cfg.Cond_1),
+            Cond_2      = tonumber(cfg.Cond_2),
+            TaskIds     = {},
+            -- client data
+            Inited      = false,
+            -- server data
+            Count       = 0,
+        }
+        if _timeId ~= 0 then
+            if self._allStatsTimeId[_timeId] == nil then
+                self._allStatsTimeId[_timeId] = {}
+            end
+            table.insert(self._allStatsTimeId[_timeId], cfgid)
+        end
+    end
+end
+
+function Stats:GetStatisticsQuestConfig(cfgid)
+    if self._StatisticsQuest[cfgid] == nil then
+        AppMgr:LogError("[StatisticsQuest]配置表配置错误，找不到！！！！！！！" .. cfgid)
+    end
+    return self._StatisticsQuest[cfgid]
+end
+

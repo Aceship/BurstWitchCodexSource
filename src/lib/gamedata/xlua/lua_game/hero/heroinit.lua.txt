@@ -1,0 +1,29 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 12:31:25
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/hero.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/hero_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herocritical.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heroattr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herocfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herodef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heroequip.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heroskill.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herostar.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herostep.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herostory.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heroui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herouidef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heroskin.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/heromusic.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herosecret.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herobookdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herotask.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herosublimation.txt")
+
+Hero:Ctor()
+Hero:_LoadConfigs()
+

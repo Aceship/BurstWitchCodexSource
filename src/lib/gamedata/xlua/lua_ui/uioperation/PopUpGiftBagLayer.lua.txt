@@ -1,0 +1,281 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-25 15:39:49
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PopUpGiftBagLayer = class("PopUpGiftBagLayer", CBaseLayer)
+local ShopGiftLayer = core.require("xlua/lua_UI/HomeScene/ShopGiftLayer.txt")
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnBuy = "trans_container/btn_buy",
+	--@ButtonEnd
+}
+--构造函数
+function PopUpGiftBagLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_PopUpGiftBagLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function PopUpGiftBagLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function PopUpGiftBagLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnBuy)then
+	   self:OnBtnBuyClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+	
+end
+
+--初始化
+function PopUpGiftBagLayer:Init()
+    self:InitUI();
+end
+
+--初始化UI
+function PopUpGiftBagLayer:InitUI()
+
+    self._leftRed = self.layer:GetImageComponent("trans_container/btn_left/img_red");
+    self._rightRed = self.layer:GetImageComponent("trans_container/btn_right/img_red");
+    self._imgPriceIcon = self.layer:GetImageComponent("trans_container/btn_buy/trans_buy/img_price_icon");
+	--@ImageEnd
+
+	self._txtRebateCoefficient = self.layer:GetTextComponent("trans_container/txt_rebate_coefficient");
+	self._txtOverTime = self.layer:GetTextComponent("trans_container/trans_over_time/txt_over_time");
+	self._txtPrice = self.layer:GetTextComponent("trans_container/btn_buy/trans_buy/txt_price");
+	self._txtUnBuyTitle = self.layer:GetTextComponent("trans_container/btn_buy/txt_un_buy_title");
+	--@TextEnd
+
+	self._transMgroup = self.layer:Get("trans_container/trans_MGroup");
+	self._transOverTime = self.layer:Get("trans_container/trans_over_time");
+	--@TransformEnd
+
+    self._transBuy = self.layer:Get("trans_container/btn_buy/trans_buy");
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+	self._objLeft = self.layer:Get("trans_container/btn_left").gameObject;
+	self._objRight = self.layer:Get("trans_container/btn_right").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._btnBuy = self.layer:GetButtonComponent("trans_container/btn_buy");
+    self.MGroup = self._transMgroup:GetComponent("MGroup");
+    self.MGroup.SelectAction = function ()
+        self:CutPackage()
+    end ;
+    self.packageItems = {};
+end
+
+--显示UI
+function PopUpGiftBagLayer:show(ids,showIndex)
+    self._ids = ids;
+    self._showIndex = showIndex or 1;
+    self.MGroup:Init(#self._ids,self._showIndex -1);
+    for i, v in ipairs(self._ids) do
+        if(self.packageItems[i] == nil)then
+            self.packageItems[i] = {};
+            self.packageItems[i].data = Recharge:GetData(v);
+            self.packageItems[i].transItemParent = self.MGroup.transform:Find(i.."/trans_bg/trans_item_parent");
+            self.packageItems[i].items = {};
+            for l, j in ipairs(self.packageItems[i].data.goods) do
+                local trans = CS.UnityEngine.GameObject.Instantiate(self._objItem ,self.packageItems[i].transItemParent);
+                local cls = Bag:CtorComSimpleGoodsUi(trans);
+                self.packageItems[i].items[l] = cls;
+                Bag:SetComSimpleGoodsUi(self.packageItems[i].items[l],j[1], j[2],j[3], true);
+            end
+        end
+    end
+    self:playAni("BuildTipsLayerAnim");
+    self:showLayer();
+end
+
+--退出按钮事件
+function PopUpGiftBagLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function PopUpGiftBagLayer:onExit()
+
+    self._objItem = nil;
+	self._transMgroup = nil;
+	self._txtRebateCoefficient = nil;
+	self._txtOverTime = nil;
+	self._objLeft = nil;
+	self._objRight = nil;
+	self._imgPriceIcon = nil;
+	self._txtPrice = nil;
+	self._transOverTime = nil;
+	self._txtUnBuyTitle = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function PopUpGiftBagLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+
+function PopUpGiftBagLayer:OnBtnBuyClick()
+    if(self._curData.left <= 0)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90184));
+        return;
+    elseif(self._curData.expire <= CTime:GetServerTime())then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90186));
+        return;
+    end
+    local layer = ShopGiftLayer:new(self.layer)
+    layer:show(self._curCfg, function()
+        Operation:SendMessage(Operation.ActivityID.ShopSundryGoods,{id = self._curCfg.cfgid});
+    end)
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function PopUpGiftBagLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:SetShopUI();
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function PopUpGiftBagLayer:CutPackage()
+    self._curIndex = self.MGroup.m_CurrentSelectIndex + 1;
+    set_com_enabled(self._leftRed,self:GetBtnRedState(self._curIndex,true));
+    set_com_enabled(self._rightRed,self:GetBtnRedState(self._curIndex,false));
+    if(#self._ids == 1)then
+        self._objLeft:SetVisible(false);
+        self._objRight:SetVisible(false);
+    elseif(self._curIndex == 1)then
+        self._objLeft:SetVisible(false);
+        self._objRight:SetVisible(true);
+    elseif(self._curIndex == #self._ids)then
+        self._objLeft:SetVisible(true);
+        self._objRight:SetVisible(false);
+    else
+        self._objLeft:SetVisible(true);
+        self._objRight:SetVisible(true);
+    end
+    self:SetShopUI();
+end
+
+function PopUpGiftBagLayer:GetBtnRedState(index,isLeft)
+    local data;
+    if(isLeft)then
+        if(index == 1)then
+            return false;
+        end
+        for i = 1, index - 1 do
+            data = Operation:GetPopUpDataById(self._ids[i]);
+            if(data.red)then
+                return true;
+            end
+        end
+        return false;
+    else
+        if(index == #self._ids)then
+            return false;
+        end
+        for i = index + 1, #self._ids do
+            data = Operation:GetPopUpDataById(self._ids[i]);
+            if(data.red)then
+                return true;
+            end
+        end
+        return false;
+    end
+end
+
+function PopUpGiftBagLayer:SetShopUI()
+    self._curData = Operation:GetPopUpDataById(self._ids[self._curIndex]);
+    Operation:SetPopUpRedState(self._ids[self._curIndex],false);
+    self._curCfg = Recharge:GetData(self._curData.id);
+    self._txtPrice.text = self._curCfg.price;
+    self._imgPriceIcon.sprite = Item:LoadSprite(self._curCfg.priceId);
+    local tempData = Operation:GetPopUpGiftBagCfgById(self._curData.id);
+    self._txtRebateCoefficient.text = tempData.rebateRatio.."%";
+    if(self._curData.expire > CTime:GetServerTime() and self._curData.left > 0)then
+        self._transBuy:SetVisible(true);
+        self._txtUnBuyTitle.text = "";
+    elseif(self._curData.expire <= CTime:GetServerTime())then
+        self._transBuy:SetVisible(false);
+        self._txtUnBuyTitle:SetTextById(90186);
+    else
+        self._transBuy:SetVisible(false);
+        self._txtUnBuyTitle:SetTextById(90184);
+    end
+    self._transOverTime:SetVisible(self._txtOverTime,self._curData.expire > CTime:GetServerTime() and self._curData.left > 0);
+    if(self._curData.expire > CTime:GetServerTime())then
+        self._txtOverTime.text = CTime:UTime2DayStr(self._curData.expire - CTime:GetServerTime());
+    end
+end
+
+function PopUpGiftBagLayer:onPerSecondUpdate()
+    if(self._curData == nil)then
+        return;
+    end
+    if(self._curData.expire < CTime:GetServerTime())then
+        return;
+    end
+    if(self._curData.expire - CTime:GetServerTime() <= 0)then
+        self._transOverTime:SetVisible(false);
+        self._transBuy:SetVisible(false);
+        self._txtUnBuyTitle:SetTextById(90186);
+        return;
+    end
+    if(self._curData.expire >= CTime:GetServerTime())then
+        self._txtOverTime.text = CTime:UTime2DayStr(self._curData.expire - CTime:GetServerTime());
+    end
+end
+
+function PopUpGiftBagLayer:onBuy(data,buyNum)
+    local costcfgid = data.costtype
+    if Item:GetCount(costcfgid) < data.rePrice then
+        if((costcfgid == Player.ITEM_VALUE_WITCH_COIN)or (costcfgid == Player.ITEM_VALUE_MONEY))then
+            Groble_UIMgr:ShowMessageBox(true, true, string.format(LanguageMgr:GetTextByID(90055),
+                    Item:GetCfg(costcfgid).Name),
+                    function()
+
+                    end)
+            return;
+        end
+        Groble_UIMgr:ShowLackCurrencyTips(costcfgid)
+        return
+    end
+    if data.stock ~= 0 and data.stock - data.count == 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(99000017))
+        return
+    end
+end
+
+return PopUpGiftBagLayer;

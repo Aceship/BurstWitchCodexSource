@@ -1,0 +1,241 @@
+--
+-- author: liangxt
+-- date  : 2020年7月30日16:05:36
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SignWitchLayer = class("SignWitchLayer", CBaseLayer)
+
+function SignWitchLayer:ctor(super,heroid, skinid)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_SignWitchLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._init = false
+    self._heroid = heroid or 1001
+    self._curSkinid = skinid
+    self._curspineid = 0
+    self._openShop = false
+
+    self._heroTbl = {}
+    if(heroid ~= nil and skinid ~= nil) then
+        self._heroTbl[heroid] = skinid
+    end
+
+    self:onEnter()
+end
+
+function SignWitchLayer:doBack()
+    Player:SetSignWitch(self._curSkinid)
+    if self._callback ~= nil then
+        self._callback(self._curSkinid)
+    end
+    self:onPopLayer()
+end
+
+function SignWitchLayer:onBackClick()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        self:doBack()
+    end)
+end
+
+function SignWitchLayer:initObj()
+    self._heroTableViewCtrl = core.require("xlua/lua_UI/Comframework/HeroTableViewCtrl.txt"):new(self.layer:Get("container"))
+    self._skinName = self.layer:GetTextComponent("container/skin/title_txt")
+    self._skinName_en = self.layer:GetTextComponent("container/skin/title_txt_en")
+    self.m_group = self.layer.transform:Get("container/skin/MGroup"):GetComponent("MGroup")
+    self._spine = self.layer:Get("spine")
+    self._hero = Hero:GetHero(self._heroid);
+end
+
+function SignWitchLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self._herointroctrl = UIHeroIntroCtrl:new(self.layer:Get("container"))
+    self._heroTableViewCtrl:onInit({
+            owner = true,
+            refreshCall = function(heroid)
+                self:refreshHeroInfo(heroid)
+            end,
+            index = 0,
+            spine = false,
+            sound = false,
+            drag  = false,
+            sort = true,
+            talk = false,
+            showRed = false,
+            showstar = false,
+            showlv = false,
+            sortingOrder = 2051,
+            sortdata = {
+                key = self.__cname,
+                sorts = {
+                    Hero.SORT_TYPE.qlty,
+                    Hero.SORT_TYPE.level,
+                    Hero.SORT_TYPE.attri,
+                }
+            },
+            hidesort = true;
+            pos = CS.UnityEngine.Vector2(180,120),
+            offsetMax = CS.UnityEngine.Vector2(0,300),
+            heroid = self._heroid
+        })
+end
+
+function SignWitchLayer:onExit()
+    if self._heroTableViewCtrl ~= nil then
+        self._heroTableViewCtrl:onExit()
+        self._heroTableViewCtrl = nil
+    end
+    
+    if self._herointroctrl ~= nil then
+        self._herointroctrl:UIHeroIntroCtrlDtor()
+        self._herointroctrl = nil
+    end
+    self._skinName = nil
+    self._skinName_en = nil
+    self.m_group    = nil
+    self._spine     = nil
+    self._hero      = nil
+
+    self.m_itemcfgs     = nil
+    self.m_skinCfg      = nil
+    self.m_skinItems    = nil
+    self.m_btnSkin      = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function SignWitchLayer:show( callback)
+    self._fading = false
+    self._callback = callback
+    self:showLayer()
+end
+
+function SignWitchLayer:showLayer()
+    if self._openShop then
+        self:refreshHeroInfo(self._heroid)
+        self._openShop = false
+    end
+
+    self._heroTableViewCtrl:setCurHeroId(self._heroid)
+
+    CBaseLayer.showLayer(self)
+end
+
+function SignWitchLayer:refreshHeroInfo(heroid)
+    self._hero = Hero:GetHero(heroid)
+    self._heroid = heroid
+    self._herointroctrl:InitUIHeroIntroCtrl(heroid, false)
+    if(self._heroTbl[heroid] ~= nil) then
+        self._curSkinid = self._heroTbl[heroid]
+    end
+    self:setSkinObj()
+end
+
+function SignWitchLayer:setSkinObj()
+    local tempIndex = 0;
+    local skincfg ;
+    local skins = Hero:GetKanbanSkins(self._heroid)
+    if self.m_skinItems ~= nil then
+        for _,v in pairs(self.m_skinItems) do
+            u3d_destory_obj(v.gameObject, true)
+            v = nil;
+        end
+    end
+    self.m_itemcfgs = {};
+    self.m_skinCfg = {};
+    self.m_skinItems = {};
+    self.m_btnSkin = {};
+
+    for i = 1, #skins do
+        skincfg = Hero:GetSkinCfg(skins[i]);
+        self.m_itemcfgs[i]= Item:GetCfg(skins[i]);
+        self.m_skinCfg[i] = skincfg
+        self.m_skinCfg[i].owned =  Item:GetCount(skincfg.id)> 0
+        -- 第一次定位到当前皮肤
+    end
+    if not self._init then
+        --self._init = true
+        for i = 1, #skins do
+            if(tonumber(self._curSkinid) == tonumber(self.m_itemcfgs[i].id))then
+                tempIndex = i-1;
+            end
+        end
+    end
+
+    if(self.m_group ~= nil)then
+        self.m_group.SelectAction = function ()
+            self:SelectSkin();
+        end;---此处添加事件,当前选中皮肤切换时调用
+        self.m_group:Init(#self.m_itemcfgs, tempIndex);
+        for i = 1, #self.m_itemcfgs do
+            self.m_skinItems[i]= self.m_group.transform:Find(tostring(i))
+            local icon = self.m_group.transform:GetImageComponent(tostring(i).."/img_icon")
+            self.m_btnSkin[i] = icon.transform:GetComponent("Button");
+            Groble_SceneMgr:RemoveAllListeners(self.m_btnSkin[i])
+            self.m_btnSkin[i]:AddButtonListener(function ()
+                self.m_group:ChangeToIndex(i - 1);
+            end)
+            ---此处设置皮肤
+            Hero:SetSkinImage(icon, self.m_skinCfg[i].id);
+            if self.m_skinCfg[i].owned then
+                self.m_skinItems[i]:Get("img_dark"):SetVisible(false)
+                self.m_skinItems[i]:Get("btn_sign_in"):SetVisible(false)
+            else
+                self.m_skinItems[i]:Get("img_dark"):SetVisible(true)
+                self.m_skinItems[i]:Get("btn_sign_in"):SetVisible(true)
+                if self.m_skinCfg[i].buyType == Hero.SKIN_BUY_TYPE.GOID then
+                    self.m_skinItems[i]:GetButtonComponent("btn_sign_in"):AddButtonListener(
+                        function()
+                            self._openShop = true
+                            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                                Operation:OpenOperationMainLayer(nil,Operation.ActivityID.SkinBuy,false);
+                            end);
+                        end)
+                    self.m_skinItems[i]:GetTextComponent("btn_sign_in/txt_title"):SetTextById(80000015)
+                    self.m_skinItems[i]:GetTextComponent("btn_sign_in/txt_title_E"):SetTextById(80000016)
+                elseif self.m_skinCfg[i].buyType == Hero.SKIN_BUY_TYPE.ACTIVITY then
+                    self.m_skinItems[i]:GetTextComponent("btn_sign_in/txt_title").text = self.m_skinCfg[i].buyDes
+                    self.m_skinItems[i]:GetTextComponent("btn_sign_in/txt_title_E"):SetTextById(80000018)
+                end
+            end
+        end
+    end
+end
+
+function SignWitchLayer:SelectSkin()
+    self.m_currentSelectIndex = self.m_group.m_CurrentSelectIndex + 1;---设置当前选中的皮肤Index
+    local heroid
+    if(self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.NIL)then
+        heroid = self._heroid
+    else
+        heroid = tonumber(self.m_skinCfg[self.m_currentSelectIndex].id)
+    end
+    if self._curspineid ~= heroid then
+        self._curspineid = heroid
+        Hero:LoadSpineAsync(self.__cname,self._spine, self._curspineid, Hero.SPINE_UI_TYPE_SKIN, nil, true)
+    end 
+    
+    self._skinName.text = self.m_skinCfg[self.m_currentSelectIndex].name
+    self._skinName_en.text = self.m_itemcfgs[self.m_currentSelectIndex].EnglishName
+    if self.m_skinCfg[self.m_currentSelectIndex].owned then
+        self._curSkinid = tonumber(self.m_skinCfg[self.m_currentSelectIndex].id)
+        self._heroTbl[self._heroid] = self._curSkinid
+    end
+end
+
+return SignWitchLayer
+

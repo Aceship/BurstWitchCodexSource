@@ -1,0 +1,23 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-13 22:20:02
+---
+
+Operation = Operation or {}
+
+function Operation:InitData()
+    self._curSelectUid = Operation.ActivityID.None;
+end
+
+----------------------------------------------------当前选中界面类型---------------------------------------
+function Operation:SetCurSelectUID(uid)
+    if(uid == nil)then
+        return;
+    end
+    self._curSelectUid = tonumber(uid);
+end
+
+function Operation:GetCurSelectUID()
+    return self._curSelectUid or Operation.ActivityID.None;
+end
+-----------------------------------------------------------------------------------------------------------

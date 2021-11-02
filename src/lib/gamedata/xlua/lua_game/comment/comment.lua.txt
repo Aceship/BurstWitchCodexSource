@@ -1,0 +1,301 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-28 13:40:19
+---
+Comment = Comment or {};
+function Comment:Ctor()
+    self._commentData = {};
+    self._serverData = nil;
+    self._sendTime = 0;
+    self._sendReplyCD = 0;
+    self._sendCommentTimes = {};
+    self._modeCommentNum = {};
+    self._modeCommentNumGetTimes = {};
+    self._likeSendTime = 0;
+end
+
+function Comment:SetCommentIsOpenReply(comment, isOpen)
+    comment.isReply = isOpen or false;
+end
+
+function Comment:InitCommentData()
+    local cacheNames = CS.LocalTalkHelper.Instance():LoadText(Comment.CacheName);
+    if(cacheNames ~= nil)then
+        for i, v in pairs(cacheNames) do
+            if(v ~= nil)then
+                CS.LocalTalkHelper.Instance():ClearTalkers(v);
+            end
+        end
+    end
+end
+
+function Comment:LoadReplyCacheData()
+    self._replyCacheData = Comment:GetReplyCacheData();
+end
+
+function Comment:LoadMyReplyData()
+    --self._myReplyCacheData = Comment:GetMyReplyData();
+end
+
+function Comment:LoadCommentCacheData()
+    self._commentData = Comment:GetCommentCacheData();
+end
+
+function Comment:Clear()
+    CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetMyReplyCacheName());
+    CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetCommentCacheName());
+    self:Ctor()
+end
+function Comment:GetServerData()
+    return self._serverData or {};
+end
+
+function Comment:OnUpdateCommentDay(isWeekChanged)
+    if(self._serverData ~= nil)then
+        if(isWeekChanged)then
+            self._serverData.weekCommentNum = 0;
+            self._serverData.weekReplyNum = 0;
+        end
+        self._serverData.dayLikeNum = 0;
+    end
+end
+
+function Comment:SetSendCommentTimes()
+    self._sendCommentTimes[self._commentModeData.entry] = CTime:GetServerTime();
+end
+
+function Comment:GetCurCommentSendTimeState()
+    if(self._sendCommentTimes[self._commentModeData.entry] ~= nil)then
+        print(CTime:GetServerTime() - self._sendCommentTimes[self._commentModeData.entry]);
+        return CTime:GetServerTime() - self._sendCommentTimes[self._commentModeData.entry] <= Comment.GetDataCD_600;
+    end
+    return false;
+end
+
+function Comment:SaveComment(data)
+    CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetCommentCacheName());
+    if(Comment:GetCurCommentSendTimeState())then
+        for i, data in ipairs(data) do
+            if(i <= 30)then
+                local str = lua_table_serialize(data)
+                CS.LocalTalkHelper.Instance():AppendText(Comment:GetCommentCacheName(), str);
+            else
+                break;
+            end
+        end
+        CS.LocalTalkHelper.Instance():AppendText(Comment.CacheName, Comment:GetCommentCacheName());
+    end
+    self._commentData = {};
+end
+
+function Comment:SaveMyReply()
+    --[[CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetMyReplyCacheName());
+    local str = lua_table_serialize(self._myReplyCacheData);
+    if(str ~= nil or str ~= "")then
+        CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetMyReplyCacheName());
+        CS.LocalTalkHelper.Instance():AppendText(Comment:GetMyReplyCacheName(), str);
+    end]]--
+end
+
+function Comment:GetMyReplyData()
+    local retData = {};
+    local data = CS.LocalTalkHelper.Instance():LoadText(Comment:GetMyReplyCacheName());
+    if(data ~= nil)then
+        local cacheData;
+        for _, v in pairs(data) do
+            cacheData = lua_table_unserialize(v);
+            for k, vv in pairs(cacheData) do
+                retData[k] = vv;
+            end
+        end
+    end
+    return retData;
+end
+
+function Comment:GetCommentLikeData()
+    local retData = {};
+    local data = CS.LocalTalkHelper.Instance():LoadText(Comment:GetCurCommentTypeLikeFileName());
+    if(data ~= nil)then
+        for i, v in pairs(data) do
+            retData = lua_table_unserialize(v);
+        end
+    end
+    return retData;
+end
+
+function Comment:GetLikeStateById(id)
+    if(self._commentLikeData[id] == nil)then
+        return true;
+    end
+    return false;
+end
+
+function Comment:SaveReply()
+    local str = lua_table_serialize(self._replyCacheData);
+    if(str ~= nil or str ~= "")then
+        CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetReplyCacheName());
+        CS.LocalTalkHelper.Instance():AppendText(Comment:GetReplyCacheName(), str);
+    end
+end
+
+function Comment:GetReplyCacheData()
+    local retData = {};
+    local data = CS.LocalTalkHelper.Instance():LoadText(Comment:GetReplyCacheName());
+    if(data ~= nil)then
+        local cacheData;
+        for _, v in pairs(data) do
+            cacheData = lua_table_unserialize(v);
+            for k, vv in pairs(cacheData) do
+                retData[k] = vv;
+            end
+        end
+    end
+    return retData;
+end
+
+function Comment:GetCommentCacheData()
+    local retData = {};
+    local data = CS.LocalTalkHelper.Instance():LoadText(Comment:GetCommentCacheName());
+    local comment;
+    if(data ~= nil)then
+        for _, v in pairs(data) do
+            comment = lua_table_unserialize(v);
+            if(retData[comment.commentid] == nil)then
+                retData[comment.commentid] = Comment:NewComment(comment);
+            end
+        end
+    end
+    return retData;
+end
+
+
+function Comment:IsGetCurReplyDataByServer()
+    if(self._replyShowDatas[self._selectCId] == nil)then
+        return true;
+    end
+    local data = self._replyShowDatas[self._selectCId][self._commentData[self._selectCId].curReplyPage];
+    if(data == nil)then
+        return true;
+    end
+    if(#data < Comment.ReplyPagesMaxNum)then
+        return true;
+    end
+    return false;
+end
+
+function Comment:GetCurReplyDataStartAndEndPos()
+    local startPos,endPos = 0,0;
+    local num = 0;
+    if(self._replyCacheData[self._selectCId] ~= nil)then
+        local data = self._replyShowDatas[self._selectCId][self._curCommentData.curReplyPage];
+        local endNum = Comment.ReplyPagesMaxNum - #data;
+        if(math.ceil(#self._replyCacheData[self._selectCId] / Comment.ReplyPagesMaxNum) == self._curCommentData.curReplyPage)then
+            startPos = 1;
+        else
+            local cNum = #self._replyCacheData[self._selectCId];
+            local tempNum = math.ceil(cNum / 8) * 8 - cNum;
+            startPos = (self._curCommentData.curReplyPage - math.ceil(cNum / 8) - 1) * 8 + tempNum + 1;
+        end
+        endPos = startPos + endNum - 1;
+        if(endPos > Comment.REPLY_ALL_MAX_NUM)then
+            endPos = Comment.REPLY_ALL_MAX_NUM;
+        end
+    else
+        num = self._curCommentData.curNum;
+        startPos = (self._curCommentData.curReplyPage - 1) * Comment.ReplyPagesMaxNum + 1;
+        endPos = self._curCommentData.curReplyPage * Comment.ReplyPagesMaxNum;
+        --[[if(self._curCommentData.curReplyPage * Comment.ReplyPagesMaxNum <= num)then
+        else
+            endPos = num;
+        end]]--
+    end
+    return startPos,endPos;
+end
+
+function Comment:AddReplyShowData(reply,replyPage)
+    if(self._replyShowDatas[self._selectCId] == nil)then
+        self._replyShowDatas[self._selectCId] = {};
+    end
+    if(self._replyShowDatas[self._selectCId][1] == nil)then
+        self._replyShowDatas[self._selectCId][1] = {};
+    end
+    if(replyPage == nil or replyPage < 1)then
+        Comment:ReplyDataMove(1,reply)
+    else
+        table.insert(self._replyShowDatas[self._selectCId][replyPage],reply);
+    end
+    Comment:AddReplyData(reply);
+end
+
+function Comment:ReplyDataMove(index,moveData)
+    if(self._replyShowDatas[self._selectCId][index] == nil)then
+        self._replyShowDatas[self._selectCId][index] = {};
+    end
+    table.insert(self._replyShowDatas[self._selectCId][index],1,moveData);
+    if(#self._replyShowDatas[self._selectCId][index] > Comment.ReplyPagesMaxNum)then
+        local moveReply = self._replyShowDatas[self._selectCId][index][Comment.ReplyPagesMaxNum + 1];
+        table.remove(self._replyShowDatas[self._selectCId][index],Comment.ReplyPagesMaxNum + 1);
+        Comment:ReplyDataMove(index + 1,moveReply);
+    end
+end
+
+function Comment:GetCurCommentNumByEntryId(id)
+    if(self._modeCommentNum[Comment:GetCurCommentType()] == nil)then
+        return 0;
+    end
+    return self._modeCommentNum[Comment:GetCurCommentType()][id] or 0;
+end
+
+function Comment:AddCurCommentNumByEntryId(id)
+    if(self._modeCommentNum[Comment:GetCurCommentType()] == nil)then
+        self._modeCommentNum[Comment:GetCurCommentType()] = {};
+    end
+    if(self._modeCommentNum[Comment:GetCurCommentType()][id] == nil)then
+        self._modeCommentNum[Comment:GetCurCommentType()][id] = 0;
+    end
+    self._modeCommentNum[Comment:GetCurCommentType()][id] = self._modeCommentNum[Comment:GetCurCommentType()][id] + 1;
+end
+
+function Comment:GetCurCommentTypeLikeFileName()
+    return string.format("%s%s%s",Comment.CommentLikeName,self._commentModeData.commentType,Player:GetId());
+end
+
+function Comment:GetReplyCacheName()
+    return string.format("%s%s%s",Comment.ReplyCacheName,Player:GetId(),self._commentModeData.commentType..self._commentModeData.entry);
+end
+
+function Comment:GetMyCommentCacheName()
+    return string.format("%s%s%s%s",Comment.MyCommentCacheName,Player:GetId(),self._commentModeData.commentType,self._commentModeData.entry);
+end
+
+function Comment:GetCommentCacheName()
+    return string.format("%s%s%s%s",Comment.CommentCacheName,Player:GetId(),self._commentModeData.commentType,self._commentModeData.entry);
+end
+
+function Comment:GetMyReplyCacheName()
+    return string.format("%s%s%s%s",Comment.MyReplyCacheName,Player:GetId(),self._commentModeData.commentType,self._commentModeData.entry);
+end
+
+function Comment:SetCommentNumText(txt,id)
+    id = tonumber(id);
+    local num = Comment:GetCurCommentNumByEntryId(id);
+    if(num >= 999)then
+        txt.text = "999+";
+        return
+    end
+    txt.text = num;
+end
+
+function Comment:GetCommentNumStr(id)
+    local num = self:GetCurCommentNumByEntryId(tonumber(id))
+    if num >= 999 then return "999+" end
+
+    return tostring(num or 0)
+end
+
+function Comment:RemoveComment()
+    if(self._commentData[self._selectCId] ~= nil)then
+        self._commentData[self._selectCId] = nil;
+        GEvent:fireEvent(EVENT_TYPE.REMOVE_COMMENT);
+    end
+end

@@ -1,0 +1,317 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-09-02 16:17:21
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertBookSelectLayer = class("ConcertBookSelectLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function ConcertBookSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertBookSelectLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        --topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+
+    self.bookItems = {}
+
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertBookSelectLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    CS.UnityHelper.NotchfitY(self._objTop)
+end
+
+--按钮事件
+function ConcertBookSelectLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ConcertBookSelectLayer:Init()
+    self._lastStudyNewBookId = nil;
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertBookSelectLayer:InitUI()
+    local NODE_CLASS = {
+    };
+    self._texBg = self.layer:GetRawImageComponent("tex_bg");
+    self._tvTableViewController = UIController:CtorTableView(self.layer:Get("tv_TableViewController"));
+    self._cellItem = self.layer:GetRectTransformComponent("tv_TableViewController/cell_item").gameObject;
+    self._studyEffect = self.layer:Get("effect_xunh").transform:GetComponent("ParticleBehaviour");
+    self._studyTrans = self.layer:Get("effect_xunh")
+    self._objTop = self.layer:Get("info_title")
+    self._cellReward = self.layer:GetRectTransformComponent("tv_TableViewController/cell_reward").gameObject;
+end
+
+--显示UI
+function ConcertBookSelectLayer:show(bookId,callback)
+    self._allBookIds = Concert:GetAllConcetBooks()
+    self.curBookId = Concert.defaultConcertId
+    self._curPlayBook = nil
+    self._playIndex = -1
+    self._callBack = callback
+
+    Concert:SetRtBg(self._texBg);
+    Concert:StopMainTrack()
+    self:InitTableViewController(bookId)
+    self:showLayer();
+end
+
+--退出按钮事件
+function ConcertBookSelectLayer:onBackClick()
+    if self._callBack ~= nil then
+        self._callBack()
+    end
+    self:onPopLayer();
+end
+
+--释放
+function ConcertBookSelectLayer:onExit()
+    if self._curPlayBook ~= nil then
+        self._curPlayBook.isPlaying = false
+        Concert:UpdateConcertBook(self._curPlayBook)
+    end
+    self._curPlayBook = nil
+
+    self._tvTableViewController:Clear();
+    self._tvTableViewController = nil;
+    self._cellItem = nil;
+    self._cellReward = nil;
+    self._texBg = nil;
+    self._studyEffect = nil
+
+
+    if self.bookItems ~= nil then
+        for i, cls in pairs(self.bookItems) do
+            cls:clear()
+        end
+    end
+    self.bookItems      = nil
+
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_CLOSE_BOOK_PREVIEW_WIN,self._lastStudyNewBookId);
+
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertBookSelectLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.CONCERT_COMPOS_BOOK_SUCCESS, self.__cname, function(bookId)
+        print("ConcertBookLayer  激活新的乐谱")
+        for i, v in pairs(self.bookItems) do
+            if v.data.id == bookId then
+                v.data = Concert:GetConcertBookById(bookId)
+                self:PlayBookEffect(v)
+                self:UpdateBtnOpenState(v)
+                self._lastStudyNewBookId = bookId;
+            end
+            v._uicostctrl:UpdateUICostCtrl(v.data.compose)
+        end
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertBookSelectLayer:InitTableViewController(bookId)
+    local count = lua_table_len(self._allBookIds)
+    self._tvTableViewController:Init(count, true, function(cell, row)
+        self:refreshUnitCell(cell, row + 1)
+    end)
+    if bookId ~= nil and bookId > 0 then
+        local targetIndex = lua_table_indexof(self._allBookIds,bookId,1)
+        print("当前索引  ：  "..targetIndex)
+        self._tvTableViewController:ScrollToRow(targetIndex - 1,0.5)
+    end
+end
+
+function ConcertBookSelectLayer:refreshUnitCell(cell, row)
+    local cls = self.bookItems[cell.cellInstanceIndex]
+    if(cls == nil)then
+        cls =  Concert:CtorMusicBookObj(cell.transform.gameObject);
+
+        --乐谱播放
+        cls.btnPlay:AddButtonListener(function()
+            if cls.data.isPlaying == false then
+                cls.data.isPlaying = true --播放
+            else
+                cls.data.isPlaying = false
+            end
+            --播放切换（重置上次数据，设置当前新数据，刷新当前表现）
+            if self._curPlayBook ~= nil and self._curPlayBook.id ~= cls.data.id then
+                self._curPlayBook.isPlaying = false
+                Concert:UpdateConcertBook(self._curPlayBook)
+                Concert:UpdateConcertBook(cls.data)
+                self:ResetItem(self._curPlayBook)
+            end
+            Concert:PlaySpMainTrack(cls.data.musicPath)
+            self:setPlayBtnState(cls)
+            self:UpdateBookItem(cls)
+        end)
+
+        --乐谱学习
+         cls.btnStudy:AddButtonListener(function()
+             local isCost =  Concert:checkBookItemCost(cls.data)
+             if isCost == true then
+                 Concert:ConcertComposBook_Req(cls.data.id)
+             else
+                 Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809017))
+             end
+         end)
+
+        self.bookItems[cell.cellInstanceIndex] = cls
+    end
+    cls.data = Concert:GetConcertBookById(self._allBookIds[row])
+    self:UpdateBookItem(cls);
+end
+
+--更新乐谱解锁状态
+function ConcertBookSelectLayer:UpdateBtnOpenState(cls)
+    set_obj_active(cls.btnStudy.gameObject,not cls.data.isOpen);
+    cls.objGet:SetVisible(cls.data.isOpen);
+
+    local showCost = lua_table_len(cls.data.compose) > 0 and (not cls.data.isOpen);
+    set_obj_active(cls.objCostPar,showCost);
+end
+
+function ConcertBookSelectLayer:UpdateBookItem(cls)
+    --set_obj_active(cls.btnPlay.gameObject,cls.data.isOpen)
+
+    cls.objGet:SetVisible(cls.data.isOpen)
+    cls.objGunZi:SetVisible(cls.data.isPlaying)
+
+    local book = Item:GetCfg(cls.data.id)
+    cls.icon.texture = AssetLoader:LoadTexture("source_icon_new/concert/"..cls.data.icon)
+    cls.name.text = book.Name
+    cls.bookDes.text = book.itemInfo
+    cls.playTime.text = math.ceil(cls.data.duration/3600).."小时";
+
+    local iconPath = "";
+    if cls.data.isPlaying == true then
+        iconPath = "btn_stop";
+        self:PlayCD(cls)
+    else
+        iconPath = "btn_play";
+        self:StopCD(cls)
+    end
+    cls.playBtnImg:LoadAtlasSprite("source_atlas/concert",iconPath);
+
+    local musicPos = cls.data.musicalPos
+    for i = 1,4 do
+        cls.musicTags[i].icon:LoadSprite("source_icon/music_hall/music_"..musicPos[i]);
+        set_obj_active(cls.musicTags[i].unfit,false)
+    end
+    
+    self:UpdateBtnOpenState(cls);
+    if lua_table_len(cls.data.compose) > 0 then
+        cls._uicostctrl:UpdateUICostCtrl(cls.data.compose)
+    end
+
+    local showDrops = Item:GetDrops(cls.data.baseDropId)
+    Item:AddEndDrops(showDrops,cls.data.endDropId);
+    local dataNum = lua_table_len(showDrops)
+    local itemNum = lua_table_len(cls.baseRewardItems)
+    cls.objReward:SetVisible(dataNum > 0);
+    local itemData = {}
+    if(dataNum > 0)then
+        for _, v in ipairs(showDrops) do
+            local reward = cls.baseRewardItems[_]
+            if reward == nil then
+                reward = Concert:CtorItemCObj(cls.objReward:AddChild(self._cellReward))
+                cls.baseRewardItems[_] = reward
+            end
+            reward.obj:SetVisible(true)
+
+            itemData.bagtype = v[1];
+            itemData.cfgid = v[2];
+            itemData.count = 0--v[3];
+            itemData.dropType = v[4];
+            itemData.addItemId = 0
+            Concert:SetItemView(reward,itemData);
+        end
+    end
+    if dataNum < itemNum then
+        for i = dataNum + 1, itemNum do
+            local reward = cls.baseRewardItems[i]
+            reward.obj:SetVisible(false)
+        end
+    end
+
+    local isStudy = Concert:checkBookItemCost(cls.data)
+    cls.objRedTips:SetVisible(isStudy)
+end
+
+
+
+function ConcertBookSelectLayer:setPlayBtnState(cls)
+    if cls.data.isPlaying == true then
+        self.curBookId = cls.data.id
+        self._playIndex = lua_table_indexof(self._allBookIds,self.curBookId)
+        self._curPlayBook = Concert:GetConcertBookById(self.curBookId)
+        Concert:SetMainTrackPausedState(false)
+    else
+        self.curBookId = -1
+        self._playIndex = -1
+        self._curPlayBook = nil
+        Concert:SetMainTrackPausedState(true)
+    end
+end
+
+function ConcertBookSelectLayer:PlayCD(cls)
+    cls.cdAnim:Play()
+end
+
+function ConcertBookSelectLayer:StopCD(cls)
+    cls.cdAnim:Stop()
+end
+
+function ConcertBookSelectLayer:ResetItem(lastBook)
+    for i, v in pairs(self.bookItems) do
+        if v.data.id == lastBook.id then
+            v.playBtnImg.sprite = AssetLoader:LoadAtlasSprite("source_atlas/concert","btn_play");
+            v.cdAnim:Stop()
+            Concert:SetMainTrackPausedState(true)
+            v.objGunZi:SetVisible(false)
+        end
+    end
+end
+
+function ConcertBookSelectLayer:PlayBookEffect(bookItem)
+    if self._studyEffect ~= nil then
+        self._studyEffect.transform:SetParent(bookItem.transform)
+        self._studyEffect.gameObject:SetVisible(true)
+        self._studyTrans:SetPosition(0, -100, 0, true)
+        self._studyEffect:Stop();
+        self._studyEffect:Play();
+    end
+end
+
+return ConcertBookSelectLayer;

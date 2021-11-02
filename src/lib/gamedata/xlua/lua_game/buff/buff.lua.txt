@@ -1,0 +1,75 @@
+--
+-- author: haosun
+-- date  : 2019-08-20 10:26:30
+-- brief : 
+--
+
+Buff = Buff or {}
+
+function Buff:Ctor()
+end
+
+function Buff:Clear()
+    self._rankbuff      = nil
+    self._mysterybuff   = nil
+end
+
+function Buff:GetRankBuff(buffid)
+    return self._rankbuff.owner[buffid] ~= nil, self._rankbuff.count[buffid] or 0
+end
+
+function Buff:GetRankUsingBuff()
+    local debuff = {}
+    local cfgs = Rank:GetAllBlessCfg()
+    for i, v in ipairs(cfgs) do
+        local owner, count = self:GetRankBuff(v.cfgid)
+        if owner then
+            table.insert(debuff, {v.blesstype, v.param1})
+        end
+    end
+    return debuff
+end
+
+function Buff:ClearRankBuffs()
+    self._rankbuff.owner = {}
+    for buffid, v in pairs(self._rankbuff.count) do
+        self._rankbuff.count[buffid] = self._rankbuff.count[buffid] + 1
+    end
+end
+
+function Buff:_onProgressMysteryBuff(data)
+    self._mysterybuff = {
+        owned   = {},
+        choose  = {},
+    }
+    if data ~= nil and next(data) ~= nil then
+        for _, v in pairs(data.possess or {}) do
+            table.insert(self._mysterybuff.owned, v)
+        end
+        self._mysterybuff.choose = data.choose or {}
+    end
+end
+
+function Buff:GetMysteryBuff()
+    return self._mysterybuff.owned
+end
+
+function Buff:UpdateMysteryChooseBuff(buffs)
+    if buffs == nil or next(buffs) == nil then
+        self._mysterybuff.choose = {}
+    else
+        local floor = Mystery:GetFightFloor()
+        self._mysterybuff.choose = {
+            [floor] = buffs
+        }
+    end
+end
+
+function Buff:GetMysteryChooseBuff()
+    local list = {}
+    for floor, buffids in pairs(self._mysterybuff.choose) do
+        table.insert(list, {floor, buffids})
+    end
+    return list
+end
+

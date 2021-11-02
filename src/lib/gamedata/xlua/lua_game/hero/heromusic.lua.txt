@@ -1,0 +1,16 @@
+--
+-- author: haosun
+-- date  : 2019-09-09 16:59:31
+-- brief : 
+--
+
+Hero = Hero or {}
+
+function Hero:InitMusic(hero, cfg)
+    hero.musics = {};
+
+    local musics = lua_str_split(cfg.musical_use, "&");
+    for _, v in ipairs(musics) do
+		table.insert(hero.musics, {mtype = tonumber(v), cid = v ,uid = 0, lv = 1, exp = 0})
+    end
+end

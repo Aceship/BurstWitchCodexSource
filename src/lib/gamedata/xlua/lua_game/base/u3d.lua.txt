@@ -1,0 +1,9 @@
+--
+-- author: haosun
+-- date  : 2019-10-16 15:37:43
+-- brief : 
+--
+Vector3         = {}
+Vector3.zero    = CS.UnityEngine.Vector3.zero                   -- Vector3(0, 0, 0)
+Vector3.one     = CS.UnityEngine.Vector3.one                    -- Vector3(1, 1, 1)
+

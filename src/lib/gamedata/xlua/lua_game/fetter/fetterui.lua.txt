@@ -1,0 +1,126 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+--
+Fetter = Fetter or {}
+
+function Fetter:OpenLibraryLayer(heroid ,callback)
+    if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_favour) then
+        return
+    end
+    if heroid == 0 or heroid == nil then
+        self._favorHeroId = 1001
+    else
+        self._favorHeroId = heroid
+    end
+    self._favorCallback = callback
+    self.LibraryLayer = core.require("xlua/lua_UI/LibraryScene/LibraryMainLayer.txt"):new();
+    self.LibraryLayer:show()
+end
+
+function Fetter:GetLibraryLayer()
+    if(self.LibraryLayer == nil)then
+       -- print("LibraryLayer is null!!");
+        return
+    end
+    return self.LibraryLayer;
+end
+
+function Fetter:ClearLibraryLayer()
+    self._favorHeroId = 0
+    self._favorCallback = nil
+    self.LibraryLayer = nil
+end
+
+function Fetter:GetFavorEnterHeroId()
+    return self._favorHeroId
+end
+
+function Fetter:CallFavorCallback()
+    if self._favorCallback ~= nil then
+        self._favorCallback(self._favorHeroId)
+    end
+end
+
+function Fetter:SetGoodsUi(cls, cfgid, num )
+    local cfg = Item:GetCfg(cfgid)
+    Item:SetItemIcon( cls.iconImg.transform, cfgid)
+    Bag:SetGoodsBorderByQlty(cls, tonumber(cfg.Quality))
+    cls.numCom.text = num
+
+end
+
+function Fetter:SetFetterIcon(img,linetype)
+    local _filepath = "Img_HaoGan_XiaoTuBiao" .. linetype;
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_fetter_layer", _filepath)
+end
+
+function Fetter:SetFetterActive(img, isactive)
+    local type = 1
+    if not isactive then
+        type =2
+    end
+    local _filepath = "Img_TuJian_Dian_" .. type;
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_archive_layer", _filepath)
+end
+
+function Fetter:CtorWitch(obj)
+    local cls  = clsbase:new(obj)
+    cls.img     = cls:GetImageComponent("img_hero/img_hero")
+    cls.starCom = cls:Find("img_hero/img_star")
+    cls.starChilds     = {}
+    if cls.starCom ~= nil then
+        for i = 1, 6 do
+            cls.starChilds[i] = cls:Find("img_hero/img_star/img_star"..i)
+        end
+    end
+    return cls
+end
+
+function Fetter:CreateGiftLayer(_transParent)
+    if self._giftLayer == nil then
+        self._giftLayer = core.require("xlua/lua_UI/LibraryScene/GiftLayer.txt"):new(_transParent)
+    end
+end
+
+function Fetter:ClearGiftLayer()
+    self._giftLayer = nil
+end
+
+function Fetter:ExitGiftLayer()
+    if self._giftLayer ~= nil then
+        self._giftLayer:onPopLayer()
+    end
+    self._giftLayer = nil
+end
+
+function Fetter:ShowGiftLayer()
+    if self._giftLayer ~= nil then
+        self._giftLayer:show()
+    end
+end
+
+function Fetter:SetSelectHeroGiftLayer(heroId)
+    if self._giftLayer ~= nil then
+        self._giftLayer:SetSelectHero(heroId)
+    end
+end
+
+function Fetter:ReloadGiftLayer()
+    if self._giftLayer ~= nil then
+        self._giftLayer:reload()
+    end
+end
+
+function Fetter:ShowAnimGiftLayer()
+    if self._giftLayer ~= nil then
+        self._giftLayer:ShowAnim()
+    end    
+end
+
+function Fetter:HideAnimGiftLayer()
+    if self._giftLayer ~= nil then
+        self._giftLayer:HideAnim()
+    end
+end

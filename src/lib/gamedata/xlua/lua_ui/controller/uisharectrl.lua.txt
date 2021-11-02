@@ -1,0 +1,24 @@
+--
+-- author: haosun
+-- date  : 2021-09-24 16:10:46
+-- brief :
+--
+UIShareCtrl = class("UIShareCtrl")
+
+function UIShareCtrl:ctor(super, trans)
+    self.prefab = trans:CreateChild("prefab_uiHome/ui_home/UI_ShareinfoLayer")
+    self.prefab.gameObject:SetActive(false)
+    self.prefab:GetTextComponent("prefab_player/txt_level").text = "Lv." .. Player:GetLevel()
+    self.prefab:GetTextComponent("prefab_player/txt_name").text = Player:GetName()    
+    local playerCls  = Player:CtorPlayerIconBorder(self.prefab:Get("prefab_player"))
+    Player:SetPlayerIconBorderObj(playerCls, Player:GetHeadIcon(), Player:GetHeadBorder());
+
+end
+
+function UIShareCtrl:UIShareCtrDtor()
+    
+end
+
+function UIShareCtrl:SetVisible(show)
+    self.prefab.gameObject:SetActive(show)
+end

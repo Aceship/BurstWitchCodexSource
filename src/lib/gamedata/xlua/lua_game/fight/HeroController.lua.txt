@@ -1,0 +1,308 @@
+--
+-- author: haosun
+-- date  : 2020-07-15 10:27:05
+-- brief : 
+--
+
+HeroController = HeroController or {}
+
+RestraintType = {
+    Enum_Guang   = 1;--光
+    Enum_An      = 2;--暗
+    Enum_Hundun  = 3;--混沌
+}
+
+function HeroController:InitHeroController(heroids, levelid, herodata)
+    AppMgr:LogInfo("==========HeroController:InitHeroController()==========")
+    self._heronumber    = 0
+    self._heros         = {}
+    self._heroids       = {}
+    self._attrnumber    = {}        -- 上阵的魔女属性个数
+    self._eCategorys    = {}
+
+    self._eCategoryCount    = {
+        [RestraintType.Enum_Guang]  = 0,
+        [RestraintType.Enum_An]     = 0,
+        [RestraintType.Enum_Hundun] = 0,
+    }
+
+    for _, hid in pairs(heroids) do
+        if hid ~= nil and hid ~= 0 then
+            local cfg = Hero:GetCfg(hid)
+            local hero = Hero:GetHero(hid)
+            self._heros[hid] = {
+                heroid      = hid,
+                attri_type  = hero.attri_type,
+                atk_type    = hero.atktype,
+                skinid      = hero.skinid,
+                skinids     = hero.skinids
+            }
+            if herodata ~= nil then
+                self._heros[hid].skinid = herodata[_][3]
+            else
+                if hero.skinid == 0 then
+                    self._heros[hid].skinid = hero.skinids[1]
+                end
+            end
+            local star = hero.star
+            if herodata ~= nil then
+                star = herodata[_][2]
+            end
+            for _, v in pairs(hero.skills) do                
+                local skill = FightModule:GetWitchSkill(v.cfgid, star)
+                local skillShow = FightModule:GetWitchSkillShow(v.showid, star)
+                if skill ~= nil and skill.playtype == 10 
+                    and skillShow ~= nil then
+                    self._heros[hid].skillicon = skillShow.icon
+                end
+            end
+            table.insert(self._heroids, hid)
+        end
+    end
+    --上阵剧情魔女
+    if levelid ~= nil then
+        local _index = 1
+        local cheroes = Chapter:GetChapterHero(levelid)
+        if not lua_table_empty(cheroes) then
+            for k, hero in pairs(cheroes) do
+                local buildChap = hero.buildChap
+                local hid = hero.id
+                local cfg = Hero:GetCfg(hid)
+                local hero = Hero:GetHero(hid)
+                self._heros[hid] = {
+                    heroid      = hid,
+                    attri_type  = hero.attri_type,
+                    atk_type    = hero.atktype,
+                    skinid      = hero.skinid,
+                    skinids     = hero.skinids,
+                    buildChap   = buildChap,
+                    levelid     = levelid,
+                    index       = k,
+                    isPlotCharacter = true,
+                }
+                if hero.skinid == 0 then
+                    self._heros[hid].skinid = hero.skinids[1]
+                end
+                for _, v in pairs(hero.skills) do
+                    local skill = FightModule:GetWitchSkill(v.cfgid, hero.star)
+                    local skillShow = FightModule:GetWitchSkillShow(v.cfgid, star)
+                    if skill ~= nil and skill.playtype == 10 
+                        and skillShow ~= nil then
+                        self._heros[hid].skillicon = skillShow.icon
+                    end
+                end
+                if levelid == 100001 then
+                    table.insert(self._heroids, hid)
+                else
+                    table.insert(self._heroids, _index, hid)
+                    _index = _index + 1
+                end
+            end
+        end
+    end
+end
+
+function HeroController:UnInitHeroController()
+    self._heronumber    = 0
+    self._dienumber     = 0
+    self._hero_used     = nil
+    for _, hero in pairs(self._heros) do
+        self._heros[_] = nil
+    end
+    
+    self._eCategoryCount[RestraintType.Enum_Guang]  = 0
+    self._eCategoryCount[RestraintType.Enum_An]     = 0
+    self._eCategoryCount[RestraintType.Enum_Hundun] = 0
+
+    AppMgr:LogInfo("==========HeroController:UnInitHeroController()==========")
+end
+
+function HeroController:GetHeroList()
+    return self._heros
+end
+
+function HeroController:GetHeroIds()
+    return self._heroids
+end
+
+function HeroController:GetHeroById(heroid)
+    return self._heros[heroid]
+end
+
+-- 
+-- brief: 战斗结束显示的魔女SPINE
+-- 
+function HeroController:GetShowHeroId()
+    local idx = math.random(1, #self._heroids)
+    local hid = self._heroids[idx]
+    local hero = Hero:GetHero(hid)
+     if hero.wear_skin then
+        return hero.skinid
+    end
+    return hid
+end
+
+function HeroController:GetMvpHeroId()
+    local ids = self:GetHeroIds()
+
+    local fightList = Hero:GetHeroFight()
+    self.mvpId = self:GetMVPHeroIndex(ids,fightList)
+    local heroId  = ids[1]
+    if ids[self.mvpId] ~= 0 then
+        heroId = ids[self.mvpId]
+    end
+
+    local hero = Hero:GetHero(heroId)
+    if hero ~= nil and hero.wear_skin  then
+        heroId = hero.skinid
+    end
+    return heroId
+end
+
+function HeroController:GetNormalMvpIndex()
+    local ids = self:GetHeroIds()
+
+    local fightList = Hero:GetHeroFight()
+    local mvpIndex = self:GetMVPHeroIndex(ids,fightList)
+    
+    return mvpIndex
+end
+
+
+function HeroController:GetMVPHeroIndex(heroList,fightList)
+    local index = 1
+    local mvp = 0
+    for i = 1, #fightList do
+        if fightList[i] > mvp then
+            mvp = fightList[i]
+            index = i
+        end
+    end
+    return index
+end
+
+-----------------魔女筛选--------------------------
+--光系筛选
+function HeroController:GetHeroesByAttr(attr)
+    local restult = {}
+    for i, v in pairs(self._heros) do
+        if v.attri_type == attr then
+            table.insert(restult,v)
+        end
+    end
+    return restult
+end
+
+--枪型筛选
+function HeroController:GetHeroesByGunType(gun)
+    local restult = {}
+    for i, v in pairs(self._heros) do
+        if v.atk_type == gun then
+            table.insert(restult,v)
+        end
+    end
+    return restult
+end
+
+--指定英雄
+function HeroController:GetHeroesByHeroId(heroId)
+    local restult = {}
+    for i, v in pairs(self._heros) do
+        if v.heroid == heroId then
+            table.insert(restult,v)
+        end
+    end
+    return restult
+end
+
+--克制筛选
+function HeroController:GetHeroesByFobear(monsterAttrType)
+    local aType = Hero:GetForbearAttrType(monsterAttrType)
+    local result = self:GetHeroesByAttr(aType)
+    return result
+end
+
+function HeroController:InitHeroHurt(trans, posx, disx)
+    local allDps = 0
+    local maxNum = UI_FightPlayerLayer._heroDps[1]
+    local maxIdx = 1
+    for i = 1, #UI_FightPlayerLayer._heroDps do
+        local dps = UI_FightPlayerLayer._heroDps[i]
+        if dps > maxNum then
+            maxIdx = i
+            maxNum = dps
+        end
+        allDps = allDps + dps
+    end
+
+    local heroCount = #self._heroids
+
+    local tempPro = 0
+    for i, hid in ipairs(self._heroids) do
+        local prefab = trans:CreateChild("prefab_uimidnight/ui_settle_hero")
+        prefab:SetPositionX(posx + (i-1) * disx, true)
+        local cls = Bag:CtorComSimpleGoodsUi(prefab:Get("item1"))
+        Bag:SetComSimpleGoodsUi(cls, Bag.TYPE_HERO, hid)
+        cls:clear()
+        local heroDps = UI_FightPlayerLayer._heroDps[i]
+        local pro = math.floor(heroDps/allDps * 100)
+        if i == heroCount then            
+            prefab:GetTextComponent("txt_hurt"):SetText(string.format("%s(%d)%%", math.wTally(heroDps), 100 - tempPro))
+        else
+            prefab:GetTextComponent("txt_hurt"):SetText(string.format("%s(%d)%%", math.wTally(heroDps), pro))
+        end
+        tempPro = tempPro + pro
+        prefab:Get("img_mvp"):SetVisible( i == maxIdx )
+        prefab:SetVisible(true)
+    end
+end
+
+local _checkAttr = {CAttr.TYPE_HP, CAttr.TYPE_ATK, CAttr.TYPE_DEF, CAttr.TYPE_SPD, CAttr.TYPE_HIT, CAttr.TYPE_DMG}
+function HeroController:HeroAttrCheck()
+    -- print("====================异常数据检测")
+    local _datas = {}
+    local _cheat = false
+    for hid, v in pairs(self._heros) do
+        if not v.isPlotCharacter then
+            local hero = Hero:GetHero(hid)
+            local tempAttr = Hero:CalcTempFightAttr(hid)
+            for i, v in ipairs(_checkAttr) do
+                local sub = hero.attrs[v] - tempAttr[v]
+                if sub > 10 then
+                    _cheat = true
+                    break
+                end
+                sub = hero.attrs[CAttr.TYPE_HIT_RATE] - tempAttr[CAttr.TYPE_HIT_RATE]
+                if sub > 1 then
+                    _cheat = true
+                    break
+                end
+                sub = hero.attrs[CAttr.TYPE_DMG_RATE] - tempAttr[CAttr.TYPE_DMG_RATE]
+                if sub > 1 then
+                    _cheat = true
+                    break
+                end
+            end
+            if _cheat then
+                _datas[tostring(hero.id)] = {
+                    rightAttr = tempAttr,
+                    cheatAttr = hero.attrs,
+                }
+            end
+        end
+    end
+
+    if not _cheat then 
+        -- print("====================没有作弊")
+        _datas = nil
+        return false
+    end
+
+    -- print("====================检测到作弊")
+    _datas.playerId = Player:GetId()
+    _datas.platformId = GameSdkMgr:GetPlatformId()
+    HttpUpload:SetTempData(luajson.encode(_datas))
+
+    return true
+end
+

@@ -1,0 +1,1332 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+Concert = Concert or {}
+
+--音乐厅
+function Concert:InitConcert(cfg)
+    local concert = {
+        id = tonumber(cfg.id),
+        icon = cfg.Icon,
+        openLevel = tonumber(cfg.OpenLevel),
+        modelPath = cfg.SampleRoom,
+        name = Language.LanguageTxt[tonumber(cfg.Concert_name)],
+        stime = 0,
+        etime = 0,
+        curBookId = 0, --当前乐谱
+        heroIds = {}, --正在演奏魔女
+        playMistakeRate = {},
+        itemId = 0, --奖励物品
+
+        --
+        isEnterConcert = false,
+    }
+    return concert
+end
+
+--乐谱
+function Concert:InitConcertBook(index,cfg)
+    local concertBook = {
+        index = index;
+        id = tonumber(cfg.id);
+        quality = cfg.Quality;
+        musicPath = cfg.Music;
+        icon = cfg.Icon;
+        compose = lua_parse_cfg(cfg.Compose,true);
+        duration = tonumber(cfg.Duration);
+        spirit = tonumber(cfg.Spirit);
+        musicalPos = lua_str_split(cfg.MusicalPos,"&",true);
+        baseDropId = tonumber(cfg.BaseDropId);
+        endDropId  = tonumber(cfg.EndDropId);
+        difficulty = cfg.Difficulty;
+        witchExp = tonumber(cfg.WitchExp);
+        scoreArray = lua_parse_cfg(cfg.Score,true);
+        SortId        = tonumber(cfg.Sort);
+        score      = 0;
+        isOpen     = false;
+
+        --
+        isSelect   = false;
+        isPlaying  = false;
+    }
+    return concertBook
+end
+
+function Concert:Ctor()
+    self._resController = CS.ConcertLuaInterface();
+    --大厅
+    self._concertHalls = {};
+
+    --乐谱
+    self._concertBooks = {};
+
+    --上阵魔女
+    self._concertHeros = {}
+
+    self._concertCfgs = CfgLoader:LoadCfg("Odeum")
+
+    local hid
+    for _, v in pairs(self._concertCfgs) do
+        hid = tonumber(v.id)
+        self._concertHalls[hid] = self:InitConcert(v)
+    end
+
+    self._concertBookCfg = CfgLoader:LoadCfg("Opern");
+    local index = 0
+    for _, v in pairs(self._concertBookCfg) do
+        hid = tonumber(v.id)  --道具id
+        index = index + 1
+        self._concertBooks[hid] = self:InitConcertBook(index,v)
+    end
+end
+
+function Concert:Clear()
+    self:Ctor()
+end
+
+--------------------音乐厅---------------------------
+--获取所有音乐厅
+function Concert:GetAllConcerts()
+    return self._concertHalls;
+end
+
+--获取音乐厅
+function Concert:GetConcertById(id)
+    id = tonumber(id)
+    if(self._concertHalls[id] == nil)then
+        AppMgr:LogError("can't find concert by id. id = " .. id)
+        return
+    end
+    return self._concertHalls[id]
+end
+
+function Concert:GetHeroDataByHallAndPos(hallId,posIndex)
+    local hall = self:GetConcertById(hallId);
+    if hall == nil then
+        AppMgr:LogError("音乐厅不存在 ：  "..hallId)
+        return nil
+    end
+    local hero = nil
+    for i, v in pairs(hall.heroIds) do
+        if i == posIndex and v > 0 then
+            hero = Hero:GetHero(v)
+            return hero
+        end
+    end
+    return hero
+end
+
+
+
+function Concert:GetInstrumentIdByHallAndPos(hallId,posIndex)
+    local hall = self:GetConcertById(hallId);
+    if hall == nil then
+        AppMgr:LogError("音乐厅不存在 ：  "..hallId)
+        return -1
+    end
+    local book = self:GetConcertBookById(hall.curBookId)
+    if book == nil then
+        AppMgr:LogError("音乐厅不存在指定乐谱 bookID ：  "..hall.curBookId)
+        return -1
+    end
+    for i, v in pairs(book.musicalPos) do
+        if i == posIndex then
+            return v
+        end
+    end
+    return -1
+end
+
+function Concert:GetHerosByAppearance(appearanceId)
+
+    local heroIds = {}
+    local ownIds = Hero:GetOwnerIds()
+    if appearanceId == -1 then
+         return ownIds
+    end
+    local hero
+    for i, v in pairs(ownIds) do
+        hero = Hero:GetHero(v)
+        for j, p in pairs(hero.apperance) do
+            if p == appearanceId then
+                table.insert(heroIds,v)
+            end
+        end
+    end
+    return heroIds
+end
+
+
+--所有演出魔女的形象统计
+function Concert:GetHeroTagsNum(heros)
+    if heros == nil then
+        return nil
+    end
+    local result = {}
+    local hero
+    for i, hero in pairs(heros) do
+        if hero.heroId > 0 then
+            hero = Hero:GetHero(hero.heroId)
+            for k, appr in pairs(hero.apperance) do
+                local id = appr
+                if result[id] == nil then
+                    result[id] = {id = id,num = 1}  --id 特性类型，num 加成次数
+                else
+                    result[id].num = result[id].num + 1
+                end
+            end
+        end
+    end
+    return result
+end
+
+--获取加成道具满足条件的个数
+function Concert:GetTagNumByApprIds(heros,apprIds)
+    local num = 0
+    if apprIds == nil then
+        return num
+    end
+    for i, apprId in pairs(apprIds) do
+        if self:GetTagNumByApprId(heros,apprId) > 0 then
+            num = num + 1
+        end
+    end
+    return num
+end
+--依据特性类型获取出演魔女的加成次数（num > 0）,有一个魔女满足，即为条件满足一个
+function Concert:GetTagNumByApprId(heros,apprId)
+    local result = self:GetHeroTagsNum(heros)
+    if result == nil or result[apprId] == nil then
+        return 0
+    else
+        return result[apprId].num
+    end
+end
+
+--获取加成道具最终的加成比率
+function Concert:GetAddRateId(heros,addItemdata)
+    local addItem = Concert:GetItemAddByCfgId(addItemdata.id)
+    local addNum = self:GetTagNumByApprIds(heros,addItem.Appearance)
+    local addType = addItem.AppearanceGift[1]--Concert:GetItemAddType(addItemId)  --加成类型
+    local addValue = addItem.AppearanceGift[2]
+    if addType == Concert.AddType.Rate then
+        return addItem.NeedItems[3]  + addNum * addValue;
+    else
+        return addNum
+    end
+end
+
+function Concert:ResetHallById(hallId)
+    local hall = self:GetConcertById(hallId)
+    hall.stime = 0;
+    hall.curBookId = 0;
+    hall.heroIds = {};
+    hall.playMistakeRate = {};
+    hall.itemId = 0
+    self._concertHalls[hallId] = hall
+end
+
+
+------------------------乐谱-------------------------
+-----获取所有乐谱
+function Concert:GetAllConcetBooks()
+
+    local tbl = {}
+    local books = {}
+    local book,sortid;
+
+    for _, v in pairs(self._concertBooks) do
+        book = v
+        sortid = 0
+
+        local openId = 1
+        if book.isOpen then
+            openId = 0
+        end
+        local studyId = 1
+        if self:checkBookItemCost(book) or book.isOpen then
+            studyId = 0
+        end
+        sortid = openId * 10000 + studyId * 1000 + book.SortId;
+
+        table.insert(tbl, {id = book.id, sortid = sortid,index = book.index})
+    end
+    table.sort(tbl, function(a, b)
+        return a.sortid < b.sortid
+    end)
+
+    for i, v in ipairs(tbl) do
+        table.insert(books, v.id)
+    end
+    return books
+end
+
+function Concert:GetFirstCanStudyBookId(bookIds)
+    if bookIds == nil then
+        return -1
+    end
+    for i, bookId in pairs(bookIds) do
+        local book = self:GetConcertBookById(bookId)
+        local isStudy = self:checkBookItemCost(book)
+        if isStudy == true and not book.isOpen and book.compose[1] ~= -1 then
+            return bookId
+        end
+    end
+    return -1
+end
+
+--
+--获取指定乐谱
+function Concert:GetConcertBookById(id)
+    id = tonumber(id)
+    if(self._concertBooks[id] == nil)then
+        AppMgr:LogError("can't find concertbook by id. id = " .. id)
+        return
+    end
+    return self._concertBooks[id]
+end
+
+function Concert:GetScoreLevel(book,score)
+    local level = 0
+    if book == nil then
+        return level
+    end
+    local count = #book.scoreArray
+    for i = 1, count do
+        local last = book.scoreArray[i][2]
+        if score >= last then
+            level = level + 1
+        end
+    end
+    return level
+end
+
+function Concert:GetScoreLevelPath(book,score)
+    local level = self:GetScoreLevel(book,score)
+    return Concert.LevelIcon[level]
+end
+
+function Concert:UpdateConcertBook(book)
+    local tmp = self:GetConcertBookById(book.id)
+    tmp.isPlaying = book.isPlaying
+    tmp.isSelect = book.isSelect
+    self._concertBooks[book.id] = tmp
+end
+
+
+--检测目标道具是否可被加成
+function Concert:IsAddItemToSingle(addId,targetId)
+    if addId <= 0 then
+        return false
+    end
+    local addItem = Concert:GetItemAddByCfgId(addId)
+    if addItem == nil then
+        return false
+    end
+    local type = addItem.NeedItems[1];
+    local subType = addItem.NeedItems[2];
+    local add = addItem.NeedItems[3];
+
+    local targetItem = Item:GetCfg(targetId)
+
+    if type == Concert.AddType.Rate then
+        return subType == tonumber(targetItem.subType)
+    elseif type == Concert.AddType.DropItem then
+        return subType == targetId
+    end
+    return false
+end
+
+--检测加成道具是否对目标道具生效
+function Concert:IsAddItemToTarget(addId,items)
+    if items == nil then
+        return false
+    end
+    local addItem = Concert:GetItemAddByCfgId(addId)
+    if addItem == nil then
+        return false
+    end
+    local addType = addItem.AppearanceGift[1];
+    local subType = addItem.NeedItems[2];
+    local add = addItem.NeedItems[3];
+
+    if addType == Concert.AddType.Rate then
+        return self:IsHasItemId(addItem.NeedItems[2],items)
+    elseif addType == Concert.AddType.DropItem then
+        return self:IsHasDropItem(subType,items) --？？？？？
+    end
+    return false
+end
+
+
+--是否有指定类型道具
+function Concert:IsHasSubTypeItem(subType,items)
+    if items == nil then
+        return false
+    end
+    local itemCfg
+    for i, v in pairs(items) do
+        itemCfg = Item:GetCfg(v[2])
+        if tonumber(itemCfg.subType) == subType then
+            return true
+        end
+    end
+    return false
+end
+
+--掉落道具中是否有指定道具
+function Concert:IsHasItemId(itemId,items)
+    if items == nil then
+        return false
+    end
+    local itemCfg
+    for i, v in pairs(items) do
+        itemCfg = Item:GetCfg(v[2])
+        if tonumber(itemCfg.id) == itemId then
+            return true
+        end
+    end
+    return false
+end
+
+--是否加成掉落
+function Concert:IsHasDropItem(dropId,items)
+    if items == nil then
+        return false
+    end
+    local itemCfg
+    for i, v in pairs(items) do
+        if v[2] == dropId then
+            return true
+        end
+    end
+    return false
+end
+
+--从掉落道具中获取指定道具
+function Concert:GetItemFromDropItems(itemId,items)
+    if itemId == nil or itemId <= 0 then
+        return nil
+    end
+    if items == nil then
+        return nil
+    end
+    local itemCfg
+    for i, v in pairs(items) do
+        itemCfg = Item:GetCfg(v[2])
+        if tonumber(itemCfg.id) == itemId then
+            return v
+        end
+    end
+    return nil
+end
+
+--获取乐谱全部奖励（满时间 + 结算）,如果有加成道具则
+function Concert:GetRewardItemsByBookId(bookCfgId,addItemId)
+    local result = {}
+    local book = self:GetConcertBookById(bookCfgId)
+    if book == nil then
+        return result
+    end
+    local endDropId = book.endDropId
+    local baseDropId = book.baseDropId;
+    local showUnit = self:GetRemainShowUnit(-1,book.duration) --演奏了多少个单位时间
+
+    --基础掉落
+    local dropItems = Item:GetDrops(baseDropId)
+    result = self:ComposeCountToItems(dropItems,showUnit,1)--奖励系数需要计算
+
+    local addNum = 0
+    if addItemId > 0 then
+        local addCfg = Concert:GetItemAddByCfgId(addItemId)
+        local addType = addCfg.AppearanceGift[1] --1.对指定道具加成一定比率，2.获取额外的掉落
+        local unitAdd = addCfg.AppearanceGift[2] --每满足一个条件，加成的比率(或者掉落Id)
+        local conditionNum = self:GetTagNumByApprIds(heros,addCfg.Appearance) --满足加成条件的个数
+        local baseAdd = 0 --基础加成
+        local extrAdd = 0 --条件加成
+        local tarItemId
+        --加成奖励数量
+        if addType == Concert.AddType.Rate then --只加成指定的道具(指定类型暂未处理)
+            tarItemId = addCfg.NeedItems[2]
+            baseAdd = addCfg.NeedItems[3] * 0.01
+            extrAdd = unitAdd * conditionNum * 0.01;
+            addNum = 1 + (baseAdd + extrAdd);
+
+            result = self:ComposeItemIdToItems(dropItems,tarItemId,addNum)
+
+            --获取额外掉落
+        elseif addType == Concert.AddType.DropItem then
+            if conditionNum > 0 then --重复掉落还是一次掉落？
+                local extrItems = Item:GetDrops(unitAdd)
+                self:SetItemDropType(extrItems,Bag.TYPE_EXDROP)
+                self:ComposeItemsInsertItems(extrItems,result)
+            end
+        end
+    end
+
+    --结算掉落
+    if endDropId > 0 then
+        dropItems =  Item:GetDrops(endDropId)
+        self:SetItemDropType(dropItems,Bag.TYPE_SETTLEDROP)
+        self:ComposeItemsInsertItems(dropItems,result)
+    end
+
+
+    return result
+end
+
+--奖励总预览（单位时间基础奖励 * 单位时间 * （预估评分对应的系数 + 道具加成率（或者额外的奖励）） + 结算奖励）
+function Concert:GetRewardItemsByHeros(heros,curBook,addItemId)
+    local result = {}
+
+    local baseDropId = curBook.baseDropId;
+
+    --单位时间基础掉落
+    local dropItems = Item:GetDrops(baseDropId)
+
+    --单位时间个数
+    local showUnit = self:GetRemainShowUnit(-1,curBook.duration)
+
+    --奖励系数
+    local rightRate = self:GetRewardRatio(heros,curBook)
+
+    --相同掉落重复 n 次
+    result = self:ComposeCountToItems(dropItems,showUnit,rightRate)
+
+    --加成比率（待完成）基础加成 + 条件加成
+    local addNum = 0
+    if addItemId > 0 then
+        local addCfg = Concert:GetItemAddByCfgId(addItemId)
+        local addType = addCfg.AppearanceGift[1] --1.对指定道具加成一定比率，2.获取额外的掉落
+        local unitAdd = addCfg.AppearanceGift[2] --每满足一个条件，加成的比率(或者掉落Id)
+        local conditionNum = self:GetTagNumByApprIds(heros,addCfg.Appearance) --满足加成条件的个数
+        local baseAdd = 0 --基础加成
+        local extrAdd = 0 --条件加成
+        local tarItemId
+        --加成奖励数量
+        if addType == Concert.AddType.Rate then --只加成指定的道具(指定类型暂未处理)
+            tarItemId = addCfg.NeedItems[2]
+            baseAdd = addCfg.NeedItems[3] * 0.01
+            extrAdd = unitAdd * conditionNum * 0.01;
+            addNum = 1 + (baseAdd + extrAdd);
+
+            result = self:ComposeItemIdToItems(dropItems,tarItemId,addNum)
+
+            --print("奖励系数   ：  "..rightRate.."  :  演奏单位时间个数  ：  "..showUnit.."  :  加成比率  ： "..addNum.."  ：  加成目标道具  ： "..tarItemId)
+            --获取额外掉落
+        elseif addType == Concert.AddType.DropItem then
+            if conditionNum > 0 then --重复掉落还是一次掉落？
+                local extrItems = Item:GetDrops(unitAdd)
+                self:SetItemDropType(extrItems,Bag.TYPE_EXDROP)
+                --self:ComposeItemsToItems(extrItems,result)
+                self:ComposeItemsInsertItems(extrItems,result)
+                --print("奖励系数   ：  "..rightRate.."  :  演奏单位时间个数  ：  "..showUnit.."  :  额外掉落 id  ： "..unitAdd)
+            end
+        end
+    end
+
+    --结算奖励
+    local endDropId = curBook.endDropId;
+    if endDropId > 0 then
+        --print("结算奖励  id  ： "..endDropId)
+        dropItems =  Item:GetDrops(endDropId)
+        self:SetItemDropType(dropItems,Bag.TYPE_SETTLEDROP)
+        --额外掉落
+        self:ComposeItemsToItems(dropItems,result)
+    end
+    return result
+end
+--function Bag:SetComSimpleGoodsUi(cls, bagtype, cfgid, count, iscfg, isMayDrop, showMay,isDark)
+--bagtype  概率，额外，可能，正常
+function Concert:GetRewardItemsByHallId(hallId,bookId)
+    local result = {}
+    local hall = self:GetConcertById(hallId)
+    local book = self:GetConcertBookById(bookId)
+    local heros = self:GetFightingHerosByHall(hall);
+
+    local endDropId = 0
+    local baseDropId = book.baseDropId;
+
+    local showUnit = self:GetRemainShowUnitFloor(hall.stime,book.duration)--self:GetRemainShowUnit(hall.stime,book.duration) --演奏了多少个单位时间
+
+    local rightRate =  self:GetRewardRatio(heros,book)
+
+    --print("奖励系数   ：  "..rightRate.."  :  演奏单位时间个数  ：  "..showUnit)
+
+    local remainTime = self:GetRemainSeconds(hall.stime,book.duration)
+    if remainTime >=0 and remainTime < Concert.RewardLastTime then --最后5分钟
+        --showUnit = showUnit + 1
+        endDropId = book.endDropId;
+        print("最后5分钟，掉落id  ： "..endDropId)
+    end
+
+    --相同掉落重复 n 次
+    local dropItems = Item:GetDrops(baseDropId)
+    result = self:ComposeCountToItems(dropItems,showUnit,rightRate)
+
+    if endDropId > 0 then
+        dropItems =  Item:GetDrops(endDropId)
+        --额外掉落
+        local endDrops = self:ComposeCountToItems(dropItems,1,rightRate)
+        self:ComposeItemsToItems(endDrops,result)
+    end
+    return result
+end
+
+
+--获取奖励系数
+function Concert:GetRewardRatio(heros,book)
+    local allScore = self:GetAllHeroScore(heros,book)
+    local level = self:GetScoreLevel(book,allScore);
+    local radio = book.scoreArray[level][3] * 0.01
+    return radio
+end
+
+function Concert:SetItemDropType(desItems,dropType)
+    for i, v in pairs(desItems) do
+        v[4] = dropType
+    end
+    return desItems
+end
+
+--对掉落物品的指定道具数量加成(百分比)
+function Concert:ComposeItemIdToItems(desItems,itemId,addNum)
+    local item =  self:GetItemFromDropItems(itemId,desItems)
+    local tmpValue = item[3] * addNum;
+    local tmpIntValue = math.floor(tmpValue);
+    local decimalValue = tmpValue-tmpIntValue;
+    if(decimalValue>=0.5) then
+        item[3] = tmpIntValue+1;
+    else
+        item[3] = tmpIntValue;
+    end
+    return desItems
+end
+
+--desItems  单位时间基础奖励
+--count   单位时间个数(半小时的倍数)
+--rate   奖励系数（0.5 - 1.0）
+--addNun 加成道具加成(最小值 1)
+function Concert:ComposeCountToItems(desItems,count,rate)
+    for i, v in pairs(desItems) do
+        if  v[3] ~= nil then
+            v[3] = math.ceil(v[3] * count * rate);
+        end
+    end
+    return desItems
+end
+
+
+--将一张表插入到另一张表(重复道具不处理)
+function Concert:ComposeItemsInsertItems(scrItems,desItems)
+    for i, v in pairs(scrItems) do
+        table.insert(desItems,v)
+    end
+    return desItems
+end
+
+--将一个道具表的数量合并到另一个道具表
+function Concert:ComposeItemsToItems(scrItems,desItems)
+    for i, v in pairs(scrItems) do
+        self:ComposeOneItemToItems(v,desItems)
+    end
+    return desItems
+end
+
+--掉落道具合并
+function Concert:ComposeOneItemToItems(scrItem,desItems)
+    local isContain = false
+    for di, dv in pairs(desItems) do
+        if scrItem[2] == dv[2] then  --如果是同一个道具，则合并
+            dv[3] = dv[3] + scrItem[3]
+            isContain = true
+        end
+    end
+    if not isContain then  --目标列表不存在
+        table.insert(desItems,{tonumber(scrItem[1]), tonumber(scrItem[2]), tonumber(scrItem[3]), tonumber(scrItem[4])})
+    end
+    return desItems
+end
+--演奏剩余时间
+function Concert:GetRemainSeconds(startTime,duration)
+    if startTime <= 0 then
+        return duration
+    end
+    local curTime = CTime:GetServerTime()
+    local remainSeconds = startTime + duration - curTime;
+    if remainSeconds < 0 then
+        remainSeconds = 0
+    end
+    return remainSeconds
+end
+
+--结算奖励单位时间(向上取整)
+function Concert:GetRemainShowUnit(startTime,duration)
+    local time = 0
+    if startTime <= 0 then
+        time = duration
+    else
+        local curTime = CTime:GetServerTime();
+        time = curTime - startTime;
+        if time >= duration then
+            time = duration;
+        end
+    end
+
+    local showUnit = math.ceil(time /Player:GetMusicUnitTime())
+    return showUnit
+    --print("演奏进行时间 30分钟 ："..math.floor(time /Player:GetMusicUnitTime()))
+end
+
+--结算奖励单位时间(向下取整)
+function Concert:GetRemainShowUnitFloor(startTime,duration)
+    local time = 0
+    if startTime <= 0 then
+        time = duration
+    else
+        local curTime = CTime:GetServerTime();
+        time = curTime - startTime;
+        if time >= duration then
+            time = duration;
+        end
+    end
+
+    local showUnit = math.floor(time /(Player:GetMusicUnitTime()))
+    return showUnit
+end
+
+function Concert:GetWitchExp(book)
+    if book == nil then
+        return 0
+    end
+    local unitNum = self:GetRemainShowUnit(-1,book.duration)
+    local allExp = book.witchExp * unitNum
+    return allExp
+end
+
+--剩余时间消耗的钻石
+function Concert:GetCostDiomond(startTime,duration)
+    local seconds = self:GetRemainSeconds(startTime,duration)
+    local minute = math.ceil(seconds/60)
+    local remainTime = math.ceil(minute/Player:GetCostDiomond()[1])
+    local total = remainTime * Player:GetCostDiomond()[2]
+    print("剩余时间消耗钻石  ： "..total)
+    return total
+end
+
+--获取一个上阵魔女的预估评分
+function Concert:GetOneHeroConcertScore(fightHero,book)
+    if fightHero.heroId <= 0 then
+        return 0
+    end
+    local hero = Hero:GetHero(fightHero.heroId)
+    local isMatch = self:IsMatchMusicalAndHero(hero,fightHero.musical)
+
+    local mathScore = Player:GetMatchScore(isMatch);
+    local heroScore = Player:GetScoreByHeroQlty(hero.qlty)
+    local score = mathScore + heroScore
+
+    return score
+end
+
+--获取单个魔女的正确率
+function Concert:GetOneHeroConcertRate(heroId,book)
+    if heroId <= 0 then
+        return 0
+    end
+    local hero = Hero:GetHero(heroId)
+    local heroRate = Player:GetCorrectByHeroQlty(hero.qlty)
+    return heroRate
+end
+
+
+--获取上阵魔女的平均正确率
+function Concert:GetAverageRate(heros,book)
+    local allrate = 0
+
+    for i, v in pairs(heros) do
+        allrate = allrate + self:GetOneHeroConcertRate(v.heroId,book)
+    end
+    local count = self:GetFightHeroNum(heros)
+    if count == 0 then
+        return 0
+    end
+    local avera = math.ceil(allrate/count)
+    local result = avera/Player:GetCorrectByBookQlty(book.quality) * 100
+    local regin = Player:GetRateRegion()
+    --print("魔女平均正确率  ：  "..avera.."  : 乐谱正确率  ： "..Player:GetCorrectByBookQlty(book.quality).."  :  结果正确率  ： "..result)
+    if result > regin[2] then
+        result = regin[2]
+    end
+    if result < regin[1] then
+        result = regin[1]
+    end
+    return math.ceil(result)
+end
+
+function Concert:GetFightHeroNum(fightHeros)
+    local num = 0
+    if fightHeros == nil then
+        return num
+    end
+    for i, v in pairs(fightHeros) do
+        if v.heroId > 0 then
+            num = num+1
+        end
+    end
+    return num
+end
+--获取所有上阵魔女的总分
+function Concert:GetAllHeroScore(fightHeros,book)
+    if fightHeros == nil or self:GetFightHeroNum(fightHeros) <= 0 then
+        return 0
+    end
+    local result = 0;
+    local score = 0
+    local rate = self:GetAverageRate(fightHeros,book)
+    for i, v in pairs(fightHeros) do
+        if v.heroId >= 0 then
+            score = score + self:GetOneHeroConcertScore(v,book)
+        end
+    end
+
+    result = score * rate * 0.01
+    --print("预估总得分  ： "..result)
+    return result;
+end
+
+--结束演奏
+function Concert:EndConcertHall(hallId,costMoney)
+    local hall = self:GetConcertById(hallId)
+    local curBook = Concert:GetConcertBookById(hall.curBookId)
+    local costDiamond = Concert:GetCostDiomond(hall.stime,curBook.duration)
+
+    if hall.curBookId <= 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809021))
+        return
+    end
+    if not costMoney then
+        local endDropId = curBook.endDropId
+        local des
+        if endDropId > 0 then
+            des = LanguageMgr:GetTextByID(809022)
+        else
+            des = LanguageMgr:GetTextByID(809030)
+        end
+        UIMgr:showMsgBy2CallPerWithShowType(des,
+                function()
+                end,
+                function()
+                    Concert:ConcertShowStop_Req(hall.id,0)
+                end,
+                false,
+                GTemp.SKIP_STOP_CONCERT_CONFIRM,
+                true)
+        return
+    else
+        local des = string.format(LanguageMgr:GetTextByID(809016),Concert:GetCostDiomond(hall.stime,curBook.duration))
+        if costDiamond > 0 then
+            UIMgr:showMsgBy2CallPerWithShowType(des,
+                    function()
+
+                    end,
+                    function()
+                        local hasNum = Item:GetCount(Player.ITEM_VALUE_MONEY);
+                        local curCost = Concert:GetCostDiomond(hall.stime,curBook.duration)
+                        if hasNum < curCost then
+                            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809018))
+                            return
+                        end
+                        Concert:ConcertShowStop_Req(hall.id,1)
+                    end,
+                    false,
+                    GTemp.SKIP_QUICK_CONCERT_CONFIRM,
+                    true)
+            return
+        else
+            Concert:ConcertShowStop_Req(hall.id,0)
+        end
+    end
+end
+
+
+
+--获取魔女所在的演奏厅
+function Concert:GetHeroAtConcertHall(heroId)
+    for i, hall in pairs(self._concertHalls) do
+        for k, v in pairs(hall.heroIds) do
+            if v == heroId then
+                return hall.id
+            end
+        end
+    end
+    return -1
+end
+----------------------乐器-----------------------------
+function Concert:SortHeroByMusical(ids,musicalType)
+    local tbl = {}
+    local heroIds = {}
+    local hero,sortid;
+
+    for _, id in ipairs(ids) do
+        hero = Hero:GetHero(id)
+        sortid = 0
+
+        local star = hero.star;
+        local math = self:IsMatchMusicalAndHero(hero,musicalType)
+
+        sortid = math * 100000000 + star
+
+        table.insert(tbl, {id = id, sortid = sortid})
+
+        --print("sortid :"..sortid.." : 匹配 ： "..math.." : 星级 ： "..star.." 目标乐器类型 ： "..musicalType.."  : 英雄乐器类型 ： "..hero.musics[1].mtype)
+    end
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+    for i, v in ipairs(tbl) do
+        heroIds[i] = v.id
+        local hero = Hero:GetHero(v.id)
+        --print("排序后  ：  "..v.sortid.."  :  名字  ：  "..hero.config.Name)
+    end
+    return heroIds
+end
+
+--判断乐器是否有对应的魔女
+function Concert:IsMusicHasHero(musicalType)
+    local heros = self:GetHerosByMusical(musicalType)
+    return #heros > 0
+end
+
+--判断乐器与魔女是否匹配  0 不匹配 1 匹配
+function Concert:IsMatchMusicalAndHero(hero,musicalType)
+    if musicalType <= 0 then
+        return 0;
+    end
+    if hero == nil then
+        return 0
+    end
+
+    for i, v in pairs(hero.musics) do
+        if v.mtype == musicalType then
+            return 1
+        end
+    end
+    return 0
+end
+
+--
+function Concert:IsCanMusicAndHero(hero,musicalType)
+    local state = self:IsMatchMusicalAndHero(hero,musicalType)
+    return state == 1
+end
+
+--检测上阵魔女是否全部匹配乐谱
+function Concert:IsAllMatchMusicAndHero(fightHeros,book)
+    local hero;
+    local musicalType;
+    for i = 1, 4 do
+        if fightHeros[i].heroId > 0 then
+            hero = Hero:GetHero(fightHeros[i].heroId)
+            musicalType = book.musicalPos[i]
+            if musicalType > 0 then
+                if not self:IsCanMusicAndHero(hero,musicalType) then
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+--获取演奏指定乐器类型的所有魔女
+function Concert:GetHerosByMusical(musicalType)
+    local result = {}
+    local heros = Hero:GetCanRecmendHeros(musicalType)
+    if musicalType <= 0 then  --禁止上魔女
+        return result
+    else
+        for i, v in pairs(heros) do
+            for j, p in pairs(v.musics) do
+                if p.mtype == musicalType then
+                    table.insert(result,v)
+                end
+            end
+        end
+    end
+    return result
+end
+
+function Concert:GetHeroByMusicalAndPos(pos,musicalType,isRecment)
+    local result = { pos = pos,heroId = 0 }
+    local heros = self:GetHerosByMusical(musicalType)
+    if lua_table_len(heros) <= 0 then
+        return result
+    end
+    local tbl = {}
+    local heroIds = {}
+    local sortid = 0;
+
+    for _, v in ipairs(heros) do
+        local star = v.star
+        sortid = star * 100000000 + v.id
+        table.insert(tbl, {id = v.id, sortid = sortid})
+    end
+
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+
+    for i, v in ipairs(tbl) do
+        heroIds[i] = v.id
+    end
+
+    if #heroIds > 0 then
+        result.pos = pos
+        if isRecment then
+            if #heroIds > 1 then
+                result.heroId = heroIds[2]
+            else
+                result.heroId = 0
+            end
+        else
+            result.heroId = heroIds[1]
+        end
+    end
+    return result
+end
+
+function Concert:GetFightingHeros(hall,defaultBookId)
+    local heros = {}
+    local book
+    if hall.curBookId <= 0 or hall.curBookId ~= defaultBookId then  --未演奏乐谱
+        book = self:GetConcertBookById(defaultBookId)
+        heros = self:GetHerosBybook(book)
+    else
+        book = self:GetConcertBookById(hall.curBookId)
+        heros = self:GetEmptyHerosByBook(book)
+        heros = self:SetEmptyHeros(heros,hall.heroIds)
+    end
+    return heros
+end
+
+function Concert:GetEmptyHerosByBook(data)
+    local heros = {
+        [1] = {pos = 0,heroId = 0,musical = 0},
+        [2] = {pos = 0,heroId = 0,musical = 0},
+        [3] = {pos = 0,heroId = 0,musical = 0},
+        [4] = {pos = 0,heroId = 0,musical = 0},
+    }
+    local musicPos = data.musicalPos
+    for i = 1, Concert.MAX_HERO do
+        heros[i].pos = i
+        heros[i].heroId = 0
+        heros[i].musical = musicPos[i]
+    end
+    return heros
+end
+
+function Concert:SetEmptyHeros(heros,heroIds)
+    for i = 1, Concert.MAX_HERO do
+        heros[i].heroId = heroIds[i]
+    end
+    return heros
+end
+
+--
+function Concert:GetFightingHerosByHall(hall)
+    local heros = {
+        [1] = {pos = 0,heroId = 0,musical = 0},
+        [2] = {pos = 0,heroId = 0,musical = 0},
+        [3] = {pos = 0,heroId = 0,musical = 0},
+        [4] = {pos = 0,heroId = 0,musical = 0},
+    }
+    local book = self:GetConcertBookById(hall.curBookId)
+    for i, v in pairs(hall.heroIds) do
+        heros[i].pos = i
+        heros[i].musical = book.musicalPos[i]
+        if v > 0 then
+            heros[i].heroId = v;
+        end
+    end
+    return heros
+end
+
+--参数：乐谱
+function Concert:GetHerosBybook(book)
+
+    local heros = {
+        [1] = {pos = 0,heroId = 0,musical = 0},
+        [2] = {pos = 0,heroId = 0,musical = 0},
+        [3] = {pos = 0,heroId = 0,musical = 0},
+        [4] = {pos = 0,heroId = 0,musical = 0},
+    }
+    if book == nil then
+        return heros
+    end
+    local musicPos = book.musicalPos
+    local result
+    for i = 1, 4 do
+        result = self:GetHeroByMusicalAndPos(i,musicPos[i],false)
+        heros[i].pos = result.pos
+
+        local isRecment = self:IsHasRecment(heros,result.heroId)
+        if isRecment then
+            heros[i].heroId = self:GetHeroByStar(Hero:GetCanRecmendHeros(musicPos[i]),heros)--self:GetHeroByMusicalAndPos(i,musicPos[i],true).heroId
+        else
+            heros[i].heroId = result.heroId
+        end
+        heros[i].musical = musicPos[i]
+        --[[
+        local heroddd = Hero:GetHero(heros[i].heroId)
+        local tttt = -1
+        if heroddd.musics[2] ~= nil then
+            tttt = heroddd.musics[2].mtype
+        end
+        print("推荐魔女  ：  "..heros[i].heroId.."  :  魔女乐器 1 ： "..heroddd.musics[1].mtype.."  ：  魔女乐器  2 ： "..tttt.."  :  槽位乐器 ： ".. musicPos[i] )]]--
+    end
+    return heros
+end
+
+--
+function Concert:GetHeroByStar(ownHeros,minusHeros)
+    local tmps = {}
+    if ownHeros == nil then
+        return tmps;
+    end
+    for i, v in pairs(ownHeros) do
+        for j, vv in pairs(minusHeros) do
+            if v ~= nil and vv.heroId == v.id then
+                v = nil
+            end
+        end
+        if v ~= nil then
+            table.insert(tmps,v)
+        end
+    end
+    local result = self:SortHeroByStar(tmps)
+    if lua_table_len(result) > 0 then
+        return result[1]
+    end
+    return nil
+end
+
+function Concert:SortHeroByStar(heros)
+    local tbl = {}
+    local heroIds = {}
+    local sortid = 0;
+
+    for i, v in pairs(heros) do
+        local star = v.star
+        sortid = star * 100000000 + v.id
+        table.insert(tbl, {id = v.id, sortid = sortid})
+    end
+
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+
+    for i, v in ipairs(tbl) do
+        heroIds[i] = v.id
+    end
+    return heroIds
+end
+
+--指定魔女是否已经上位,或者已在其他音乐厅上阵
+function Concert:IsHasRecment(heros,heroId)
+    if heros == nil then
+        return false
+    end
+    if heroId == 0 then --禁止推荐
+        return false
+    end
+    for i, v in pairs(heros) do
+        if v.heroId == heroId or self:IsConcertShowingHero(heroId) then
+            return true
+        end
+    end
+
+    return false
+end
+
+--音乐厅是否开放
+function Concert:IsOpenConcertHall(data)
+    return Player:GetLevel() >= data.openLevel;
+end
+
+--音乐厅演奏是否空闲
+function Concert:IsOverConcertHall(hall)
+    if hall.curBookId <= 0 then
+        return true
+    end
+    local book = self:GetConcertBookById(hall.curBookId)
+    local isOver = self:IsOverConcertBook(hall,book)
+    return isOver
+end
+
+--乐谱演奏是否结束(concert)
+function Concert:IsOverConcertBook(hall,data)
+    local startTime = hall.stime;
+    local curTime = CTime:GetServerTime()
+    if curTime - startTime >= data.duration then
+        return true
+    end
+    return false
+end
+
+--魔女是否正在演奏
+function Concert:IsConcertShowingHero(heroId)
+    for i, hall in pairs(self._concertHalls) do
+        for k, v in pairs(hall.heroIds) do
+            if v == heroId then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--是否有演奏厅空闲 and
+function Concert:IsAllConcertFree()
+    local halls = self:GetAllConcerts()
+    for i, hall in pairs(halls) do
+        if Player:GetLevel() >= hall.openLevel then
+            if self:IsOverConcertHall(hall) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--玩家体力是否可演奏某个乐谱
+function Concert:IsAllConcertBookCanShow()
+    local power = Player:GetValue(Player.VALUE_POWER)
+    for i, book in pairs(self._concertBooks) do
+        if book.isOpen and book.spirit <= power then
+            return true
+        end
+    end
+    return false
+end
+
+--是否有可学习的乐谱
+function Concert:IsAllConcetBookCanStudy()
+    for i, book in pairs(self._concertBooks) do
+        if not book.isOpen and Concert:checkBookItemCost(book) then
+            return true
+        end
+    end
+    return false
+end
+
+--音乐厅是否都演奏过一次
+function Concert:IsAllEnterState()
+    for i, hall in pairs(self._concertHalls) do
+        if Player:GetLevel() >= hall.openLevel then
+            if hall.isEnterConcert == false then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+--是否有可领取奖励的音乐厅
+function Concert:IsAllConcertReward()
+    local halls = self:GetAllConcerts()
+    for i, hall in pairs(halls) do
+        if self:IsCanGetReward(hall) then
+            return true
+        end
+    end
+    return false
+end
+
+--是否可领取奖励
+function Concert:IsCanGetReward(hall)
+    if hall.curBookId <= 0 then
+        return false
+    end
+    local book = self:GetConcertBookById(hall.curBookId)
+    if book == nil then
+        return false
+    end
+    local startTime = hall.stime
+    local curTime = CTime:GetServerTime()
+    if curTime - startTime >= book.duration then
+        return true
+    end
+    return false
+end
+
+--音乐厅主界面红点(可演奏，可学习，可领奖)
+function Concert:IsConcertMainRed()
+    local isFree = self:IsAllConcertFree();
+    local isBookFree = self:IsAllConcertBookCanShow();
+    local isAllEnter = self:IsAllEnterState()
+
+    local isStudy = self:IsAllConcetBookCanStudy();
+
+    local isReward = self:IsAllConcertReward()
+
+    --print("是否有空闲音乐厅  ： "..tostring(isFree).."  :  玩家体力是否充足 ： "..tostring(isBookFree).." ： 是否都进入过一次 ： "..tostring(isAllEnter).."  :  是否有可学习的乐谱  ： "..tostring(isStudy).."  :  是否有可领取的奖励  ： "..tostring(isReward))
+    return Player:IsSysFuncOpen(Player.SYS_FUNC.sys_concert) and ((isFree and isBookFree and not isAllEnter) or isStudy or isReward)
+end
+
+
+--指定演奏厅红点
+function Concert:IsConcertRedTipsByHallId(hallId)
+    local hall = self:GetConcertById(hallId)
+    local isFree = self:IsOverConcertHall(hall)
+    local isBookFree = self:IsAllConcertBookCanShow();
+    local isReward = self:IsCanGetReward(hall)
+
+    local curLevel = Player:GetLevel();
+    --print("当前音乐厅  ： "..hallId.." : 是否有空闲音乐厅  ： "..tostring(isFree).."  :  玩家体力是否充足 ： "..tostring(isBookFree).."  :  是否进入演奏厅  ： "..tostring(hall.isEnterConcert).."  :  是否有可领取的奖励  ： "..tostring(isReward))
+    return (isFree and isBookFree and not hall.isEnterConcert and curLevel>=hall.openLevel) or isReward
+end
+
+function Concert:SetEnterState(hallId)
+    local hall = self:GetConcertById(hallId)
+    hall.isEnterConcert = true
+end
+-----------------------------------------------------
+
+function Concert:SetConcertServerData(data)
+    print("-----------------------------------------------收到开始演奏响应")
+    --lua_table_print(data)
+    local concert = self:GetConcertById(data.hall_id)
+    local book = Concert:GetConcertBookById(data.book_id);
+    if(book == nil) then
+        CS.Logger.LogError("无法获取乐谱配置" +  data.book_id);
+        return ;
+    end
+    if concert ~= nil then
+        concert.stime = data.stime;
+        concert.etime = data.stime + book.duration;
+        concert.curBookId = data.book_id;
+        concert.heroIds = data.hero_ids;
+        concert.playMistakeRate = {};    
+
+        if concert.heroIds ~= nil then
+            local heroCount = lua_table_len(concert.heroIds);
+            for i = 1, heroCount do
+                table.insert(concert.playMistakeRate,50);
+            end
+        end
+        concert.itemId = data.item_id;
+    else
+        CS.Logger.LogError("concert is nil   path = ## Concert:SetConcertServerData ##");
+    end
+end
+
+function Concert:SetConcertBookServerData(data)
+    local concertBook = self:GetConcertBookById(data.id);
+    if concertBook ~= nil then
+        concertBook.score = data.score;
+        concertBook.isOpen = true;
+    else
+        CS.Logger.LogError("concertBook is nil   path = ## Concert:SetConcertBookServerData ##");
+    end
+end

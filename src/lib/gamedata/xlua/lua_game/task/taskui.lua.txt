@@ -1,0 +1,245 @@
+--
+-- author: haosun
+-- date  : 2019-01-22 20:17:44
+-- brief :
+--
+Task = Task or {}
+
+function Task:OpenTaskUi(tasktype, taskid)
+    if tasktype == Task.UI_TYPE_TASK then
+        self._tasktype = tasktype
+        if taskid ~= nil then
+            self._tasktype = Task:GetTask(taskid).showtype
+        end
+        core.require("xlua/lua_UI/HomeScene/TaskLayer.txt"):new():show()
+    else
+        core.require("xlua/lua_UI/HomeScene/NewerTaskLayer.txt"):new():show()
+    end
+end
+
+function Task:GetTaskType()
+    return self._tasktype
+end
+
+function Task:SetTaskSubType(subtype)
+    self._subtype = subtype
+end
+
+function Task:GetTaskSubType()
+    return self._subtype
+end
+
+-- 主界面任务按钮显示状态 判断状态标识， 完成不是领奖
+function Task:GetMainLayerState()
+    for k, v in ipairs(self._banners) do
+        local task = self:GetTask(v.id)
+        if task.state == Task.STATE_HAS_DONE then -- 存在可领取的优先显示
+            return v.id, v.name, v.path,v.desId
+        end
+    end
+
+    for k, v in ipairs(self._banners) do
+        local task = self:GetTask(v.id)
+        if task.state ~= Task.STATE_HAS_RECV then -- 已领取的不显示
+            return v.id, v.name, v.path,v.desId
+        end
+    end
+    return false
+end
+
+function Task:_onInitComTaskCell(transform, count)
+    local cls = clearbase:new()
+    cls.obj_normal  = transform:Get("obj_normal")
+    cls.obj_recved  = transform:Get("obj_recved")
+    cls.obj_finish  = transform:Get("obj_finish")
+    cls.txt_name    = transform:GetTextComponent("text_name")
+    cls.txt_per     = transform:GetTextComponent("text_per")
+    cls.txt_recv    = transform:Get("txt_get")
+    cls.btn_recv    = transform:GetButtonComponent("button_recv")
+    cls.btn_goto    = transform:GetButtonComponent("button_goto")
+    cls.obj_slider  = transform:Get("obj_slider/img_recved")
+    cls.img_slider  = transform:GetImageComponent("obj_slider/img_slider")
+    cls.clsitems    = {}
+    cls.state       = -99
+    cls.taskcfgid   = 0
+    cls.obj_exps    = {
+        {
+            transform   = transform:Get("img_exp1"),
+            txt_exp     = transform:GetTextComponent("img_exp1/txt_exp1"),
+        },
+        {
+            transform   = transform:Get("img_exp2"),
+            txt_exp     = transform:GetTextComponent("img_exp2/txt_exp2"),
+        },
+        {
+            transform   = transform:Get("img_exp3"),
+            txt_exp     = transform:GetTextComponent("img_exp3/txt_exp3"),
+        },
+    }
+    for i = 1, count do
+        local obj = transform:Get("content/item_" .. i)
+        cls.clsitems[i] = {
+            transform   = obj,
+            img_bg      = obj:GetComponent("Image"),
+            cls_good    = Bag:CtorComSimpleGoodsUi(obj:Get("prefab_item")),
+            txt_num     = obj:GetTextComponent("prefab_item/txt_num")
+        }
+    end
+
+    cls.btn_recv:AddButtonListener(function() Task:GetRewardReq({cls.taskcfgid}) end)
+
+    cls.dtor = function()
+        for i, v in ipairs(cls.obj_exps) do
+            v.transform = nil
+            v.txt_exp = nil
+        end
+        for i, v in pairs(cls.clsitems) do
+            v.transform = nil
+            v.img_bg = nil
+            v.txt_num = nil
+            v.cls_good:clear()
+        end
+        cls:clear()
+    end
+
+    return cls
+end
+
+function Task:InitTaskCell(transform, count)
+    return self:_onInitComTaskCell(transform, count)
+end
+
+function Task:_onSetComTaskCell(cls, data)
+    local brecv = data.state == Task.STATE_HAS_DONE
+    local bdone = data.state == Task.STATE_HAS_RECV
+    
+    local curValue, maxValue = data.hasValue, data.showValue
+    if curValue >= maxValue then
+        curValue = maxValue
+    end
+    curValue = math.kTally(curValue)
+    maxValue = math.kTally(maxValue)
+    cls.txt_name.text   = Language.LanguageTxt[data.Quest_des]
+    if brecv then
+        cls.txt_per.text = string.format("%s<size=26>/%s</size>", curValue, maxValue)
+    else
+        cls.txt_per.text = string.format("%s<color=#8d8d8dff><size=26>/%s</size></color>", curValue, maxValue)
+    end
+
+    if bdone then
+        cls.img_slider.fillAmount = 1
+    else
+        cls.img_slider.fillAmount = data.hasValue / data.showValue
+    end
+    -- item rewards
+    for i, clsitem in ipairs(cls.clsitems) do
+        clsitem.transform:SetVisible(data.rewards[i] ~= nil)
+        if data.rewards[i] ~= nil then
+            clsitem.cls_good.checkCom:SetEnabled(bdone)
+            Bag:SetComSimpleGoodsUi(clsitem.cls_good, data.rewards[i][1], data.rewards[i][2], data.rewards[i][3])
+            if clsitem.txt_num ~= nil then
+                clsitem.txt_num.enabled = data.rewards[i][3] > 0
+                if data.rewards[i][3] > 0 then
+                    clsitem.txt_num:SetText(data.rewards[i][3])
+                end
+                if bdone then
+                    clsitem.txt_num:SetTextColor(1, 1, 1, 0.5)
+                else
+                    clsitem.txt_num:SetTextColor(1, 1, 1, 1)
+                end
+            end
+        end
+    end
+    -- exp rewards
+    local posx, cnt = -422, 0
+    for i, obj_exp in ipairs(cls.obj_exps) do
+        local reward = data.ExpRewards[cnt+1]
+        if reward ~= nil then
+            if Player.TaskExpReward[i] == reward[1] then
+                obj_exp.txt_exp:SetText(reward[2])
+                obj_exp.transform:SetPositionX(posx + cnt * 150, true)
+                cnt = cnt + 1
+                obj_exp.transform:SetVisible(true)
+            else
+                obj_exp.transform:SetVisible(false)
+            end
+        else
+            obj_exp.transform:SetVisible(false)
+        end
+    end
+    
+    cls.btn_recv:SetVisible(brecv)
+    cls.taskcfgid = data.cfgid
+end
+
+function Task:SetTaskCell(cls, taskid)
+    local data = self:GetTask(taskid)
+    self:_onSetComTaskCell(cls, data)
+    if cls.btn_goto ~= nil then
+        cls.btn_goto:SetVisible(data.isJump and data.state == Task.STATE_NOT_DONE)
+    end
+    if cls.state == data.state then return end
+    cls.state = data.state
+
+    cls.obj_normal:SetVisible(data.state ~= Task.STATE_HAS_DONE)
+    cls.obj_recved:SetVisible(data.state == Task.STATE_HAS_DONE)
+    cls.obj_finish:SetVisible(data.state == Task.STATE_HAS_RECV)
+    cls.txt_recv:SetVisible(data.state == Task.STATE_HAS_DONE)
+    cls.obj_slider:SetVisible(data.state ~= Task.STATE_NOT_DONE)
+    cls.img_slider:SetVisible(data.state == Task.STATE_NOT_DONE)
+    local canrecv = data.state == Task.STATE_HAS_DONE
+    local bdone = data.state == Task.STATE_HAS_RECV
+    local _txt_exp_color = 0.58
+    if canrecv then
+        cls.txt_per:SetTextColor(0, 0, 0, 1)
+        cls.txt_name:SetTextColor(0, 0, 0, 1)
+        _txt_exp_color = 0
+    elseif bdone then
+       cls.txt_per:SetTextColor(0.55, 0.55, 0.55, 1)
+        cls.txt_name:SetTextColor(0.55, 0.55, 0.55, 1)
+    else
+        cls.txt_per:SetTextColor(1, 1, 1, 1)
+        cls.txt_name:SetTextColor(1, 1, 1, 1)
+    end
+    for i, obj_exp in ipairs(cls.obj_exps) do
+        obj_exp.txt_exp:SetTextColor(_txt_exp_color, _txt_exp_color, _txt_exp_color, 1)
+    end
+end
+
+function Task:InitSpecialTask(transform, taskid)
+    local cls = {
+        taskid      = taskid,
+        transform   = transform,
+        obj_effect  = transform:Get("ui_effect"),
+        obj_recved  = transform:Get("obj_recved"),
+        obj_gray    = transform:Get("img_gray"),
+        obj_white   = transform:Get("img_white"),
+        txt_number  = transform:GetTextComponent("text_score")
+    }
+    cls.clsitem = Bag:CtorComSimpleGoodsUi(transform:Get("prefab_item"),
+        function()
+            self:onSpecialTaskClick(cls)
+        end)
+    local task = self:GetTask(taskid)
+    Bag:SetComSimpleGoodsUi(cls.clsitem, task.rewards[1][1], task.rewards[1][2], task.rewards[1][3])
+    cls.txt_number:SetText(task.cmpValue)
+    return cls
+end
+
+function Task:SetSpecialTask(cls)
+    local task = self:GetTask(cls.taskid)
+    cls.obj_recved:SetVisible(task.state == Task.STATE_HAS_RECV)
+    cls.obj_effect:SetVisible(task.state == Task.STATE_HAS_DONE)
+    cls.obj_gray:SetVisible(task.state == Task.STATE_NOT_DONE)
+    cls.obj_white:SetVisible(task.state ~= Task.STATE_NOT_DONE)
+end
+
+function Task:onSpecialTaskClick(cls)
+    local task = self:GetTask(cls.taskid)
+    if task.state == Task.STATE_HAS_DONE then
+        self:GetRewardReq({cls.taskid})
+    else
+        SingletonMgr:ShowItemTipsLayer(cls.transform, task.rewards[1][1], task.rewards[1][2], false)
+    end
+end
+

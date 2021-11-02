@@ -1,0 +1,63 @@
+--
+-- author: haosun
+-- date  : 2021-01-13 20:52:41
+-- brief : 推荐画质选择
+--
+
+QualitySelectLayer = QualitySelectLayer or {}
+
+local posx = {-336, 0, 336}
+
+function QualitySelectLayer:EnterQualitySelectLayer()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_QualitySelectLayer")
+    self._border = self.layer:Get("img_border")
+    self.layer:Get("txt_tips3"):SetVisible(false)
+    self.layer:GetButtonComponent("btn_sel_1"):AddButtonListener(function()
+            -- select 0
+            self:doQulitySelect(0)
+        end)
+    self.layer:GetButtonComponent("btn_sel_2"):AddButtonListener(function()
+            -- select 1
+            self:doQulitySelect(1)
+        end)
+    self.layer:GetButtonComponent("btn_sel_3"):AddButtonListener(function()
+            -- select 2
+            self:doQulitySelect(2)
+        end)
+    self.layer:GetButtonComponent("btn_ok"):AddButtonListener(function()
+            self:onExitQualitySelectLayer()
+        end)
+    -- 默认推荐设置
+    local quality = AppMgr:GetRecommendQualityLevel()
+    self.layer:Get("btn_sel_1/img_quality"):SetVisible(quality == 0)
+    self.layer:Get("btn_sel_2/img_quality"):SetVisible(quality == 1)
+    self.layer:Get("btn_sel_3/img_quality"):SetVisible(quality == 2)
+    if quality == 0 then
+        self.layer:GetTextComponent("txt_tips1").text = string.format(LanguageMgr:GetTextByID(100009), LanguageMgr:GetTextByID(100010))
+    elseif quality == 1 then
+        self.layer:GetTextComponent("txt_tips1").text = string.format(LanguageMgr:GetTextByID(100009), LanguageMgr:GetTextByID(100011))
+    else
+        self.layer:GetTextComponent("txt_tips1").text = string.format(LanguageMgr:GetTextByID(100009), LanguageMgr:GetTextByID(100012))
+    end
+    self._qulity = quality
+    self._border:SetPositionX(posx[quality+1], true)
+end
+
+function QualitySelectLayer:onExitQualitySelectLayer()
+    self.layer:Get("btn_ok"):SetVisible(false)
+    self.layer:Get("txt_tips3"):SetVisible(true)
+    self.layer:DelayCall(0.03, function()
+            AppMgr:SetQualityLevel(self._qulity)
+            self.layer:Release()
+            self.layer = nil
+            fmod:PlayBgm("event:/GameBgm/MusicBook-MagicalGirl")
+            AssetLoader:LoadLuaAsset("xlua/lua_UI/GameFightScene/GameStartLayer.txt")
+            GameStartLayer:EnterGameStartLayer()
+        end)
+end
+
+function QualitySelectLayer:doQulitySelect(qulity)
+    self._qulity = qulity
+    self._border:DOLocalMoveX(posx[qulity+1], 0.2)
+end
+

@@ -1,0 +1,17 @@
+词缀id,词缀等级,词缀名称,英文名称,图标,词缀描述,关卡buff
+id,Level,Name,EnglishName,Picture,Desc,LevelBuffID
+number,number,number,string,string,number,number
+1001,1,10310001,CEKI HARCI,source_icon/rift/cizhui/1001,20310001,1001
+1002,1,10310002,CHIN NIK,source_icon/rift/cizhui/1002,20310002,1002
+1003,1,10310003,HARCI RI MENSA,source_icon/rift/cizhui/1003,20310003,1003
+1004,1,10310004,TUCAF NIK,source_icon/rift/cizhui/1004,20310004,1004
+1005,1,10310005,TUCAF NIK,source_icon/rift/cizhui/1005,20310005,1005
+1006,2,10310006,CEKI HARCI,source_icon/rift/cizhui/1006,20310006,-1
+1007,2,10310007,CHIN NIK,source_icon/rift/cizhui/1007,20310007,1006
+1008,2,10310008,HARCI RI MENSA,source_icon/rift/cizhui/1008,20310008,1007
+1009,2,10310009,TUCAF NIK,source_icon/rift/cizhui/1009,20310009,1008
+1010,2,10310010,TUCAF NIK,source_icon/rift/cizhui/1010,20310010,1009
+1011,3,10310011,CEKI HARCI,source_icon/rift/cizhui/1011,20310011,1010
+1012,3,10310012,CHIN NIK,source_icon/rift/cizhui/1012,20310012,1011
+1013,3,10310013,HARCI RI MENSA,source_icon/rift/cizhui/1013,20310013,1012
+1014,3,10310014,TUCAF NIK,source_icon/rift/cizhui/1014,20310014,1013

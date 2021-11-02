@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2019-03-13 17:08:44
+-- brief : 
+--
+Guide = Guide or {}
+
+function Guide:OnGuideCommitReq(cfgid)
+    --print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~提交引导数据~~~~~~~~~~~")
+    Network:CallServerScript({c2s.PLAYERINFO_GUIDE_REQ, cfgid})
+end
+
+function Guide:OnGuideCommitRep()
+    -- self._tblSaveGuide = {};
+    -- self._tblSaveGuide[self.GUIDE_SKIP] = self.STATE_DONE;
+    -- self._tblSaveGuide[self.GUIDE_END] = self.STATE_DONE;
+    -- self._nGid = 0;
+    -- uimgr:onMainScene()
+end
+
+function Guide:OnGuideRewardReq(cfgid)
+    Network:CallServerScript({c2s.PLAYERINFO_GUIDE_REWARD_REQ, cfgid})
+end
+
+function Guide:OnGuideRewardRep(guideid)
+    self:RecoverGuide()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_GUIDE)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.PLAYERINFO_GUIDE_RES]           = {Guide, Guide.OnGuideCommitRep}
+c2s[c2s.PLAYERINFO_GUIDE_REWARD_RES]    = {Guide, Guide.OnGuideRewardRep}

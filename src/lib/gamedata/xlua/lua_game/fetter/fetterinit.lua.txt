@@ -1,0 +1,14 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fetter/fetter.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fetter/fetter_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fetter/fettercfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fetter/fetterdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fetter/fetterui.txt")
+
+Fetter:Ctor()
+Fetter:_LoadCfg()

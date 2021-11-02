@@ -1,0 +1,133 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-12-14 16:04:40
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LoadingLayer = class("LoadingLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function LoadingLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_LoadingLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function LoadingLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function LoadingLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function LoadingLayer:Init()
+    self._cfgs = Player:GetBgCfg();
+    self:InitUI();
+end
+
+--初始化UI
+function LoadingLayer:InitUI()
+
+	self._imgBg = self.layer:GetImageComponent("trans_container/img_bg");
+    self._imgTxtBg = self.layer:GetImageComponent("trans_container/img_txt_bg");
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/txt_title");
+	self._txtTitleEn = self.layer:GetTextComponent("trans_container/txt_title_en");
+	self._txtDesc = self.layer:GetTextComponent("trans_container/txt_desc");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self:SetLoadingBg();
+end
+
+--显示UI
+function LoadingLayer:show(loadStartCallBack,loadOverCallBack,delayLoadTime)
+    self._loadOverCallBack = loadOverCallBack;
+    self:showLayer();
+    if(delayLoadTime ~= nil and delayLoadTime > 0)then
+        local dt = self._imgBg:DOColor(COLOR_TYPE.White,delayLoadTime);
+        dt:OnComplete(function ()
+            if(loadStartCallBack ~= nil)then
+                loadStartCallBack();
+            end
+        end)
+    else
+        if(loadStartCallBack ~= nil)then
+            loadStartCallBack();
+        end
+    end
+end
+
+--退出按钮事件
+function LoadingLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function LoadingLayer:onExit()
+
+    self._imgBg = nil;
+	self._txtTitle = nil;
+	self._txtTitleEn = nil;
+	self._txtDesc = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function LoadingLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UI_ACTION,EVENT_NAME.ASSET_LOAD_OVER,function()
+        if(self._loadOverCallBack ~= nil)then
+            self._loadOverCallBack();
+        end
+        self:onBackClick();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function LoadingLayer:SetLoadingBg()
+    local randomNum = math.random(#self._cfgs)
+
+    local _filepath = self._cfgs[randomNum].icon
+    self._imgBg:LoadSprite(_filepath)
+    fixed_obj_scale(self._imgBg)
+    self._imgTxtBg.color =  self._cfgs[randomNum].color
+    self._txtTitleEn.text = Language:GetTxtBuyId(self._cfgs[randomNum].name);
+    self._txtTitle.text = Language:GetTxtBuyId(self._cfgs[randomNum].name_en);
+    self._txtDesc.text = Language:GetTxtBuyId(self._cfgs[randomNum].desc);
+end
+
+return LoadingLayer;

@@ -1,0 +1,9 @@
+--
+-- author: haosun
+-- date  : 2018-11-13 11:44:01
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Bag/bag.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Bag/bag_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Bag/bagdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Bag/bagui.txt")

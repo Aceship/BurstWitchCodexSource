@@ -1,0 +1,8 @@
+序号,关卡ID,词条ID,词条等级,关卡文件
+id,levelId,buffId,buffLevel,file
+int,int,int,int,string
+1,420002,30301,0,fightData/Level/420002
+2,420002,30301,1,fightData/Level/420102
+3,420002,30301,2,fightData/Level/420202
+4,420002,30301,3,fightData/Level/420302
+5,420002,30301,4,fightData/Level/420402

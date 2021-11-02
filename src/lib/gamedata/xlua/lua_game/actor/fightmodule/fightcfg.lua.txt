@@ -1,0 +1,290 @@
+--
+-- author: cjj
+-- date  : 2019-04-10 13:39:53
+-- brief : 
+--
+
+FightModule = FightModule or {}
+
+function FightModule:_LoadPlayerFightSound()
+    self._witch_fight_sound = {}
+
+    local temp = {}
+    for k,v in pairs(CfgLoader:LoadCfgTable("witch_fight_sound")) do
+        self._witch_fight_sound[tonumber(v.id)] = {}
+        temp[tonumber(v.GetNewHero_id)] = tonumber(v.id)
+    end
+
+    self._battle_voice_cfgs = {}
+
+    local id = 0
+    for _, cfg in pairs(CfgLoader:LoadCfgTable("BattleVoice")) do
+        id = tonumber(cfg.id)
+        if temp[id] ~= nil then
+            self._witch_fight_sound[temp[id]].ch = cfg.ch
+            self._witch_fight_sound[temp[id]].jp = cfg.jp
+        else
+            self._battle_voice_cfgs[id] = {
+                ch = cfg.ch,
+                jp = cfg.jp,
+            }
+        end
+    end
+end
+
+function FightModule:_LoadEnemeySkill()
+    self._enemey_skills = {}
+    local cfgs = CfgLoader:LoadCfgTable("Skills")
+    local id = 0
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        self._enemey_skills[id] = {
+            id          = id,
+            hurt_rate   = tonumber(v.Attrib),
+            barrage     = tonumber(v.BarrageId),
+            btype       = tonumber(v.BarrageType),
+            is_clip     = v.IsClip == "1",
+            barrage_num = tonumber(v.BarrageNumber),
+            shakeinfo   = v.shakeinfo,
+            skilltype   = tonumber(v.skilltype),
+            param1      = v.param1,
+            param2      = v.param2,
+            playSound   = v.playSound,
+            IntensiveId = v.IntensiveId,
+        }
+    end
+end
+
+-----------------
+function FightModule:GetWitchSkill(cfgid, star)
+    return Skill:GetHeroSkillCfg(cfgid, star)
+end
+
+function FightModule:GetWitchSkillShow(cfgid, star)
+    return Skill:GetHeroSkillShowCfg(cfgid, star)
+end
+
+function FightModule:GetEnemySkills(id)
+    if self._enemey_skills[id] == nil then
+        CS.Logger.LogError("can't find enemy skill in {Skills.txt}. id = " .. id)
+    end
+    return self._enemey_skills[id]
+end
+
+function FightModule:GetWitchFightSound(id)
+    if self._witch_fight_sound[id] == nil then
+        AppMgr:LogError("[witch_fight_sound]配置表缺少配置. id = " .. id)
+        return nil
+    end
+    if PrefsController:GetVoiceLanguage() == G_VoiceLanguageJp then
+        return self._witch_fight_sound[id].jp
+    else
+        return self._witch_fight_sound[id].ch
+    end
+end
+
+function FightModule:GetBattleVoicePath(id)
+    if self._battle_voice_cfgs[id] == nil then
+        AppMgr:LogError("[BattleVoice]配置表缺少配置. id = " .. id)
+        return nil
+    end
+    if PrefsController:GetVoiceLanguage() == G_VoiceLanguageJp then
+        return self._battle_voice_cfgs[id].jp
+    else
+        return self._battle_voice_cfgs[id].ch
+    end
+end
+
+function FightModule:_LoadElementCfg()
+    local cfg = CfgLoader:LoadCfgTable("Element")
+    self._elements  = {}
+    local id = 0
+    for _, v in pairs(cfg) do
+        id = tonumber(v.id)
+        v.Name = Language:GetTxtBuyId(v.Name)
+        self._elements[id] = v
+
+        self._elements[id].skillids = {}
+        if v.OrgSkills ~= "-1" then
+            local skillids = lua_str_split(v.OrgSkills, "|")
+            for _, skillid in pairs(skillids) do
+                table.insert(self._elements[id].skillids, tonumber(skillid))
+            end
+        end
+    end
+end
+
+function FightModule:GetElementCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._elements[cfgid] == nil then
+        AppMgr:LogError("[Element]表配置错误！找不到ID = " .. cfgid)
+        return nil
+    end
+    return self._elements[cfgid]
+end
+
+function FightModule:_LoadAvoidLevelCfg()
+    self._avoid_level_cfg = {}
+    local cfgs = CfgLoader:LoadCfgTable("avoid_level_cfg")
+    for _, v in pairs(cfgs) do
+        self._avoid_level_cfg[tonumber(v.id)] = {
+            enemyid = tonumber(v.enemyid),
+            skillid = tonumber(v.skillid),
+            combo   = tonumber(v.combo),
+            slow_rate   = tonumber(v.slow_rate),
+            slow_time   = tonumber(v.slow_time),
+            recover_time= tonumber(v.recover_time),
+            viewid      = tonumber(v.viewid),
+        }
+    end
+    cfgs = nil 
+end
+
+function FightModule:_LoadViewCfg()
+    self._view_cfg = {}
+    local cfgs = CfgLoader:LoadCfgTable("view_cfg")
+    local id, arr = 0, nil
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        self._view_cfg[id] = {
+            color       = v.color,
+            is_move     = true,
+            center_from = {},
+            center_to   = {},
+            radius_from = tonumber(v.radius_from),
+            radius_to   = tonumber(v.radius_to),
+            smooth_from = tonumber(v.smooth_from),
+            smooth_to   = tonumber(v.smooth_to),
+            duration    = tonumber(v.duration),
+            nextid      = tonumber(v.nextid),
+        }
+        if v.center_from == "-1" then
+            self._view_cfg[id].is_move = false
+        else
+            self._view_cfg[id].is_move = true
+            arr = lua_str_split(v.center_from, "&")
+            self._view_cfg[id].center_from[1]   = tonumber(arr[1])
+            self._view_cfg[id].center_from[2]   = tonumber(arr[2])
+            arr = lua_str_split(v.center_to, "&")
+            self._view_cfg[id].center_to[1]     = tonumber(arr[1])
+            self._view_cfg[id].center_to[2]     = tonumber(arr[2])
+        end
+    end
+    cfgs = nil
+end
+
+function FightModule:_LoadFightModuleCfg()
+    self:_LoadEnemeySkill();
+    self:_LoadPlayerFightSound();
+    self:_LoadElementCfg()
+    self:_LoadFightTalkCfg()
+    self:_LoadAvoidLevelCfg()
+    self:_LoadViewCfg()
+    self:_LoadMidNightBuff()
+    self:_LoadBuffIconCfg()
+    self:_LoadFightBalance()
+
+    self._cfg_screenEffect = CfgLoader:LoadCfg("screenEffect")
+end
+
+
+--public api------------------------------------------------------------------
+
+function FightModule:GetScreenEffect()
+    return self._cfg_screenEffect
+end
+
+function FightModule:GetAvoidLevelCfg(levelid)
+   if self._avoid_level_cfg[levelid] == nil then
+        CS.Logger.LogError("can't find avoid_level_cfg by id = {0}", levelid)
+    end
+    return self._avoid_level_cfg[levelid]
+end
+
+function FightModule:GetViewCfg(viewid)
+   if self._view_cfg[viewid] == nil then
+        CS.Logger.LogError("can't find view_cfg by id = {0}", viewid)
+    end
+    return self._view_cfg[viewid]
+end
+
+function FightModule:_LoadMidNightBuff()
+    local cfg   = CfgLoader:LoadCfgTable("MidNightBuff");
+    self._midNightBuffCfg  = {};
+    for k,v in pairs(cfg) do
+        local tbl = GameTools.GetCsvValueList(v.buff)
+        local tblBuff = {}
+        for _, item in pairs(tbl) do
+            local t = GameTools.GetCsvValueList(item, "&")
+            table.insert(tblBuff, { id = tonumber(t[1]), weight = tonumber(t[2]) })
+        end
+        table.insert(self._midNightBuffCfg, {
+            id = tonumber(v.id),
+            levelid = tonumber(v.levelID),
+            waveid = tonumber(v.rate),
+            buffs = tblBuff,
+        })
+    end
+end
+
+function FightModule:_LoadBuffIconCfg()
+    local cfgs = CfgLoader:LoadCfgTable("FightStateIcon")
+    self._FightStateIcon = {}
+    for _, v in pairs(cfgs) do
+        self._FightStateIcon[tonumber(v.id)] = { EffectIcon = v.EffectIcon }
+    end
+end
+
+function FightModule:GetBuffIconPath(cfgid)
+    if self._FightStateIcon[cfgid] == nil then
+        AppMgr:LogError(string.format("can't find %d in FightStateIcon.xlsx.", cfgid))
+    end
+    return self._FightStateIcon[cfgid].EffectIcon
+end
+
+function FightModule:_LoadFightBalance()
+    local cfg = CfgLoader:LoadCfgTable("FightBalance")
+    self._fightBalance = {}
+
+    for k, v in pairs(cfg) do
+        local typeid = tonumber(v.typeid)
+        local gunType = tonumber(v.gunType)
+        self._fightBalance[typeid] = self._fightBalance[typeid] or {}
+        self._fightBalance[typeid][gunType] = self._fightBalance[typeid][gunType] or {}
+        local destTbl = self._fightBalance[typeid][gunType]
+
+        local ba = v.BalanceAttribute
+        local fa = v.FormativeAttribute
+
+        local fixed = {}
+        local rate = {}
+
+        local tblBa = lua_str_split(ba, "|")
+        for _, str in pairs(tblBa) do
+            local tbl = lua_str_split(str, "&", true)
+            fixed[tbl[1]] = tbl[2]
+        end
+
+        local tblFa = lua_str_split(fa, "|")
+        for _, str in pairs(tblFa) do
+            local tbl = lua_str_split(str, "&", true)
+            rate[tbl[1]] = tbl[2] / 100
+        end
+
+        table.insert(destTbl, {fixed = fixed, rate = rate})
+    end
+end
+
+function FightModule:GetFightBalance(subType, gunType)
+    gunType = gunType or -1
+
+    local tbl = self._fightBalance[subType]
+    if(tbl == nil) then
+        return nil
+    end
+
+    local typeTbl = tbl[gunType] or tbl[-1]
+
+    return typeTbl
+end
+

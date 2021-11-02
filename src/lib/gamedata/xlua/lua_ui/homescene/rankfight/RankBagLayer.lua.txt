@@ -1,0 +1,94 @@
+--
+-- author: haosun
+-- date  : 2020-02-22 15:16:06
+-- brief : 
+--
+-- local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+-- local RankBagLayer = class("RankBagLayer", CBaseLayer)
+local RankBagLayer = class("RankBagLayer")
+
+function RankBagLayer:ctor()
+    -- CBaseLayer.ctor(self)
+    -- self._prefab = {
+    --     path = "prefab_rank/UI_RankBagLayer",
+    -- }
+    -- self._uitype = 2
+
+    -- self:onEnter()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_rank/UI_RankBagLayer")
+    self:initObj()
+end
+
+function RankBagLayer:initObj()
+    self._cellObj       = {}
+    self._tvController  = UIController:CtorTableView(self.layer:Get("info_dynamic/TableViewController"))
+    self.layer:GetButtonComponent("button_back").onClick:AddListener(function() 
+        self.layer:SetVisible(false)
+    end)
+end
+
+function RankBagLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+end
+
+function RankBagLayer:onExit()
+    self._cellObj = nil
+    self._cls = nil
+    -- CBaseLayer.onExit(self)
+end
+
+function RankBagLayer:show()
+    self.layer:SetVisible(true)
+    self._list = Rank:GetBuffIdArr()
+    table.sort(self._list, function(a, b) return a > b end)
+    self:initLayer()
+    -- self:showLayer()
+    --self:playAni("")
+end
+
+function RankBagLayer:initLayer()
+    self._number = #self._list
+    if self._number == 0 then
+        set_obj_active(self.layer:Get("info_dynamic"), false)
+        set_obj_active(self.layer:Get("info_static/img_empty"), true)
+    else
+        set_obj_active(self.layer:Get("info_dynamic"), true)
+        set_obj_active(self.layer:Get("info_static/img_empty"), false)
+        self._tvController:Init(math.ceil(self._number/4), false,
+            function(cell, row, play)
+                self:refreshUnitCell(cell, row+1)
+            end, 0.3, 0.1)
+    end
+end
+
+function RankBagLayer:refreshUnitCell(cell, row)
+    local cls = self._cellObj[cell]
+    if cls == nil then
+        cls = {}
+        for i = 1, 4, 1 do
+            cls[i] = Mystery:CtorMysteryBuffUi(cell.gameObject:Get("prefab_" .. i))
+            cls[i].obj:GetComponent("Button").onClick:AddListener(
+                function()
+                    self:showBuff(cls[i].buffid)
+                end)
+        end
+        self._cellObj[cell] = cls
+    end
+    local index
+    for i, _cls in ipairs(cls) do
+        index = (row-1)*4 + i
+        if index <= self._number then
+            Mystery:SetMysteryBuffUi(_cls, tonumber(math.floor(self._list[index])))
+            _cls:Visible(true)
+        else
+            _cls:Visible(false)
+        end
+    end
+end
+
+function RankBagLayer:showBuff(buffid)
+    core.require("xlua/lua_UI/HomeScene/rankfight/RankBuffInfoLayer.txt"):new(buffid)
+end
+
+return RankBagLayer

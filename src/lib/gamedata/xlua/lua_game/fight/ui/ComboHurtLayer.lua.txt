@@ -1,0 +1,79 @@
+--
+-- author: haosun
+-- date  : 2021-04-20 16:54:27
+-- brief : 
+--
+UI_ComboHurtLayer = UI_ComboHurtLayer or {}
+
+function UI_ComboHurtLayer:ComboHurtLayerCreator()
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/RecountInfo")
+    self.prefab:SetVisible(false)
+    
+    self._obj_bar   = self.prefab:Get("bar")
+    self._txt_hurt  = self.prefab:GetTextComponent("HurtNum")
+    self._txt_anim  = self.prefab:GetAnimationComponent("HurtNum")
+
+    self._dps       = 0
+    self._cache_dps = -1
+    self._sumdt     = 0
+    self._maxCd     = 2
+    self._showing   = false
+    self._hasDestroyed  = false
+end
+
+function UI_ComboHurtLayer:ComboHurtLayerDestructor()
+    if self._hasDestroyed then return end
+
+    self._hasDestroyed = true
+    self._obj_bar   = nil
+    self._txt_hurt  = nil
+    self._txt_anim  = nil
+    if self.prefab ~= nil then
+        self.prefab:Release()
+    end
+    self.prefab = nil
+end
+
+function UI_ComboHurtLayer:ExitComboHurtLayer()
+    if false == self._showing then return end
+    self._showing = false
+    self._dps = 0
+    self._sumdt = 0
+    self._obj_bar:SetScaleX(0)
+    self.prefab.transform:DOLocalMoveX(2800, 0.5)
+end
+
+function UI_ComboHurtLayer:HandleComboHurt(dps)
+    if self._showing == false then
+        self:doShowComboHurtLayer(dps)
+    end
+    if self._showing == true then
+        self._sumdt = 0
+        self._dps = self._dps + dps
+        self:refreshComboHurt()
+    end
+end
+
+function UI_ComboHurtLayer:UpdateComboHurtLayer(dt)
+    if self._showing == false then return end
+
+    self._sumdt = self._sumdt + dt
+    local scalex = 1 - self._sumdt/self._maxCd
+    self._obj_bar:SetScaleX(scalex)
+    if self._sumdt > self._maxCd then
+        self:ExitComboHurtLayer()
+    end
+end
+
+function UI_ComboHurtLayer:doShowComboHurtLayer(dps)
+    self._txt_hurt:SetText(dps)
+    self.prefab:SetVisible(true)
+    self.prefab:AnimationPlay("RecountFadeIn")
+    self._showing = true
+end
+
+function UI_ComboHurtLayer:refreshComboHurt()
+    self._txt_hurt:SetText(self._dps)
+    self._txt_anim:Play("HurtEffect3")
+end
+

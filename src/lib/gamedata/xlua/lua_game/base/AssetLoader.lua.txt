@@ -1,0 +1,179 @@
+--
+-- author: haosun
+-- date  : 2020-03-24 13:31:21
+-- brief : 
+--
+
+local _ins = CS.AssetLoader.Instance
+
+AssetLoader = AssetLoader or {}
+
+function AssetLoader:LoadLuaAsset(filepath)
+    return _ins:LoadLuaAsset(filepath)
+end
+
+function AssetLoader:LoadAsset(resPath)
+    return _ins:LoadAsset(resPath)
+end
+
+function AssetLoader:LoadTexture(resPath)
+    return _ins:LoadTexture(resPath)
+end
+
+function AssetLoader:LoadSprite(resPath)
+    return _ins:LoadSprite(resPath)
+end
+
+function AssetLoader:LoadTexture(resPath)
+    return _ins:LoadTexture(resPath)
+end
+
+function AssetLoader:LoadAtlasSprite(atlas, name)
+    return _ins:LoadAtlasSprite(atlas, name)
+end
+
+function AssetLoader:LoadMaterial(resPath)
+    return _ins:LoadMaterial(resPath)
+end
+
+function AssetLoader:LoadAudioClip(resPath)
+    return _ins:LoadAudioClip(resPath)
+end
+
+function AssetLoader:LoadVideoClip(resPath)
+    return _ins:LoadVideoClip(resPath)
+end
+
+function AssetLoader:LoadTextAsset(resPath)
+    return _ins:LoadTextAsset(resPath)
+end
+
+function AssetLoader:LoadShader(resPath)
+    return _ins:LoadShader(resPath)
+end
+
+function AssetLoader:LoadShaderVar(resPath)
+    return _ins:LoadShaderVar(resPath)
+end
+
+function AssetLoader:LoadShaderVariants(resPath)
+    _ins:LoadShaderVariants(resPath)
+end
+
+function AssetLoader:LoadGrayMaterial()
+    return Groble_SceneMgr:GetGrayMaterial()
+end
+
+function AssetLoader:LoadTextFromTextAsset(resPath)
+    return _ins:LoadTextFromTextAsset(resPath)
+end
+
+function AssetLoader:LoadForeverAsset(resPath)
+    _ins:LoadForeverAsset(resPath)
+end
+
+function AssetLoader:PreLoad()
+    local assets = {
+        "prefab_comframeWork/fight_preload/FightInfo",
+        "source_hud/Shaders/UIHUDFront",
+        "source_hud/Shaders/UIHUDSprite",
+        "source_hud/Shaders/Unlit-TransparentColored",
+        "source_hud/UIPrefab/DFont",
+        "source_hud/UIPrefab/DFontM",
+        "source_hud/HUDSetting",
+        "source_hud/ui_main",
+        "gameFont/HYCS",
+        "source_atlas/atlas_common_res",
+    }
+
+    for _, v in ipairs(assets) do
+        self:LoadForeverAsset(v)
+    end
+end
+
+function AssetLoader:UnloadAsset()
+    _ins:UnloadAsset()
+end
+
+function AssetLoader:UnloadAssetForSpine(resPath,unLoadAllAsset)
+    if(unLoadAllAsset)then
+        _ins:UnloadAssetForSpine(resPath,true);
+    else
+        _ins:UnloadAssetForSpine(resPath,false);
+    end
+end
+
+function AssetLoader:Instantiate(resPath, trans)
+    if type(resPath) ~= "string" then      
+        return CS.UnityEngine.GameObject.Instantiate(resPath, trans)
+    else
+        return _ins:Instantiate(resPath, trans)
+    end
+end
+
+local scripts = {
+    "xlua/lua_Game/Language/languageinit.txt",
+    "xlua/lua_Game/Attr/attrinit.txt",
+    "xlua/lua_Game/Bag/baginit.txt",
+    "xlua/lua_Game/Player/playerinit.txt",
+    "xlua/lua_Game/Skill/skillinit.txt",
+    "xlua/lua_Game/Hero/heroinit.txt",
+    "xlua/lua_Game/Item/iteminit.txt",
+    "xlua/lua_Game/Equip/equipinit.txt",
+    "xlua/lua_Game/Chapter/chapterinit.txt",
+    "xlua/lua_Game/Stats/statsinit.txt",
+    "xlua/lua_Game/Task/taskinit.txt",
+    "xlua/lua_Game/Lottery/lotteryinit.txt",
+    "xlua/lua_Game/Mail/mailinit.txt",
+    "xlua/lua_Game/Rank/rankinit.txt",
+    "xlua/lua_Game/Recharge/rechargeinit.txt",
+    "xlua/lua_Game/Shop/shopinit.txt",
+    "xlua/lua_Game/Config/ccfg.txt",
+    "xlua/lua_Game/Time/utimeinit.txt",
+    "xlua/lua_Game/Activity/activityinit.txt",
+    "xlua/lua_Game/Guide/guideinit.txt",
+    "xlua/lua_Game/Actor/FightModule/fightinit.txt",
+    "xlua/lua_Game/Friend/friendinit.txt",
+    "xlua/lua_Game/Talk/talkinit.txt",
+    "xlua/lua_Game/Buff/buffinit.txt",
+    "xlua/lua_Game/Clock/clockinit.txt",
+    "xlua/lua_Game/Operation/operationinit.txt",
+    "xlua/lua_Game/Fetter/fetterinit.txt",
+    "xlua/lua_Game/Login/logininit.txt",
+    "xlua/lua_Game/Archive/archiveinit.txt",
+    "xlua/lua_Game/Tower/towerinit.txt",
+    "xlua/lua_Game/Mystery/mysteryinit.txt",
+    "xlua/lua_Game/UnIndulge/unIndulgeinit.txt",
+    "xlua/lua_Game/Fight/InitController.txt",
+    "xlua/lua_Game/Build/buildinit.txt",
+    "xlua/lua_Game/EtherBorder/etherinit.txt",
+    "xlua/lua_Game/WorldBoss/worldbossinit.txt",
+    "xlua/lua_Game/Comment/commentinit.txt",
+    "xlua/lua_Game/UpLoadVideo/uploadvideoinit.txt",
+    "xlua/lua_Game/Concert/concertinit.txt",
+    "xlua/lua_Game/Robot/robotinit.txt",
+    "xlua/lua_Game/MidNight/midnightinit.txt",
+}
+function AssetLoader:LoadAllLuaScript()
+    for _, v in ipairs(scripts) do
+        AssetLoader:LoadLuaAsset(v)
+    end
+end
+
+function AssetLoader:GetLuaScript()
+    return scripts
+end
+
+-------- 版本 热更 -----------------
+
+function AssetLoader:GetApkVer()
+    return _ins:GetApkVer()
+end
+
+function AssetLoader:GetHotVer()
+    return _ins:GetHotVer()
+end
+
+function AssetLoader:GetDisplayVer()
+    return _ins:GetDisplayVer()
+end

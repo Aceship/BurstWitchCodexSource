@@ -1,0 +1,45 @@
+--
+-- author: haosun
+-- date  : 2019-01-08 17:14:56
+-- brief :
+--
+Shop = Shop or {}
+
+function Shop:SyncShop(shopdata)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步商店数据----------")
+    if shopdata ~= nil then
+        Lottery:SetLotteryData(shopdata.lottery_tags)
+        Lottery:SetLotteryClasses(shopdata.lottery_classes)
+        Lottery:SetLotteryPools(shopdata.lottery_pools)
+        MidNight:SetMidNightLottery(shopdata.lottery_sy_vow)
+    end
+end
+
+function Shop:OnCommonBuyReq(cfgid, count, show, c_param)
+    if show == nil then show = true end
+    Network:CallServerScript({c2s.SHOP_SELF_BUY_REQ, Bag.TYPE_ITEM, cfgid, count, show, c_param})
+end
+
+function Shop:OnCommonBuyRep(drops, c_param)
+    if c_param then
+        Groble_UIMgr:BackLayerHide()
+        -- Lottery:LotteryReq(c_param)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LOTTERY_BUY_RESULT, c_param)
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+end
+--印记兑换
+function Shop:ExChangeChipsReq(tbl)
+    Network:CallServerScript({c2s.SHOP_EXCHANGE_HERO_CHIPS_REQ, tbl})
+end
+
+function Shop:ExChangeChipsRes()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+end
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.SHOP_DATA_SYNC]                 = {Shop, Shop.SyncShop}
+c2s[c2s.SHOP_SELF_BUY_RES]              = {Shop, Shop.OnCommonBuyRep}
+c2s[c2s.SHOP_EXCHANGE_HERO_CHIPS_RES]   = {Shop, Shop.ExChangeChipsRes}
+

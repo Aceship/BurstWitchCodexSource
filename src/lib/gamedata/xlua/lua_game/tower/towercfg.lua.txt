@@ -1,0 +1,24 @@
+--
+-- author: haosun
+-- date  : 2019-10-21 20:12:08
+-- brief : 
+--
+Tower = Tower or {}
+
+function Tower:_LoadCfg()
+    self._cfgs = {}
+    local cfgs = CfgLoader:LoadCfg("TowerProgressAward")
+    local cfgid
+    for _, v in pairs(cfgs) do
+        cfgid = tonumber(v.id)
+        self._cfgs[cfgid] = {
+            cfgid       = cfgid,
+            progress    = tonumber(v.InvestigationProgress),
+            rewards     = lua_parse_cfg(v.Award, true)
+        }
+    end
+end
+
+function Tower:GetAllCfgs()
+    return self._cfgs
+end

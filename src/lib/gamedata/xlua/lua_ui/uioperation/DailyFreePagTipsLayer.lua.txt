@@ -1,0 +1,162 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-20 19:52:37
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyFreePagTipsLayer = class("DailyFreePagTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnReturn = "btn_return",
+    --@ButtonEnd
+}
+--构造函数
+function DailyFreePagTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_DailyFreePagTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function DailyFreePagTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DailyFreePagTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then
+        self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+--初始化
+function DailyFreePagTipsLayer:Init()
+    self._chargeDatas = {};
+    self._cellItems = {};
+    self:InitUI();
+end
+
+--初始化UI
+function DailyFreePagTipsLayer:InitUI()
+
+    --@ImageEnd
+
+    --@TextEnd
+
+    self._transTvctrl = self.layer:Get("trans_container/trans_TVCtrl");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function DailyFreePagTipsLayer:show(id)
+    self._selectId = id;
+    self:UpdateData();
+    self:SetTableViewUI();
+    self:showLayer();
+end
+
+--退出按钮事件
+function DailyFreePagTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function DailyFreePagTipsLayer:onExit()
+    self._chargeDatas = nil;
+    self._cellItems = nil;
+    self._transTvctrl = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function DailyFreePagTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DailyFreePagTipsLayer:UpdateData()
+    self._mutualExclusionCfg = Operation:GetMutualExclusionCfgById(self._selectId);
+    self._chargeDatas = self._mutualExclusionCfg.freeIds;
+    self._dayGiftData = Operation:GetToDayGiftPagDataById(self._selectId);
+end
+
+function DailyFreePagTipsLayer:SetTableViewUI()
+    local rows = #self._chargeDatas;
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self._transTvctrl);
+        self._tvController:Init(rows, true,
+                function(cell, row)
+                    self:UpdateTVData(cell, row + 1)
+                end, 0.1, 0.05)
+    else
+        self._tvController:Reload(rows,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function DailyFreePagTipsLayer:UpdateTVData(cell, row)
+    local cellItem = self._cellItems[cell];
+    if(cellItem == nil)then
+        cellItem = self:InitItem(cell);
+        self._cellItems[cell] = cellItem;
+    end
+    self:SetItem(self._cellItems[cell],self._chargeDatas[row])
+end
+
+local ItemNum = 3;
+function DailyFreePagTipsLayer:InitItem(obj)
+    local cls = clsbase:new(obj.transform);
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.imgPriceIcon = cls:GetImageComponent("img_price_icon");
+    cls.txtPrice = cls:GetTextComponent("txt_price");
+    cls.items = {};
+    for i = 1, ItemNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls:Find(string.format("trans_item_bg/item_%s",i)));
+    end
+    return cls;
+end
+
+function DailyFreePagTipsLayer:SetItem(cls,data)
+    local cfg = Recharge:GetData(data[1]);
+    --TODO SVN美术资源无法上传,后面修改
+    if(self._dayGiftData.tcost >= data[2])then
+        cls.imgIcon:LoadAtlasSprite("source_atlas/atlas_build_layer", "Img_Gouzhu_Dian_1 (2)");
+    else
+        cls.imgIcon:LoadAtlasSprite("source_atlas/atlas_build_layer", "img_gouzhu_10");
+    end
+    cls.imgPriceIcon.sprite = Item:LoadSprite(cfg.priceId);
+    cls.txtPrice:SetText(data[2]);
+    for i, item in ipairs(cls.items) do
+        item:Visible(cfg.goods[i] ~= nil);
+        if(cfg.goods[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(item,cfg.goods[i][1],cfg.goods[i][2],cfg.goods[i][3]);
+        end
+    end
+end
+
+return DailyFreePagTipsLayer;

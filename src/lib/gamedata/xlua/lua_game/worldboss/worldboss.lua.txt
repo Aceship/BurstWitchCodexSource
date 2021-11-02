@@ -1,0 +1,58 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+WorldBoss = WorldBoss or {};
+
+function WorldBoss:Ctor()
+    self._curChapterId = 0;
+    self._objWorldBossScene = nil;
+    WorldBoss:InitData();
+end
+
+function WorldBoss:Clear()
+    self:Ctor();
+end
+
+function WorldBoss:GetOpenChapterId()
+    local chapters = Chapter:GetChaptersIdByMainType(Chapter.FIGHT_TYPE_WORLD_BOSS);
+    local retId,chapter,level;
+    local timeid = 0
+    for _, v in ipairs(chapters) do
+        chapter = Chapter:GetChapter(v);
+        if(chapter.timeid > 0)then
+            if(CTime:IsOpen(chapter.timeid))then
+                retId = v;
+                timeid = chapter.timeid
+                break;
+            end
+        else
+            level = Chapter:GetLevel(chapter.levelids[1]);
+            if(level.timeid > 0)then
+                if(CTime:IsOpen(level.timeid))then
+                    retId = v;
+                    timeid = level.timeid
+                    break;
+                end
+            end
+        end
+    end
+    return retId or 0,timeid;
+end
+
+function WorldBoss:CloseScene()
+    if(self._boss ~= nil)then
+        self._boss:Release();
+    end
+    self._boss = nil;
+    if(self._objWorldBossScene ~= nil)then
+        --关闭雾效
+        RenderSettingsMgr:FogEnabled(false);
+        Chapter:ClearJumpChapterLevel();
+        self._objWorldBossScene:Release();
+    end
+    self._objWorldBossScene = nil;
+
+
+
+end

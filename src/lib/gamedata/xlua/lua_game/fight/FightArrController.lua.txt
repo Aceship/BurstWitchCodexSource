@@ -1,0 +1,255 @@
+FightArrController = FightArrController or {}
+
+FightArrController.RenderBuffIndex = 
+{
+    iIcon = 1,
+    iCount = 2,
+    iDurFrame = 3,
+    iEndFrame = 4,
+
+    iMax = 4,
+}
+
+FightArrController.TestBattleDataIndex = {
+    fHp = 1,
+    fHpMax = 2,
+    fAtk = 3,
+    fSpd = 4,
+    fDef = 5,
+    fLAtk = 6,
+    fLDef = 7,
+    fDAtk = 8,
+    fDDef = 9,
+    fCAtk = 10,
+    fCDef = 11,
+    fHit = 12,
+    fDmg = 13,
+    fEnergy = 14,
+    fCurEnergy = 15,
+    fHitRate = 16,
+    fDmgRate = 17,
+    fDmgSub = 18,
+    fDmgAdd = 19,
+    fCureRate = 20,
+    fBeCureRate = 21,
+    fGfCostRate = 22,
+    fGfRate = 23,
+    fScoreRate1 = 24,
+    fScoreRate2 = 25,
+
+    iMax = 25,
+}
+
+FightArrController.BossRenderDataIndex = {
+    iExist = 1,
+    iAttriType = 2,
+    iEnemyId = 3,
+    fCurHp = 4,
+    fMaxHp = 5,
+    iCurStep = 6,
+    fCurX = 7,
+    fCurY = 8,
+    fBossTime = 9,
+    fRemainTime = 10,
+
+    iRenderBuffsCount = 11,
+    aRenderBuffsStart = 12,
+    aRenderBuffsEnd = 12 + 20 * 4 - 1,	
+
+    iMax = 12 + 20 * 4 - 1,
+}
+
+FightArrController.UIAttrIndex = {
+    fMaxValue = 1,
+    fCurValue = 2,
+    iMustCostGf = 3,
+    fMustCurCd = 4,
+    fMustMaxCd = 5,
+    iIsDeath = 6,
+    iAttriType = 7,
+    fChangeCdPer = 8,
+    fChangeCd = 9,
+    fXuliCdPer = 10,
+    fShieldValue = 11,
+    fMaxEnergy = 12,
+    fCurEnergy = 13,
+    fEnergySleepTime = 14,
+    fEnergySleepMaxTime = 15,
+    fAwakeEnergy = 16,
+    fAllDps = 17,
+
+    iRenderBuffsCount = 18,
+    aRenderBuffsStart = 19,
+    aRenderBuffsEnd = 19 + 20 * 4 - 1,	
+
+    iMax = 19 + 20 * 4 - 1,
+}
+
+FightArrController.RenderBattleDataIndex = {
+    iState = 1,
+    iCadanScore = 2,
+    iScore = 3,
+    iBwIndex = 4,
+    iLevelWave = 5,
+    iCurFightWave = 6,
+    iMaxFightWave = 7,
+    fDialogId = 8,
+    iKillNumber = 9,
+    iPlayMustNumber = 10,
+    fFightTime = 11,
+    fBattleTime = 12,
+    fCurGf = 13,
+    fMaxGf = 14,
+    iCurFrame = 15,
+    iWipeNumber = 16,
+    iWipeComboNumber = 17,
+    fAllHeroHpPer = 18,
+    iWinScore = 19,
+    iDefNumber = 20,
+    fSecDps = 21,
+    iTimeScore = 22,
+    iDamageScore = 23,
+    iKillScore = 24,
+    iMidnightScore = 25,
+    iAchieveStart = 26,
+    iAchieveEnd = 28,
+
+    iMax = 28,
+}
+
+FightArrController.EnemyHpBarIndex = {
+    iAttriType = 1,
+    iCurFrame = 2,
+    fCurHp = 3,
+    fMaxHp = 4,
+    fX = 5,
+    fY = 6,
+
+    iRenderBuffsCount = 7,
+    aRenderBuffsStart = 8,
+    aRenderBuffsEnd = 8 + 20 * 4 - 1,	
+
+    iMax = 8 + 20 * 4 - 1,
+}
+
+
+function FightArrController:InitController()
+	self._renderBattleData = LuaCSharpArr.New(self.RenderBattleDataIndex.iMax)
+	self._uiAttr = {
+		[0] = LuaCSharpArr.New(self.UIAttrIndex.iMax),
+		[1] = LuaCSharpArr.New(self.UIAttrIndex.iMax),
+		[2] = LuaCSharpArr.New(self.UIAttrIndex.iMax),
+	}
+	self._bossRenderData = LuaCSharpArr.New(self.BossRenderDataIndex.iMax)
+
+	self._playerTestBattleData = LuaCSharpArr.New(self.TestBattleDataIndex.iMax)
+	self._enemyTestBattleData = LuaCSharpArr.New(self.TestBattleDataIndex.iMax)
+
+    self._enemyHpBar = {}
+    for i = 1, 8 do
+        local arr = LuaCSharpArr.New(self.EnemyHpBarIndex.iMax)
+        self._enemyHpBar[i] = { arr = arr, used = false }
+        CS.LuaArrWriter.SetEnemyHpBarAccess(i, arr:GetCSharpAccess())
+    end
+
+    self:SetLuaArrAccess()
+end
+
+
+function FightArrController:SetLuaArrAccess()
+    CS.LuaArrWriter.SetLuaArrAccess(self._renderBattleData:GetCSharpAccess(),
+                                    self._bossRenderData:GetCSharpAccess(),
+                                    self._uiAttr[0]:GetCSharpAccess(),
+                                    self._uiAttr[1]:GetCSharpAccess(),
+                                    self._uiAttr[2]:GetCSharpAccess(),
+                                    self._playerTestBattleData:GetCSharpAccess(),
+                                    self._enemyTestBattleData:GetCSharpAccess())
+
+end
+
+function FightArrController:UnInitController()
+	if(self._renderBattleData) then
+		self._renderBattleData = nil
+	end
+	if(self._bossRenderData) then
+		self._bossRenderData = nil
+	end
+	if(self._playerTestBattleData) then
+		self._playerTestBattleData = nil
+	end
+	if(self._enemyTestBattleData) then
+		self._enemyTestBattleData = nil
+	end
+	if(self._uiAttr) then
+		self._uiAttr[0] = nil
+		self._uiAttr[1] = nil
+		self._uiAttr[2] = nil
+		self._uiAttr = nil
+	end
+
+    if(self._enemyHpBar) then
+        for i = 1, #self._enemyHpBar do
+            self._enemyHpBar[i] = nil
+        end
+        self._enemyHpBar = nil
+    end
+end
+
+function FightArrController:GetRenderBattleData()
+	return self._renderBattleData
+end
+
+function FightArrController:GetUIAttr(index)
+	return self._uiAttr[index]
+end
+
+function FightArrController:GetBossRenderData()
+	return self._bossRenderData
+end
+
+function FightArrController:GetTestBattleData()
+	return self._playerTestBattleData, self._enemyTestBattleData
+end
+
+function FightArrController:GetEnemyHpBar(index)
+    return self._enemyHpBar[index].arr
+end
+
+-- function FightArrController:UpdateData()
+-- 	local writer = CS.LuaArrWriter
+
+-- 	for i = 0, 2 do
+-- 		writer.WriteUiAttrToLua(self._uiAttr[i]:GetCSharpAccess(), i)
+-- 	end
+
+-- 	writer.WriteBossRenderDataToLua(self._bossRenderData:GetCSharpAccess())
+-- 	writer.WriteRenderBattleDataToLua(self._renderBattleData:GetCSharpAccess())
+
+-- 	writer.WritePlayerTestBattleDataToLua(self._playerTestBattleData:GetCSharpAccess())
+-- 	writer.WriteEnemyTestBattleDataToLua(self._enemyTestBattleData:GetCSharpAccess())
+-- end
+
+
+
+function FightArrController:GetFreeEnemyBar()
+    for i = 1, #self._enemyHpBar do
+        if(self._enemyHpBar[i].used == false) then
+            self._enemyHpBar[i].used = true
+            return i
+        end
+    end
+
+    local arr = LuaCSharpArr.New(self.EnemyHpBarIndex.iMax)
+    table.insert(self._enemyHpBar, { arr = arr, used = true })
+    local count = #self._enemyHpBar
+    CS.LuaArrWriter.SetEnemyHpBarAccess(count, arr:GetCSharpAccess())
+    return count
+end
+
+function FightArrController:FreeEnemyBar(index)
+    self._enemyHpBar[index].used = false
+end
+
+function FightArrController:UpdateEnemyBar(index)
+    CS.LuaArrWriter.WriteEnemyHpBarDataToLua(self._enemyHpBar[index].arr:GetCSharpAccess())
+end

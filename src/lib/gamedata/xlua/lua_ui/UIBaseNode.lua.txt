@@ -1,0 +1,66 @@
+--
+-- author: 
+-- date  : 
+-- brief :
+--
+UIBaseNode = class("UIBaseNode")
+
+function UIBaseNode:ctor(nodeGo, parentLayer)
+    self.layer = nodeGo
+    self._parentLayer = parentLayer
+end
+
+
+function UIBaseNode:onEnter()
+end
+
+function UIBaseNode:onExit()
+    self:unregisterButtonEvent()
+    self:destory()
+end
+
+function UIBaseNode:registerButtonEvent(BUTTON_TYPE)
+    for _, v in pairs(BUTTON_TYPE) do
+        self.layer:GetButtonComponent(v):AddButtonListener(
+            function()
+                if not self._parentLayer._fading then
+                    self:onButtonClick(v)
+                end
+            end)
+    end
+    self._tempbuttons = BUTTON_TYPE
+end
+
+function UIBaseNode:unregisterButtonEvent()
+    for _, v in pairs(self._tempbuttons or {}) do
+        self.layer:GetButtonComponent(v):RemoveButtonAllListener()
+    end
+    self._tempbuttons = nil
+end
+
+
+function UIBaseNode:clear()
+
+end
+
+function UIBaseNode:destory()
+    self:clear()
+
+    self._parentLayer = nil
+
+    if self.layer ~= nil then
+        self.layer = nil
+    end
+    self = nil
+end
+
+function UIBaseNode:CreateNode(nodeGo, clsTable, ...)
+    return clsTable:new(nodeGo, self, ...)
+end
+
+function UIBaseNode:SetVisible(value)
+    self.layer:SetVisible(value);
+end
+
+
+

@@ -1,0 +1,375 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-19 20:21:18
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DailyDealLayer = class("DailyDealLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnTomorrowAward = "trans_container/trans_tomorrow_award",
+    BtnBuyAll = "trans_container/trans_pack/btn_buy_all",
+    --@ButtonEnd
+}
+--构造函数
+function DailyDealLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_DailyDealLayer",
+        trans = parent,
+        obj = true
+    }
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function DailyDealLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DailyDealLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnTomorrowAward)then
+        self:OnBtnTomorrowAwardClick();
+    elseif(itype == BTNS.BtnBuyAll)then
+        self:OnBtnBuyAllClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+
+
+end
+
+--初始化
+function DailyDealLayer:Init()
+    self._chargeItems = {};
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化UI
+function DailyDealLayer:InitUI()
+
+    self._imgLockIcon = self.layer:GetImageComponent("trans_container/trans_pack/btn_buy_all/trans_is_lock/img_lock_icon");
+    self._imgAllPriceIcon = self.layer:GetImageComponent("trans_container/trans_pack/btn_buy_all/trans_is_buy/img_all_price_icon");
+    --@ImageEnd
+
+    self._txtDiscount = self.layer:GetTextComponent("trans_container/trans_pack/trans_discount/txt_discount");
+    self._txtGetAllTitle = self.layer:GetTextComponent("trans_container/trans_pack/btn_buy_all/trans_is_get/txt_get_all_title");
+    self._txtLockPrice = self.layer:GetTextComponent("trans_container/trans_pack/btn_buy_all/trans_is_lock/txt_lock_price");
+    self._txtAllPrice = self.layer:GetTextComponent("trans_container/trans_pack/btn_buy_all/trans_is_buy/txt_all_price");
+    self._txtCostPrice = self.layer:GetTextComponent("trans_container/trans_pack/btn_buy_all/trans_is_buy/txt_cost_price");
+    --@TextEnd
+
+    self._transItemParent = self.layer:Get("trans_container/trans_item_bg/trans_item_parent");
+    self._transPack = self.layer:Get("trans_container/trans_pack");
+    self._transIsBuy = self.layer:Get("trans_container/trans_pack/btn_buy_all/trans_is_buy");
+    self._transIsGet = self.layer:Get("trans_container/trans_pack/btn_buy_all/trans_is_get");
+    self._transIsLock = self.layer:Get("trans_container/trans_pack/btn_buy_all/trans_is_lock");
+    self._transDiscount = self.layer:Get("trans_container/trans_pack/trans_discount");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+    --@GameObjectEnd
+
+    --@ScrollRectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._btnBuyAll = self.layer:GetButtonComponent("trans_container/trans_pack/btn_buy_all");
+
+    self._dayItems = self:InitChargeItems(self.layer:Get("trans_container/trans_tomorrow_award/trans_tomorrow_award_bg"));
+end
+
+--显示UI
+function DailyDealLayer:show()
+    self:SetPackUI();
+    self:SetTomorrowAwardUI();
+    self:showLayer();
+end
+
+function DailyDealLayer:showLayer()
+    self:SetAllItemUI();
+    CBaseLayer.showLayer(self);
+end
+
+function DailyDealLayer:UpdateData()
+    self._chargeIds = {};
+    local charge;
+    local getIndex = 1;
+    local curCfg = Operation:GetActiveCfgByUID(Operation:GetCurSelectUID());
+    local ids = curCfg.charges;
+    for _, v in ipairs(ids) do
+        charge = Recharge:GetData(v);
+        if(charge.price > 0)then
+            table.insert(self._chargeIds,v);
+            if(self._mutualExclusionCfg == nil)then
+                self._mutualExclusionCfg = Operation:GetMutualExclusionCfgByPagId(v);
+            end
+        end
+    end
+    self._serverData = Operation:GetMutualExclusionServerDataById(self._mutualExclusionCfg.id);
+    self._dayGiftData = Operation:GetToDayGiftPagDataById(self._mutualExclusionCfg.id);
+    table.insert(self._chargeIds,1,self._dayGiftData.free_id);
+    for i, v in ipairs(self._chargeIds) do
+        if(v == self._mutualExclusionCfg.chargeId)then
+            getIndex = i;
+            break;
+        end
+    end
+    self._allBuyState = Operation:GetMutualExclusionGiftPagBuyState(self._mutualExclusionCfg.id);
+    self._bigGiftPagId = self._chargeIds[getIndex];
+    table.remove(self._chargeIds,getIndex);
+end
+
+--释放
+function DailyDealLayer:onExit()
+    DoArrayClassClear(self._dayItems)
+    if self._chargeItems ~= nil then
+        for _, cls in pairs(self._chargeItems) do
+            DoArrayClassClear(cls.items)
+            cls:clear()
+        end
+        self._chargeItems = nil
+    end
+
+    self._chargeIds = nil;
+    self._mutualExclusionCfg = nil;
+    self._objItem = nil;
+    self._transItemParent = nil;
+    self._transPack = nil;
+    self._txtDiscount = nil;
+    self._btnBuyAll = nil;
+    self._transIsBuy = nil;
+    self._transIsGet = nil;
+    self._txtGetAllTitle = nil;
+    self._transIsLock = nil;
+    self._txtLockPrice = nil;
+    self._imgLockIcon = nil;
+    self._txtAllPrice = nil;
+    self._imgAllPriceIcon = nil;
+    self._txtCostPrice = nil;
+    self._transDiscount = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function DailyDealLayer:OnItemBtnClick(chargeId)
+    Recharge:SetCurSelectGiftPagId(chargeId);
+    local cfg = Recharge:GetData(chargeId);
+    if(cfg.price <= 0)then
+        Operation:SendMessage(Operation:GetCurSelectUID(),{id = chargeId,num = 1});
+    else
+        Recharge:OpenBuyTipsLayer();
+    end
+end
+function DailyDealLayer:OnBtnTomorrowAwardClick()
+    core.require("xlua/lua_UI/UIOperation/DailyFreePagTipsLayer.txt"):new():show(self._mutualExclusionCfg.id);
+end
+function DailyDealLayer:OnBtnBuyAllClick()
+    if(self._allBuyState == Operation.MutualExclusionBuyType.UnBuy)then
+        Recharge:SetCurSelectGiftPagId(self._bigGiftPagId);
+        core.require("xlua/lua_UI/UIOperation/PackBuyTipsLayer.txt"):new():show();
+    elseif(self._allBuyState == Operation.MutualExclusionBuyType.Buy)then
+        Operation:GetMutualExclusionReq(self._mutualExclusionCfg.id);
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function DailyDealLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:UpdateData();
+        self:show();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function DailyDealLayer:SetAllItemUI()
+    for i, id in ipairs(self._chargeIds) do
+        local cls = self._chargeItems[i];
+        if(cls == nil)then
+            cls = self:NewItemUI(self._transItemParent:AddChild(self._objItem).transform);
+        end
+        self._chargeItems[i] = cls;
+        cls.transform:SetScale(1,0,1);
+        self:SetItemUI(cls,id);
+        cls.transform:DOScale(1,0.2):SetDelay(math.floor((i - 1) / 2) * 0.1);
+    end
+end
+
+local ItemNum = 3;
+function DailyDealLayer:NewItemUI(trans)
+    local cls = clearbase:new()
+    cls.transform  = trans
+    cls.items      = self:InitChargeItems(trans:Get("trans_item_bg"))
+    cls.txtName    = trans:GetTextComponent("txt_name")
+    cls.txtRebate  = trans:GetTextComponent("txt_rebate")
+    cls.imgRebate  = trans:GetImageComponent("img_rebate")
+    cls.imgIcon    = trans:GetImageComponent("img_price_icon")
+    cls.txtPrice   = trans:GetTextComponent("txt_price")
+    cls.imgPrice   = trans:GetImageComponent("img_price_icon")
+    cls.imgWelfare = trans:GetImageComponent("img_welfare")
+    cls.imgMask    = trans:Get("img_mask")
+    cls.btnClick   = trans:GetButtonComponent("btn_click")
+    cls.objGet     = trans:Get("img_get")
+    cls.objTips    = trans:Get("img_tips")
+    cls.btnClick:AddButtonListener(function ()
+        self:OnItemBtnClick(cls.id);
+    end);
+    return cls;
+end
+
+function DailyDealLayer:SetItemUI(cls,chargeId)
+    cls.id = chargeId;
+    local cfg = Recharge:GetData(chargeId);
+    local buyNum = Operation:GetGiftBagBoughtNum(chargeId);
+    cls.txtName:SetText(cfg.name);
+    --价格
+    if(self._allBuyState == Operation.MutualExclusionBuyType.Buy)then
+        cls.imgWelfare:SetEnabled(false);
+        cls.imgPrice:SetEnabled(false);
+        cls.txtPrice:SetEnabled(false);
+        cls.objTips:SetVisible(false)
+        -- 是否已领取奖励
+        local isGet = Operation:GetCurMutualExclusionGetStateById(self._mutualExclusionCfg.id)
+        cls.imgMask:SetVisible(isGet);
+        cls.objGet:SetVisible(isGet);
+    else
+        cls.objTips:SetVisible(buyNum <= 0 and cfg.price <= 0)
+        cls.imgWelfare:SetEnabled(buyNum <= 0 and cfg.price <= 0);
+        cls.imgPrice:SetEnabled(buyNum <= 0 and cfg.price > 0);
+        cls.txtPrice:SetEnabled(buyNum <= 0 and cfg.price > 0);
+        cls.imgMask:SetVisible(buyNum > 0);
+        cls.objGet:SetVisible(buyNum > 0);
+    end
+    cls.btnClick.interactable = buyNum <= 0 and self._allBuyState ~= Operation.MutualExclusionBuyType.Buy;
+    if(buyNum <= 0 and cfg.price > 0)then
+        cls.txtPrice:SetText(math.ceil(cfg.price * cfg.discount));
+        cls.imgPrice:LoadSprite(Item:GetItemIconPathByName(cfg.priceId))
+    end
+    --返利
+    --cls.txtRebate:SetEnabled(buyNum <= 0 and cfg.rebateRatio > Recharge.RebateDefNum);
+    --cls.imgRebate:SetEnabled(buyNum <= 0 and cfg.rebateRatio > Recharge.RebateDefNum);
+    --[[if(buyNum <= 0 and cfg.rebateRatio > Recharge.RebateDefNum)then
+        local temp = math.floor(cfg.rebateRatio / Recharge.RebateDefNum);
+        local temp2 = cfg.rebateRatio / Recharge.RebateDefNum - temp;
+        if(temp2 > 0)then
+            temp = temp + temp2;
+        end
+        cls.txtRebate:SetText(temp);
+    end]]--
+    --礼包内容
+    if(#cfg.goods < 3)then
+        for _, item in ipairs(cls.items) do
+            item.transform:SetScale(0.58,0.58,0.58);
+        end
+    else
+        for i, item in ipairs(cls.items) do
+            if(i == 2)then
+                item.transform:SetScale(0.58,0.58,0.58);
+            else
+                item.transform:SetScale(0.42,0.42,0.42);
+            end
+        end
+    end
+    self:SetChargeItems(cls.items,cfg);
+end
+
+-----------------------------------------------------打包购买--------------------------------
+function DailyDealLayer:SetPackUI()
+    local cfg = Recharge:GetData(self._bigGiftPagId);
+    self._transIsBuy:SetVisible(self._allBuyState == Operation.MutualExclusionBuyType.UnBuy);
+    self._transIsGet:SetVisible(self._allBuyState == Operation.MutualExclusionBuyType.Buy);
+    self._transIsLock:SetVisible(self._allBuyState == Operation.MutualExclusionBuyType.Lock);
+    self._transDiscount:SetVisible(self._allBuyState == Operation.MutualExclusionBuyType.UnBuy and cfg.discount < 1);
+    self._btnBuyAll.interactable = self._allBuyState ~= Operation.MutualExclusionBuyType.Lock;
+    if(self._allBuyState == Operation.MutualExclusionBuyType.Buy)then
+        local isGet = Operation:GetCurMutualExclusionGetStateById(self._mutualExclusionCfg.id);
+        self._btnBuyAll.interactable = not isGet;
+        if(isGet)then
+            local str = "";
+            if(self._serverData.curDayNum > 0)then
+                str = string.format(LanguageMgr:GetTextByID(90235),self._serverData.curDayNum);
+            else
+                str = LanguageMgr:GetTextByID(90237);
+            end
+            self._txtGetAllTitle:SetText(str);
+            self._transIsGet:Get("obj_tips"):SetVisible(false)
+        else
+            self._transIsGet:Get("obj_tips"):SetVisible(true)
+            self._txtGetAllTitle:SetText(string.format(LanguageMgr:GetTextByID(90236),self._serverData.curDayNum,self._mutualExclusionCfg.days));
+        end
+    elseif(self._allBuyState == Operation.MutualExclusionBuyType.UnBuy)then
+        self._imgAllPriceIcon.sprite = Item:LoadSprite(cfg.priceId);
+        self._txtAllPrice:SetText(math.ceil(cfg.price * cfg.discount));
+        self._txtCostPrice:SetVisible(cfg.discount < 1);
+        if(cfg.discount < 1)then
+            self._txtCostPrice:SetText(cfg.price);
+            local temp = math.floor(cfg.discount * 10);
+            local temp2 = cfg.discount * 10 - temp;
+            if(temp2 > 0)then
+                temp = temp + temp2;
+            end
+            self._txtDiscount:SetText(string.format(LanguageMgr:GetTextByID(90248),temp));
+        end
+    elseif(self._allBuyState == Operation.MutualExclusionBuyType.Lock)then
+        local buyNum = 0;
+        local charge;
+        for _, id in ipairs(self._mutualExclusionCfg.chargeIds) do
+            if(Operation:GetGiftBagBoughtNum(id) > 0)then
+                charge = Recharge:GetData(id);
+                buyNum = buyNum + math.ceil(charge.price * charge.discount);
+            end
+        end
+        self._txtLockPrice:SetText(buyNum);
+        self._imgLockIcon.sprite = Item:LoadSprite(cfg.priceId);
+    end
+end
+
+-----------------------------------------------------次日奖励--------------------------------
+function DailyDealLayer:SetTomorrowAwardUI()
+    self._dayGiftId = self._mutualExclusionCfg.freeIds[1][1];
+    for _, v in ipairs(self._mutualExclusionCfg.freeIds) do
+        if(self._dayGiftData.tcost >= v[2])then
+            self._dayGiftId = v[1];
+        end
+    end
+    self:SetChargeItems(self._dayItems,Recharge:GetData(self._dayGiftId));
+end
+
+-----------------------------------------------------礼包内容--------------------------------
+function DailyDealLayer:InitChargeItems(trans)
+    local retArr = {};
+    for i = 1, ItemNum do
+        retArr[i] = Bag:CtorComSimpleGoodsUi(trans:Get(string.format("item_%s",i)));
+    end
+    return retArr;
+end
+
+function DailyDealLayer:SetChargeItems(items,cfg)
+    for i, item in ipairs(items) do
+        item:Visible(cfg.goods[i] ~= nil);
+        if(cfg.goods[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(item,cfg.goods[i][1],cfg.goods[i][2],cfg.goods[i][3]);
+        end
+    end
+end
+-----------------------------------------------------------------------------------------------
+return DailyDealLayer;

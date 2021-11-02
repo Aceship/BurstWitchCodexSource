@@ -1,0 +1,82 @@
+--
+-- author: haosun
+-- date  : 2021-08-30 17:12:31
+-- brief : 
+--
+UITalentCtrl = class("UITalentCtrl")
+
+local _number = 4
+
+function UITalentCtrl:ctor(super, trans, onTalentClickCall)
+    self._onTalentClickCall = onTalentClickCall
+    self._clsArrTalent = {}
+    for i = 1, _number, 1 do
+        local _item = trans:Get("item_"..i)
+        self._clsArrTalent[i] = clearbase:new()
+        self._clsArrTalent[i].trans    = _item
+        self._clsArrTalent[i].imgBg    = _item:GetImageComponent("img_bg")
+        self._clsArrTalent[i].imgIcon  = _item:GetImageComponent("img_icon")
+        self._clsArrTalent[i].arrStars = {
+            _item:GetImageComponent("img_star1"),
+            _item:GetImageComponent("img_star2"),
+            _item:GetImageComponent("img_star3"),
+            _item:GetImageComponent("img_star4"),
+            _item:GetImageComponent("img_star5"),
+            _item:GetImageComponent("img_star6"),
+        }
+        -- click
+        _item:GetComponent("Button"):AddButtonListener(
+            function()
+                self:onClickTalent(i)
+            end)
+    end
+end
+
+function UITalentCtrl:UITalentCtrlDtor()
+    if self._clsArrTalent ~= nil then
+        for _, v in ipairs(self._clsArrTalent) do
+            v:clear()
+        end
+        self._clsArrTalent = nil
+    end
+
+    self._onTalentClickCall = nil
+end
+
+function UITalentCtrl:InitUITalentCtrl(hero)
+    local data, cls
+    for i = 1, _number, 1 do
+        data = hero.talentcfg[i]
+        cls = self._clsArrTalent[i]
+        cls.trans:SetVisible(data ~= nil)
+        if data ~= nil then
+            if data.unlock then
+                cls.imgBg:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_2")
+                cls.imgIcon:SetVisible(true)
+                cls.imgIcon:LoadSprite("source_icon/talent/"..data.cfg.Talent_ICON)
+            else
+                cls.imgBg:LoadAtlasSprite("source_atlas/atlas_witch_top", "Img_TuPo_KeYing_list_1")
+                cls.imgIcon:SetVisible(false)
+            end
+            self:onSetTalent(i, data.star, data.unlock)
+        end
+    end
+end
+
+function UITalentCtrl:onClickTalent(index)
+    self._onTalentClickCall(index, self._clsArrTalent[index].trans)
+end
+
+function UITalentCtrl:onSetTalent(index, star, unlock)
+    local cls = self._clsArrTalent[index]
+    for i = 1, 6, 1 do
+        cls.arrStars[i]:SetVisible(i <= star)
+        if i <= star then
+            if unlock then
+                cls.arrStars[i]:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da1")
+            else
+                cls.arrStars[i]:LoadAtlasSprite("source_atlas/atlas_common_res","Img_MoNvTouXiAng_Xing_Da2")
+            end
+        end
+    end
+end

@@ -1,0 +1,119 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+WorldBoss = WorldBoss or {}
+
+-- 
+-- brief: 打开世界BOSS
+-- 
+function WorldBoss:EnterWorldBossLayer()
+    -- 获取开放的章节
+    local open = self:GetOpenChapterId() > 0;
+    if(not open)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(76000079))
+        return
+    end
+    -- 是否正在结算中
+    if Rank:GetClearingStart(Rank.TYPE_WORLD_BOSS) then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(77000117))
+        return
+    end
+    self:OpenWorldBossLayer();
+end
+
+function WorldBoss:OpenWorldBossLayer()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        Groble_UIMgr:OpenLoadingLayer(
+            function ()
+                WorldBoss:LoadScene();
+            end,
+            function()
+                UpLoadVideo:SetCurVideoType(UpLoadVideo.VideoType.WorldBoss);
+                core.require("xlua/lua_UI/WorldBoss/WorldBossLayer.txt"):new():show();
+                Groble_UIMgr:HideMoneyUI(0,0);
+                Groble_UIMgr:HideBackBtn();
+            end, CTime.delayTime);
+    end);
+end
+
+function WorldBoss:LoadScene(loadOverBack)
+    -- 相机设置
+    CameraController:CameraInit()
+    CameraController:SetCameraSetting("worldboss")
+    -- 设置雾参数
+    RenderSettingsMgr:FogEnabled(true);
+    RenderSettingsMgr:FogSettings(1, 30/255, 35/255, 40/255, 1, -5, 80)
+    if (self._objWorldBossScene == nil) then
+        AssetAsyncLoader:LoadResourceAsync("prefab_uiWorldBoss/WorldBossScene",
+            function(obj)
+                if obj ~= nil then
+                    self._objWorldBossScene = Groble_ResMgr:Instantiate(obj)
+                    self:LoadBossModel(loadOverBack)
+                end
+            end)
+    end
+end
+
+function WorldBoss:LoadBossModel(loadOverBack)
+    local curChapter = Chapter:GetChapter(WorldBoss:GetOpenChapterId());
+    local curLevel = Chapter:GetLevel(curChapter.levelids[1]);
+    AssetAsyncLoader:LoadResourceAsync(curLevel.bossMadePath,
+        function(obj)
+            if obj ~= nil then
+                self._boss = self._objWorldBossScene:AddChild(obj)
+                local model = self._boss.transform:GetChild(0)
+                CS.BehaviourMgr.AddAnimatorKeyFrameCall(model.gameObject, self)
+                GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION,EVENT_NAME.ASSET_LOAD_OVER);
+                if(loadOverBack ~= nil)then
+                    loadOverBack();
+                    loadOverBack = nil;
+                end
+            end
+        end)    
+end
+
+function WorldBoss:LuaAnimatorKeyFrameCall(keyenum)
+    if keyenum == 3 then
+        if self._boss ~= nil then
+            self._boss:AnimationPlay("world_boss_rotation")
+        end
+    elseif(keyenum == 1)then
+        GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION,EVENT_NAME.BOSS_ANIM_PLAY_OVER);
+    end
+end
+
+function WorldBoss:BossShowAnim()
+    if self._boss ~= nil then
+        self._boss:AnimationPlay("world_boss_show")
+    end
+end
+
+function WorldBoss:BossHideAnim()
+    if self._boss ~= nil then
+        self._boss:AnimationPlay("world_boss_hide")
+    end
+end
+
+function WorldBoss:BossLevelInAnim()
+    if self._boss ~= nil then
+        self._boss:AnimationPlay("world_boss_level_in")
+    end
+end
+
+function WorldBoss:BossLevelOutAnim()
+    if self._boss ~= nil then
+        self._boss:AnimationPlay("world_boss_level_out")
+    end
+end
+
+function WorldBoss:SetRankIcon(img,rank)
+    img.sprite = AtlasMgr:LoadAtlasSprite(Rank.ATLAS_PATH, "icon_rank_" .. rank);
+end
+
+function WorldBoss:SetIcon(img,path)
+    if(path == nil)then
+        return;
+    end
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_world_boss", path);
+end

@@ -1,0 +1,61 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-30 15:14:05
+---
+
+local LevelAddition = class("LevelAddition");
+local transform;
+local MaxAddNum = 3;
+
+--初始化
+function LevelAddition:ctor(super, trans)
+    transform = trans;
+    self:InitUI();
+end
+
+function LevelAddition:InitUI()
+    self._items = {};
+    local cls
+    for i = 1, MaxAddNum do
+        cls = self:NewAdditionItem(transform:Get(string.format("trans_addition_%s",i)));
+        self._items[i] = cls;
+    end
+end
+
+function LevelAddition:SetUI()
+    if(self._levelCfg.levelAdd[1] > 0)then
+        local cls;
+        for i = 1, MaxAddNum do
+            cls = self._items[i];
+            self:SetAdditionItem(cls,i);
+        end
+    end
+end
+
+function LevelAddition:NewAdditionItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.txtDes = cls:GetTextComponent("txt_name");
+    cls.txtAddValue = cls:GetTextComponent("txt_add_value");
+    return cls;
+end
+
+function LevelAddition:SetAdditionItem(cls,index)
+    cls.imgIcon:LoadSprite(string.format("source_common/LevelAddtionIcon/%s",self._levelCfg.levelAddIcon[index]));
+    cls.txtDes:SetText(Language:GetTxtBuyId(self._levelCfg.effectDes[index][1]));
+    cls.txtAddValue:SetText(string.format("+%s%%",self._levelCfg.effectDes[index][2]));
+end
+
+function LevelAddition:SetLevelId(levelId)
+    self._levelCfg = Chapter:GetLevel(levelId);
+end
+
+function LevelAddition:onExit()
+    for i, v in pairs(self._items) do
+        v:clear();
+    end
+    self._items = nil;
+    self._levelCfg = nil;
+end
+
+return LevelAddition;

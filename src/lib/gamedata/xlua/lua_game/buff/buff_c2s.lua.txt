@@ -1,0 +1,78 @@
+--
+-- author: haosun
+-- date  : 2019-08-20 10:26:46
+-- brief : 
+--
+
+Buff = Buff or {}
+
+-- 
+-- Brief:
+-- Param: {
+--      buffs        = {{id=xx,count=xx,endtime=xx}, ...},  -- 普通buff
+--      sy_buffs_get = {id, id, ...}                        -- 深夜已购买buffid
+--      sy_buffs_xl  = {id=count}                           -- 深夜购买buff次数
+-- }
+-- 
+function Buff:BuffSync(data)
+    if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步BUFF数据----------")
+    self._buffs = {}
+    for _, v in pairs(data.buffs) do
+        self._buffs[v.id] = v
+    end
+    self._rankbuff = {
+        owner = {},
+        count = data.sy_buffs_xl,
+    }
+    for _, v in ipairs(data.sy_buffs_get) do
+        self._rankbuff.owner[v] = 1
+    end
+    -- 秘境buff
+    self:_onProgressMysteryBuff(data.rift_buffs)
+end
+
+function Buff:UpdateNotify(buff)
+    self._buffs[buff.id] = buff
+end
+
+function Buff:DeleteNotify(buffid)
+    self._buffs[buffid] = nil
+end
+
+function Buff:BuyRankBuffReq(buffid)
+    Network:CallServerScript({c2s.BUFF_SY_BUY_REQ, buffid})
+end
+
+function Buff:BuyRankBuffRep(buffid)
+    self._rankbuff.owner[buffid] = 1
+    if self._rankbuff.count[buffid] == nil then
+        self._rankbuff.count[buffid] = 0
+    end
+    self._rankbuff.count[buffid] = self._rankbuff.count[buffid] + 1
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BUY_RANK_BUFF, buffid)
+end
+
+function Buff:SelectMysteryBuffReq(floor, index)
+    Network:CallServerScript({c2s.BUFF_RIFT_CHOOSE_REQ, floor, index})
+end
+
+function Buff:SelectMysteryBuffRes(floor, buffid)
+    table.insert(self._mysterybuff.owned, buffid)
+    self._mysterybuff.choose[floor] = nil
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MYSTERY_BUFF)
+end
+
+-- {[floor] = {id, id, id}, [floor] = {xx,xx,xx}, }
+function Buff:MysteryBuffNotify(buffs)
+    self:_onProgressMysteryBuff(buffs)    
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.BUFF_DATA_SYNC]                 = {Buff, Buff.BuffSync}
+c2s[c2s.BUFF_UPDATE_NTF]                = {Buff, Buff.UpdateNotify}
+c2s[c2s.BUFF_DEL_NTF]                   = {Buff, Buff.DeleteNotify}
+c2s[c2s.BUFF_SY_BUY_RES]                = {Buff, Buff.BuyRankBuffRep}
+c2s[c2s.BUFF_RIFT_CHOOSE_RES]           = {Buff, Buff.SelectMysteryBuffRes}
+c2s[c2s.BUFF_RIFT_CHOOSE_LIST_REFRESH_NTF]  = {Buff, Buff.MysteryBuffNotify}

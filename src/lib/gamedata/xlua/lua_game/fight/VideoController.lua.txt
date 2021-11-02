@@ -1,0 +1,103 @@
+--
+-- author: haosun
+-- date  : 2021-05-21 15:56:52
+-- brief : 
+--
+VideoController = VideoController or {}
+
+function VideoController:InitVideoController()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/video_player")
+    self._video_player = self.layer.transform:Find("video_player"):GetComponent("CriVideoHelperEx")
+    self._video_player:LuaBanding(self)
+end
+
+function VideoController:UnInitVideoController()
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+    self._video_player = nil
+end
+
+function VideoController:playVideo(resPath, loop, flag)
+    if self.layer == nil then
+        self:InitVideoController()
+    end
+    if self._video_player ~= nil then
+        self._video_player:SetVideoClip(resPath, loop, flag)
+    end
+end
+
+function VideoController:onExitVideoController()
+    self:UnInitVideoController()
+    DoubleClickLayer:UnInitDoubleClickLayer()
+    UIController:FightResultCall()
+end
+
+function VideoController:SkipVideoPlay()
+    if self._index == 1 then
+        self._video_player:ClearVideoClip()
+        Timer:AddTimerCall(0.1, function()
+                self:SecondVideoPlay()
+            end)
+    elseif self._index == 2 then
+        self:onExitVideoController()
+    elseif self._index == 3 then
+        self:onExitVideoController()
+    end
+end
+
+function VideoController:FirstVideoPlay()
+    AppMgr:LogInfo("-------------- 镇魂歌CG --------------")
+    self._index = 1
+    self:playVideo("CriVideo/source_video/main01.usm", false, self._index)
+    fmod:PlayBgm("event:/CGScene/prologue-2")
+    DoubleClickLayer:EnterDoubleClickLayer(2)
+end
+
+function VideoController:SecondVideoPlay()
+    AppMgr:LogInfo("-------------- 爆裂魔女片头CG --------------")
+    self._index = 2
+    fmod:StopBgm()
+    self:playVideo("CriVideo/source_video/main02.usm", false, self._index)
+    DoubleClickLayer:EnterDoubleClickLayer(2)
+end
+
+function VideoController:luaVideoEndCall(flag)
+    if flag == 1 then
+        self:SecondVideoPlay()
+    elseif flag == 2 then
+        self:onExitVideoController()
+    elseif flag == 3 then
+        self:UnInitVideoController()
+    end
+end
+
+function VideoController:TimelineVideoPlay(path)
+    AppMgr:LogInfo("-------------- Timeline CG --------------")
+    self._index = 3
+
+    if self.layer == nil then
+        self:InitVideoController()
+    end
+    local rect = self._video_player:GetComponent("RectTransform") 
+    rect.anchorMin = CS.UnityEngine.Vector2(0.5, 0)
+    rect.anchorMax = CS.UnityEngine.Vector2(0.5, 1)
+    rect:SetTop(0);
+    rect:SetBottom(0);
+    local size = rect.rect.size
+    local sizeDelta = rect.sizeDelta
+
+    sizeDelta.x = size.y * 55 / 98
+    rect.sizeDelta = sizeDelta
+    self:playVideo(path, false, self._index)
+end
+
+function VideoController:VideoPlayFadeout(time)
+    if(self._video_player ~= nil) then
+            self._video_player:GetComponent("Image"):DOFade(0, time):OnComplete(function()
+            self:UnInitVideoController()
+        end)
+    end
+end
+

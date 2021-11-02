@@ -1,0 +1,326 @@
+--
+-- author: haosun
+-- date  : 2021-04-22 19:49:55
+-- brief : 
+--
+UI_BossInfoLayer = UI_BossInfoLayer or {}
+
+function UI_BossInfoLayer:BossInfoLayerCreator()
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/BossHpInfo")
+    self.prefab:SetVisible(false)
+    self._orgY = self.prefab:GetPositionY()
+    self._disY = 240
+--    self.prefab:SetPositionY(self._orgY + self._disY, true)
+
+    self._container = self.prefab:Get("container") 
+    CS.UnityHelper.NotchfitY(self._container, 10)
+
+    self._kezhiInfo = -1
+    self._comps = clearbase:new()
+
+    self._comps.HpNum = self._container:GetTextComponent("HpNum")
+    self._comps.txtBossName = self._container:GetTextComponent("txt_boss_name")
+    self._comps.txtAttrLv = self._container:GetTextComponent("txt_attr_lv")
+    self._comps.imgBossAttr = self._container:GetImageComponent("img_attrib")
+    self._comps.imgUpInfo = self._container:GetImageComponent("img_dn_up")
+    self._comps.imgUpInfo:SetVisible(false)
+
+    self._comps.HPStep = self._container:Get("HpStep")
+    self._comps.HpStepClone = self._comps.HPStep:Get("stepClone").gameObject
+    self._comps.HpStepClone:SetVisible(false)
+    self._comps.hpPer = self._comps.HPStep:GetImageComponent("img_all")
+    
+    self._comps.hpBlack = self._container:Get("img_hpBlack")
+    
+    self._hplist = {}
+    self._uihp = core.require("xlua/lua_UI/GameFightScene/uihp.txt"):new()
+    self._uihp:InitHp(self._container:GetImageComponent("img_hp"), self._container:GetImageComponent("img_hpDelay"))
+    -- 
+    self._uibuff = core.require("xlua/lua_UI/GameFightScene/uibuff.txt"):new()
+    self._uibuff:Init(self._container:Get("BossBuffInfo"))
+
+    self._container:Get("img_hpBg"):SetVisible(true)
+
+    self._bossCursorRectTrans = self.prefab:Get("img_boss_cursor"):GetComponent("RectTransform")
+
+    self._escape = self.prefab:Get("escape")
+    self._txtEscape = self._escape:GetTextComponent("txt_time")
+    self._escapeBar = self._escape:GetImageComponent("img_bar")
+    self._escapeHead = self._escape:Get("img_head"):GetComponent("RectTransform")
+
+
+    self._anim = self.prefab:GetComponent("Animation")
+
+    self._no_hp  = FightController:IsHamsterLevel()
+    self._inited = false
+end
+
+function UI_BossInfoLayer:BossInfoLayerDestructor()
+    self._uihp:UnInit()
+    self._uihp = nil
+
+    self._uibuff:UnInit()
+    self._uibuff = nil
+
+    for _, v in pairs(self._hplist) do
+        v.item:Release()
+    end
+    self._hplist     = nil
+    self.curStep    = nil
+    self._container = nil
+    DoClassClear(self._comps)
+
+    self._bossCursorRectTrans = nil
+
+    self._txtEscape = nil
+    self._escapeBar = nil
+    self._escapeHead = nil
+    self._txtEscape = nil
+
+    self._anim = nil
+
+    self.prefab:Release()
+    self.prefab = nil
+end
+
+function UI_BossInfoLayer:_cfgcheck()
+    if not self._enemycfg.cfginited then
+        self._enemycfg.HpStep   = lua_str_split(self._enemycfg.HpStep, "|", true)
+        self._enemycfg.DefStep  = lua_str_split(self._enemycfg.DefStep, "|", true)
+        self._enemycfg.CDStep   = lua_str_split(self._enemycfg.CDStep, "|", true)
+        if self._enemycfg.Hpmaketime == "-1" then
+            self._enemycfg.Hpmaketime = {}
+        else
+            self._enemycfg.Hpmaketime = lua_str_split(self._enemycfg.Hpmaketime, "|", true)
+        end
+        self._enemycfg.hp_count = lua_str_split(self._enemycfg.hp_count, "|", true)
+        self._enemycfg.hp_number = 0
+        for i, v in ipairs(self._enemycfg.hp_count) do        
+            self._enemycfg.hp_number = self._enemycfg.hp_number + v
+        end
+
+        self._enemycfg.cfginited = true
+    end
+end
+
+function UI_BossInfoLayer:onInitBossInfoLayer(bossData)
+    local BossRenderDataIndex = FightArrController.BossRenderDataIndex
+
+    self._enemycfg = FightModule:GetElementCfg(bossData[BossRenderDataIndex.iEnemyId])
+    self._comps.txtBossName.text = self._enemycfg.Name
+
+    local attrLevel = 1
+    local fightLevel = Chapter:GetLevel(FightController:GetLevelId())
+    if(fightLevel ~= nil
+        and fightLevel.Restraint_level ~= nil) then
+        attrLevel = fightLevel.Restraint_level[1]
+    end
+    self._comps.txtAttrLv.text = "Lv." .. attrLevel
+    self:_cfgcheck()
+
+    self._stepCur   = 1
+    self._stepCount = 0
+    self._hpValues  = {}
+    local hp = bossData[BossRenderDataIndex.fMaxHp]
+    for i, v in ipairs(self._enemycfg.HpStep) do
+        self._stepCount = self._stepCount + 1
+        table.insert(self._hpValues, {value = 0, maxHp = hp * v * 0.01, oneHp = 0, stepHp = 0 })
+    end
+    -- 每个阶段每条血数量
+    for i, v in ipairs(self._hpValues) do
+        v.oneHp = v.maxHp / self._enemycfg.hp_count[i]
+    end
+    local _value = 0
+    for i = #self._hpValues, 1, -1 do
+        _value = _value + self._hpValues[i].maxHp
+        self._hpValues[i].stepHp = _value
+    end
+
+    self.curStep    = 1
+    self._cacheHpNumber = -1
+    self._curHpNumber   = self._enemycfg.hp_number - 1
+
+    self._uihp:ResetFull()
+    self._comps.HpNum.text = "x"..self._curHpNumber
+    self._comps.imgBossAttr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(self._enemycfg.attri_type)])
+    self._comps.hpBlack:SetVisible(false)
+    local _steps = self._enemycfg.HpStep
+    local _step_number  = #_steps
+    self._comps.hpPer.fillAmount  = 1
+    local c = 0
+    for i = 1, _step_number, 1 do
+        if self._hplist[i] == nil then
+            self._hplist[i] = {}
+            self._hplist[i].item = self._comps.HPStep:AddChild(self._comps.HpStepClone)
+            self._hplist[i].arrow = self._hplist[i].item:Get("arrow")
+        end
+        c = c + _steps[i]
+        self._hplist[i].item:SetPositionX((100 - c)*8, true)
+        self._hplist[i].item:SetVisible(true)
+        self._hplist[i].arrow:SetVisible(i == self.curStep)
+    end
+    self._comps.HPStep:SetVisible(_step_number > 1)
+    -- AppMgr:LogInfo(string.format("------------------- enemyId = %d HpNumber = %d", data.enemyId, self._curHpNumber))
+end
+
+
+function UI_BossInfoLayer:EnterBossInfoLayer()
+    if self._no_hp then return end
+
+    self._isVisible = true
+    self._inited = false
+    self:refreshRestraint()
+    self.prefab:SetVisible(true)
+    --self.prefab.transform:DOLocalMoveY(self._orgY, 0.3)
+    self._anim:Play("BossHpIn")
+
+    self._escape:SetVisible(FightController:IsRankLevel())
+    if(FightController:IsRankLevel()) then
+        self._escapeBar.fillAmount = 1
+
+        local rectTrans = self._escapeHead
+        local localPos = rectTrans.anchoredPosition
+        localPos.y = 390
+        rectTrans.anchoredPosition = localPos
+    end
+
+    --UIController:ShowTitlePrefab(false)
+end
+
+function UI_BossInfoLayer:ExitBossInfoLayer()
+    if not self._isVisible then return end
+
+    self._inited = false    
+    for i, v in pairs(self._hplist) do
+        v.item:SetVisible(false)
+    end
+    --self.prefab:SetPositionY(self._orgY + self._disY, true)
+    self.prefab:SetVisible(false)
+    self._isVisible = false
+
+    --UIController:ShowTitlePrefab(true)
+end
+
+function UI_BossInfoLayer:refreshRestraint()
+    local iskezhi = MathController:GetRestraintType(self._attriType, tonumber(self._enemycfg.attri_type))
+    if self._kezhiInfo ~= iskezhi then
+        self._kezhiInfo = iskezhi
+        if self._kezhiInfo == 1 then
+            self._comps.imgUpInfo:SetVisible(true)
+            self._comps.imgUpInfo:LoadAtlasSprite("source_atlas/atlas_battle_layer","Text_ZhanDou_Up")
+        elseif self._kezhiInfo == 0 then
+            self._comps.imgUpInfo:SetVisible(true)
+            self._comps.imgUpInfo:LoadAtlasSprite("source_atlas/atlas_battle_layer","Text_ZhanDou_Dn")
+        else
+            self._comps.imgUpInfo:SetVisible(false)
+        end
+    end
+end
+
+function UI_BossInfoLayer:BossStepNext(step)
+    if self._stepCur == step then return end
+    if step <= self._stepCount then
+        self._stepCur = step
+    end
+    for i, v in ipairs(self._hplist) do
+        v.arrow:SetVisible(i == self._stepCur)
+    end
+end
+
+function UI_BossInfoLayer:UpdateBossInfoLayer(bossData, curFrame, attriType)
+    local BossRenderDataIndex = FightArrController.BossRenderDataIndex
+
+    self._curFrame  = curFrame
+    self._attriType = attriType
+    if bossData[BossRenderDataIndex.iExist] > 0 then
+        if not self._inited then
+            self:onInitBossInfoLayer(bossData)
+            self._inited = true
+        end
+        self:refreshBossLayer(bossData)
+
+        if(FightController:IsRankLevel()) then
+            local remainTime = bossData[BossRenderDataIndex.fRemainTime]
+            local bossTime = bossData[BossRenderDataIndex.fBossTime]
+
+            local time = math.ceil(remainTime)
+            if(time < 0) then
+                time = 0
+            end
+            local minute = math.floor(time / 60)
+            local second = time % 60
+            self._txtEscape.text = string.format("%02d:%02d", minute, second)
+
+            local rate = remainTime / bossTime
+            local rate2 = 1 - rate
+
+            local deltaY = (672 - 390) * rate
+            local deltaY2 = (672 - 390) * rate2
+            local y = 390 + deltaY2
+            local fillAmount = math.min(1, deltaY / 248)
+
+            local rectTrans = self._escapeHead
+            local localPos = rectTrans.anchoredPosition
+            localPos.y = y
+            rectTrans.anchoredPosition = localPos
+
+            self._escapeBar.fillAmount = fillAmount
+        end
+
+        --print(bossData[BossRenderDataIndex.fCurY])
+    else
+        self:ExitBossInfoLayer()
+    end
+end
+
+function UI_BossInfoLayer:refreshBossLayer(bossData)
+    if not self._isVisible then return end
+
+    local BossRenderDataIndex = FightArrController.BossRenderDataIndex
+
+    self:BossStepNext(bossData[BossRenderDataIndex.iCurStep])
+    self:calcCurHpNumber(bossData)
+    if self._curHpNumber ~= self._cacheHpNumber then
+        self._cacheHpNumber = self._curHpNumber
+        self._comps.HpNum.text = "x" .. self._curHpNumber
+        self._uihp:ResetFull()
+        if self._curHpNumber == 0 then
+            self._comps.hpBlack:SetVisible(true)
+        end
+    else
+        local hpPer = 1
+        self._hpTempValue = self._hpValues[self._stepCur].maxHp - (self._hpValues[self._stepCur].stepHp - bossData[BossRenderDataIndex.fCurHp])
+        if self._hpTempValue < self._hpValues[self._stepCur].maxHp then
+            self._hpTempValue = self._hpTempValue % self._hpValues[self._stepCur].oneHp
+            hpPer = self._hpTempValue / self._hpValues[self._stepCur].oneHp
+        end
+        self._uihp:UpdateHp(0.016, hpPer)
+        if bossData[BossRenderDataIndex.fCurHp] <= 0 then
+            self._uihp:Zero()
+        end
+    end
+    -- buff info
+    self._uibuff:UpdateBuff(bossData, BossRenderDataIndex.iRenderBuffsCount, BossRenderDataIndex.aRenderBuffsStart, self._curFrame)
+    -- 
+    self:refreshRestraint()
+    -- all hp bar
+    self._comps.hpPer.fillAmount = bossData[BossRenderDataIndex.fCurHp]/bossData[BossRenderDataIndex.fMaxHp]
+
+    local rectTrans = self._bossCursorRectTrans
+    local localPos = rectTrans.anchoredPosition
+    localPos.x = bossData[BossRenderDataIndex.fCurX]
+    rectTrans.anchoredPosition = localPos
+end
+
+function UI_BossInfoLayer:calcCurHpNumber(bossData)
+    local BossRenderDataIndex = FightArrController.BossRenderDataIndex
+
+    self._curHpNumber = 0
+    for i = self._stepCount, self._stepCur + 1, -1 do
+        self._curHpNumber = self._curHpNumber + self._enemycfg.hp_count[i]
+    end
+
+    self._curHpNumber = self._curHpNumber + self._enemycfg.hp_count[self._stepCur] - 1 - 
+      math.floor((self._hpValues[self._stepCur].stepHp - bossData[BossRenderDataIndex.fCurHp]) / self._hpValues[self._stepCur].oneHp)
+    self._curHpNumber = math.max(self._curHpNumber, 0)
+end

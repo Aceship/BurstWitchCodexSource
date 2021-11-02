@@ -1,0 +1,409 @@
+--
+-- author: haosun
+-- date  : 2021-07-16 10:59:19
+-- brief : 触发型礼包
+--
+
+Operation = Operation or {}
+
+Operation.TRIGGER_GIFT_TYPE_PASS_LEVEL  = 1     -- 通关指定关卡次数
+Operation.TRIGGER_GIFT_TYPE_LOTTERY_CNT = 2     -- 抽奖次数
+Operation.TRIGGER_GIFT_TYPE_NEW_WITCH   = 3     -- 获取指定魔女
+Operation.TRIGGER_GIFT_TYPE_STAR_WITCH  = 4     -- 指定魔女达到指定星级
+Operation.TRIGGER_GIFT_TYPE_FIGHT_TYPE  = 5     -- 关卡小类次数
+Operation.TRIGGER_GIFT_TYPE_LOGIN_DAY   = 6     -- 登录天数
+Operation.TRIGGER_GIFT_TYPE_P_LEVEL     = 7     -- 玩家等级
+Operation.TRIGGER_GIFT_TYPE_HERO_AWAKE  = 8     -- 魔女等级
+
+Operation.TRIGGER_GIFT_TYPE_RECHARGE_CNT    = 101     -- 充值金额
+Operation.TRIGGER_GIFT_TYPE_LOGIN_CNT       = 102     -- 登录天数
+Operation.TRIGGER_GIFT_TYPE_LEVEL           = 103     -- 玩家等级
+
+Operation.TRIGGER_AWAKE_LEVEL_VALUE     = 45
+Operation.TRIGGER_ONCE_PASS_LEVEL       = 100108
+
+function Operation:LoadTriggerPackageCfg()
+    self._idsByType = {}
+    self._cfgTriggerPackage = {}
+    self._cfgRechargeIds = {}
+    self._allTriggerPackageLevelId = {}
+    local id
+    for _, cfg in pairs(CfgLoader:LoadCfg("Charge_triggergift")) do
+        id = tonumber(cfg.id)
+        self._cfgTriggerPackage[id] = {
+            id = id,
+            Shop_id         = tonumber(cfg.Shop_id),
+            ResetRules      = tonumber(cfg.ResetRules),
+            TriggerCounter  = tonumber(cfg.TriggerCounter),
+            Duration        = tonumber(cfg.Duration),
+            TriggerMainType = lua_str_split(cfg.TriggerMainType, "&", true),
+            TriggerType     = lua_parse_cfg(cfg.TriggerType, true),
+            RebateRatio     = tonumber(cfg.RebateRatio),
+            BgPath          = cfg.BgPath,
+            ImgTitlePath    = cfg.ImgTitlePath,
+            SpinePath       = cfg.SpinePath,
+            SpineHeroId     = tonumber(cfg.SpineHeroId),
+            SpecialEffects  = cfg.SpecialEffects,
+            SpecialEffects_Coordinate   = lua_str_split(cfg.SpecialEffects_Coordinate, "&", true),
+            SpecialEffects_Scale        = tonumber(cfg.SpecialEffects_Scale),
+        }
+        _type = self._cfgTriggerPackage[id]["TriggerMainType"][1]
+        if self._idsByType[_type] == nil then
+            self._idsByType[_type] = {}
+        end
+        table.insert(self._idsByType[_type], id)
+        if _type == Operation.TRIGGER_GIFT_TYPE_PASS_LEVEL then
+            self._allTriggerPackageLevelId[self._cfgTriggerPackage[id]["TriggerMainType"][2]] = 1
+        end
+        self._cfgRechargeIds[self._cfgTriggerPackage[id].Shop_id] = id
+    end
+end
+
+function Operation:GetTriggerPackageCfgByRechargeId(rechargeId)
+    local _cfgid = self._cfgRechargeIds[rechargeId]
+    if _cfgid == nil then
+        AppMgr:LogError("---------未找到触发礼包对应的充值ID = " .. rechargeId)
+        return nil
+    end
+    return self._cfgTriggerPackage[_cfgid]
+end
+
+function Operation:CheckTriggerPackageByMainTypes(mainTypes, params)
+    local cfgIds = {}
+    for i, mainType in ipairs(mainTypes) do
+        for _, id in ipairs(self._idsByType[mainType] or {}) do
+            if self:CheckIsTrigger(id, params) then
+                if not lua_value_in_tbl(id, cfgIds) then
+                    table.insert(cfgIds, id)
+                end
+            end
+        end
+    end
+    local ids = {}
+    for _, id in ipairs(cfgIds) do
+        table.insert(ids, self._cfgTriggerPackage[id].Shop_id)
+    end
+    if #ids > 0 then
+        self:SendGetPopUpGiftBagReq(ids)
+    end
+end
+
+function Operation:CheckIsTrigger(id, params)
+    local _cfg  = self._cfgTriggerPackage[id]
+    -- 礼包是否不可再购买
+    local _cfgCharge = Recharge:GetData(_cfg.Shop_id)
+    if _cfgCharge.stock > 0 then
+        if self:GetGiftBagBoughtNum(_cfg.Shop_id) >= _cfgCharge.stock then
+            return false
+        end
+    end
+    local _data = self:GetPopUpDataById(_cfg.Shop_id)
+    if _data == nil then
+        if self:CheckTriggerPackageCondition(_cfg, params) then
+            return true
+        end
+        return false
+    else
+        if _data.left > 0 then
+            return false
+        end
+        if _data.expire >= CTime:GetServerTime() then
+            return false
+        end
+        if _data.count >= _cfg.TriggerCounter then
+            return false
+        end
+        return true
+    end
+end
+
+function Operation:CheckTriggerPackageCondition(_cfg, params)
+    -- 主类型条件
+    if _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_PASS_LEVEL then
+        local passCnt = PrefsController:GetPassLevelNumber(_cfg.TriggerMainType[2])
+        if passCnt < _cfg.TriggerMainType[3] then
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_LOTTERY_CNT then
+        if Lottery:GetSumLotteryCnt() < _cfg.TriggerMainType[2] then
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_NEW_WITCH then
+        if params ~= nil and lua_value_in_tbl(_cfg.TriggerMainType[2], params) then
+            local hero = Hero:GetHero(_cfg.TriggerMainType[2])
+            if not hero.owner then
+                return false
+            end
+        else
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_STAR_WITCH then
+        if params ~= nil and lua_value_in_tbl(_cfg.TriggerMainType[2], params) then
+            local hero = Hero:GetHero(_cfg.TriggerMainType[2])
+            if (not hero.owner) or hero.star < _cfg.TriggerMainType[3] then
+                return false
+            end
+        else
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_FIGHT_TYPE then
+        if Chapter:GetLevelSubTypePassNumber(_cfg.TriggerMainType[2]) < _cfg.TriggerMainType[3] then
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_LOGIN_DAY then
+        if Player:GetLoginDays() < _cfg.TriggerMainType[2] then
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_P_LEVEL then
+        if Player:GetLevel() < _cfg.TriggerMainType[2] then
+            return false
+        end
+    elseif _cfg.TriggerMainType[1] == Operation.TRIGGER_GIFT_TYPE_HERO_AWAKE then
+        -- 触发
+    else
+        AppMgr:LogError("=============未处理的弹出礼包主类型============= " .. _cfg.TriggerMainType[1])
+        return false
+    end
+    -- 子类型条件
+    local _logindayCnt = Player:GetLoginDays()
+    local _rechargeCnt = Player:GetMoney() or 0
+    local _playerLevel = Player:GetLevel()
+    for _, v in ipairs(_cfg.TriggerType) do
+        if v[1] == Operation.TRIGGER_GIFT_TYPE_RECHARGE_CNT then
+            if _rechargeCnt < v[2] then
+                AppMgr:LogInfo("------------------充值金额不足")
+                return false
+            end
+        elseif v[1] == Operation.TRIGGER_GIFT_TYPE_LOGIN_CNT then
+            if _logindayCnt < v[2] then
+                AppMgr:LogInfo("------------------登录天数不足")
+                return false
+            end
+        elseif v[1] == Operation.TRIGGER_GIFT_TYPE_LEVEL then
+            if _playerLevel < v[2] then
+                return false
+            end
+        else
+            AppMgr:LogError("=============未处理的弹出礼包子类型============= " .. v[1])
+            return false
+        end
+    end
+    AppMgr:LogInfo("=============符合条件的弹出礼包============= Shop_id = " .. _cfg.Shop_id)
+    return true
+end
+
+function Operation:GetAllTriggerPackageLevelId()
+    return self._allTriggerPackageLevelId
+end
+
+function Operation:TriggerPackageIsValid(rechargeId)
+    local data = self._popUpData[rechargeId]
+
+    if data == nil then return false end
+
+    if data.left <= 0 then return false end
+
+    local _cfgid = self._cfgRechargeIds[rechargeId]
+    if _cfgid == nil then return false end
+
+    local _giftcfg = self._cfgTriggerPackage[_cfgid]
+    -- 礼包已过期
+    if CTime:GetServerTime() >= data.expire then return false end
+    -- 
+    local rechargeCfg = Recharge:GetData(data.id)
+    if rechargeCfg.stock > 0 then
+        return self:GetGiftBagBoughtNum(data.id) < rechargeCfg.stock
+    else
+        return true
+    end
+end
+
+-- 
+-- brief:检测有效的弹出礼包
+-- 
+function Operation:CheckValidTriggerPackage()
+    local tempdata = {}
+    for rechargeId, data in pairs(self._popUpData) do
+        if self:TriggerPackageIsValid(rechargeId) then
+            table.insert(tempdata, {rechargeId, data.expire})
+        end
+    end
+
+    table.sort(tempdata, function (a,b) return a[2] < b[2] end)
+    
+    self._validTriggerPackageArr = {}
+    for _, data in ipairs(tempdata) do
+        table.insert(self._validTriggerPackageArr, data[1])
+    end
+    self._validTriggerPackageCnt = #self._validTriggerPackageArr    
+end
+
+function Operation:onInitTriggerPackage()
+    self._isFirstEnter = true
+    self._isNewTrigger = false
+    self._newTriggerId = 0
+    self._validTriggerPackageArr = {}
+    self._validTriggerPackageCnt = 0
+end
+
+function Operation:GetTriggerPackageArr()
+    return self._validTriggerPackageArr
+end
+
+function Operation:GetTriggerPackageIndex()
+    local _index = 1
+    for i, v in ipairs(self._validTriggerPackageArr) do
+        if v == self._newTriggerId then
+            _index = i
+            break
+        end
+    end
+    return _index
+end
+
+function Operation:IsExistTriggerPackage()
+    self:CheckValidTriggerPackage()
+    return self._validTriggerPackageCnt > 0
+end
+
+function Operation:AutoOpenTriggerPackageLayer()
+    if self._isFirstEnter then
+        self:CheckValidTriggerPackage()
+        if not self:OpenTriggerPackageLayer(true) then
+            uimgr:CheckTodoList()
+        end
+    else
+        uimgr:CheckTodoList()
+    end
+end
+
+function Operation:OpenTriggerPackageLayer(isauto)
+    if self._validTriggerPackageCnt > 0 then
+        if isauto then
+            self._isFirstEnter = false
+        end
+        self._onTriggerPackageLayer = core.require("xlua/lua_UI/UIOperation/TriggerPackageLayer.txt"):new()
+        self._onTriggerPackageLayer:show()
+        return true
+    else
+        if not isauto then
+            Groble_UIMgr:ShowGameWordTipsLayer(90182)
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG)
+        end
+        return false
+    end
+end
+
+function Operation:CloseTriggerPackageLayer()
+    if self._onTriggerPackageLayer ~= nil then
+        self._onTriggerPackageLayer:onPopLayer()
+    end
+    self._onTriggerPackageLayer = nil
+    
+    uimgr:CheckTodoList()
+end
+
+function Operation:ClearTriggerPackageLayer()
+    self._onTriggerPackageLayer = nil
+end
+
+function Operation:ShowTriggerPackageLayer()
+    if Guide:IsGuiding() then return end
+    
+    if self._onTriggerPackageLayer ~= nil then
+        self._onTriggerPackageLayer:showLayer()
+    else
+        if self._isNewTrigger then
+            self._isNewTrigger = false
+            self:CheckValidTriggerPackage()
+            self:OpenTriggerPackageLayer(true)
+        end
+    end
+end
+
+function Operation:HideTriggerPackageLayer()
+    if self._onTriggerPackageLayer ~= nil then
+        self._onTriggerPackageLayer:hideLayer()
+    end
+end
+
+function Operation:NewHomeTriggerPackageTips(transform)
+    local cls = clearbase:new()
+    cls.transform = transform
+    cls.txtTime   = transform:GetTextComponent("txt_time")
+    cls.txtNumber = transform:GetTextComponent("txt_number")
+    cls.showIndex = -1
+    cls.animationCd = 0
+    cls.showValue = -1
+    return cls
+end
+
+function Operation:SetHomeTriggerPackageTips(cls, isTipsSell)
+    cls.transform:SetVisible(isTipsSell)
+    if not isTipsSell then return end
+
+    -- 显示礼包个数
+    cls.txtNumber:SetText(self._validTriggerPackageCnt)
+    -- 显示最快结束的礼包的倒计时
+    local minExpire = 10000000000
+    local data
+    for i, chargeId in ipairs(self._validTriggerPackageArr) do
+        data = self:GetPopUpDataById(chargeId)
+        if data.expire < minExpire then
+            minExpire = data.expire
+        end
+    end
+    local remain = minExpire - CTime:GetServerTime()
+ 
+    cls.day = math.modf(remain/ CTime.DAY_SEC)
+    if cls.day > 0 then
+        if cls.showIndex ~= 1 then
+            cls.showIndex = 1
+            cls.showValue = cls.day
+            cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888100), cls.day))
+        else
+            if cls.showValue ~= cls.day then
+                cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888100), cls.day))
+            end
+        end
+    else
+        remain = remain - cls.day * CTime.DAY_SEC
+        cls.hour = math.modf(remain/ CTime.HOUR_SEC)
+        if cls.hour > 0 then
+            if cls.showIndex ~= 2 then
+                cls.showIndex = 2
+                cls.showValue = cls.hour
+                cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888101), cls.hour))
+            else
+                if cls.showValue ~= cls.hour then
+                    cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888101), cls.hour))
+                end
+            end
+        else
+            remain = remain - cls.hour * CTime.HOUR_SEC
+            cls.min = math.modf(remain/CTime.MIN_SEC)
+            if cls.min > 0 then
+                if cls.showIndex ~= 3 then
+                    cls.showIndex = 3
+                    cls.showValue = cls.min
+                    cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888102), cls.min))
+                else
+                    if cls.showValue ~= cls.min then
+                        cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888102), cls.min))
+                    end
+                end
+            else
+                if cls.showIndex ~= 4 then
+                    cls.showIndex = 4
+                    cls.txtTime:SetTextById(888103)
+                end
+            end
+        end
+    end
+    -- 抖动动画
+    cls.animationCd = cls.animationCd - 1
+    if cls.animationCd < 0 then
+        cls.animationCd = 10
+        cls.transform:Get("obj_box"):AnimationPlay("HomeTriggerPackageAnimation")
+    end
+end

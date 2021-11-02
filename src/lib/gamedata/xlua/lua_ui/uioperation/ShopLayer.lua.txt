@@ -1,0 +1,148 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-14 15:34:12
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ShopLayer = class("ShopLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+
+local CellItemMaxNum = 3;
+
+--构造函数
+function ShopLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_ShopLayer",
+        trans = parent,
+        obj = true
+    }
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ShopLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ShopLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ShopLayer:Init()
+    self._cellItems = {};
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化UI
+function ShopLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function ShopLayer:show()
+    self:UpdateData();
+    self:SetTBView();
+    self:showLayer();
+end
+
+--退出按钮事件
+function ShopLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function ShopLayer:onExit()
+    if self._cellItems ~= nil then
+        for _, clsArr in pairs(self._cellItems) do
+            for _, cls in ipairs(clsArr) do
+                cls:clear()
+            end
+        end
+    end
+    self._cellItems = nil;
+    self._transTableviewcontroller = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ShopLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:UpdateData();
+        self:SetTBView();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ShopLayer:UpdateData()
+    self._chargeIds = Operation:GetCurChargeIds();
+end
+
+
+function ShopLayer:SetTBView()
+    local rows = math.ceil(#self._chargeIds / CellItemMaxNum);
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self._transTableviewcontroller);
+        self._tvController:Init(rows, true,
+                function(cell, row)
+                    self:UpdateCell(cell, row);
+                end,0.2,0.1);
+    else
+        self._tvController:Reload(rows,true);
+        self._tvController:ScrollToTop();
+    end
+end
+
+function ShopLayer:UpdateCell(cell, row)
+    if(self._cellItems[cell] == nil)then
+        local cells = {};
+        for i = 1, CellItemMaxNum do
+            cells[i] = Recharge:NewGiftPagItem(cell.transform:Get(string.format("item_%s",i)));
+        end
+        self._cellItems[cell] = cells;
+    end
+    local index = 0;
+    for i = 1, CellItemMaxNum do
+        index = row * CellItemMaxNum + i;
+        Recharge:SetGiftPagItem(self._cellItems[cell][i],self._chargeIds[index]);
+    end
+end
+
+return ShopLayer;

@@ -1,0 +1,350 @@
+--
+-- author: haosun
+-- date  : 2018-12-07 16:52:43
+-- brief : 
+--
+Hero = Hero or {}
+
+function Hero:_LoadConfigs()
+    self._hero_story_cfg = nil
+    
+    self._stepcfg = {}          -- 升阶表
+    self:_LoadStepUpCfg()
+
+    self._talentcfg = {}        -- 天赋表
+    self:_LoadTalentCfg()
+
+    self:_LoadSkinCfg()         -- 魔女皮肤表
+
+    -- 魔女升级经验表
+    self:_LoadHeroLvUpExp()
+    --魔女对话表
+    self:_LoadHeroDialogue()
+
+    --魔女等级升阶表
+    self:_LoadWitchStepCfg()
+
+    --魔女升华表
+    self:_LoadCardCharacterSublimation();
+
+    --奇遇表
+    self:_LoadAdventure();
+
+    self:_LoadCommon();
+end
+
+function Hero:_LoadStepUpCfg()
+    local configs = CfgLoader:LoadCfg("StepUp")
+    for _, v in pairs(configs) do
+        local heroid = tonumber(v.Card_id)
+        if self._stepcfg[heroid] == nil then
+            self._stepcfg[heroid] = {}
+        end
+        self._stepcfg[heroid][tonumber(v.StepNum)] = v
+    end
+end
+
+function Hero:_LoadTalentCfg()
+    local configs = CfgLoader:LoadCfg("Talent")
+    for _, v in pairs(configs) do
+        v.Talent_Name = Language:GetTxtBuyId(v.Talent_Name)
+        v.desc =  Language:GetTxtBuyId(v.desc)
+        self._talentcfg[tonumber(v.id)] = v
+    end
+end
+
+function Hero:GetTalentCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._talentcfg[cfgid] == nil then
+        CS.Logger.LogError("error!!! can't find Talent config {0}", cfgid)
+        return nil
+    end
+    return self._talentcfg[cfgid]
+end
+
+function Hero:GetTalentCfgByIdSatr(heroid, star)
+    local heroCfg = self:GetCfg(heroid)
+    local cfg = self:GetTalentCfg(heroCfg.TalentID)
+    if tonumber(cfg.Star) == star then
+        return cfg
+    end
+    while tonumber(cfg.next_Star) ~= 0 do
+        cfg = self:GetTalentCfg(cfg.next_Star)
+        if tonumber(cfg.Star) == star then
+            return cfg
+        end
+    end
+    CS.Logger.LogError("error!!! can't find Talent config by hero id {0} & star {1}", heroid, star)
+    return nil
+end
+
+function Hero:GetCfg(heroid)
+    local cfg = self._cardcfg[heroid..""]
+    if cfg == nil or lua_table_empty(cfg) then
+        AppMgr:LogError("hero cfg error! heroid = " .. heroid)
+    end
+    return cfg
+end
+
+function Hero:_LoadHeroLvUpExp()
+    self._lvUpCfg = {}
+    local cfg = CfgLoader:LoadCfg("CardCharacterLevelup")
+    for _, v in pairs(cfg) do
+        self._lvUpCfg[tonumber(v.group) * 10000 + tonumber(v.level)] = tonumber(v.exp)
+    end
+end
+
+function Hero:GetLvUpExp(group, level)
+    local key = group * 10000 + level
+    if self._lvUpCfg[key] == nil then
+    end
+    return self._lvUpCfg[key]
+end
+
+function Hero:_LoadHeroDialogue()
+    self._dialogueCfg = {}
+    self._dTypeCfg = {}
+    self._diaHeroCfg = {}
+    local cfg = CfgLoader:LoadCfg("dialogue")
+    for _,v in pairs(cfg) do
+        v.short_name = Language:GetTxtBuyId(v.short_name)
+        v.dialogue = Language:GetTxtBuyId(v.dialogue)
+        self._dialogueCfg[tonumber(v.id)] = v
+        if v.dtype ~= Hero.Talk_Type.locked then
+            if  self._diaHeroCfg[tonumber(v.heroid)] == nil then
+                self._diaHeroCfg[tonumber(v.heroid)] = {}
+            end
+            table.insert(self._diaHeroCfg[tonumber(v.heroid)] ,v )
+            if  self._dTypeCfg[tonumber(v.heroid)] == nil then
+                self._dTypeCfg[tonumber(v.heroid)] = {}
+            end
+            if  self._dTypeCfg[tonumber(v.heroid)][tonumber(v.dtype)] == nil then
+                self._dTypeCfg[tonumber(v.heroid)][tonumber(v.dtype)] = {}
+            end
+            table.insert( self._dTypeCfg[tonumber(v.heroid)][tonumber(v.dtype)] ,v )
+        end
+    end
+
+end
+
+function Hero:GetDiaCfg(heroid)
+    if  self._diaHeroCfg[heroid] == nil  then
+        CS.Logger.LogError("hero dialogue cfg error! heroid = " .. heroid)
+    end
+    return  self._diaHeroCfg[heroid]
+end
+
+function Hero:GetDiaCfgByID(dID)
+    dID = tonumber(dID)
+    if  self._dialogueCfg[dID] == nil  then
+        CS.Logger.LogError("hero dialogue cfg error! dID = " .. dID)
+    end
+    return  self._dialogueCfg[dID]
+end
+
+function Hero:GetDiaByDtype( heroid, dtype)
+    if  self._dTypeCfg[heroid] == nil  then
+        CS.Logger.LogError("hero dialogue cfg error! heroid = " .. heroid)
+    end
+    if  self._dTypeCfg[heroid][dtype] == nil  then
+        CS.Logger.LogError("hero dialogue dtype error! heroid = " .. dtype)
+    end
+    return self._dTypeCfg[heroid][dtype]
+end
+
+--------------------------------------------------------------------------------------魔女等级升阶相关
+function Hero:_LoadWitchStepCfg()
+    self._witchStep = {};
+    self._sortWitchStep = {};
+    local configs = CfgLoader:LoadCfg("witch_step");
+    local id;
+    for _, cfg in pairs(configs) do
+        id = tonumber(cfg.id);
+        self._witchStep[id] = {
+            id = id,
+            stepNum = tonumber(cfg.StepNum),
+            levelMax = tonumber(cfg.LevelMax),
+            unLockLv = tonumber(cfg.Level),
+            stepUpCosts = {},
+        };
+        self._witchStep[id].stepUpCosts[1] = lua_parse_cfg(cfg.StepUpCosts_1,true);
+        self._witchStep[id].stepUpCosts[2] = lua_parse_cfg(cfg.StepUpCosts_2,true);
+        self._witchStep[id].stepUpCosts[3] = lua_parse_cfg(cfg.StepUpCosts_3,true);
+        table.insert(self._sortWitchStep,self._witchStep[id]);
+    end
+    table.sort(self._sortWitchStep,function (a,b)
+        return a.stepNum < b.stepNum;
+    end);
+end
+
+--根据Hero阶位获取升阶配置信息
+function Hero:GetHeroStepUpCfgByStep(step)
+    if(step == nil)then
+        CS.Logger.LogError("step is nil   path = ## Hero:GetHeroStepUpCfgByStep ##");
+        return nil;
+    end
+    step = tonumber(step);
+    local retCfg;
+    for _, v in ipairs(self._sortWitchStep) do
+        if(step == v.stepNum)then
+            retCfg = v;
+            break;
+        end
+    end
+    if(retCfg == nil)then
+        CS.Logger.LogError("retCfg is nil   path = ## Hero:GetHeroStepUpCfgByStep ##");
+    end
+    return retCfg;
+end
+
+function Hero:GetMaxLvStepCfg()
+    return self._sortWitchStep[#self._sortWitchStep];
+end
+
+function Hero:GetStepUpCostsByAttrAndStep(attr,step)
+    attr = tonumber(attr);
+    local stepCfg = Hero:GetHeroStepUpCfgByStep(step);
+    local retData = stepCfg.stepUpCosts[attr];
+    if(retData  == nil)then
+        CS.Logger.LogError("retData is nil   path = ## Hero:GetStepUpCostsByAttrAndStep ##");
+    end
+    return retData;
+end
+
+-----------------------------------升华相关-----------------------------------------
+function Hero:_LoadCardCharacterSublimation()
+    local configs = CfgLoader:LoadCfg("CardCharacterSublimation")
+    self._sublimation = {};
+    for _, v in pairs(configs) do
+        local groupId = tonumber(v.GroupId)
+        if self._sublimation[groupId] == nil then
+            self._sublimation[groupId] = {}
+        end
+        self._sublimation[groupId][tonumber(v.RaiseNum)] = {
+            id = tonumber(v.id),
+            groupId = groupId,
+            lv = tonumber(v.RaiseNum),
+            unLockLv = tonumber(v.LevelNeed),
+            RaiseUpCosts = lua_parse_cfg(v.RaiseUpCosts,true),
+            lvUpAward = lua_parse_cfg(v.RaiseUpGifts,true),
+            lvUpAttrAdd = lua_parse_cfg(v.SubliAttribute,true),
+            lvUpMaxLevel = tonumber(v.WitchLevel)
+        }
+    end
+end
+
+function Hero:GetSublimationCfgsByGroupId(groupId)
+
+    groupId = tonumber(groupId);
+    local retCfgs = self._sublimation[groupId];
+    if(retCfgs == nil)then
+        CS.Logger.LogError("retCfgs is nil   path = ## Hero:GetSublimationCfgsBygroupId ##");
+    end
+    return retCfgs;
+end
+
+function Hero:GetCurSublimationCfgByHeroId(heroId)
+    local hero = Hero:GetHero(tonumber(heroId))
+    local curLv = 0;
+    local cfgs = Hero:GetSublimationCfgsByGroupId(hero.Intimacy[4]);
+    if(hero.intimacy_data.raise == 0)then
+        curLv = 1;
+    elseif(hero.intimacy_data.raise < 0)then
+        curLv = math.abs(hero.intimacy_data.raise);
+    elseif(#cfgs < hero.intimacy_data.raise)then
+        curLv = hero.intimacy_data.raise + 1;
+    else
+        curLv = hero.intimacy_data.raise;
+    end
+    return cfgs[curLv];
+end
+
+
+
+--------------------------------------奇遇相关-------------------------------------------
+
+function Hero:_LoadAdventure()
+    local configs = CfgLoader:LoadCfg("Adventure")
+    self._adventure = {};
+    for _, v in pairs(configs) do
+        local groupId = tonumber(v.GroupId)
+        if self._adventure[groupId] == nil then
+            self._adventure[groupId] = {}
+        end
+        self._adventure[groupId][tonumber(v.id)] = {
+            id = tonumber(v.id),
+            groupId = groupId,
+            name = Language:GetTxtBuyId(v.Name),
+            dialogueId = tonumber(v.Dialogueid),
+        }
+    end
+end
+
+--------------------------------------通用配置表相关---------------------------------------
+function Hero:_LoadCommon()
+    local configs = CfgLoader:LoadCfg("CombatEffectiveness")
+    self._Common = {}
+    for _,v in pairs(configs) do
+        local key = v.name
+        self._Common[key] = tonumber(v.CombatCoefficient)
+        --CS.Logger.LogError("CombatEffectiveness key   path = ## Hero:_LoadCommon ## "..key);
+    end
+end
+
+function Hero:GetCommonValue(key)
+    return self._Common[key]
+end
+
+function Hero:GetAdventureCfgsByGroupId(groupId)
+    groupId = tonumber(groupId);
+    local retCfgs = self._adventure[groupId];
+    if(retCfgs == nil)then
+        CS.Logger.LogError("retCfgs is nil   path = ## Hero:GetAdventureCfgsByGroupId ##");
+    end
+    return retCfgs;
+end
+
+function Hero:GetAdventureCfgByGroupIdAndId(groupId,id)
+    groupId = tonumber(groupId);
+    if(self._adventure[groupId] == nil)then
+        CS.Logger.LogError("self._sublimation[heroId] is nil   path = ## Hero:GetAdventureCfgByGroupIdAndId ##");
+        return;
+    end
+    local retCfg = self._adventure[groupId][id];
+    if(retCfg == nil)then
+        CS.Logger.LogError("retCfg is nil   path = ## Hero:GetSublimationCfgByHeroIdAndLikeLv ##");
+    end
+    return retCfg;
+end
+-----------------------------------------------------------------------------------------
+
+--[[获取克制指定属性的属性 1 光系 2 暗系 3 混沌系]]--
+function Hero:GetForbearAttrType(attrType)
+    local attrType = tonumber(attrType)
+    local resultAttrType = Hero.ATTR_TYPE_ALL
+    if attrType == 1 then
+        resultAttrType = Hero.ATTR_TYPE_CHAOS
+    elseif  attrType == 2 then
+        resultAttrType = Hero.ATTR_TYPE_LIGHT
+    elseif  attrType == 3 then
+        resultAttrType = Hero.ATTR_TYPE_DARK
+    end
+    return resultAttrType
+end
+
+
+--[[判断指定英雄是否被指定属性克制]]--
+function Hero:IsForbearByAttrType(heroId,attrType)
+    if heroId <= 0 then
+        return false
+    end
+    local attrType = tonumber(attrType)
+    local hero = Hero:GetHero(heroId);
+    if hero == nil then
+        CS.Logger.LogError("heroCfg is nil   path = ## Hero:IsForbearByAttrType ##  id : "..tostring(heroId));
+        return false
+    end
+    local forbearAttrType = Hero:GetForbearAttrType(hero.attri_type)
+    return attrType == forbearAttrType
+end
+

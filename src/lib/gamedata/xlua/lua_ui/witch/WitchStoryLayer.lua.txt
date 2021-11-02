@@ -1,0 +1,201 @@
+--
+-- author: haosun
+-- date  : 2019-07-16 15:51:15
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchStoryLayer = class("WitchStoryLayer", CBaseLayer)
+
+function WitchStoryLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchStoryLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self:onEnter()
+end
+
+function WitchStoryLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/info_basic"))
+
+    self._showTalkLayer = false;
+
+    self._imgAtkType = self.layer:GetImageComponent("container/info_basic/img_atk_type");
+    self._imgAttr = self.layer:GetImageComponent("container/info_basic/img_attr");
+    self._imgQlty = self.layer:GetImageComponent("container/info_basic/image_qlty");
+    --@ImageEnd
+
+    self._transSpine = self.layer:Get("hero_spine");
+    --@TransformEnd
+    self.layer:GetButtonComponent("container/btn_talk").onClick:AddListener(
+        function()
+            --临时
+            local dia = Hero:GetDiaCfg(self._heroid)
+            if dia == nil then
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(71015))
+                return
+            end
+            if(self._talkLayer == nil)then
+                self._talkLayer = core.require("xlua/lua_UI/Witch/WitchTalkLayer.txt"):new( self.skeletonAni);
+            end
+            self._showTalkLayer = true;
+            self:playAni("HideDudUIAnim")
+            self._talkLayer:show(self._heroid,function()
+
+                self:showLayer()
+            end);
+        end)
+    self.layer:GetButtonComponent("container/info_basic/img_atk_type/btn_click").onClick:AddListener(
+        function()
+            self:onAtkTypeClick()
+        end)
+    self._txtJob = self.layer:GetTextComponent("container/info_basic/jobinfo/txt_name")
+    self.layer:GetButtonComponent("container/info_basic/jobinfo/btn_click").onClick:AddListener(
+        function()
+            UIMgr:ShowDescTipsLayer( self._txtJob.transform,self._hero.job_name, self._hero.job_des);
+        end)
+    self.layer:GetButtonComponent("container/info_basic/img_attr/btn_click").onClick:AddListener(
+        function()
+            UIMgr:ShowAttrLayer(self._heroid, self._imgAttr.transform)
+        end)
+end
+
+function WitchStoryLayer:onExit()
+    self._hero   = nil
+    self._heroid = nil
+    
+    self._imgAtkType    = nil
+    self._imgAttr       = nil
+    self._imgQlty       = nil
+    self._transSpine    = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function WitchStoryLayer:onAtkTypeClick()
+    local atkcfg = Build:GetAtkTypeCfgById(self._hero.config.AtkType)
+    UIMgr:ShowDescTipsLayer( self._imgAtkType.transform, atkcfg.name, atkcfg.desc)
+end
+
+function WitchStoryLayer:onBackClick()
+    if(self._talkLayer ~= nil)then
+        self._talkLayer:onExit();
+    end
+    self:onPopLayer()
+end
+
+function WitchStoryLayer:show(heroid)
+    self._fading = true
+    self._heroid = heroid
+    self._hero = Hero:GetHero(heroid)
+    -- self.layer:Get("container/btn_hide"):SetVisible(Hero:IsHeroSecretMapUnlock(heroid))
+    self:setBasic()
+    self:setStorys()
+    self:showLayer()
+    self:playAni("WitchStoryLayerAni")
+end
+
+function WitchStoryLayer:showLayer()
+    if(self._showTalkLayer)then
+        if(self._talkLayer ~= nil)then
+            self:playAni("ShowDudUIAnim")
+            self._showTalkLayer = false;
+        end
+    end
+    CBaseLayer.showLayer(self);
+end
+
+function WitchStoryLayer:setBasic()
+    local cfg = Hero:GetCfg(self._heroid)
+    local hero = Hero:GetHero(self._heroid)
+    -- hero name
+    self.layer:GetTextComponent("container/info_basic/text_name"):SetText(cfg.Name)
+    -- hero qlty
+    Hero:SetHeroQlty(self._imgQlty.transform, hero.qlty)
+    -- hero spine
+    Hero:LoadSpineAsync(self.__cname,self._transSpine, self._heroid, Hero.SPINE_UI_TYPE_STORY,
+        function (obj)
+            if obj == nil then
+                self._curMoudle = nil
+            else
+                self._curMoudle = obj
+                self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+                self.aniName = self.skeletonAni.AnimationName
+            end
+        end)
+    Hero:LoadAttrIconSp(self._imgAttr, hero.attri_type);
+    --AtkType
+    Hero:SetHeroAtkType(self._imgAtkType,tonumber(hero.config.AtkType));
+
+    self.layer:GetTextComponent("container/info_basic/txt_attr"):SetTextById(881000 + hero.attri_type)
+
+    -- 年龄
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_age"):SetText(
+        string.format(LanguageMgr:GetTextByID(71018),hero.personalData.age))
+    -- 
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_stature"):SetText(
+        string.format(LanguageMgr:GetTextByID(71019),hero.personalData.Stature[1],hero.personalData.Stature[2],hero.personalData.Stature[3]))
+    -- 身高
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_height"):SetText(
+        string.format(LanguageMgr:GetTextByID(71020), hero.personalData.height))
+    -- 体重
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_weight"):SetText(
+        string.format(LanguageMgr:GetTextByID(71021), hero.personalData.weight))
+    -- 生日
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_birthday"):SetText(hero.personalData.birthday)
+    -- 
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_race"):SetTextById(301005 + tonumber(cfg.RaceID))
+    -- 战斗力
+    self.layer:GetTextComponent("container/info_basic/trans_info/txt_fighting"):SetText(
+        math.ceil(Hero:GetFightingCapacity(self._heroid)))
+
+    local atkcfg = Build:GetAtkTypeCfgById( hero.config.AtkType)
+    self.layer:GetTextComponent("container/info_basic/txt_name_E"):SetText(atkcfg.name)
+    Hero:SetHeroJob( nil,self._txtJob,hero)
+end
+
+function WitchStoryLayer:setStorys()
+    local storys = Hero:GetHeroStory(self._heroid)
+    for i = 1, 4, 1 do
+        local transform = self.layer:Get("container/story_item_bg/story_item_"..i)
+        transform:SetVisible(storys[i] ~= nil)
+        if storys[i] ~= nil then
+            if storys[i].complete then
+                transform:GetImageComponent("img_bg_1"):SetImageColor(1, 1, 1, 1)                
+                transform:GetTextComponent("img_title_bg/txt_title").text = Language.LanguageTxt[storys[i].config.title]
+                transform:GetImageComponent("trans_lock/img_lock_bg"):SetImageColor(1, 1, 1, 1)
+            else
+                transform:GetImageComponent("img_bg_1"):SetImageColor(0.35, 0.35, 0.35, 1)                
+                transform:GetTextComponent("trans_lock/txt_lv").text = storys[i].openLv
+                transform:GetImageComponent("trans_lock/img_lock_bg"):SetImageColor(0.452, 0.345, 0.345, 1)
+            end
+
+            transform:Get("trans_lock"):SetVisible(not storys[i].complete)
+            transform:Get("img_title_bg"):SetVisible(storys[i].complete)
+
+            transform:GetComponent("Button"):AddButtonListener(function ()
+                if(storys[i].complete)then
+                    core.require("xlua/lua_UI/Witch/StoryTipsLayer.txt"):new():show(storys[i])
+                else
+                    Groble_UIMgr:ShowTipsLayer(storys[i].open_desc);
+                end
+            end)
+        end
+    end
+end
+
+return WitchStoryLayer
+

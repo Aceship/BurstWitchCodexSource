@@ -1,0 +1,731 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:39:53
+-- brief : 
+--
+
+Activity = Activity or {}
+
+function Activity:_LoadCfg()
+    self._activityCfg = {};
+    local cfg = CfgLoader:LoadCfgTable("Active");
+    for k,v in pairs(cfg) do
+    	local id = tonumber(k);
+        v.id = id;
+        v.UID = tonumber(v.UID);
+        v.Name = Language:GetTxtBuyId(v.Name)
+        v.cycNum = tonumber(v.major_cyc_num);
+        v.duration = tonumber(v.Duration);--持续时间
+        if(v.AdPicture ~= nil)then
+            v.adPicture = lua_parse_cfg(v.AdPicture,true);
+            v.jump = lua_str_split(v.Jump,"|");
+            v.AdPicture = nil;
+            v.Jump = nil;
+        end
+        v.Time = tonumber(v.Time);
+        if(v.AD_Image ~= "-1")then
+            v.ad_Image = lua_str_split(v.AD_Image,"|");
+            v.AD_Image = nil;
+        end
+        if(v.Spine ~= "-1")then
+            v.spine = lua_str_split(v.Spine,"|");
+            v.spinePos = lua_parse_cfg(v.SpinePos,true);
+            v.spineScale = lua_parse_cfg(v.SpineScale,true);
+            v.Spine = nil;
+            v.SpinePos = nil;
+            v.SpineScale = nil;
+        end
+        if(v.TimeDesc ~= "-1")then
+            v.des = Language:GetTxtBuyId(v.TimeDesc);
+            v.TimeDesc = nil;
+        end
+        if(v.Text ~= "-1")then
+            v.content = v.Text;
+            v.Text = nil;
+        end
+        v.ActivityDes = Language:GetTxtBuyId(v.ActivityDes);
+    	self._activityCfg[id] = {};
+    	self._activityCfg[id].info = v;
+        self._activityCfg[id].formCfg = {};
+    	--CS.Logger.LogError("加载活动id:"..id.." formname:"..v.FormName);
+        local formCfg                 = CfgLoader:LoadCfgTable(v.FormName);
+        for kkk,vvv in pairs(formCfg) do
+            if tonumber(v.id) == tonumber(vvv.Group) then
+                self._activityCfg[id].formCfg[tonumber(vvv.id)] = vvv;
+            end
+        end
+    end
+    self._codeCfg = {};
+    local cfg = CfgLoader:LoadCfgTable("GiftCode");
+    for k,v in pairs(cfg) do
+        local id = tonumber(k);
+        self._codeCfg[id] = v;
+    end
+    self:LoadDialCfg();
+    self:LoadDialCycleCfg();
+    self:LoadChessCfg();
+    self:LoadChessNumCfg();
+    self:LoadDaySignInCfg();
+    self:LoadActiveGatherCfg();
+    self:LoadActiveQuanShuCfg()
+    self:LoadActiveTriggerAD();
+    self:LoadActiveSixthSeal();
+    self:LoadActivityLevelLayerCfg();
+    self:LoadActivityLevelMainTypeCfg();
+    self:LoadActiveSixthSeal_Sign_in()
+end
+function Activity:LoadActiveSixthSeal()--读取第六封印配置表
+    self._activeSpTotalConfig = {};
+    for k,v in pairs(CfgLoader:LoadCfg("Active_sixthnotice")) do
+        local data = {
+            id = tonumber(v.id),
+            days = tonumber(v.days),
+            activeid = tonumber(v.activeid),
+            itemAwards = lua_parse_cfg(v.itemAwards,true),
+            Blankscreentext = lua_parse_cfg(v.Blankscreentext,true),
+            UItextTitle = v.UItextTitle,
+            UItextSubtitle =v.UItextSubtitle,
+            UItext1 = v.UItext1,
+            UItext2 = v.UItext2,
+            Video = v.Video,
+            Sound = v.Sound,
+            TitleIcon = lua_str_split(v.TitleIcon,"&"),
+            TitleIcon_effect = v.TitleIcon_effect
+        }
+        self._activeSpTotalConfig[data.id] = data
+    end
+    self._activeSixthSealCfg = {};
+    for k,v in pairs(self._activeSpTotalConfig) do
+        if(v.activeid == 2001) then
+            self._activeSixthSealCfg[v.days] = v;
+        end
+    end
+    Activity:InitSixthSealRewardData()
+end
+
+function Activity:LoadActiveSixthSeal_Sign_in()--读取第六封印签到配置表
+    self._Active_sixthsigned = {};
+    for k,v in pairs(CfgLoader:LoadCfg("Active_sixthsigned")) do
+        local data = {
+            id = tonumber(v.id),
+            Days = tonumber(v.Days),
+            ActiveID = tonumber(v.ActiveID),
+            ActiveUid = tonumber(v.ActiveUid),
+            itemAwards = lua_parse_cfg(v.itemAwards, true),
+        }
+        self._Active_sixthsigned[data.id] = data
+    end
+
+    self._Active_sixthsignedArray = {}
+end
+
+function Activity:GetActiveSixthSeal_Sign_inById(cfgid)
+    if self._Active_sixthsigned[cfgid] == nil then
+        AppMgr:LogError("Active_sixthsigned错误！找不到配置" .. cfgid)
+    end
+    return self._Active_sixthsigned[cfgid]
+end
+
+function Activity:GetSixSigninConfigsByUID(activityId)
+    -- print("===================", activityId, type(activityId))
+    if self._Active_sixthsignedArray[activityId] == nil then
+        self._Active_sixthsignedArray[activityId] = {}
+
+        for id, v in pairs(self._Active_sixthsigned) do
+            if v.ActiveUid == activityId then
+                table.insert(self._Active_sixthsignedArray[activityId], id)
+            end
+        end
+    end
+
+    return self._Active_sixthsignedArray[activityId]
+end
+
+
+function Activity:InitSixthSealRewardData()--添加一个是否可领取的bool添加到一个数据结构表中
+    self._sixthSealRewardData = {};
+    local allConfig = self._activeSixthSealCfg;
+    local tmpData = nil;
+    for i, v in ipairs(allConfig) do
+        tmpData = {};
+        tmpData.isCanGetAward = false;
+        tmpData.cfg = v;
+        self._sixthSealRewardData[i] = tmpData;
+    end
+end
+
+function Activity:GetSixthSealRewardArray()--获取第六封印的包装配置表
+    return self._sixthSealRewardData;
+end
+function Activity:LoadActiveTriggerAD()
+    self._activeTriggerCfg = {}
+    local id = 0
+    local titlePath,namePath,maskPath,spinePos,namePos;
+    for i, v in pairs(CfgLoader:LoadCfg("Active_triggerAD")) do
+        id = tonumber(v.id)
+
+        --活动标题
+        if(v.TitlePath == "-1")then
+            titlePath = nil;
+        else
+            titlePath = v.TitlePath;
+        end
+
+        --名字路径
+        if(v.NamePath == "-1")then
+            namePath = nil;
+        else
+            namePath = v.NamePath;
+        end
+
+        --遮罩路径
+        if(v.MaskPath == "-1")then
+            maskPath = nil;
+        else
+            maskPath = v.MaskPath;
+        end
+
+        --spine位置
+        if(v.SpinePos == "-1")then
+            spinePos = nil;
+        else
+            spinePos = lua_str_split(v.SpinePos,"&",true);
+        end
+
+        --name位置
+        if(v.NamePos == "-1")then
+            namePos = nil;
+        else
+            namePos = lua_str_split(v.NamePos,"&",true);
+        end
+        self._activeTriggerCfg[id] = {
+            id = id,
+            order = tonumber(v.Order),
+            picture = tonumber(v.Picture),
+            jumpTo = lua_str_split(v.Is_jump,"&",true);--v.Is_jump,
+            beginTime = v.Begintime,
+            endTime = v.Endtime,
+            items = lua_parse_cfg(v.Itemid,true),
+            moonPath = v.MoonPath,
+            titlePath = titlePath,
+            namePath = namePath,
+            maskPath = maskPath,
+            moonPos = lua_str_split(v.MoonPos,"&",true),
+            spinePos = spinePos,
+            namePos = namePos,
+            activityType = tonumber(v.actiType),
+            qltyPos = lua_str_split(v.QltyPos,"&",true),
+        }
+    end
+    --self:GetTriggerActivites()
+end
+--加载活动集合配置
+function Activity:LoadActiveGatherCfg()
+    self._activeGatherCfg = {};
+    local id, temp = 0
+    for i, v in ipairs(CfgLoader:LoadCfg("ActiveGather")) do
+        temp = lua_str_split(v.UID, "&", true)
+        id = tonumber(v.id)
+        self._activeGatherCfg[id] = {
+            id = id,
+            imgPath = v.Photopath,
+            pos = lua_str_split(v.Pos,"&",true),
+            showSeat = tonumber(v.Showseat),
+            itype = temp[1],
+            uid = temp[2],
+            goods = lua_parse_cfg(v.Showitem,true),
+            Effectcoordinate = v.Effectcoordinate == "-1" and {} or lua_str_split(v.Effectcoordinate, "&")
+        }
+    end
+end
+
+--圈数奖励
+function Activity:LoadActiveQuanShuCfg()
+    self._activeQSShow = {};
+    local cfg = CfgLoader:LoadCfg("Activepiece_QuanShuShow");
+    for k,v in pairs(cfg) do
+
+        local data = {
+            id = tonumber(v.id),
+            turns = v.Turns,
+            icon = lua_str_split(v.IconShow,"&",true),
+            itemsShow = lua_str_split(v.ItemShow,"&",true),
+        }
+        self._activeQSShow[tonumber(v.id)] = data
+    end
+end
+
+--获取可弹窗广告
+function Activity:GetTriggerActivites()
+    local result = {}
+    for i, v in pairs(self._activeTriggerCfg) do
+        if self:IsShowActivity(v) then
+            table.insert(result,v)
+        end
+    end
+    table.sort(result,function (a,b)
+        return a.order < b.order;
+    end);
+    return result
+end
+
+--指定活动是否弹窗
+function Activity:IsShowActivity(cfg)
+    if cfg == nil then
+        return false
+    end
+    local beginTime = Lib:Str2Time(cfg.beginTime)
+    local curTime = CTime:GetServerTime()
+    local endTime = Lib:Str2Time(cfg.endTime)
+    --print("开始时间  : "..beginTime.." : 当前时间 ： "..curTime.." ： 结束时间 ： "..endTime)
+    --未开始
+    if curTime < beginTime then
+        return false
+    end
+    --已结束
+    if curTime > endTime then
+        return false
+    end
+    return true
+end
+
+--获取扑脸广告界面类型
+function Activity:GetPushViewType(cfg)
+    if cfg == nil then
+        return -1
+    end
+    local items = cfg.items
+    if items[1] == nil then
+        return Activity.PushType.Picture
+    else
+        return Activity.PushType.PictureItems
+    end
+end
+
+function Activity:GetAllQuanShuShow()
+    local retArr = {};
+    for _, cfg in pairs(self._activeQSShow) do
+        table.insert(retArr,{id = cfg.id,turns = cfg.turns,icon = cfg.icon,itemsShow = cfg.itemsShow});
+    end
+    return retArr
+end
+
+function Activity:GetQuanShuShowById(id)
+    id = tonumber(id);
+    if(self._activeQSShow[id] == nil)then
+        CS.Logger.LogError("cfg is nil **path = GetQuanShuShowById** id = "..id);
+        return nil;
+    end
+    return self._activeQSShow[id];
+end
+
+--获取有效的活动集合
+function Activity:GetAllActiveGatherCfg()
+    local retArr = {};
+    for _, cfg in pairs(self._activeGatherCfg) do
+        if(retArr[cfg.showSeat] == nil)then
+            retArr[cfg.showSeat] = {};
+        end
+        local isAdd = false;
+        if(cfg.itype == Activity.JobType.JobActivity)then--活动
+            if(Operation:GetActiveIsOpenByUid(cfg.uid))then
+                if(cfg.uid  == Operation.ActivityID.NewWelfare)then--7日签到需要判断是否全部领取过
+                    if(not Activity:GetNewWelfareIsOver())then--未结束, 添加
+                        isAdd = true;
+                    end
+                else
+                    isAdd = true;
+                end
+            end
+        elseif(cfg.itype == Activity.JobType.JobOperation)then--商城
+            if(Operation:GetActiveIsOpenByUid(cfg.uid))then
+                isAdd = true;
+            end
+        elseif(cfg.itype == Activity.JobType.JobNewerTask)then--暮光礼赞
+            if(Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) and Task:NewerTaskRemainTime() > 0)then
+                isAdd = true;
+            end
+        elseif(cfg.itype == Activity.JobType.JobChapter)then--活动关卡
+            --TODO 活动关卡相关
+        end
+        if(isAdd)then
+            table.insert(retArr[cfg.showSeat],cfg);
+        end
+    end
+    for _, v in pairs(retArr) do
+        table.sort(v,function (a,b)
+            return a.id < b.id;
+        end);
+    end
+    return retArr;
+end
+
+function Activity:GetActiveGatherCfgById(id)
+    id = tonumber(id);
+    if(self._activeGatherCfg[id] == nil)then
+        CS.Logger.LogError("cfg is nil **path = GetActiveGatherCfgById** id = "..id);
+        return nil;
+    end
+    return self._activeGatherCfg[id];
+end
+
+--加载每日签到配置
+function Activity:LoadDaySignInCfg()
+    self._daySignInCfg = {};
+    local cfg = CfgLoader:LoadCfg("Active_dailysigned");
+    for _, v in pairs(cfg) do
+        local data = {
+            id = tonumber(v.id),
+            days = tonumber(v.days),
+        };
+        data.items = {};
+        data.exItems = {};
+        for i = 1, Activity.DaySignInCycNum do
+            local items = lua_str_split(v["Items"..i],"&");
+            data.items[i] = {tonumber(items[1]),tonumber(items[2]),tonumber(items[3])};
+            local exItems = lua_str_split(v["exItems"..i],"&");
+            data.exItems[i] = {tonumber(exItems[1]),tonumber(exItems[2]),tonumber(exItems[3]),tonumber(exItems[4])};
+        end
+        self._daySignInCfg[data.id] = data;
+    end
+end
+
+--获取当前周期的所有签到配置
+function Activity:GetAllCurSignInCycCfg()
+    local retArr = {};
+    for _, cfg in pairs(self._daySignInCfg) do
+        table.insert(retArr,{id = cfg.id,days = cfg.days,items = cfg.items[self._curSignInCycNum],exItems = cfg.exItems[self._curSignInCycNum]});
+    end
+    table.sort(retArr,function (a,b)
+        return a.days < b.days;
+    end);
+    return retArr;
+end
+
+--[[获取当前日期的签到Cfg
+function Activity:GetCurDaySignInCfg()
+    local day = CTime:GetCurDayByMonth();
+    local retCfg;
+    for _, cfg in pairs(self._daySignInCfg) do
+        if(cfg.days == day)then
+            retCfg = {id = cfg.id,days = cfg.days,items = cfg.items[self._curSignInCycNum],exItems = cfg.exItems[self._curSignInCycNum]};
+            break;
+        end
+    end
+    if(retCfg == nil)then
+        CS.Logger.LogError("GetCurDaySignInCfg return is nil  day = "..day);
+    end
+    return retCfg;
+end]]--
+
+--加载棋盘活动配置
+function Activity:LoadChessCfg()
+    local cfg = CfgLoader:LoadCfg("Activepiece");
+    self._chessCfg = {};
+    local data;
+    for _, v in ipairs(cfg) do
+        data = {
+            id = tonumber(v.id),
+            pos = tonumber(v.RewardPosition),
+            awardType = tonumber(v.Privilege),
+        };
+        if(v.Item ~= "-1")then
+            data.item = lua_parse_cfg(v.Item,true);
+        else
+            data.item = -1;
+        end
+        self._chessCfg[data.id] = data;
+    end
+    self._chessMaxNum = lua_table_len(self._chessCfg) or 0;
+end
+
+--加载棋盘活动圈数奖励配置
+function Activity:LoadChessNumCfg()
+    local cfg = CfgLoader:LoadCfg("Activepiece_QuanShu");
+    self._chessNumCfg = {};
+    local data;
+    for _, v in pairs(cfg) do
+        data = {
+            id = tonumber(v.id),
+            pos = tonumber(v.Turns),
+            item = lua_str_split(v.PieceItem,"&"),
+        };
+        data.item[1] = tonumber(data.item[1]);
+        data.item[2] = tonumber(data.item[2]);
+        data.item[3] = tonumber(data.item[3]);
+        table.insert(self._chessNumCfg,data);
+    end
+    table.sort(self._chessNumCfg,function (a,b)
+        return a.pos < b.pos;
+    end);
+end
+
+--加载转盘次数奖励
+function Activity:LoadDialCycleCfg()
+    local cfgs = CfgLoader:LoadCfg("Active_turntableitem_CiShu");
+    self._dialCycleCfg = {};
+    local data;
+    for i = 1, 5 do
+        self._dialCycleCfg[i] = {};
+        for _, v in pairs(cfgs) do
+            data = {
+                id = tonumber(v.id),
+                fre = tonumber(v.Frequency),
+                items = lua_str_split(v["CycleItem"..i],"&"),
+            };
+            table.insert(self._dialCycleCfg[i],data);
+        end
+        table.sort(self._dialCycleCfg[i],function (a,b)
+            return a.id < b.id;
+        end);
+    end
+
+end
+
+--加载转盘活动
+function Activity:LoadDialCfg()
+    local cfgs = CfgLoader:LoadCfg("Active_turntableitem");
+    self._dialDefCfg = {};
+    local data;
+    for _, v in pairs(cfgs) do
+        data = {
+            id = tonumber(v.id),
+            rewardPos = tonumber(v.RewardPosition),
+            items = lua_str_split(v.Item,"&"),
+        };
+        self._dialDefCfg[data.id] = data;
+    end
+end
+
+--获取转盘活动Cfg
+function Activity:GetAllDialCfgs()
+    if(self._dialDefCfg == nil)then
+        CS.Logger.LogError("转盘活动配置表加载失败");
+        return nil;
+    end
+    return self._dialDefCfg or nil;
+end
+
+function Activity:GetCurDialFrequencyCfgs()
+    return self._dialCycleCfg[self._dialData.curCycle or 1] or nil;
+end
+
+function Activity:GetActivity()
+    return self._activityCfg
+end
+
+function Activity:GetActivityConfigByUID(uid)
+    if self._activityCfg[uid] == nil then
+        AppMgr:LogError("activityCfg is null uid = "..uid)
+    end
+    return self._activityCfg[uid]
+end
+
+function Activity:GetActivityByUId(uid)
+    local retCfg = nil;
+    for i, v in pairs(self._activityCfg) do
+        if(tonumber(v.info.UID) == uid)then
+            retCfg = v;
+            break;
+        end
+    end
+    if(retCfg == nil)then
+        CS.Logger.LogError("activityCfg is null  uid = "..uid);
+    end
+    return retCfg
+end
+
+function Activity:GetActivityItemById(cfgid,itemId)
+   cfgid = tonumber(cfgid);
+    if(cfgid == 0)then
+        CS.Logger.LogError("cfgid is 0"..cfgid);
+        return nil;
+    end
+    local cfg = self._activityCfg[cfgid];
+    if(cfg == nil)then
+        CS.Logger.LogError("cfg is null!!!  cfgid = "..cfgid);
+        return nil;
+    end
+    local retArray = {
+        items = lua_parse_cfg(cfg.formCfg[itemId].Items,true),
+        id = tonumber(cfg.formCfg[itemId].id),
+        group = tonumber(cfg.formCfg[itemId].Group),
+        count = tonumber(cfg.formCfg[itemId].Count),
+    };
+    return retArray;
+end
+
+function Activity:GetCodeCfg()
+    return self._codeCfg
+end
+
+function Activity:GetAllChessCfg()
+    if(self._chessSortCfg == nil)then
+        self._chessSortCfg = {};
+        for _, cfg in pairs(self._chessCfg) do
+            table.insert(self._chessSortCfg,cfg);
+        end
+        table.sort(self._chessSortCfg,function (a,b)
+            return a.pos < b.pos;
+        end);
+    end
+    return self._chessSortCfg;
+end
+
+function Activity:GetAllChessNumCfg()
+    return self._chessNumCfg or {};
+end
+
+function Activity:GetChessAwardMaxNum()
+    return #self._chessNumCfg or 0;
+end
+
+function Activity:GetChessById(turn)
+    if self._chessNumCfg == nil or self._chessNumCfg[turn] == nil then
+        return 0
+    end
+    return self._chessNumCfg[turn].item[3];
+end
+
+function Activity:GetCurTurns(curturn)
+    if curturn > Activity.FirstBox then
+        curturn = Activity.FirstBox
+    end
+    local result = 0
+    for i = 10, curturn,10 do
+        result = result + self:GetChessById(i)
+    end
+    return result
+end
+
+
+function Activity:GetNextTurnsAward(turns)
+    local retData;
+    for _, v in ipairs(self._chessNumCfg) do
+        if(v.pos < turns)then
+        else
+            retData = v;
+            break;
+        end
+    end
+    return retData;
+end
+
+-----------------------------------活动关卡-----------------------------------------------------
+
+function Activity:LoadActivityLevelLayerCfg()
+    local cfgs = CfgLoader:LoadCfg("Active_sixthLevelLayerCfg");
+    self._layerCfgs = {};
+    local data,id;
+    for _, cfg in pairs(cfgs) do
+        local spinePos;
+        if(cfg.spinePos ~= "-1")then
+            spinePos = lua_str_split(cfg.spinePos,"&",true);
+        end
+        local specialLevelImgPath;
+        if(cfg.specialLevelImgpath ~= "-1")then
+            specialLevelImgPath = lua_str_split(cfg.specialLevelImgpath,"&");
+        end
+        local enterPath;
+        if(cfg.enterPath ~= "-1")then
+            enterPath = lua_str_split(cfg.enterPath,"&");
+        end
+
+        local adImg;
+        if(cfg.ADmessage ~= "-1")then
+            adImg = lua_str_split(cfg.ADmessage,"&");
+        end
+
+        local titleBg;
+        if(cfg.titleBg ~= "-1")then
+            titleBg = lua_str_split(cfg.titleBg,"&");
+        end
+
+        local bossImgPos;
+        if(cfg.BossStandImg ~= "-1")then
+            bossImgPos = lua_parse_cfg(cfg.BossStandImg);
+        end
+
+        local topInfo;
+        if(cfg.topInfo ~= "-1")then
+            topInfo = lua_str_split(cfg.topInfo,"&",true)
+        end
+
+        id = tonumber(cfg.id);
+        data = {
+          id = id,
+          layerType = tonumber(cfg.layerType),
+          activityUID = tonumber(cfg.activityUID),
+          isShowDay = tonumber(cfg.isShowDay),
+          videoPath = cfg.videoPath,
+          soundPath = cfg.Sound,
+          spinePos = spinePos,
+          specialLevelImgPath = specialLevelImgPath,
+          enterPath = enterPath,
+          bgPath = cfg.bgPath,
+          layerDes = tonumber(cfg.layerDes),
+          isShowHeroAdd = tonumber(cfg.isShowHeroAdd) > 0,
+          ruleId = tonumber(cfg.ruleId),
+          adImg = adImg,
+          titleBg = titleBg,
+          txtEntrance = Language:GetTxtBuyId(cfg.entrance),
+          txtEntranceE = Language:GetTxtBuyId(cfg.entranceY),
+          effect = cfg.effects,
+          bossImgPos = bossImgPos,
+          topInfo = topInfo,
+        };
+        if(self._layerCfgs[data.activityUID] == nil)then
+            self._layerCfgs[data.activityUID] = {};
+        end
+        table.insert(self._layerCfgs[data.activityUID],data);
+    end
+
+    for _, v in pairs(self._layerCfgs) do
+        table.sort(v,function (a,b)
+            return a.layerType < b.layerType;
+        end);
+    end
+end
+
+function Activity:GetActivityLevelLayerCfg(uid,layerType)
+    if(uid == nil or uid <= 0)then
+        uid = Activity:GetActivityId();
+    end
+    if(self._layerCfgs[uid] == nil)then
+        AppMgr:LogError("retCfg is nil!!!  Path = **Activity:GetActivityLevelLayerCfg**   uid = "..uid);
+        return nil;
+    end
+    return self._layerCfgs[uid][layerType];
+end
+
+function Activity:LoadActivityLevelMainTypeCfg()
+    local cfgs = CfgLoader:LoadCfg("Active_sixthmaintype");
+    self._mainTypeCfg = {};
+    local data,id;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        data = {
+            id = id,
+            uid = tonumber(cfg.activeUid),--活动UID
+            shopUid = tonumber(cfg.ActivechargeUid),
+            taskType_1 = lua_str_split(cfg.Quest_child_class_1,"&"),--外围任务
+            taskType_2 = lua_str_split(cfg.Quest_child_class_2,"&"),--弹窗任务
+            levelTypes = lua_parse_cfg(cfg.Story_Level_type),--普通关卡类型
+            specialType = tonumber(cfg.Nightmare_Level_type),--特殊关卡类型
+            gashaponListId = tonumber(cfg.GashaponListId),
+        };
+        self._mainTypeCfg[data.uid] = data;
+    end
+end
+
+function Activity:GetActivityLevelTypeCfgByUid(uid)
+    if(uid == nil or uid <= 0)then
+        AppMgr:LogError("uid is nil !!!   path = **Activity:GetActivityLevelTypeCfgByUid**")
+        return;
+    end
+    local retCfg = self._mainTypeCfg[uid];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is nil!!!   path = **Activity:GetActivityLevelTypeCfgByUid(uid)**   uid = "..uid)
+    end
+    return retCfg;
+end

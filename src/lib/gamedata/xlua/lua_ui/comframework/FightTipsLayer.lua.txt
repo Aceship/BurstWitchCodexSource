@@ -1,0 +1,177 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-06-25 13:42:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightTipsLayer = class("FightTipsLayer", CBaseLayer)
+
+local HeroQlty = {
+    [Bag.QLTY_UTR] = { name = "spine_ur", prefab = "prefab_item_spine/spine_qlty_ur"},
+    [Bag.QLTY_SSR] = { name = "spine_ssr", prefab = "prefab_item_spine/spine_qlty_ssr"},
+    [Bag.QLTY_SR] = { name = "spine_sr", prefab = "prefab_item_spine/spine_qlty_sr"},
+}
+
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function FightTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_FightTipsLayer",
+        --trans = "Canvas"
+    }
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function FightTipsLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function FightTipsLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function FightTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+local stepUpItemNum = 5
+
+function FightTipsLayer:InitUI()
+    if(self._stepUpItems == nil)then
+        self._stepUpItems = {};
+        for i = 1, stepUpItemNum do
+            local cls = clsbase:new(self.layer:Get("container/cost_bg/item_cost_"..i));
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+            cls.imgBorder = cls:GetImageComponent("img_border")
+            cls.txtNum = cls:GetTextComponent("txt_num");
+            cls.objBorder = cls:Find("img_border")
+            cls.costCnt = 1
+            self._stepUpItems[i] = cls;
+        end
+    end
+
+    self._button_back   = self.layer:Get("button_back");
+    self._button_back:AddButtonListener(function ()
+        self:onPopLayer()
+    end);
+    self.textTitle = self.layer:GetTextComponent("container/text_name")
+end
+
+--显示UI
+function FightTipsLayer:show()
+    self:showLayer();
+
+    self.textTitle.text = LanguageMgr:GetTextByID(880080)
+    self:SetHeroItems();
+end
+
+--退出按钮事件
+function FightTipsLayer:onBackClick()
+    --self:hideLayer()
+    self:onPopLayer()
+end
+
+--释放
+function FightTipsLayer:Close()
+    self._stepUpItems = nil
+    --@CloseEnd
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function FightTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+
+
+function FightTipsLayer:SetBorder(cls,hero)
+
+    cls.spine_border = cls:Find("img_border/spine_border")
+    cls.spine_border_ur =  cls:Find("img_border/spine_border_ur")
+    cls.spine_border_sr =  cls:Find("img_border/spine_border_sr")
+
+    --cls.imgBorder.enable = hero.qlty <= 1
+    set_com_enabled(cls.imgBorder, hero.qlty <  Bag.QLTY_SR)
+    cls.imgBorder.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res","Common_Btn_WuPing_n_".. hero.qlty);
+    if hero.qlty ==  Bag.QLTY_SSR then
+        if cls.spine_border == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border", cls.objBorder)
+            spineborder.name = "spine_border"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_border = spineborder
+            cls.spine_border:SetScale(0.35, 0.35, 1)
+
+        end
+    elseif hero.qlty ==  Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_ur", cls.objBorder)
+            spineborder.name = "spine_border_ur"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ur = spineborder
+            cls.spine_border_ur:SetScale(0.35, 0.35, 1)
+
+        end
+    elseif hero.qlty == Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_sr", cls.objBorder)
+            spineborder.name = "spine_border_sr"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_sr = spineborder
+            cls.spine_border_sr:SetScale(0.35, 0.35, 1)
+        end
+    end
+
+    if cls.spine_border ~= nil then
+        set_obj_active(cls.spine_border, hero.qlty == Bag.QLTY_SSR)
+    end
+    if cls.spine_border_ur ~= nil then
+        set_obj_active(cls.spine_border_ur, hero.qlty == Bag.QLTY_UTR)
+    end
+    if cls.spine_border_sr ~= nil then
+        set_obj_active(cls.spine_border_sr, hero.qlty == Bag.QLTY_SR)
+    end
+end
+
+function FightTipsLayer:SetHeroItems()
+    local heroList = Hero:GetFightHeroList()
+
+    for i, cls in ipairs(self._stepUpItems) do
+        cls.transform:SetVisible(heroList[i] ~= nil);
+        if heroList[i] ~= nil then
+            cls.data = heroList[i];
+            Hero:SetHeroHeadSprite(cls.imgIcon, heroList[i].id, false, true, false)
+            cls.txtNum.text = math.ceil(heroList[i].fighting_capacity)
+            local qlty = tonumber(heroList[i].qlty)
+            --print("魔女品质 ： "..qlty)
+            self:SetBorder(cls,heroList[i])
+        end
+    end
+end
+
+
+return FightTipsLayer;

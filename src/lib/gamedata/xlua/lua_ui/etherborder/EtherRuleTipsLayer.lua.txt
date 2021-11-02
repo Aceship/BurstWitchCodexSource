@@ -1,0 +1,169 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-03-16 14:02:38
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherRuleTipsLayer = class("EtherRuleTipsLayer", CBaseLayer)
+local ruleId = 901;
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function EtherRuleTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherRuleTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function EtherRuleTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherRuleTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function EtherRuleTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function EtherRuleTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtRuleDesc = self.layer:GetTextComponent("container/trans_rule/txt_rule_desc");
+	--@TextEnd
+
+	self._transAward = self.layer:Get("container/trans_award");
+	self._transAwardItemBg = self.layer:Get("container/trans_award/trans_award_bg/trans_award_item_bg");
+	self._transRule = self.layer:Get("container/trans_rule");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objAwardItem = self.layer:Get("container/trans_award/item_hide/obj_award_item").gameObject;
+	--@GameObjectEnd
+
+	self._mTogRule = self.layer:GetMToggleComponent("container/tog_bg/tog_rule");
+	self._mTogAward = self.layer:GetMToggleComponent("container/tog_bg/tog_award");
+	--@MToggleEnd
+
+	self._mTogRule.onValueChanged:AddListener(function (isOn)
+	   self:OnTogRuleClick(isOn);
+   end);
+	self._mTogAward.onValueChanged:AddListener(function (isOn)
+	   self:OnTogAwardClick(isOn);
+   end);
+	--@MToggleCallBackEnd  
+end
+
+--显示UI
+function EtherRuleTipsLayer:show()
+    self._mTogRule.isOn = true;
+    self:playAni("CommonLayerFadeInAni")
+    self:showLayer();
+end
+
+--退出按钮事件
+function EtherRuleTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function EtherRuleTipsLayer:onExit()
+
+    self._mTogRule = nil;
+	self._mTogAward = nil;
+	self._txtRuleDesc = nil;
+	self._transAward = nil;
+	self._objAwardItem = nil;
+	self._transAwardItemBg = nil;
+	self._transRule = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherRuleTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function EtherRuleTipsLayer:OnTogRuleClick(isOn)
+    if(isOn)then
+        self:ShowRule();
+    end
+ end
+function EtherRuleTipsLayer:OnTogAwardClick(isOn)
+    if(isOn)then
+        self:ShowAward();
+    end
+ end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherRuleTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherRuleTipsLayer:ShowRule()
+    local cfg = CCfg:GetRuleCfg(ruleId)
+    if cfg == nil then
+        self._txtRuleDesc.text = "Error rule config！！！";
+    else
+        self._txtRuleDesc.text = string.gsub(cfg.desc, '\\n', '\n');
+    end
+    self._transAward:SetVisible(false);
+    self._transRule:SetVisible(true);
+end
+
+local awardItemNum = 2;
+function EtherRuleTipsLayer:ShowAward()
+    if(self._awardCfgIds == nil)then
+        self._awardCfgIds = Ether:GetAllEtherAwardCfgs();
+        for _, cfg in ipairs(self._awardCfgIds) do
+            local trans = CS.UnityEngine.GameObject.Instantiate(self._objAwardItem,self._transAwardItemBg);
+            trans:GetTextComponent("txt_title").text = string.format(LanguageMgr:GetTextByID(703098),cfg.getLv)
+            for i = 1, awardItemNum do
+                if(cfg.awards[i] ~= nil)then
+                    local cls = Bag:CtorComSimpleGoodsUi(trans.transform:Find("item_"..i));
+                    cls.imgGet = cls:Find("img_get");
+                    cls.imgGet:SetVisible(false);
+                    Bag:SetComSimpleGoodsUi(cls,cfg.awards[i][1],cfg.awards[i][2],cfg.awards[i][3]);
+                else
+                    trans.transform:Find("item_"..i):SetVisible(false);
+                end
+            end
+        end
+    end
+    self._transAward:SetVisible(true);
+    self._transRule:SetVisible(false);
+end
+
+return EtherRuleTipsLayer;

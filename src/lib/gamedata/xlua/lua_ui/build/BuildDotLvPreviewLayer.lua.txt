@@ -1,0 +1,414 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-19 09:59:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuildDotLvPreviewLayer = class("BuildDotLvPreviewLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReset = "container/btn_reset",
+	BtnMinus = "container/trans_build_dot/btn_minus",
+	BtnAdd = "container/trans_build_dot/btn_add",
+	--@ButtonEnd
+}
+local DotItemWidth = 155;
+
+--构造函数
+function BuildDotLvPreviewLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_BuildDotLvPreviewLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+    };
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuildDotLvPreviewLayer:onEnter()
+    --self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+function BuildDotLvPreviewLayer:onExit()
+
+    CBaseLayer.onExit(self)
+end
+
+--按钮事件
+function BuildDotLvPreviewLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReset)then 
+	   self:OnBtnResetClick();
+    elseif(itype == BTNS.BtnMinus)then 
+	   self:OnBtnMinusClick();
+    elseif(itype == BTNS.BtnAdd)then 
+	   self:OnBtnAddClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+
+end
+
+--初始化
+function BuildDotLvPreviewLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function BuildDotLvPreviewLayer:InitData()
+    self._atkType = Build:GetCurSelectAtkType();
+    self._curDotId = Build:GetCurSelectDotId();
+    self._buildData = Build:GetBuildServerDataByAtkType(self._atkType);
+    self._curBuildLv = Build:GetBuildLvDataByAtkType(self._atkType).lv;
+    self._atkCfg = Build:GetAtkTypeCfgById(self._atkType);
+    
+    self._isCutDotId = true;
+    self._isCutPreview = true;
+    self._expendPointNum = 0;
+    self._allDotData = {};
+    self._selectDotItem = nil;
+    for _, dotId in pairs(self._buildData.dotIds) do
+        local dotLvData = Build:GetDotAddLvById(dotId);
+        self._allDotData[dotId] = {
+            heroAddLv = dotLvData.heroAddLv,
+            addLv = dotLvData.addLv,
+            allLv = dotLvData.heroAddLv + dotLvData.addLv,
+        };
+        self._expendPointNum = self._expendPointNum + dotLvData.addLv;
+    end
+    self:UpdateDotData();
+end
+
+--更新构筑点数据
+function BuildDotLvPreviewLayer:UpdateDotData()
+    self._curDotPointMaxNum = 0;
+    self._dotCfg = Build:GetBuildDotCfgById(self._curDotId);
+    self._curDotAddData = self._allDotData[self._curDotId];
+    for _, num in ipairs(self._dotCfg.levelGroup) do--计算当前构筑的构筑点上限
+        self._curDotPointMaxNum = self._curDotPointMaxNum + num;
+    end
+end
+
+--初始化UI
+function BuildDotLvPreviewLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtCurLvDes = self.layer:GetTextComponent("container/trans_dot_info/cur_lv_des_bg/txt_cur_lv_des");
+	self._txtPointExpendNum = self.layer:GetTextComponent("container/trans_dot_info/txt_point_expend_num");
+	self._txtPointName = self.layer:GetTextComponent("container/trans_dot_info/txt_point_name");
+	--@TextEnd
+
+	self._transBtnParent = self.layer:Get("container/trans_btn_dot_bg/trans_btn_parent");
+	self._transPointLvBg = self.layer:Get("container/trans_build_dot/trans_point_lv_bg");
+	self._transSelect = self.layer:Get("container/trans_select");
+	--@TransformEnd
+
+	self._rectBtnDotBg = self.layer:GetRectTransformComponent("container/trans_btn_dot_bg");
+	self._rectBtnParent = self.layer:GetRectTransformComponent("container/trans_btn_dot_bg/trans_btn_parent");
+	--@RectTransformEnd
+
+	self._objPoint = self.layer:Get("container/item_hide/obj_point").gameObject; 
+	self._objDotItem = self.layer:Get("container/item_hide/obj_dot_item").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self._transSelect:CreateChild(Bag.SPINE_BUILD_SELECT);
+    self._dotItemScrollWidth = self._rectBtnDotBg:GetSizeDeltaX();
+    self._dotItems = {};
+    self._pointItems = {};
+    self:SetExpendTxt();
+    self:SetDotUI();
+    self:OnBtnDotItemClick();
+    CS.UIHelpScript.Instance:ForceRebuildLayoutImmediate(self._rectBtnParent);
+    self:SetSelectImgPos();
+end
+
+--显示UI
+function BuildDotLvPreviewLayer:show()
+    Build:SetCutBuildTypeTogState(false);
+    self:showLayer();
+end
+
+function BuildDotLvPreviewLayer:showLayer()
+    self:playAni("BuildDotLvPreviewLayerAnim");
+    CBaseLayer.showLayer(self);
+end
+
+--退出按钮事件
+function BuildDotLvPreviewLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function BuildDotLvPreviewLayer:onExit()
+
+    self._buildData = nil;
+    self._dotItems = nil;
+    self._pointItems = nil;
+    self._dotCfg = nil;
+    self._selectDotItem = nil;
+
+	self._txtCurLvDes = nil;
+	self._txtPointExpendNum = nil;
+	self._objPoint = nil;
+	self._objDotItem = nil;
+	self._transBtnParent = nil;
+	self._transPointLvBg = nil;
+	self._transSelect = nil;
+	self._rectBtnDotBg = nil;
+	self._rectBtnParent = nil;
+	self._txtPointName = nil;
+	--@CloseEnd
+    Build:SetCutBuildTypeTogState(true);
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuildDotLvPreviewLayer:OnBtnResetClick()
+    self._expendPointNum = 0;
+    for _, data in pairs(self._allDotData) do
+        data.addLv = 0;
+        data.allLv = data.addLv + data.heroAddLv;
+    end
+    self._curDotAddData = self._allDotData[self._curDotId];
+    self:SetDotUI();
+    self:SetExpendTxt();
+    self:OnBtnDotItemClick();
+end
+
+function BuildDotLvPreviewLayer:OnBtnMinusClick()
+    if(self._curDotAddData.addLv > 0)then
+        self._expendPointNum = self._expendPointNum - 1;
+        self._curDotAddData.addLv = self._curDotAddData.addLv - 1;
+        self._curDotAddData.allLv = self._curDotAddData.addLv + self._curDotAddData.heroAddLv;
+        self:SetPointItem(self._pointItems[self._curDotAddData.allLv + 1]);
+        self:SetExpendTxt();
+        self:SetDotItemLv(self._selectDotItem);
+        self:SetSelectDotInfo();
+    end
+end
+
+function BuildDotLvPreviewLayer:OnBtnAddClick()
+    if(self._curDotAddData.allLv < self._curDotPointMaxNum)then
+        self._expendPointNum = self._expendPointNum + 1;
+        self._curDotAddData.addLv = self._curDotAddData.addLv + 1;
+        self._curDotAddData.allLv = self._curDotAddData.addLv + self._curDotAddData.heroAddLv;
+        self:SetPointItem(self._pointItems[self._curDotAddData.allLv],true);
+        self:SetExpendTxt();
+        self:SetDotItemLv(self._selectDotItem);
+        self:SetSelectDotInfo();
+    end
+end
+
+function BuildDotLvPreviewLayer:OnBtnDotItemClick()
+    self._isCutDotId = true;
+    self._curDotId = self._selectDotItem.dotId;
+    self._transSelect:SetParent(self._selectDotItem.transform,true);
+    self._transSelect:SetPosition(0,0,0,true);
+    self._transSelect:SetAsFirstSibling();
+    self:UpdateDotData();
+    self:SetCurDotPointUI();
+    self:SetSelectDotInfo();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+--[[function BuildDotLvPreviewLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end]]--
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function BuildDotLvPreviewLayer:SetSelectImgPos()
+    local posX = self._dotItemScrollWidth - self._selectDotItem.rect:GetAnchoredPositionX() - DotItemWidth * 0.5;
+    if(posX < 0)then
+        self._rectBtnParent:DOAnchorPosX(posX,0.2);
+    end
+end
+
+--设置构筑点消耗UI
+function BuildDotLvPreviewLayer:SetExpendTxt()
+    self._txtPointExpendNum:SetText("x"..self._expendPointNum);
+end
+
+--设置构筑点UI
+function BuildDotLvPreviewLayer:SetDotUI()
+    for _, dotId in ipairs(self._buildData.dotIds) do
+        if(self._dotItems[_] == nil)then
+            self._dotItems[_] = self:NewDotItem();
+        end
+        self:SetDotItem(_,dotId);
+        if(dotId == self._curDotId)then
+            self._selectDotItem = self._dotItems[_];
+        end
+    end
+    if(#self._dotItems > #self._buildData.dotIds)then
+        for i = #self._buildData.dotIds + 1, #self._dotItems do
+            self._dotItems[i]:Visible(false);
+        end
+    end
+end
+
+function BuildDotLvPreviewLayer:NewDotItem()
+    local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objDotItem,self._transBtnParent));
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.rect = cls.transform:GetComponent("RectTransform");
+    cls.transBg = cls:Find("img_icon_bg");
+    cls.txtLv = cls:GetTextComponent("txt_lv");
+    cls.txtName = cls:GetTextComponent("txt_name");
+    cls.btn = cls.transform:GetComponent("Button");
+    cls.btn.onClick:AddListener(function ()
+        if(self._selectDotItem == cls)then
+            return;
+        end
+        self._selectDotItem = cls;
+        self:OnBtnDotItemClick();
+    end);
+    return cls;
+end
+
+function BuildDotLvPreviewLayer:SetDotItem(index,dotId)
+    local cls = self._dotItems[index];
+    cls:Visible(true);
+    cls.dotId = dotId;
+    cls.addData = self._allDotData[dotId];
+
+    --配置信息  名称和icon
+    local cfg = Build:GetBuildDotCfgById(dotId);
+    local attrCfg = Build:GetBuildAttrCfgByCfgId(cfg.effectID);
+    Build:SetBuildImage(cls.imgIcon,attrCfg.iconPath);
+    cls.txtName:SetText(cfg.name);
+
+    self:SetDotItemLv(cls);
+
+end
+
+--设置构筑点等级
+function BuildDotLvPreviewLayer:SetDotItemLv(cls)
+    --等级
+    local cfg = Build:GetBuildDotCfgById(cls.dotId);
+    local curAllLv = self._allDotData[cls.dotId].allLv;
+    local lv = 0;
+    local curLv = 0;
+    for i, num in ipairs(cfg.levelGroup) do
+        curLv = curLv + num;
+        if(curAllLv >= curLv)then
+            lv = i;
+        end
+    end
+    if(cls.lv == lv)then
+        return;
+    end
+    if(not self._isCutPreview)then--构筑等级变动时，重新设置预览
+        self._isCutPreview = true;
+    end
+    cls.lv = lv;
+    cls.txtLv:SetEnabled(lv > 0);
+    if(lv > 0)then
+        cls.txtLv:SetText(uistr.com_stepstr[lv]);
+    end
+end
+
+--设置当前构筑点
+function BuildDotLvPreviewLayer:SetCurDotPointUI()
+    local curIndex = 0;
+    for lv, num in ipairs(self._dotCfg.levelGroup) do
+        for i = 1, num do
+            curIndex = curIndex + 1;
+            local cls = self._pointItems[curIndex];
+            if(cls == nil)then
+                cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objPoint,self._transPointLvBg));
+                cls.index = curIndex;
+                cls.txtLv = cls:GetTextComponent("txt_lv");
+                cls.imgIcon = cls.transform:GetComponent("Image");
+                cls.rect = cls.transform:GetComponent("RectTransform");
+                cls.effectClick = cls.transform:GetComponent("ParticleBehaviour");
+                cls.effectHero = cls:GetComponent("hero_add_effect","ParticleBehaviour");
+                cls.effectAdd = cls:GetComponent("build_add_effect","ParticleBehaviour");
+                cls.effectClick:Stop();
+                self._pointItems[curIndex] = cls;
+            end
+            cls:Visible(true);
+            cls.isBig = i == num;
+            cls.txtLv:SetEnabled(cls.isBig);
+            if(cls.isBig)then
+                cls.rect:SetSize(54,54);
+                cls.txtLv:SetText(uistr.com_stepstr[lv]);
+            else
+                cls.rect:SetSize(41,41);
+            end
+            self:SetPointItem(cls);
+        end
+    end
+
+    --关闭多余的点
+    if(curIndex < #self._pointItems)then
+        for i = curIndex + 1, #self._pointItems do
+            self._pointItems[i]:Visible(false);
+        end
+    end
+end
+
+function BuildDotLvPreviewLayer:SetPointItem(cls,isAdd)
+    if(cls.index <= self._curDotAddData.heroAddLv)then
+        Build:SetBuildImage(cls.imgIcon,Build.HeroAddLvImagePath);
+        if(cls.isBig)then
+            cls.effectHero:Play();
+        else
+            cls.effectHero:Stop();
+        end
+        cls.effectAdd:Stop();
+    elseif(cls.index <= self._curDotAddData.allLv)then
+        Build:SetBuildImage(cls.imgIcon,Build.AddLvImagePath);
+        if(cls.isBig)then
+            cls.effectAdd:Play();
+        else
+            cls.effectAdd:Stop();
+        end
+        cls.effectHero:Stop();
+        if(isAdd)then
+            cls.effectClick:Stop();
+            cls.effectClick:Play();
+        end
+    else
+        Build:SetBuildImage(cls.imgIcon,Build.NoAddLvImagePath);
+        cls.effectHero:Stop();
+        cls.effectAdd:Stop();
+    end
+end
+
+--设置当前构筑点的信息
+function BuildDotLvPreviewLayer:SetSelectDotInfo()
+    if(self._isCutPreview or self._isCutDotId)then
+        self._isCutDotId = false;
+        local lv = self._selectDotItem.lv;
+        local title,des =  Build:GetBuildDotDesAndTitleByLv(self._curDotId,lv);
+        self._txtPointName:SetText(title);
+        self._txtCurLvDes:SetText(des);
+    end
+    if(self._isCutPreview)then
+        Build:PlayerPreview(self._allDotData);
+        self._isCutPreview = false;
+    end
+end
+
+return BuildDotLvPreviewLayer;

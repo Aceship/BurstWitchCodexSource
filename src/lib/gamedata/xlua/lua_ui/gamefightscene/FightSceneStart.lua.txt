@@ -1,0 +1,27 @@
+--游戏开始
+function FightSceneStart()
+    AppMgr:LogInfo("FightScene Start... ")
+    CanvasMgr:SetCanvas()
+    CameraController:InitCameraController()
+    UI_Loading:EnterLoading()
+    FightController:SimpleInitFightController(Chapter:GetCurFightLevelId(), 0)
+
+end
+
+--游戏更新
+function FightSceneUpdate(dt)
+    UI_Loading:UpdateLoading(dt)
+    FightController:UpdateFightController(dt)
+end
+
+--游戏释放
+function FightSceneDestroy()
+    GTemp:SetFightTmpData(nil)
+    UIController:RemoveTimerId()
+    PlaybackLayer:PlaybackLayerDestructor()
+    UI_AutoResultLayer:AutoResultLayerDestructor()
+    UI_CommonTipsLayer:CommonTipsLayerDestructor()
+    CanvasMgr:ClearCanvas()
+    AssetLoader:UnloadAsset()
+end
+

@@ -1,0 +1,15 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 11:44:26
+-- brief : 玩家模块加载
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/player.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/player_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playersys.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playerconfig.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playerui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playervaluedef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playercache.txt")
+
+Player:Init()
+Player:_LoadConfig()

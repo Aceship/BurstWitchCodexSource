@@ -1,0 +1,779 @@
+--
+-- author: haosun
+-- date  : 2018-12-25 11:37:55
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BagLayer = class("BagLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Use             = "static/button_use",
+    Sell            = "TableViewController/button_sell",
+    Cancel          = "TableViewController/button_cancel",
+    Forge           = "static/button_forge",
+    GetProp         = "cat/info_basic/button_get_item",
+    GetEquip        = "cat/info_basic/button_get_equip",
+    BtnLock         = "cat/info_basic/button_lock_equip",
+    RealSell        = "TableViewController/button_real_sell",
+}
+
+local line_nums = 5
+local dis_items = 198
+local min_height = 850
+
+function BagLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_BagNewLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_MAIN,
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true
+    self.cells      = {};
+    self._showtype = -1
+    self:onEnter()
+end
+
+function BagLayer:initObj()
+    self._tvController  = UIController:CtorTableView(self.layer:Get("TableViewController"))
+    self._rectTv        = self.layer:GetRectTransformComponent("TableViewController/TableView")
+    self._rectContent   = self.layer:GetRectTransformComponent("TableViewController/TableView/Content")
+    self._emptyObj      = self.layer:Get("cat/image_empty")
+    self._attrCObjArr   = CAttr:NewAttrObjArr(self.layer:Get("cat/info_basic/info_equip"), 5)
+    self._imgEquipNum   = self.layer:Get("cat/img_equip_num");
+    self._txtEquipNum   = self._imgEquipNum:GetTextComponent("txt_num");
+    self._belongArr     = Equip:InitBelongTypes(self.layer:Get("cat/info_basic/info_equip"))
+    self._showTypesObj = {}
+    for _, v in pairs(Bag.SHOW_TYPES) do
+        self._showTypesObj[v] = self.layer:GetMToggleComponent("obj_tog_bg/show_type_" .. v)
+    end
+end
+
+function BagLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:registerOtherButtonEvent()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BAG_SELL,
+        function(items)
+            self:onSellRep(items)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BAG_USE,
+        function(cfgid)
+            self:onUseRep(cfgid)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.EQUIP_LOCK_START_CHANGE,
+            function(uid)
+                self._datas = Bag:GetItemsByShowType(self._showtype)
+                local equip = Equip:GetEquip(uid)
+                set_obj_active(self.selectItem.imgLock,equip.lock == Equip.EquipLockStart.Lock);
+                if(self.selectEquipLock ~= tonumber(equip.lock))then
+                    self.selectEquipLock = tonumber(equip.lock);
+                    if(self.selectEquipLock == Equip.EquipLockStart.UnLock)then
+                        self.infoBasic.txtLock:SetTextById(40037);
+                        self.infoBasic.txtLockE:SetTextById(40038);
+                        self.infoBasic.imgLock.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.COM_RES, "Common_Btn_Kuan_1")
+                        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(40040))
+                    else
+                        self.infoBasic.txtLock:SetTextById(40035);
+                        self.infoBasic.txtLockE:SetTextById(40036);
+                        self.infoBasic.imgLock.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.COM_RES, "Common_Btn_Kuan_3")
+                        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(40039))
+                    end
+                end
+            end)
+    self.selectItemNum = 0;
+    self.selectEquipLock = -1;
+    self:registerFilter()
+    -- 刘海适配：修改大小
+    CS.UnityHelper.NotchfitY(self.layer, 0, true)
+end
+
+function BagLayer:show(showtype)
+    self._fading = false
+    self._shownum = 0
+    self._onsell = false
+    self:onTypeClick(showtype, true, true)
+    self._showTypesObj[showtype].isOn = true
+    self:showLayer()
+    self:playAni("BagNewLayerAni")    
+end
+
+function BagLayer:hideobj()
+    self.infoBasic.btnGetEquip:SetVisible(false)
+    self.infoBasic.btnGetItem:SetVisible(false)
+    self.infoBasic.transform:SetVisible(false)
+    self.btnUse:SetVisible(false)
+    self.btnSell:SetVisible(false)
+    self.infoDesc:SetVisible(false)
+    self.btnForge:SetVisible(false)
+end
+
+function BagLayer:registerOtherButtonEvent()
+    for _, v in pairs(Bag.SHOW_TYPES) do
+        self._showTypesObj[v].onValueChanged:AddListener(function (isOn)
+            if isOn then
+                self:onTypeClick(v, isOn, false)
+            end
+        end)
+    end
+end
+
+function BagLayer:onBackClick()
+    if(self._onsell)then
+        self.selectItemNum = 0;
+        self:onSellUi(false, true)
+        self:onItemClick(1)
+        return;
+    end
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        self:onPopLayer()
+    end)
+end
+
+function BagLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.Use then
+        self:openUseLayer()
+
+    elseif itype == BUTTON_TYPE.Forge then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_equip) then
+            return
+        end
+        core.require("xlua/lua_UI/UIEquip/EquipIntensifyLayer.txt"):new(self._datas[self._showidx].id):show(
+            function ()
+                self:refreshEquipForgeCallback(self._datas[self._showidx].id)
+            end)
+    elseif itype == BUTTON_TYPE.Sell then
+        if #self._datas > 0 then
+            self:onSellUi(true, true)
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(4002800 + self._showtype))
+        end
+
+    elseif itype == BUTTON_TYPE.Cancel then
+        self.selectItemNum = 0;
+        self:onSellUi(false, true)
+        self:onItemClick(1)
+
+    elseif itype == BUTTON_TYPE.RealSell then
+        if next(self._sellitems) == nil then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(4002700 + self._showtype))
+        else
+            self:showSellLayer();
+        end
+    elseif itype == BUTTON_TYPE.GetProp then
+        Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,self._datas[self._showidx].id, nil)
+
+    elseif itype == BUTTON_TYPE.GetEquip then
+        local equip = Equip:GetEquip(self._datas[self._showidx].id)
+        Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,equip.cfgid, Bag.TYPE_EQUIP)
+    elseif(itype == BUTTON_TYPE.BtnLock)then
+        if(self._onsell)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(40041))
+            return;
+        end
+        Equip:SetEquipLockStartReq(self._selectData.id);
+    end
+end
+
+function BagLayer:onTypeClick(showtype, change, enter)
+    if self._showtype == showtype then
+        return
+    end
+    self._showtype = showtype
+    self.selectItemNum = 0
+
+    self._isequip = self._showtype == Bag.SHOW_TYPE_RUNE
+    if(self.infoProp == nil)then
+        self.infoProp = self.layer:Get("cat/info_prop/view_port/content");
+        self.propObj = self.layer:Get("cat/info_prop")
+        self.infoDesc = self.layer:Get("cat/info_desc");
+        self.txtDesc = self.layer:GetTextComponent("cat/info_desc/text_desc");
+        self.btnSell = self.layer:Get("TableViewController/button_sell");
+        self.btnForge = self.layer:Get("static/button_forge");
+        self.btnUse = self.layer:Get("static/button_use");
+        self.btnCancel = self.layer:Get("TableViewController/button_cancel");
+        self.infoBasic = {
+            transform = self.layer:Get("cat/info_basic"),
+            has = self.layer:Get("cat/info_basic/info_has"),
+            btnGetEquip = self.layer:Get("cat/info_basic/button_get_equip");
+            btnGetItem = self.layer:Get("cat/info_basic/button_get_item");
+            infoEquip = self.layer:Get("cat/info_basic/info_equip"),
+            imgIcon = self.layer:Get("cat/info_basic/image_icon"),
+            txtLv = self.layer:GetTextComponent("cat/info_basic/info_equip/text_level"),
+            txtCount = self.layer:GetTextComponent("cat/info_basic/info_has/text_count"),
+            txtQlty = self.layer:GetTextComponent("cat/info_basic/image_qlty/text_qlty"),
+            imgQlty = self.layer:Get("cat/info_basic/image_qlty"),
+            txtName = self.layer:GetTextComponent("cat/info_basic/text_name"),
+            txtLock  = self.layer:GetTextComponent("cat/info_basic/button_lock_equip/txt_title"),
+            txtLockE = self.layer:GetTextComponent("cat/info_basic/button_lock_equip/txt_title_E"),
+            btnLock =  self.layer:Get("cat/info_basic/button_lock_equip");
+            imgLock = self.layer:GetImageComponent("cat/info_basic/button_lock_equip")
+        };
+        self.infoSell = {
+            transform = self.layer:Get("static/info_sell"),
+            btnSell = self.layer:Get("TableViewController/button_real_sell"),
+            btnFilter = self.layer:Get("TableViewController/fillter"),
+            circle1 = self.layer:Get("static/info_sell/img_circle_1");
+            circle2 = self.layer:Get("static/info_sell/img_circle_2");
+            bg = self.layer:Get("TableViewController/img_sellbg")
+        };
+    end
+
+    set_obj_active(self.propObj, self._isequip)
+    set_obj_active(self.infoDesc, not self._isequip)
+    set_obj_active(self.infoBasic.has, not self._isequip)
+    set_obj_active(self.infoBasic.btnGetEquip, self._isequip)
+    set_obj_active(self.infoBasic.btnGetItem, not self._isequip)
+    set_obj_active(self.infoBasic.btnLock,self._isequip);
+    self:dataGen()
+    if true == change then
+        self:onSellUi(false, false, enter)
+        self:onItemClick(1)
+    end
+end
+
+function BagLayer:dataGen()
+    self._datas = Bag:GetItemsByShowType(self._showtype)
+    if(self.txtEmpty == nil)then
+        self.txtEmpty = self._emptyObj:GetTextComponent("text_empty");
+        self.txtEmpty2 = self._emptyObj:GetTextComponent("Text");
+    end
+    local emptyId = self._showtype;
+    if(self._showtype == -1)then
+        emptyId = 1;
+    end
+    self._txtEquipNum.text = string.format(LanguageMgr:GetTextByID(40002),Equip:GetEquipNum())..Equip.MAX_EQUIP_NUM
+    self.txtEmpty:SetTextById(40010+emptyId);
+    self.txtEmpty2:SetTextById(40010+emptyId);
+    set_obj_active(self._emptyObj, #self._datas == 0)
+    local num = #self._datas
+    self._selectData = self._datas[1];
+    self._shownum = math.max(num, self._shownum)
+    local rows = math.ceil(num/line_nums)
+    if not self._initTableViewController then
+        self._initTableViewController = true
+        self._tvController:Init(rows, true,
+            function(cell, row)
+                self:refreshUnitCell(cell, row)
+            end, 0.3, 0.1)
+    else
+        self._tvController:Reload(rows)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function BagLayer:refreshUnitCell(cell, row)
+    if(self.cells[cell] == nil)then
+        self.cells[cell] = {
+            items = {};
+        };
+    end
+    local data
+    for i = 1, line_nums, 1 do
+        local index = row * line_nums + i
+        data = self._datas[index]
+        local cls = self.cells[cell].items[i]
+        if cls == nil then
+            cls = Bag:CtorGoodsUi(cell.transform:Find("prefab_" .. i))
+            cls.imgDark = cls:Find("image_dark");
+            cls.imgRed  = cls:Find("image_red");
+            cls.btn     = cls:GetComponent("button_click", "Button");
+            cls.imgLock = cls:Find("img_lock");
+            cls.index = index;
+            cls.btn.onClick:AddListener( function()
+                self:onItemClick(cls.index)
+                self._selectData = self._datas[cls.index]
+            end)
+            self.cells[cell].items[i] = cls;
+        end
+        cls:Visible(data ~= nil)
+        if data ~= nil then
+            cls.index = index
+            set_obj_active(cls.imgDark, (not data.cansell) and self._onsell)
+            if data.itype == Bag.TYPE_ITEM then
+                Bag:SetComSimpleGoodsUi(cls.clsbag, data.itype, data.id, data.count)
+                Equip:HideEquipCObj(cls)
+                local cfg = Item:GetCfg(data.id)
+                set_obj_active(cls.imgRed, false)
+            elseif data.itype == Bag.TYPE_EQUIP then
+                Equip:SetEquipCObjByUid(cls, data.id)
+                set_obj_active(cls.imgRed, false)
+            end
+            self:refreshItem(cls, index)
+        end
+    end
+end
+
+function BagLayer:refreshItem(item, index)
+    local str_count = ""
+    if(self._datas[index] ~= nil and self._datas[index].itype == Bag.TYPE_EQUIP)then
+        local equip = Equip:GetEquip(self._datas[index].id)
+        set_obj_active(item.imgLock,equip.lock == Equip.EquipLockStart.Lock);
+    else
+        set_obj_active(item.imgLock,false);
+    end
+    if self._onsell then
+        local data = self._sellitems[index]
+        set_com_enabled(item.clsbag.checkCom, data ~= nil)
+        if data ~= nil and data.max > 1 then
+            str_count = data.count .. "/" .. data.max
+        else
+            if self._datas[index] ~= nil and self._datas[index].count > 1 then
+                str_count = self._datas[index].count
+            end
+        end
+    else
+        set_com_enabled(item.clsbag.checkCom, index == self._showidx)
+        if(index == self._showidx)then
+            self.selectItem = item;
+        end
+        if self._datas[index] ~= nil and self._datas[index].itype == Bag.TYPE_ITEM then
+            str_count = self._datas[index].count
+            set_obj_active(item.imgLock,false);
+        end
+    end
+    set_com_enabled(item.clsbag.numCom, str_count ~= "")
+    item.clsbag.numCom.text = str_count
+end
+
+function BagLayer:refreshCheckItems()
+    local rows = math.ceil(self._shownum/line_nums)
+    local cellObj, realindex
+    for row = 0, rows-1, 1 do
+        cellObj = self._tvController:GetCellAtRow(row)
+        if cellObj ~= nil then
+            for i = 1, line_nums, 1 do
+                realindex = row * line_nums + i
+                self:refreshItem(self.cells[cellObj].items[i], realindex)
+            end
+        end
+    end
+end
+
+local selectItemNumMax = 50;
+function BagLayer:onItemClick(index)
+    self:setCurrIndex(index)
+    if self._onsell then
+        if self._sellitems[index] ~= nil then
+            self._sellitems[index] = nil
+            self.selectItemNum = self.selectItemNum - 1
+        else
+            if(self.selectItemNum >= selectItemNumMax)then
+                Groble_UIMgr:ShowGameWordTipsLayer(40001);
+                return;
+            end
+            self.selectItemNum = self.selectItemNum + 1
+            local data = self._datas[index]
+            if not data.cansell then
+                Groble_UIMgr:ShowGameWordTipsLayer(4002600 + self._showtype)
+                return
+            end
+
+            if self._isequip then
+                self._sellitems[index] = {
+                    itype = data.itype,
+                    id = data.id,
+                    count = 1,
+                    max = 1
+                }
+            else
+                local max = 1
+                local cfg = Item:GetCfg(data.id)
+                if tonumber(cfg.countmax) ~= Bag.SHOW_MIN then
+                    max = Item:GetCount(data.id)
+                end
+                self._sellitems[index] = {
+                    id = data.id,
+                    count = 1,
+                    max = max
+                }
+                if max > 1 then
+                    local params = {
+                        max = max,
+                        callback = function(number)
+                            self._sellitems[index].count = number
+                            if 0 == number then
+                                self._sellitems[index] = nil
+                            end
+                            self:refreshCheckItems()
+                        end,
+                        mode = "number"
+                    }
+                    Groble_UIMgr:ShowNumberLayer(params)
+                end
+            end
+        end
+    end
+    self:refreshCheckItems()
+end
+
+function BagLayer:setCurrIndex(index)
+    self._showidx = index
+    local data = self._datas[self._showidx]
+
+    set_obj_active(self.infoBasic.transform, data ~= nil)
+    set_obj_active(self.infoDesc, data ~= nil and (not self._isequip))
+    set_obj_active(self.propObj, data ~= nil and self._isequip)
+    if data ~= nil then
+        set_obj_active(self.infoBasic.has, false)
+        set_obj_active(self.infoBasic.infoEquip, self._isequip)
+        self:setInfoBasic(data)
+    else
+        set_obj_active(self.btnSell, false)
+        set_obj_active(self.btnForge, false)
+    end
+end
+
+function BagLayer:setInfoBasic(data)
+    local canuse, qlty, cfg = false
+    local showSell = true;
+    if self._isequip then
+        local equip = Equip:GetEquip(data.id)
+        cfg = Equip:GetCfg(equip.cfgid)
+        qlty = tonumber(cfg.Quality)
+        self.infoBasic.txtName.text = cfg.Name
+        if(self.selectEquipLock ~= tonumber(equip.lock))then
+            self.selectEquipLock = tonumber(equip.lock);
+            if(self.selectEquipLock == Equip.EquipLockStart.UnLock)then
+                self.infoBasic.txtLock:SetTextById(40037);
+                self.infoBasic.txtLockE:SetTextById(40038);
+                self.infoBasic.imgLock.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.COM_RES, "Common_Btn_Kuan_1")
+            else
+                self.infoBasic.txtLock:SetTextById(40035);
+                self.infoBasic.txtLockE:SetTextById(40036);
+                self.infoBasic.imgLock.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.COM_RES, "Common_Btn_Kuan_3")
+            end
+        end
+        Equip:SetIconUi(self.infoBasic.imgIcon, cfg.itemPath,tonumber(cfg.FSicon))
+        Equip:SetEquipAttr(self._attrCObjArr, equip , true)
+        self.infoBasic.txtLv.text = equip.level
+        if(self.equipProp == nil)then
+            self.equipProp = Equip:NewEquipProp(self.infoProp);
+        end
+        Equip:SetEquipProp(self.equipProp, equip,true)
+       -- Equip:EquipBelongTypes(self._belongArr, equip.cfgid)
+    else
+        cfg = Item:GetCfg(data.id)
+        if(tonumber(cfg.itemType) == Bag.SHOW_TYPE_RUNE)then
+            showSell = false;
+        end
+        qlty = tonumber(cfg.Quality)
+        self.txtDesc.text = lua_color_str(cfg.itemInfo)
+        if tonumber(cfg.countmax) ~= Bag.SHOW_MIN then
+            self.infoBasic.has:SetVisible(true)
+            self.infoBasic.txtCount.text = math.wTally(Item:GetCount(data.id))
+        end
+        self.infoBasic.txtName.text = cfg.Name
+        Item:SetItemIcon(self.infoBasic.imgIcon, data.id)
+        canuse = tonumber(cfg.itemuse) == Item.USE_TYPE_NORMAL or tonumber(cfg.itemuse) == Item.USE_TYPE_OPTIONAL
+    end
+    set_obj_active(self.btnUse, canuse)
+    set_obj_active(self.btnSell, showSell)
+    Hero:SetHeroQlty(self.infoBasic.imgQlty ,qlty)
+end
+
+function BagLayer:openUseLayer()
+    local data = self._datas[self._showidx]
+    if data == nil then
+        return
+    end
+    local cfg = Item:GetCfg(data.id);
+    if(tonumber(cfg.itemuse) == Item.USE_TYPE_OPTIONAL)then
+        Groble_UIMgr:ShowOptionalLayer(data.id,function (id,num,index)
+            self:onUseReq(id,num,index)
+        end);
+    else
+        if(data.count == 1)then
+            self:onUseReq(data.id, 1);
+            return;
+        end
+        local params = {
+            max = data.count,
+            callback = function(number)
+                self:onUseReq(data.id, number)
+            end,
+            mode = "use"
+        }
+        Groble_UIMgr:ShowNumberLayer(params)
+    end
+end
+
+function BagLayer:onUseReq(cfgid, number,index)
+    if number > 0 then
+        Item:ItemUseReq(cfgid, number,index)
+    end
+end
+
+function BagLayer:onUseRep(cfgid)
+    local cfg = Item:GetCfg(cfgid)
+
+    self:dataGen()
+    if Item:GetCount(cfgid) > 0 and tonumber(cfg.countmax) ~= 1 then
+        self:onItemClick(self._showidx)
+    else
+        if #self._datas > 0 then
+            self:onItemClick(1)
+        else
+            self:hideobj()
+        end
+    end
+end
+
+function BagLayer:refreshEquipForgeCallback(uid)
+    self:dataGen()
+    local idx = 1
+    for i, v in ipairs(self._datas) do
+        if v.id == uid then
+            idx = i
+            break
+        end
+    end
+    self._showidx = idx
+    self:onItemClick(idx)
+end
+
+function BagLayer:onSellUi(issell, playani, enter)
+    self._onsell = issell
+    if true == self._onsell then
+        table.sort(self._datas, function(a, b)
+            local asortid = a.sortid
+            if not a.cansell then
+                asortid = asortid + 10^10
+            end
+            local bsortid = b.sortid
+            if not b.cansell then
+                bsortid = bsortid + 10^10
+            end
+            return asortid < bsortid
+        end)
+    else
+        table.sort(self._datas, function(a, b)
+            if a.id == Player.ITEM_RON then
+                return true
+            elseif b.id == Player.ITEM_RON then
+                return false
+            end
+            return a.sortid > b.sortid
+        end)
+    end
+    self.infoSell.bg:SetVisible(issell)
+    self.infoSell.circle1:SetVisible(issell)
+    self.infoSell.circle2:SetVisible(issell)
+    self._sellitems = {}
+    self:setButtons(playani)
+    if not enter then
+        local num = #self._datas
+        local rows = math.ceil(num/line_nums)
+        self._tvController:Reload(rows)
+        self._tvController:ScrollToTop()
+    end
+
+    for i =1, 4 do
+        self._toggles[i].isOn = false
+    end
+end
+
+function BagLayer:setButtons(playani)
+    local show = self._isequip and (not self._onsell)
+    set_obj_active(self.btnForge, show)
+    set_obj_active(self.btnUse, false)
+    set_obj_active(self.btnSell, not self._onsell)
+    set_obj_active(self.btnCancel, self._onsell)
+    set_obj_active(self.infoSell.btnSell, self._onsell)
+    if playani then
+
+        if self._onsell then
+            set_obj_active(self.infoSell.transform, self._onsell)
+            if(self._isequip)then
+                set_obj_active(self._imgEquipNum,false);
+            end
+        else
+            set_obj_active(self._imgEquipNum,self._isequip);
+        end
+    else
+        set_obj_active(self._imgEquipNum, self._isequip);
+        set_obj_active(self.infoSell.transform, self._onsell)
+    end
+    --set_obj_active(self._imgEquipNum,self._isequip);
+    set_obj_active(self.infoSell.btnFilter, self._onsell and self._isequip)
+end
+
+function BagLayer:checkSellItems()
+    if self._isequip then
+        local showTipsType = 0
+        for _, v in pairs(self._sellitems) do
+            local equip = Equip:GetEquip(v.id)
+            if equip.level > 1 then
+                showTipsType = showTipsType | 1
+            end
+            if equip.qlty >= Bag.QLTY_SSR then
+                showTipsType = showTipsType | 2
+            end
+        end
+        if showTipsType > 0 then
+            Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(4002900 + showTipsType),
+            function()
+                self:onSellReq()
+            end, nil, true)
+        else
+            self:onSellReq()
+        end
+    else
+        self:onSellReq()
+    end
+end
+
+function BagLayer:showSellLayer()
+    local items = {}
+    if self._isequip then
+        local coin = 0
+        local exp = 0
+        local equip_coin = 0
+        local equip_money = 0
+        for _, v in pairs(self._sellitems) do
+            local data = Equip:GetSellCoinExp(v.id)
+            coin = coin + data.coin
+            exp = exp + data.exp
+            equip_coin = equip_coin + data.equip_coin
+            equip_money = equip_money + data.equip_money
+        end
+        table.insert(items, {Bag.TYPE_ITEM, Player.ITEM_VALUE_COIN, coin})
+        if equip_coin > 0 then
+            table.insert(items, {Bag.TYPE_ITEM, Player.ITEM_VALUE_EQUIP_COIN, equip_coin})
+        end
+        if equip_money > 0 then
+            table.insert(items, {Bag.TYPE_ITEM, Player.ITEM_VALUE_EQUIP_MONEY, equip_money})
+        end
+        if exp > 0 then
+            local tbl = Player:GetEquipExpItems()
+            while exp > 0 do
+                local find = false
+                for _, v in ipairs(tbl) do
+                    if exp >= v.exp then
+                        find = true
+                        local num = math.floor(exp/v.exp)
+                        exp = exp - v.exp * num
+                        table.insert(items, {Bag.TYPE_ITEM, v.cfgid, num})
+                        break
+                    end
+                end
+                if false == find then
+                    exp = 0
+                end
+            end
+        end
+        local params = {
+            layer = self.layer,
+            items = items,
+            callback = function()
+                self:checkSellItems();
+            end
+        }
+        Groble_UIMgr:ShowSellLayer(params)
+        return
+    else
+        items = Item:SellGetItems(self._sellitems)
+    end
+    local params = {
+        layer = self.layer,
+        items = items,
+        callback = function()
+            self:onSellReq(items)
+        end
+    }
+    Groble_UIMgr:ShowSellLayer(params)
+end
+
+function BagLayer:onSellReq(items)
+    if self._isequip then
+        local uids = {}
+        for _, v in pairs(self._sellitems) do
+            local equip = Equip:GetEquip(v.id)
+            table.insert(uids, v.id)
+        end
+        Equip:SellReq(uids)
+    else
+        Item:ItemSellReq(Item:Sell2Server(self._sellitems))
+    end
+end
+
+function BagLayer:onSellRep(items)
+    self:dataGen()
+    self:onSellUi(false)
+    self:onItemClick(1)
+    self.selectItemNum = 0;
+
+    local arr = {};
+    for k, v in pairs(items) do
+        table.insert(arr, { Bag.TYPE_ITEM, tonumber(k), tonumber(v)});
+    end
+    SingletonMgr:ShowGetTipsLayer(arr);
+end
+
+function BagLayer:registerFilter()
+    self._toggles = {}
+    for i = 1 ,4 do
+        self._toggles[i] = self.layer:GetToggleComponent("TableViewController/fillter/toggle_"..i)
+        self._toggles[i].isOn = false
+        self._toggles[i].onValueChanged:AddListener(
+                function(isOn)
+                    if(isOn)then
+                        self:showFilterLayer()
+                    end
+        end)
+    end
+end
+
+
+function BagLayer:showFilterLayer()
+   local tbl = {}
+    for i =1,4 do
+        tbl[i] =  self._toggles[i].isOn
+    end
+    local isNew = false
+    for i, v in pairs(self._sellitems) do
+        local equip = Equip:GetEquip(v.id)
+        if not tbl[equip.qlty] then
+            self._sellitems[i] = nil
+            self.selectItemNum = self.selectItemNum - 1;
+            isNew = true
+        end
+    end
+    for i = 1, self._shownum do
+        if(self._datas[i] ~= nil and self._datas[i].cansell)then
+            if self._sellitems[i] == nil then
+                local equip = Equip:GetEquip(self._datas[i].id)
+                if(self.selectItemNum >= selectItemNumMax)then
+                    break ;
+                end
+                if equip.level == 1 and tbl[equip.qlty] then
+                    self._sellitems[i] = {
+                        itype = self._datas[i].itype,
+                        id = self._datas[i].id,
+                        count = 1,
+                        max = 1
+                    }
+                    self.selectItemNum = self.selectItemNum + 1;
+                    isNew = true
+                end
+            end
+        end
+    end
+    if isNew then
+        self:refreshCheckItems()
+    end
+
+end
+
+return BagLayer
+

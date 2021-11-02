@@ -1,0 +1,139 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchHeroLayer = class("WitchHeroLayer", CBaseLayer)
+
+local TogUiPath = {
+    [1] = "xlua/lua_UI/Witch/WitchHeroSkillLayer.txt",
+    [2] = "xlua/lua_UI/Witch/WitchHeroDetailLayer.txt",
+}
+
+function WitchHeroLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchHeroLayer",
+    }
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._btnBackPath = "static/button_back";
+    self._showtype = 2
+    self._addStack = true
+    self._hideOtherLayer = true
+
+    self._allLayers = {}
+    self.togs = {}
+    self.togIndex = 1
+    self._heorid = nil
+
+    self:onEnter()
+end
+
+function WitchHeroLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+end
+
+function WitchHeroLayer:initObj()
+
+    for i = 1, 2 do
+        self.togs[i] = {}
+        self.togs[i].tog = self.layer:GetMToggleComponent(string.format("container/obj_tog_bg/show_type_%d", i))
+        self.togs[i].tog.onValueChanged:AddListener(function (isOn)
+            self:onTogClick(isOn, i)
+        end)
+    end
+
+    self.layer:GetButtonComponent("container/button_talk"):AddButtonListener(function()
+        Comment:GetServerDataReq()
+    end)
+
+    self:addEventListener(EVENT_TYPE.COMMENT_DATA_UPDATE_OVER, self.__cname, function ()
+        Comment:LoadCache();
+        Comment:GetCommentReq();
+    end)
+
+    self:addEventListener(EVENT_TYPE.OPEN_COMMENT_LAYER, self.__cname,  function()
+        core.require("xlua/lua_UI/Comment/CommentLayer.txt"):new():show();
+    end)
+
+    self._container = self.layer:Get("trans_ui_parent")
+end
+
+function WitchHeroLayer:onTogClick(isOn, i)
+    if isOn then
+        if self.togIndex == i then
+            return
+        else
+            self.togIndex = i
+            if not self._objects[i] then
+                self._objects[i] = core.require(TogUiPath[i]):new(self._container)
+                self._objects[i]:show(self._heorid)
+            else
+                self._objects[i]:showLayer()
+            end
+        end
+    else
+        if(self._objects[i] ~= nil)then
+            self._objects[i]:onToggleChage();
+        end
+    end
+end
+
+function WitchHeroLayer:show(heroid)
+    self._heorid = tonumber(heroid)
+    self._fading = false
+    self:showLayer()
+    self:showSelfLayer(heroid)
+    self._objects[1] = core.require(TogUiPath[1]):new()
+    self._objects[1]:show(self._heorid)
+    self.togs[1].tog.isOn = true
+end
+
+function  WitchHeroLayer:showSelfLayer(heroid)
+    self._hero = Hero:GetHero(heroid)
+
+    Comment:SetCommentData(Comment.CommentMod.MODULE_HERO, heroid, 1);
+
+    Comment:GetModeCommentNumReq(function ()
+    end, false);
+
+    -- Comment:SetCommentData(Comment.CommentMod.MODULE_HERO, heroid, 1);
+    -- Comment:SetCommentNumText(self._txtCommentNum, heroid);
+end
+
+function WitchHeroLayer:onBackClick()
+    local function callback()
+        self:onPopLayer()
+        callback = nil
+    end
+    uimgr:ShowInterimLayer(CTime.delayTime, callback)
+end
+
+
+function WitchHeroLayer:onExit()
+    for _, v in pairs(self._allLayers) do
+        v:onBackClick()
+    end
+    for i = 1, 2 do
+        self.togs[i].tog = nil
+    end
+    self._prefab = nil
+    self._bgData = nil
+    self._topData = nil
+    self._btnBackPath = nil
+    self._showtype = nil
+    self._addStack = nil
+    self._hideOtherLayer = nil
+    self.togs = nil
+    self.togIndex = nil
+    self._heorid = nil
+    CBaseLayer.onExit(self)
+end
+
+return WitchHeroLayer

@@ -1,0 +1,379 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-15 17:43:50
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BabelLayer = class("BabelLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnTask = "trans_container/btn_task",
+	BtnRule = "trans_container/btn_rule",
+	BtnAwardGet = "trans_container/trans_lv_info/btn_award_get",
+	--@ButtonEnd
+}
+
+--关卡点击类型
+local openType = {
+    open = 1,--开放
+    unOpen = 2,--未开放(时间控制)
+    lock = 3,--未解锁(开放等级控制)
+}
+
+--构造函数
+function BabelLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_BabelLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_BABEL,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function BabelLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/title_bg"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_lv_info"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_top_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/btn_rule"))
+end
+
+--按钮事件
+function BabelLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnTask)then
+	   self:OnBtnTaskClick();
+    elseif(itype == BTNS.BtnRule)then
+	   self:OnBtnRuleClick();
+    elseif(itype == BTNS.BtnAwardGet)then
+	   self:OnBtnAwardGetClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+
+
+end
+
+--退出按钮事件
+function BabelLayer:onBackClick()
+    Ether:InitData();
+    Chapter:ClearJumpChapterLevel();
+    self:onPopLayer();
+end
+
+--初始化
+function BabelLayer:Init()
+    self:SetData();
+    self:InitUI();
+end
+
+--初始化UI
+function BabelLayer:InitUI()
+
+    self._imgTaskRed = self.layer:GetImageComponent("trans_container/btn_task/img_task_red");
+    self._imgGetIcon = self.layer:GetImageComponent("trans_container/trans_lv_info/btn_award_get/img_get_icon");
+    --@ImageEnd
+
+    self._txtTitleDes = self.layer:GetTextComponent("trans_container/title_bg/txt_title_des");
+    self._txtAllLv = self.layer:GetTextComponent("trans_container/trans_lv_info/txt_all_lv");
+    self._txtRecordLv = self.layer:GetTextComponent("trans_container/trans_lv_info/txt_record_lv");
+    self._txtUnGetTitle = self.layer:GetTextComponent("trans_container/trans_lv_info/btn_award_get/img_unget_icon/txt_unget_title");
+    --@TextEnd
+
+    self._transLevelParent = self.layer:Get("trans_container/truans_level_bg/item_bg/view_port/Content");
+    self._transUngetIcon = self.layer:Get("trans_container/trans_lv_info/btn_award_get/img_unget_icon");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objLevelItem = self.layer:Get("trans_container/item_hide/level_item").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self:InitLevelItem();
+end
+
+--显示UI
+function BabelLayer:show()
+    self:showLayer();
+    if(Ether:GetCurChapter() ~= nil)then
+        self:OnLevelOpenBtnClick(Ether:GetCurChapter());
+    end
+    self:playAni("BabelLayerAnim");
+end
+
+function BabelLayer:showLayer()
+    self:SetTxtUI();
+    self:SetAwardUI();
+    set_com_enabled(self._imgTaskRed,Ether:GetTaskRed());
+    CBaseLayer.showLayer(self);
+end
+
+--释放
+function BabelLayer:onExit()
+    self._txtTitleDes = nil;
+    self._txtAllLv = nil;
+    self._txtRecordLv = nil;
+    self._txtUnGetTitle = nil;
+    self._imgTaskRed = nil;
+    self._imgGetIcon = nil;
+    self._transUngetIcon = nil;
+    self._objLevelItem = nil;
+    self._transLevelParent = nil;
+    self._levelItems = nil;
+    self._serverData = {};
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BabelLayer:OnBtnTaskClick()
+    core.require("xlua/lua_UI/EtherBorder/EtherTaskLayer.txt"):new():show();
+ end
+function BabelLayer:OnBtnRuleClick()
+    Ether:OpenEtherRuleTipsLayer()
+ end
+function BabelLayer:OnBtnAwardGetClick()
+    local isGet = Ether:GetCurGetLv() >= self._minAwareId.getLv and not Ether:GetAwardIsGet();
+    if(isGet)then
+        Ether:GetEtherAwardReq()
+    else
+        if(Ether:GetAwardIsGet())then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703101));
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703103));
+        end
+    end
+ end
+--@ButtonFunctionEnd
+
+function BabelLayer:OnLevelOpenBtnClick(data)
+    if(data.openState == openType.unOpen)then
+        return;
+    elseif(data.openState == openType.lock)then
+
+        return;
+    else
+        if(Ether:SetCurChapter(data))then
+            core.require("xlua/lua_UI/EtherBorder/EtherLevelLayer.txt"):new():show();
+        end
+    end
+end
+
+function BabelLayer:OnCloseInfoBtnClick(data)
+    local isSend = self:GetCloseInfoBtnState(data);
+    if(isSend)then
+        Groble_UIMgr:ShowMessageBox(true, true, LanguageMgr:GetTextByID(703073),
+                function()
+                    Ether:CloseChapterInfoReq(data.id)
+                end)
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703072));
+    end
+
+end
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BabelLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.CHAPTER_ETHER_CLOSE_INFO,function()
+        self:SetData();
+        self:SetTxtUI();
+        for i, v in ipairs(self._serverData) do
+            self:SetLevelItem(self._levelItems[i],v);
+        end
+    end);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.ETHER_AWARE_GET_RRP,function()
+        self:SetAwardUI();
+    end);
+    self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+        self:SetAwardUI();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function BabelLayer:SetData()
+    self._minAwareId = Ether:GetAllEtherAwardCfgs()[1];
+    self._serverData = {};
+    local data = Ether:GetAllLevelData();
+    self._allLv = 0;
+    for _, v in pairs(data) do
+        self._allLv = self._allLv + v.curStrategyLv;
+        table.insert(self._serverData,v);
+    end
+    table.sort(self._serverData,function (a,b)
+        return a.id < b.id;
+    end);
+end
+
+function BabelLayer:SetTxtUI()
+    self._txtRecordLv.text = string.format(LanguageMgr:GetTextByID(703006),Ether:GetHistoryLv());
+    self._txtAllLv.text = self._allLv;
+end
+
+function BabelLayer:InitLevelItem()
+    self._levelItems = {};
+    local num = math.ceil(#self._serverData / 2);
+    local rowItemNum = 2;
+    local dataIndex = 1;
+    for i = 1, num do
+        local item = CS.UnityEngine.GameObject.Instantiate(self._objLevelItem,self._transLevelParent);
+        for j = 1, rowItemNum do
+            if(self._serverData[dataIndex] == nil)then
+                item:Find("item_"..j):SetVisible(false);
+                break;
+            end
+            local cls = clsbase:new(item.transform:Find("item_"..j));
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+            cls.objLv = cls:Find("trans_lv").gameObject;
+            cls.txtLv = cls:GetTextComponent("trans_lv/txt_lv");
+            cls.txtName = cls:GetTextComponent("txt_name");
+            --cls.txtNameE = cls:GetTextComponent("txt_name_E");
+            cls.txtCloseTime = cls:GetTextComponent("img_close_time_bg/txt_close_time");
+            cls.objLock = cls:Find("trans_lock").gameObject;
+            cls.txtUnLockDes = cls:GetTextComponent("trans_lock/txt_unLock_con");
+            cls.objUnOpen = cls:Find("obj_un_open").gameObject;
+            cls.txtOpenTime = cls:GetTextComponent("obj_un_open/txt_open_time");
+            cls.btnCloseInfo = cls:GetButtonComponent("btn_close_info");
+            cls.btnOpen = cls:GetButtonComponent("img_icon");
+            cls.btnCloseInfo.onClick:AddListener(function ()
+                self:OnCloseInfoBtnClick(cls.data);
+            end);
+            cls.btnOpen.onClick:AddListener(function ()
+                self:OnLevelOpenBtnClick(cls.data);
+            end);
+            self._levelItems[dataIndex] = cls;
+            self:SetLevelItem(self._levelItems[dataIndex],self._serverData[dataIndex]);
+            dataIndex = dataIndex + 1;
+        end
+    end
+end
+
+function BabelLayer:SetLevelItem(cls,data)
+    cls.data = data;
+    cls.obj:SetVisible(data ~= nil);
+    if(data ~= nil)then
+        cls.data.openState = openType.open;
+        local cfg = Chapter:GetChapter(data.id);
+        Ether:SetIcon(cls.imgIcon,cfg.imgbg);
+        cls.txtName.text = cfg.name;
+        --cls.txtNameE.text = cfg.name_en;
+        cls.showTime = false;
+        cls.time = 0;
+        cls.txtCloseTime.transform.parent.gameObject:SetVisible(cfg.timeid ~= 0);
+        if(cfg.timeid > 0)then
+            if(not CTime:IsOpen(cfg.timeid))then
+                cls.objLv:SetVisible(false);
+                cls.btnCloseInfo.gameObject:SetVisible(false);
+                cls.objLock:SetVisible(false);
+                cls.objUnOpen:SetVisible(true);
+                local timeCfg = CTime:GetCfg(cfg.timeid);
+                cls.openTime = timeCfg.stime - CTime:GetServerTime();
+                if(cls.openTime >= 0)then
+                    cls.txtOpenTime.text = string.format(LanguageMgr:GetTextByID(703084),CTime:Time2Str(cls.openTime));
+                else
+                    cls.txtOpenTime:SetTextById(703085);
+                end
+                cls.txtCloseTime.transform.parent.gameObject:SetVisible(false);
+                cls.data.openState = openType.unOpen;
+                return;
+            end
+            cls.showTime = true;
+            cls.txtCloseTime.transform.parent.gameObject:SetVisible(true);
+            cls.time = CTime:GetCfg(cfg.timeid).etime - CTime:GetServerTime();
+            cls.txtCloseTime.text = CTime:Time2Str(cls.time);
+        else
+            cls.txtCloseTime.transform.parent.gameObject:SetVisible(false);
+        end
+        cls.objUnOpen:SetVisible(false);
+        cls.txtLv.text = data.curStrategyLv;
+        cls.btnCloseInfo.gameObject:SetVisible(self:GetCloseInfoBtnState(data));
+        if(cfg.open_level > Player:GetLevel())then
+            set_com_enabled(cls.txtCloseTime,false);
+            cls.objLock:SetVisible(true);
+            cls.objLv:SetVisible(false);
+            cls.txtUnLockDes.text = string.format(LanguageMgr:GetTextByID(703011),cfg.open_level);
+            cls.data.openState = openType.lock;
+        else
+            cls.objLock:SetVisible(false);
+            cls.objLv:SetVisible(true);
+        end
+    end
+end
+
+function BabelLayer:GetCloseInfoBtnState(data)
+    local isSend = false;
+    for _, v in pairs(data.affixs) do
+        if(v.curMaxLv ~= 0 and v.curMaxLv ~= nil)then
+            isSend = true;
+        end
+    end
+    for i, v in ipairs(data.heroIds) do
+        if(v ~= 0 and v ~= nil)then
+            isSend = true;
+            break;
+        end
+    end
+    return isSend;
+end
+
+function BabelLayer:onPerSecondUpdate()
+    for i, cls in pairs(self._levelItems) do
+        if(cls.showTime)then
+            if(cls.time > 0)then
+                cls.txtCloseTime.text = CTime:Time2Str(cls.time);
+                cls.time = cls.time - 1;
+            end
+        end
+        if(cls.openTime ~= nil)then
+            if(cls.openTime > 0)then
+                cls.txtOpenTime.text = string.format(LanguageMgr:GetTextByID(703084),CTime:Time2Str(cls.openTime));
+                cls.openTime = cls.openTime - 1;
+            end
+        end
+    end
+end
+
+function BabelLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+function BabelLayer:SetAwardUI()
+    local isGet = Ether:GetCurGetLv() >= self._minAwareId.getLv and not Ether:GetAwardIsGet();
+    self._imgGetIcon:SetVisible(isGet);
+    self._transUngetIcon:SetVisible(not isGet);
+    if(not isGet)then--无法领取
+        if(Ether:GetAwardIsGet())then--已领取
+            self._txtUnGetTitle:SetTextById(703100);
+        else
+            self._txtUnGetTitle:SetTextById(703104);
+        end
+    end
+end
+
+return BabelLayer;

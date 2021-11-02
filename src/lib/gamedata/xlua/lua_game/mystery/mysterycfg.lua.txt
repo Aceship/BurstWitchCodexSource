@@ -1,0 +1,90 @@
+--
+-- author: haosun
+-- date  : 2020-02-18 22:04:43
+-- brief : 
+--
+Mystery = Mystery or {}
+
+function Mystery:_LoadCfg()
+    self:_LoadWord()
+    self:_LoadBuff()
+    self:_LoadFloor()
+end
+
+function Mystery:_LoadWord()
+    self._mysteryWordsCfg = {}
+    local cfgs = CfgLoader:LoadCfg("MysteryWords")
+    for _, v in pairs(cfgs) do
+        self._mysteryWordsCfg[tonumber(v.id)] = {
+            level   = tonumber(v.Level),
+            name    = Language:GetTxtBuyId(v.Name),
+            nameE   = v.EnglishName,
+            desc    = Language:GetTxtBuyId(v.Desc),
+            buff    = tonumber(v.LevelBuffID),
+            icon    = v.Picture
+        }
+    end
+end
+
+function Mystery:GetMysteryWordCfg(cfgid)
+    if self._mysteryWordsCfg[cfgid] == nil then
+        CS.Logger.LogError("can't find MysteryWords cfg!!! id = {0}", cfgid)
+    end
+    return self._mysteryWordsCfg[cfgid]
+end
+
+function Mystery:_LoadBuff()
+    self._mysteryBuffsCfg = {}
+    local cfgs = CfgLoader:LoadCfg("MysteryBuff")
+    local buffid
+    for _, v in pairs(cfgs) do
+        self._mysteryBuffsCfg[tonumber(v.id)] = {
+            level   = tonumber(v.Level),
+            name    = Language:GetTxtBuyId(v.Name),
+            nameE   = v.EnglishName,
+            desc    = Language:GetTxtBuyId(v.Desc),
+            buff    = tonumber(v.LevelBuffID),
+            icon    = v.Picture,
+            target  = lua_str_split(v.Target,"&",true);--tonumber(v.Target),
+        }
+        --print("目标1 ： "..self._mysteryBuffsCfg[tonumber(v.id)].target[1].." ： 目标2 ： "..tostring(self._mysteryBuffsCfg[tonumber(v.id)].target[2]))
+
+    end
+end
+
+function Mystery:GetMysteryBuffCfg(buffid)
+    if self._mysteryBuffsCfg[buffid] == nil then
+        CS.Logger.LogError("can't find MysteryBuff cfg!!! id = {0}", buffid)
+    end
+    return self._mysteryBuffsCfg[buffid]
+end
+
+function Mystery:_LoadFloor()
+    self._mysteryFloorCfg = {}
+    local cfgs = CfgLoader:LoadCfg("RiftFloorAward")
+    local arr, id
+    for _, v in pairs(cfgs) do
+        id = tonumber(v.id)
+        self._mysteryFloorCfg[id] = {
+            award       = tonumber(v.Award),
+            week_award  = tonumber(v.Week_award),
+            words       = {}
+        }
+        if v.EmyBuff ~= "-1" then
+            arr = lua_parse_cfg(v.EmyBuff, true)
+            for i, v in ipairs(arr) do
+                table.insert(self._mysteryFloorCfg[id].words, v[1])
+            end
+        end
+        if id > Mystery.MAX_FLOOR_NUM then
+            Mystery.MAX_FLOOR_NUM = id
+        end
+    end
+end
+
+function Mystery:GetMysteryFloorCfg(floor)
+    if self._mysteryFloorCfg[floor] == nil then
+        CS.Logger.LogError("can't find RiftFloorAward cfg!!! id = {0}", floor)
+    end
+    return self._mysteryFloorCfg[floor]
+end

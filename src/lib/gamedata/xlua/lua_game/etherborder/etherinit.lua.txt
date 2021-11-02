@@ -1,0 +1,13 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/ether.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/etherdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/ethercfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/etherui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/ether_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/EtherBorder/etherdata.txt")
+
+Ether:Ctor()
+Ether:LoadCfg()

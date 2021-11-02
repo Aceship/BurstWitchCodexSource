@@ -1,0 +1,578 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-08-27 17:37:55
+---
+
+ConcertHallNode = class("ConcertHallNode", UIBaseNode)
+local BTNS = {
+    GotoSelect          = "obj_empty/uibtn_gotoSelect",
+    GetAll              = "obj_full/obj_finish/uibtn_getAll",
+    GetCurBonus         = "obj_full/obj_runing/uibtn_getCurBonus",
+    StopMusic           = "obj_full/cd/uibtn_stopMusic",
+    PlayMusic           = "obj_full/cd/uibtn_playMusic",
+    FastFinish          = "obj_full/cd/txt_leaveTime/uibtn_fastFinish",
+    Yuepu               = "obj_top/uibtn_yuepu",
+    Yueshou             = "obj_top/uibtn_yueshou",
+    Rule                = "obj_top/uibtn_rule",
+}
+local maxBonusItemCount = 8;
+local defaultHallId = 1;
+
+local statrProcess = 0.08;
+local endProcess = 0.65;
+
+local processBarWidth = 214;
+local delta = endProcess-statrProcess;
+
+local checkPlayMistakeDelta = 10;
+local playMistakeEffectTime = 6;
+
+
+local hallDefaultCamraName = "hall_default_loop";
+local hallDefaultEmptyCameraName = "hall_default_empty";
+--构造函数
+function ConcertHallNode:ctor(super, nodeGo, parentLayer)
+    UIBaseNode.ctor(self, nodeGo, parentLayer);
+    self:onEnter();
+end
+
+function ConcertHallNode:InitNode(concertBookLayer)
+    self._mainLayer = concertBookLayer;
+    self._curHallId = defaultHallId;
+    self._curConcertData = nil;
+    self._curBookConfig = nil;
+    self._needToTickCd = false;
+    self._isPaused = false;
+    Concert:EnterConcertScene(self._curHallId,true);
+end
+
+function ConcertHallNode:DoEnterHall()
+    self:ReEnterClearParam();
+    self:FlushHallState();
+    self:ReloadActor();
+    self:FlushSelectState();
+    self:FlushConcertItemProcess();
+    Concert:StopCurInstrumentIdTrack();
+
+    self:FlushConcertAllRedTips();
+end
+function ConcertHallNode:DoTick()
+    self:FlushCurCDShow();
+    self:FlushConcertItemProcess();
+    self:CheckPlayMistakeState();
+end
+
+function ConcertHallNode:FlushHallState()
+
+    local data = Concert:GetConcertById(self._curHallId);
+    if data == nil then
+        return ;
+    end
+    self._curConcertData = data;
+
+    local isEmpty = data.curBookId == 0;
+    self._objEmpty:SetVisible(isEmpty);
+    self._objFull:SetVisible(not isEmpty);
+    self._isPaused  = false;
+    if isEmpty then
+        Concert:PlayMainTrack();
+        Concert:PlayCameraAni(hallDefaultEmptyCameraName);
+        return;
+    else
+        Concert:SetEnterState(self._curHallId)
+    end
+    self:setTickState(true);
+    local bookItem = Item:GetCfg(data.curBookId);
+    self._txtCdName.text = bookItem.Name;
+
+    local book = Concert:GetConcertBookById(data.curBookId);
+    self._curBookConfig = book;
+    Concert:PlaySpMainTrack(book.musicPath);
+    Concert:PlayCameraAni(hallDefaultCamraName);
+    local iconPath = "source_icon_new/concert/"..book.icon;
+    self._texCdIcon.texture = AssetLoader:LoadTexture(iconPath);
+
+    --GetRewardItemsByBookId
+    local bonusArray = Concert:GetRewardItemsByHallId(self._curHallId,book.id);
+    self:FlushBonusItems(bonusArray);
+    self:FlushCurCDShow();
+    self:FlushCdPlayState();
+end
+
+function ConcertHallNode:ReloadActor()
+    self._curActorStateData = Concert:FlushHallActorState(self._curHallId);
+end
+
+--进入Ui调用一次
+function ConcertHallNode:onEnter()
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+end
+
+--按钮事件
+function ConcertHallNode:onButtonClick(itype)
+    if (itype == BTNS.GotoSelect) then
+        self:onGotoSelect();
+    elseif (itype == BTNS.GetAll) then
+        self:onGetAll();
+    elseif (itype == BTNS.GetCurBonus) then
+        self:onGetCurBonus();
+    elseif (itype == BTNS.StopMusic) then
+        self:onStopMusic();
+    elseif (itype == BTNS.PlayMusic) then
+        self:onPlayMusic();
+    elseif (itype == BTNS.FastFinish) then
+        self:onFastFinish();
+    elseif (itype == BTNS.Yuepu) then
+        self:onYuepu();
+    elseif (itype == BTNS.Yueshou) then
+        self:onYueshou();
+    elseif (itype == BTNS.Rule) then
+        self:onRule();
+    else
+
+    end
+end
+
+
+--初始化
+function ConcertHallNode:Init()
+    self:InitUI();
+    self:InitListUI();
+end
+
+--初始化UI
+function ConcertHallNode:InitUI()
+    self._objEmpty = self.layer:GetRectTransformComponent("obj_empty").gameObject;
+    self._uibtnGotoSelect = self.layer:GetUIButtonComponent("obj_empty/uibtn_gotoSelect");
+    self._objEmptyRedTips = self.layer:GetRectTransformComponent("obj_empty/obj_empty_red_tips").gameObject;
+    self._objFull = self.layer:GetRectTransformComponent("obj_full").gameObject;
+    self._objEmptyDrop = self.layer:GetRectTransformComponent("obj_full/drop/obj_empty_drop").gameObject;
+    self._objContent = self.layer:GetRectTransformComponent("obj_full/drop/scroll_extra/viewport/obj_content").gameObject;
+    self._cellItem = self.layer:GetRectTransformComponent("obj_full/drop/cell_item").gameObject;
+    self._objFinish = self.layer:GetRectTransformComponent("obj_full/obj_finish").gameObject;
+    self._uibtnGetAll = self.layer:GetUIButtonComponent("obj_full/obj_finish/uibtn_getAll");
+    self._objRewardRedTips = self.layer:GetRectTransformComponent("obj_full/obj_finish/uibtn_getAll/obj_reward_red_tips").gameObject;
+    self._objRuning = self.layer:GetRectTransformComponent("obj_full/obj_runing").gameObject;
+    self._uibtnGetCurBonus = self.layer:GetUIButtonComponent("obj_full/obj_runing/uibtn_getCurBonus");
+    self._txtCdName = self.layer:GetTextComponent("obj_full/cd/extr_drops_bg/txt_cdName");
+    self._aniCdIconParent = self.layer:GetAnimationComponent("obj_full/cd/ani_cdIconParent");
+    self._texCdIcon = self.layer:GetRawImageComponent("obj_full/cd/ani_cdIconParent/tex_cdIcon");
+    self._uibtnStopMusic = self.layer:GetUIButtonComponent("obj_full/cd/uibtn_stopMusic");
+    self._uibtnPlayMusic = self.layer:GetUIButtonComponent("obj_full/cd/uibtn_playMusic");
+    self._txtLeaveTime = self.layer:GetTextComponent("obj_full/cd/txt_leaveTime");
+    self._uibtnFastFinish = self.layer:GetUIButtonComponent("obj_full/cd/txt_leaveTime/uibtn_fastFinish");
+    self._objProcess = self.layer:GetRectTransformComponent("obj_full/cd/obj_process").gameObject;
+    self._imgProcessValue = self.layer:GetImageComponent("obj_full/cd/obj_process/img_processValue");
+    self._objGunzi = self.layer:GetRectTransformComponent("obj_full/cd/obj_gunzi").gameObject;
+    self._objTop = self.layer:GetRectTransformComponent("obj_top").gameObject;
+    self._txtToptitle = self.layer:GetTextComponent("obj_top/txt_toptitle");
+    self._uibtnYuepu = self.layer:GetUIButtonComponent("obj_top/uibtn_yuepu");
+    self._objYuepuRedTips = self.layer:GetRectTransformComponent("obj_top/uibtn_yuepu/obj_yuepu_red_tips").gameObject;
+    self._uibtnYueshou = self.layer:GetUIButtonComponent("obj_top/uibtn_yueshou");
+    self._transConcertNodeRoot = self.layer:Get("obj_top/trans_concertNodeRoot");
+    self._cellConcertNode = self.layer:GetRectTransformComponent("obj_top/cell_concertNode").gameObject;
+    self._uibtnRule = self.layer:GetUIButtonComponent("obj_top/uibtn_rule");
+
+
+    self._objRuning:SetVisible(false)
+
+    CS.UnityHelper.NotchfitY(self._objTop);
+end
+
+
+--释放
+function ConcertHallNode:onExit()
+
+    self._objEmpty = nil;
+    self._uibtnGotoSelect = nil;
+    self._objEmptyRedTips = nil;
+    self._objFull = nil;
+    self._objEmptyDrop = nil;
+    self._objContent = nil;
+    self._cellItem = nil;
+    self._objFinish = nil;
+    self._uibtnGetAll = nil;
+    self._objRewardRedTips = nil;
+    self._objRuning = nil;
+    self._uibtnGetCurBonus = nil;
+    self._txtCdName = nil;
+    self._aniCdIconParent = nil;
+    self._texCdIcon = nil;
+    self._uibtnStopMusic = nil;
+    self._uibtnPlayMusic = nil;
+    self._txtLeaveTime = nil;
+    self._uibtnFastFinish = nil;
+    self._objProcess = nil;
+    self._imgProcessValue = nil;
+    self._objGunzi = nil;
+    self._objTop = nil;
+    self._txtToptitle = nil;
+    self._uibtnYuepu = nil;
+    self._objYuepuRedTips = nil;
+    self._uibtnYueshou = nil;
+    self._transConcertNodeRoot = nil;
+    self._cellConcertNode = nil;
+    self._uibtnRule = nil;
+
+    UIBaseNode.onExit(self);
+end
+
+-----------------------------public
+
+function ConcertHallNode:OnPlayFinish(finishHallId)
+    if self._curHallId == finishHallId then
+        self:DoEnterHall();
+    end
+end
+
+function ConcertHallNode:OnCloseHeroPreview()
+    self:DoEnterHall();
+end
+
+--刷新
+function ConcertHallNode:Refresh()
+
+end
+
+----buttonClick
+
+function ConcertHallNode:onGotoSelect()
+    Concert:SetEnterState(self._curHallId)
+    self._mainLayer:EnterBookLayer(self._curHallId,nil);
+end
+
+function ConcertHallNode:onGetAll()
+    Concert:SetEnterState(self._curHallId)
+    Concert:EndConcertHall(self._curHallId,true);
+end
+
+function ConcertHallNode:onGetCurBonus()
+    Concert:SetEnterState(self._curHallId)
+    Concert:EndConcertHall(self._curHallId,false);
+end
+
+function ConcertHallNode:onYuepu()
+    local data = Concert:GetConcertById(self._curHallId);
+    local bookIds = Concert:GetAllConcetBooks()
+    local bookId = Concert:GetFirstCanStudyBookId(bookIds)
+    if bookId == -1 then
+        Concert:ShowConcertBookSelectLayer(data.curBookId)
+    else
+        Concert:ShowConcertBookSelectLayer(bookId)
+    end
+end
+
+function ConcertHallNode:onYueshou()
+    Concert:ShowConcertHeroPreview();
+end
+
+function ConcertHallNode:onRule()
+    Groble_UIMgr:ShowRuleTipsLayer(5001);
+end
+
+
+function ConcertHallNode:onStopMusic()
+    self._isPaused = true;
+    self:FlushCdPlayState();
+end
+
+function ConcertHallNode:onPlayMusic()
+    self._isPaused = false;
+    self:FlushCdPlayState();
+end
+
+function ConcertHallNode:onFastFinish()
+    Concert:EndConcertHall(self._curHallId,true);
+end
+
+
+-------private
+
+function ConcertHallNode:InitListUI()
+
+    self._concertNodeArray = {};
+    local allConfig = Concert:GetAllConcerts();
+
+    for _, v in pairs(allConfig) do
+        local curNode = self._transConcertNodeRoot:AddChild(self._cellConcertNode);
+        local node = self:CreateConcertListNode(curNode,v.id);
+        self:InitConcertListNode(node,v);
+        self._concertNodeArray[v.id] = node;
+    end
+    self._cellConcertNode:SetVisible(false);
+
+    self._bonusNodeArray = {};
+    for i = 1,maxBonusItemCount do
+        local cls = Concert:CtorItemCObj(self._objContent:AddChild(self._cellItem))
+        self._bonusNodeArray[i] = cls;
+    end
+    self._cellItem:SetVisible(false);
+
+end
+
+
+function ConcertHallNode:CreateConcertListNode(node,hallId)
+    local res = {};
+	res._txtNumber = node:GetTextComponent("txt_number");
+	res._objPutongBg = node:GetRectTransformComponent("obj_putongBg").gameObject;
+	res._objBg = node:GetRectTransformComponent("obj_putongBg/obj_bg").gameObject;
+	res._objSelect = node:GetRectTransformComponent("obj_putongBg/obj_Select").gameObject;
+	res._objProcess = node:GetRectTransformComponent("obj_putongBg/obj_process").gameObject;
+	res._rectBar = node:GetRectTransformComponent("obj_putongBg/obj_process/rect_bar");
+	res._objLockBg = node:GetRectTransformComponent("obj_lockBg").gameObject;
+	res._imgLock = node:GetImageComponent("obj_lockBg/img_lock");
+	res._txtNodeName = node:GetTextComponent("txt_nodeName");
+    res._txtLockTips = node:GetTextComponent("txt_lock_tips");
+	res._uibtnNodeClick = node:GetUIButtonComponent("uibtn_nodeClick");
+    res._objRedTips = node:GetRectTransformComponent("obj_red_tips").gameObject
+    res._hallId = hallId;
+    return res;
+end
+
+function ConcertHallNode:InitConcertListNode(nodeCom,concertData)
+    nodeCom._txtNumber.text = concertData.icon;
+    nodeCom._txtNodeName.text = concertData.name;
+    local curLevel = Player:GetLevel();
+    local isOpen = curLevel>=concertData.openLevel;
+
+
+    nodeCom._uibtnNodeClick:AddButtonListener(
+        function()
+                self:onClickItem(nodeCom)
+        end);
+    nodeCom._txtNodeName:SetMonoGameobjectActive(isOpen);
+    nodeCom._txtLockTips:SetMonoGameobjectActive(not isOpen);
+    local hallCfg = Concert:GetConcertById(nodeCom._hallId)
+    nodeCom._txtLockTips.text = string.format(LanguageMgr:GetTextByID(808013),hallCfg.openLevel)
+    nodeCom._isOpen = isOpen;
+    nodeCom._objPutongBg:SetVisible(isOpen);
+    nodeCom._objLockBg:SetVisible(not isOpen);
+    nodeCom._objProcess:SetVisible(false);
+end
+
+
+function ConcertHallNode:onClickItem(nodeCom)
+    if(self._curHallId == nodeCom._hallId) then
+        return ;
+    else
+        if(not nodeCom._isOpen) then
+            local hallCfg = Concert:GetConcertById(nodeCom._hallId)
+            local tipstr = string.format(LanguageMgr:GetTextByID(809037),hallCfg.openLevel)
+            Groble_UIMgr:ShowTipsLayer(tipstr)
+            return ;
+        end
+        self:doChangeScene(nodeCom);
+    end
+end
+
+function ConcertHallNode:doChangeScene(nodeCom)
+    Concert:ClearAllActor();
+    self._curHallId = nodeCom._hallId;
+    Concert:EnterConcertScene(self._curHallId,false);
+    self:DoEnterHall();
+end
+
+
+function ConcertHallNode:FlushSelectState()
+    for _, v in pairs(self._concertNodeArray) do
+        local isSelect = v._hallId == self._curHallId;
+        self:SetSelectState(v,isSelect);
+    end
+    local hallCfg = Concert:GetConcertById(self._curHallId)
+    self._txtToptitle.text = hallCfg.name;
+end
+
+function ConcertHallNode:SetSelectState(nodeCom,value)
+    nodeCom._objSelect:SetVisible(value);
+    if(value) then
+        nodeCom._txtNodeName:SetTextColor(1, 1, 1, 1);
+    else
+        nodeCom._txtNodeName:SetTextColor(0.588, 0.588, 0.588, 1);
+    end
+end
+
+
+function ConcertHallNode:FlushBonusItems(bonusArray)
+    local curBonus = nil;
+    local curItem = nil;
+    local itemNum = lua_table_len(bonusArray)
+    local itemData = {}
+    for i = 1,maxBonusItemCount do
+        curItem = self._bonusNodeArray[i];
+        if(i>itemNum) then
+            curItem.obj:SetVisible(false);
+        else
+            curBonus = bonusArray[i];
+            curItem.obj:SetVisible(true);
+            itemData.bagtype = curBonus[1];
+            itemData.cfgid = curBonus[2];
+            itemData.count = curBonus[3];
+            itemData.dropType = curBonus[4];
+            itemData.addItemId = 0
+            Concert:SetItemView(curItem,itemData);
+        end
+    end
+end
+
+function ConcertHallNode:ReEnterClearParam()
+    self._curBookConfig = nil;
+    self._curConcertData = nil;
+    self._playMistakeData = {0,0,0,0};
+    self:setTickState(false);
+end
+
+function ConcertHallNode:FlushCurCDShow()
+    if(self._needToTickCd == false)  then
+        return;
+    end
+
+
+    local deltaTime = self._curConcertData.etime-CTime:GetServerTime();
+    local process = 1 - (deltaTime)/self._curBookConfig.duration;
+    if(deltaTime<0) then
+        self:setTickState(false);
+    end
+
+    if(process>1 or process <0) then
+        process = 1;
+    end
+    local realProcess = process*delta + statrProcess;
+
+    self._imgProcessValue.fillAmount = realProcess;
+    local timeStr = CTime:Time2Str_2(deltaTime);
+    self._txtLeaveTime.text = timeStr;
+end
+
+function ConcertHallNode:FlushCdPlayState()
+    local isPaused = self._isPaused;
+    self._uibtnPlayMusic:SetMonoGameobjectActive(isPaused);
+    self._uibtnStopMusic:SetMonoGameobjectActive(not isPaused);
+    -- if isPaused then
+    --     self._aniCdIconParent:Stop();
+    -- else
+    --     self._aniCdIconParent:Play();
+    -- end
+    local speed;
+    if isPaused then
+        speed = 0;
+    else
+        speed = 1;
+    end
+
+    self._aniCdIconParent:SetAnimationSpeed("concert_rotate_cd",speed);
+    Concert:SetMainTrackPausedState(isPaused);
+end
+
+function ConcertHallNode:setTickState(v)
+    self._needToTickCd = v;
+    self._txtLeaveTime:SetMonoGameobjectActive(v)
+    self._objFinish:SetVisible(not v);
+    --self._objRuning:SetVisible(v);
+end
+
+function ConcertHallNode:GetConcertProcessByHallId(hallId)
+    local hallData = Concert:GetConcertById(hallId);
+
+    if(hallData.curBookId == 0) then
+        return nil;
+    end
+
+    local deltaTime = hallData.etime-CTime:GetServerTime();
+    if(deltaTime<0) then
+        return nil;
+    end
+
+    local bookConfig = Concert:GetConcertBookById(hallData.curBookId);
+    local process = 1 - (deltaTime)/bookConfig.duration;
+    if(process>1) then
+        process = 1;
+    elseif(process <0) then
+        process = 0;
+    end
+    return process;
+end
+
+function ConcertHallNode:updateHallNodeProcessState(node)
+    local process = self:GetConcertProcessByHallId(node._hallId);
+    if(process == nil) then
+        node._objProcess:SetVisible(false);
+    else
+        node._objProcess:SetVisible(true);
+        local barWidth = process*processBarWidth;
+        node._rectBar:SetSizeX(barWidth);
+    end
+
+end
+
+function ConcertHallNode:updateHallNodeRedTips(node)
+    local isShow = Concert:IsConcertRedTipsByHallId(node._hallId)
+    node._objRedTips:SetVisible(isShow)
+    --print("item 音乐厅  id ： "..node._hallId)
+end
+
+function ConcertHallNode:FlushConcertItemProcess()
+    for _, v in pairs(self._concertNodeArray) do
+        self:updateHallNodeProcessState(v);
+    end
+end
+
+function ConcertHallNode:FlushConcertAllRedTips()
+    for _, v in pairs(self._concertNodeArray) do
+        self:updateHallNodeRedTips(v);
+    end
+
+    local isStudy = Concert:IsAllConcetBookCanStudy()
+    self._objYuepuRedTips:SetVisible(isStudy)
+
+    local isShow = Concert:IsConcertRedTipsByHallId(self._curHallId)
+
+    --print("当前音乐厅  id ： "..self._curHallId)
+    self._objEmptyRedTips:SetVisible(isShow)
+end
+
+function ConcertHallNode:CheckPlayMistakeState()
+    if(self._curActorStateData == nil) then
+        return ;
+    end
+    -- local cutTime = CTime:GetServerTime();
+    -- local count = lua_table_len(self._playMistakeData);
+    -- local tmpTime = nil;
+    -- local tmpStateData = nil;
+    -- for i = 1, count do
+    --     tmpTime = self._playMistakeData[i];
+    --     tmpStateData = self._curActorStateData[i];
+
+    --     if(cutTime>= tmpTime) then
+    --         if(tmpStateData~=nil and tmpStateData.state == Concert.EConcertPlayState.MainPosPlay) then
+    --             self:tryDoEmojiEffect(i,cutTime);
+    --         end
+    --     end
+    -- end
+end
+
+
+function ConcertHallNode:tryDoEmojiEffect(index,curTime)
+    if(self._playMistakeData == nil) then
+        return ;
+    end
+    local rate = self._curConcertData.playMistakeRate[index];
+    if(rate == nil) then
+        return ;
+    end
+    local value = math.random(100);
+    if(value<=rate) then
+        Concert:PlayEmojiEffect(index,Concert.emojiEffectPathArray[Concert.EEmojiEffectType.Hunluan],true);
+        self._playMistakeData[index] = curTime+playMistakeEffectTime;
+    else
+        Concert:PlayEmojiEffect(index,nil,true);
+        self._playMistakeData[index] = curTime+checkPlayMistakeDelta;
+    end
+end
+
+
+
+
+
+

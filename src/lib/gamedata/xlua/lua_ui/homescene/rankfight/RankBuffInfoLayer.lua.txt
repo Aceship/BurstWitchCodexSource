@@ -1,0 +1,49 @@
+--
+-- author: haosun
+-- date  : 2020-03-20 13:14:19
+-- brief : 
+--
+-- local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+-- local RankBuffInfoLayer = class("RankBuffInfoLayer", CBaseLayer)
+local RankBuffInfoLayer = class("RankBuffInfoLayer")
+
+function RankBuffInfoLayer:ctor(super, buffid)
+    -- CBaseLayer.ctor(self)
+    -- self._prefab = {
+    --     path = "prefab_rank/UI_RankBuffInfoLayer",
+    -- }
+    -- self._uitype    = 2
+    -- self._loadAsync = true
+    -- self:loadAsync()
+    
+    self._buffid    = buffid
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_rank/UI_RankBuffInfoLayer")
+    self.layer:GetButtonComponent("button_back").onClick:AddListener(function() 
+        u3d_destory_obj(self.layer)
+    end)
+    self:onEnter()
+    self:show()
+end
+
+function RankBuffInfoLayer:onEnter()
+    self._effect = self.layer:Get("effect")
+    set_obj_active(self._effect, true)
+end
+
+function RankBuffInfoLayer:show()
+    self._fading = false
+    self:initLayer()
+    -- self:showLayer()
+    -- self:playAni("CommonLayerFadeInAni")
+end
+
+function RankBuffInfoLayer:initLayer()
+    local cls = Mystery:CtorMysteryBuffUi(self.layer:Get("container"))
+    Mystery:SetMysteryBuffUi(cls, self._buffid)
+end
+
+function RankBuffInfoLayer:onLayerFadeInEndCall()
+    set_obj_active(self._effect, true)
+end
+
+return RankBuffInfoLayer

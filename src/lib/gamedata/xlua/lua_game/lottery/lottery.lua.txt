@@ -1,0 +1,279 @@
+--
+-- author: haosun
+-- date  : 2019-02-21 13:36:44
+-- brief :
+--
+Lottery = Lottery or {}
+
+function Lottery:Ctor()
+    self.firstTips = nil
+    self.firstShow = {}
+    self._jumpid = 0
+    self._sumLotteryCnt = 0
+    self.firstTimes = 0 -- 新手抽卡次数
+    self._curOrientId = -1;
+end
+
+function Lottery:Clear()
+    self:Ctor()
+end
+
+function Lottery:SetCurOrientId(orientId)
+    self._curOrientId = orientId or -1;
+end
+
+function Lottery:GetCurOrientId()
+    if(self._curOrientId <= 0)then
+        AppMgr:LogError("_curOrientId <= 0!!!!  **pos = Lottery:GetCurOrientId()**")
+    end
+    return self._curOrientId;
+end
+
+function Lottery:GetShowLottery()
+    local ret = {}
+    for _, v in ipairs(self._lotterytypes) do
+        if v.ntype == Lottery.LOTTERY_NOR then
+            if v.timeid == 0 or CTime:IsOpen(v.timeid) then
+                if(v.lifeCycle <= 0)then
+                    table.insert(ret, {id = v.id, sortid = v.sortid})
+                else
+                    if((self._poolData[tonumber(v.id)] == nil) or (v.lifeCycle > tonumber(self._poolData[tonumber(v.id)].count)))then
+                        table.insert(ret, {id = v.id, sortid = v.sortid})
+                    end
+                end
+            end
+        end
+    end
+    for i, v in ipairs(ret) do
+        if v.id == Lottery.LotteryType.FirstTime then
+            if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_lottery10) then
+                table.remove(ret, i)
+                break
+            end
+        end
+    end
+
+    table.sort(ret, function(a, b)
+            return a.sortid < b.sortid
+        end)
+    return ret
+end
+
+function Lottery:SetLotteryData(data)
+    -- 7/26/2021 不再使用的接口 by 孙浩
+    -- self._tagData = {};
+    -- for i, v in ipairs(data or {}) do
+    --     if(self._tagData[tonumber(v.id)] == nil)then
+    --         self._tagData[tonumber(v.id)] = tonumber(v.count);
+    --     end
+    -- end
+end
+
+function Lottery:SetLotteryPools(data)
+    self._poolData = {};
+    self._sumLotteryCnt = 0
+    for _, v in pairs(data or {}) do
+        self._poolData[_] = v
+        self._poolData[tonumber(v.id)].count = tonumber(v.count) or 0;
+
+        self._sumLotteryCnt = self._sumLotteryCnt + tonumber(v.count or 0)
+    end
+end
+
+--设置抽卡次数
+function Lottery:SetLotteryClasses(data)
+    self._poolClasses = {};
+    for _, v in pairs(data or {}) do
+        if(self._poolClasses[tonumber(v.id)] == nil)then
+            self._poolClasses[tonumber(v.id)] = tonumber(v.sum) or 0;
+        end
+    end
+end
+
+--根据卡池ID获取抽卡次数
+function Lottery:GetLotteryPoolClassesById(id)
+    id = tonumber(id)
+    if(self._poolClasses[id] == nil)then
+        return 0
+    end
+    return self._poolClasses[id];
+end
+
+function Lottery:GetLotteryPoolDataById(id)
+    id = tonumber(id)
+    if(self._poolData[id] == nil)then
+        -- CS.Logger.LogError("!!!!!!!!!!!!!!!!can't find _poolData. id = ".. id)
+        return nil
+    end
+    return self._poolData[id];
+end
+
+function Lottery:GetTimeById(id)
+    return self._lotterytypes[id].timeid
+end
+
+function Lottery:SetJumpLotteryId(lotteryid)
+    self._jumpid = lotteryid
+end
+
+function Lottery:SetLotteryType(itype)
+    self._showType = itype;
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+end
+
+function Lottery:GetLotteryType()
+    return self._showType or 1;
+end
+
+function Lottery:GetJumpLotteryId()
+    return self._jumpid
+end
+
+function Lottery:GetSumLotteryCnt()
+    return self._sumLotteryCnt
+end
+
+function Lottery:AddSumLotteryCnt(cnt)
+    self._sumLotteryCnt = self._sumLotteryCnt + cnt
+    AppMgr:LogInfo(string.format("====================累计召唤次数 = %d", self._sumLotteryCnt))
+end
+
+-- 新手抽獎是否结束
+function Lottery:GetFirstFinish()
+    if not self._poolData[self.LotteryType.FirstTime] then
+        return false
+    end
+
+    return self._poolData[self.LotteryType.FirstTime].count == self._lotterytypes[self.LotteryType.FirstTime].lifeCycle
+end
+
+-- 新手抽卡是否需要展示英雄
+function Lottery:GetFirstHeroShow(heroid)
+    if self.firstShow[heroid] then
+        return false
+    end
+    local hero = Hero:GetHero(heroid)
+    if hero.qlty == Bag.QLTY_SSR then
+        return true
+    end
+    self.firstShow[heroid] = true
+    return true
+end
+
+
+
+
+
+-- 点击抽奖
+function Lottery:OnClickLottery(cfgid, i)
+
+    if not self:IsLotteryOpen(cfgid) then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032)) -- 活动已结束
+        return
+    end
+
+    local cfg = Lottery:GetLotteryTypeCfg(cfgid)
+    if(cfg.poolcfg[i] == nil)then
+        i = 1;
+    end
+
+    if Item:GetCount(cfg.poolcfg[i].cost_cfgid) >= cfg.poolcfg[i].cost_count then
+        Groble_UIMgr:BackLayerHide()
+        Lottery:LotteryReq(cfg.poolcfg[i].poolid, cfg.poolcfg[i].cost_cfgid, cfg.poolcfg[i].cost_count)
+    else
+        local info = {
+            cfgid = cfg.poolcfg[i].cost_cfgid,
+            count = cfg.poolcfg[i].cost_count,
+            show = false,
+            c_param = cfg.poolcfg[i].poolid,
+        }
+        Groble_UIMgr:ShowCommonBuyLayer(info, true)
+    end
+end
+
+-- 卡池是否开启
+function Lottery:GetLotteryOpen(v)
+    if v.ntype == Lottery.LOTTERY_NOR then
+        if v.timeid == 0 or CTime:IsOpen(v.timeid) then
+            if(v.lifeCycle <= 0)then
+                return true
+            else
+                if((self._poolData[tonumber(v.id)] == nil) or (v.lifeCycle > tonumber(self._poolData[tonumber(v.id)].count)))then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- 卡池是否开启
+function Lottery:IsLotteryOpen(id)
+    if not self._lotterytypes[id] then
+        return false
+    end
+    return self:GetLotteryOpen(self._lotterytypes[id])
+end
+
+-- 是否有up池
+function Lottery:HaveUpPool()
+    for k, v in pairs(self._lotterytypes) do
+        if self:GetLotteryOpen(v) then
+            return  true
+        end
+    end
+    return false
+end
+
+-- hero是属于id的up英雄
+function Lottery:HeroIsUP(lotteryID, heroID)
+    if not self._lotteryshows[lotteryID] then
+        return false
+    end
+
+    local qlty = Hero:GetHero(heroID).qlty
+    if not self._lotteryshows[lotteryID].hero[qlty] then
+        return false
+    end
+
+    local tbl = self._lotteryshows[lotteryID].hero[qlty]
+    return tbl[heroID] or false
+end
+
+function Lottery:GetLotteryRate(lotteryID, qlty)
+    if not self._lotteryshows[lotteryID] then
+        return 0
+    end
+    return self._lotteryshows[lotteryID].rate[qlty] or 0
+end
+
+-- 新手十连抽次数
+function Lottery:GetFirstTimes()
+    return self.firstTimes or 0
+end
+
+function Lottery:SetFistTimes()
+    if not self.firstTimes then
+        self.firstTimes = 0
+    end
+    self.firstTimes = self.firstTimes + 1
+    return self.firstTimes
+end
+
+function Lottery:EnterLotteryLayer(jumpLotteryId)
+    self:SetJumpLotteryId(jumpLotteryId)
+    core.require("xlua/lua_UI/UILottery/LotteryLayer.txt"):new():show()
+end
+
+function Lottery:SetNewLottery(value)
+    self._isNewLottery = value
+end
+
+function Lottery:IsNewLottery()
+    return self._isNewLottery
+end
+
+
+function Lottery:InitOrientTaskItem(trans)
+    return core.require("xlua/lua_UI/UILottery/OrientTaskItem.txt"):new(trans);
+end

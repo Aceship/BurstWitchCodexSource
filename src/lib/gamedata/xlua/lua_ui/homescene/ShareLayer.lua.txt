@@ -1,0 +1,54 @@
+--
+-- author: liangxt
+-- date  : 2020年7月22日14:17:27
+-- brief : 分享界面
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ShareLayer = class("ShareLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    share =  "container/button_share",
+}
+
+ function ShareLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_ShareLayer",
+    }
+    self._canreward = false
+    self:onEnter()
+end
+
+function ShareLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    
+    self._shotImg = self.layer:GetImageComponent("container/img_shot")
+end
+
+function ShareLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.share then
+        GameSdkMgr:Share(self._path)
+        if self._canreward then
+            Player:ShareGiftReq()
+        end
+    end
+end
+
+function ShareLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+-- 是否领奖，图片，回调
+function ShareLayer:show(canreward ,sprite, path, callback)
+    self._canreward = canreward
+    self._callback = callback
+    self._path = path
+    self._shotImg.sprite = sprite
+    self._fading = false
+end
+
+return ShareLayer

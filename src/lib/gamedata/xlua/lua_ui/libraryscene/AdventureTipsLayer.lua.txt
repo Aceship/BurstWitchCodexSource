@@ -1,0 +1,154 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-01 18:27:24
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local AdventureTipsLayer = class("AdventureTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "container/btn_return",
+	BtnNext = "container/btn_next",
+	--@ButtonEnd
+}
+--构造函数
+function AdventureTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_AdventureTipsLayer",
+    }
+
+    self._topData = {
+        showBtnBack     = false,
+        showPlayerInfo  = false,
+        showTopInfo     = false,--顶部货币菜单栏
+        --topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function AdventureTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function AdventureTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnNext)then 
+	   self:OnBtnNextClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+end
+
+--初始化
+function AdventureTipsLayer:Init()
+    self._LibraryLayer = Fetter:GetLibraryLayer();
+    self._LibraryLayer:showSpine(false);
+    self:InitUI();
+end
+
+--初始化UI
+function AdventureTipsLayer:InitUI()
+
+	self._imgBody = self.layer:GetImageComponent("container/img_body");
+	--@ImageEnd
+
+	self._txtName = self.layer:GetTextComponent("container/txt_name");
+	self._txtViceDes = self.layer:GetTextComponent("container/trans_vice_bg/txt_vice_des");
+	--@TextEnd
+
+	self._transSpineBg = self.layer:Get("trans_spine_bg");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function AdventureTipsLayer:show(hero,data)
+    self._cfg = Hero:GetAdventureCfgByGroupIdAndId(hero.Intimacy[4], data.id);
+    self._dorps = data.drops;
+    self:SetUI();
+    self:playAni("CommonLayerFadeInAni")
+    self:showLayer();
+end
+
+--退出按钮事件
+function AdventureTipsLayer:onBackClick()
+    if(next(self._dorps))then
+        Bag:ShowDrops(self._dorps);
+    end
+    self:onPopLayer();
+    self._LibraryLayer:showSpine(true);
+end
+
+--释放
+function AdventureTipsLayer:onExit()
+
+    self._transSpineBg = nil;
+	self._txtName = nil;
+	self._txtViceDes = nil;
+	self._imgBody = nil;
+    self._cfg = nil;
+    if self._inst ~= nil then
+        Groble_SoundMgr:StopOnceEffect(self._inst)
+    end
+    self._inst = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function AdventureTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+function AdventureTipsLayer:OnBtnNextClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function AdventureTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function AdventureTipsLayer:SetUI()
+    local voiceCfg = Hero:GetDiaCfgByID(self._cfg.dialogueId);
+    self._txtName:SetText(self._cfg.name);
+    self._txtViceDes:SetText(voiceCfg.dialogue);
+    local imgData = lua_parse_cfg(voiceCfg.sublimation);
+    self._imgBody:LoadSprite(imgData[1][1]);
+    self._imgBody:SetAnchoredPosition(tonumber(imgData[2][1]),tonumber(imgData[2][2]));
+    self._imgBody.transform:SetScale(tonumber(imgData[3][1]),tonumber(imgData[3][1]),tonumber(imgData[3][1]));
+    self._inst =  Groble_SoundMgr:PlayByDiaID(self._cfg.dialogueId);
+end
+
+return AdventureTipsLayer;

@@ -1,0 +1,77 @@
+--
+-- author: haosun
+-- date  : 2019-10-10 19:55:21
+-- brief : 
+--
+Login = Login or {}
+
+--获得网络状态图片
+function Login:GetStateSprite(state)
+    local name = ""
+    if state == Login.ZONE_STATE.STATE_MAINTAIN then
+        -- 维护
+        name = "Icon_Loading_ServerZhuangtai_1"
+    elseif state == Login.ZONE_STATE.STATE_OPEN then
+        -- 即将开启
+        name = "Icon_Loading_ServerZhuangtai_1"
+    elseif state == Login.ZONE_STATE.STATE_EASY then
+        -- 流畅
+        name = "Icon_Loading_ServerZhuangtai_2"
+    elseif state == Login.ZONE_STATE.STATE_BUSY then
+        -- 忙碌
+        name = "Icon_Loading_ServerZhuangtai_3"
+    elseif state == Login.ZONE_STATE.STATE_HOT then
+        -- 爆满
+        name = "Icon_Loading_ServerZhuangtai_4"
+    else
+        -- 未知
+        name = "Icon_Loading_ServerZhuangtai_1"
+    end
+    return AtlasMgr:LoadAtlasSprite(AtlasMgr.LOGIN_SYS, name)
+end
+
+function Login:GetStateText(state)
+    if state == Login.ZONE_STATE.STATE_MAINTAIN then
+        return LanguageMgr:GetTextByID(10018)
+    elseif state == Login.ZONE_STATE.STATE_OPEN then
+        return LanguageMgr:GetTextByID(10019)
+    elseif state == Login.ZONE_STATE.STATE_EASY then
+        return LanguageMgr:GetTextByID(10020)
+    elseif state == Login.ZONE_STATE.STATE_BUSY then
+        return LanguageMgr:GetTextByID(10021)
+    elseif state == Login.ZONE_STATE.STATE_HOT then
+        return LanguageMgr:GetTextByID(10022)
+    else
+        return LanguageMgr:GetTextByID(10018)
+    end
+end
+
+function Login:ShowLineUpLayer(msg)
+    if self._lineUpLayer == nil then
+        self._lineUpLayer = core.require("xlua/lua_UI/LoginScene/LineUpLayer.txt"):new()
+        self._lineUpLayer:refreshMsg(msg)
+        self._lineUpLayer:show()
+    else
+        self._lineUpLayer:refreshMsg(msg)
+    end
+end
+
+function Login:ClearLineUpLayer()
+    self._lineUping     = false
+    self._lineUpLayer   = nil
+end
+
+function Login:LineUpRep(pass, ranking, waitnum)
+    if not self._lineUping then
+        self._lineUping = true
+        self._sumdt     = 0
+        self._lineUpdt  = 5
+        self._ranking   = ranking
+        self._oldpass   = pass
+        self._rate      = waitnum / (ranking - pass)
+        self._waitnum   = waitnum
+    end
+    local _waits = self._waitnum - (pass - self._oldpass) * self._rate
+    _waits = math.max(math.ceil(_waits), 1)
+    Login:ShowLineUpLayer(string.format(LanguageMgr:GetTextByID(10026), _waits))
+end

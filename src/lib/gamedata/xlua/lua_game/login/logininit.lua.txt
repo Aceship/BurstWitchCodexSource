@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2019-10-10 19:54:39
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Login/login.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Login/login_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Login/logincfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Login/logindef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Login/loginui.txt")
+
+Login:Ctor()

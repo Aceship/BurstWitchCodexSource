@@ -1,0 +1,564 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-03 17:08:07
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CommentLayer = class("CommentLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnSend = "trans_container/btn_send",
+	--@ButtonEnd
+}
+
+local CurUIType = {
+    Comment = 1,--评论
+    Reply = 2,--回复
+};
+
+--构造函数
+function CommentLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiComment/UI_CommentLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        topInfo        = {},--货币类型
+    };
+    self._isSend = false;
+    self._addStack = true
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function CommentLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_TYPE.COMMENT_DATA_UPDATE,self.__cname,function (newId)
+        if(newId ~= nil)then
+            self._newId = newId;
+        end
+        self:UpdateData();
+        self:SetCurUI();
+    end);
+    self:addEventListener(EVENT_TYPE.OPEN_COMMENT_LAYER, self.__cname,function()
+        self._isSend = false;
+        self:UpdateData();
+        self:SetCurUI();
+    end);
+    self:addEventListener(EVENT_TYPE.COMMENT_LIKE_UPDATE, self.__cname,function()
+        self:UpdateData();
+        self:SetCurUI();
+    end);
+    self:addEventListener(EVENT_TYPE.COMMENT_REPLY_REP,self.__cname,function ()
+        self:SetCellItemData(self._selectItem,self._selectItem.index);
+        self:UpdateCellHeight();
+    end);
+    self:addEventListener(EVENT_TYPE.REMOVE_COMMENT,self.__cname,function ()
+        self:UpdateData();
+        self:SetCurUI();
+    end);
+    self:addEventListener(EVENT_TYPE.COMMENT_GET_REPLY_REP,self.__cname,function ()
+        Comment:SetCommentIsOpenReply(self._selectItem.data, true);
+        self:SetReplyItemData(self._selectItem.reply,self._selectItem.data);
+        self:UpdateCellHeight();
+    end);
+    self:Init();
+end
+
+--按钮事件
+function CommentLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnSend)then
+	   self:OnBtnSendClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+
+
+
+
+end
+
+--退出按钮事件
+function CommentLayer:onBackClick()
+    --Comment:SaveMyReply();
+    self:onPopLayer();
+end
+
+--初始化
+function CommentLayer:Init()
+    local data = Comment:GetCommentDataId();
+    self._isLodeSpine = false
+    self._loadTime = 0;
+    self._commentData = {};
+    for i, v in ipairs(data) do
+        self._commentData[i] = Comment:GetCommentDataById(v);
+    end
+    self._selectUIType = CurUIType.Comment;
+    self:InitUI();
+end
+
+--初始化UI
+function CommentLayer:InitUI()
+
+    --@ImageEnd
+
+    --@TextEnd
+
+    self._transSpineParent = self.layer:Get("trans_spine_parent");
+    self._transContainer = self.layer:Get("trans_container");
+    self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+    --@TransformEnd
+
+    self._rectContent = self.layer:GetRectTransformComponent("trans_container/trans_TableViewController/TableView/rect_Content");
+    --@RectTransformEnd
+
+    self._objCommentItem = self.layer:Get("trans_container/item_hide/obj_comment_item").gameObject;
+    self._objCommentIsNull = self.layer:Get("trans_container/obj_comment_is_null").gameObject;
+    self._objLoad = self.layer:Get("trans_container/trans_TableViewController/obj_load").gameObject;
+    self._objBottomMask = self.layer:Get("trans_container/trans_TableViewController/img_bg").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self:initDrag();
+    self:SetSpineState();
+end
+
+--显示UI
+function CommentLayer:show()
+    self:SetCurUI();
+    self:playAni("CommentLayerAnim");
+    self:showLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function CommentLayer:OnBtnSendClick()
+    core.require("xlua/lua_UI/Comment/ReplyLayer.txt"):new():show(true);
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function CommentLayer:onExit()
+
+    self:CloseAllReplyPages();
+    Comment:SaveComment(self._commentData);
+    self._transSpineParent = nil;
+    self._transContainer = nil;
+    self._objCommentItem = nil;
+    self._transTableviewcontroller = nil;
+    self._rectContent = nil;
+    self._objCommentIsNull = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function CommentLayer:CloseAllReplyPages()
+    for _, v in pairs(self._commentData) do
+        Comment:CloseReplyPagesByCid(v.commentid);
+    end
+end
+
+function CommentLayer:UpdateData()
+    local data = Comment:GetCommentDataId();
+    self._loadTime = 1;
+    local isAddNew = true;
+    if(self._newId ~= nil)then
+        table.insert(data,1,self._newId);
+    end
+    self._commentData = {};
+    for _, v in ipairs(data) do
+        if(v == self._newId)then
+            if(isAddNew)then
+                table.insert(self._commentData,Comment:GetCommentDataById(v));
+                isAddNew = false;
+            end
+        else
+            table.insert(self._commentData,Comment:GetCommentDataById(v));
+        end
+    end
+    if(not self._isLodeSpine)then
+        self:SetSpineState();
+    end
+end
+
+function CommentLayer:SetCurUI()
+    self._objBottomMask:SetVisible(#self._commentData > 5)
+    if(self._selectUIType == CurUIType.Reply)then
+    else
+        if(self._tvController == nil)then
+            self._tvController = UIController:CtorTableView(self._transTableviewcontroller);
+            for k, data in ipairs(self._commentData) do
+                if(not data.isReply)then
+                    if(#data.replys == 0)then
+                        self._tvController:InitCustomRowWidth(k - 1,230);
+                    elseif(#data.replys == 1)then
+                        self._tvController:InitCustomRowWidth(k - 1,323);
+                    else
+                        self._tvController:InitCustomRowWidth(k - 1,384);
+                    end
+                else
+
+                end
+            end
+            self._tvController:Init(#self._commentData, true,
+                    function(cell, row)
+                        self:SetCellItem(cell, row + 1)
+                    end, 0.2, 0.1)
+        else
+            for k, data in ipairs(self._commentData) do--此处重置高度(重载数据时调用)
+                if(not data.isReply)then
+                    if(#data.replys == 0)then
+                        self._tvController:UpdateCellHeight(k - 1,230);
+                    elseif(#data.replys == 1)then
+                        self._tvController:UpdateCellHeight(k - 1,323);
+                    else
+                        self._tvController:UpdateCellHeight(k - 1,384);
+                    end
+                else
+                    local curReply,isEnd = Comment:GetReplyDatasByCid(data.commentid,data.replyPages);
+                    local yNum = #curReply;
+                    if(isEnd)then
+                        yNum = yNum + 1;
+                    end
+                    if(yNum >= Comment.ReplyPagesMaxNum)then
+                        if(data.curNum > Comment.ReplyPagesMaxNum)then
+                            yNum = 9;
+                        end
+                    end
+                    self._tvController:UpdateCellHeight(k - 1,270 + yNum * 116);
+                end
+            end
+            self._tvController:Reload(#self._commentData,false);
+            if(self._newId ~= nil)then
+                self._tvController:ScrollToTop()
+                self._newId = nil;
+            end
+        end
+    end
+end
+
+function CommentLayer:SetCellItem(cell,row)
+    if(self._cellItems == nil)then
+        self._cellItems = {};
+    end
+    local cls = self._cellItems[cell];
+    if(cls == nil)then
+        cls = self:NewCellItem(cell.transform);
+        self._cellItems[cell] = cls;
+    end
+    self:SetCellItemData(cls,row);
+end
+
+function CommentLayer:NewCellItem(trans)
+    local cls = clsbase:new(trans);
+    cls.reply = self:NewReplyItem(trans:Find("trans_reply"));
+    cls.reply.parentCls = cls;
+    cls.rect = cls.transform:GetComponent("RectTransform");
+    cls.objComment = cls:Find("trans_comment").gameObject;
+    cls.imgHot = cls:GetImageComponent("trans_comment/img_hot");
+    cls.txtName = cls:GetTextComponent("trans_comment/txt_name");
+    cls.txtLv = cls:GetTextComponent("trans_comment/txt_lv");
+    cls.txtDes = cls:GetTextComponent("trans_comment/txt_des");
+    cls.imgLike = cls:GetImageComponent("trans_comment/btn_like/img_icon");
+    cls.txtLikeNum = cls:GetTextComponent("trans_comment/btn_like/txt_nuk");
+    cls.btnGetInfo = cls:GetButtonComponent("trans_comment/btn_get_info");;
+    cls.btnGetInfo.onClick:AddListener(function ()
+        if(cls.data.comment.playerid ~= Player:GetId())then
+            Player:LookInfoReq(cls.data.comment.playerid);
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000035));
+        end
+    end);
+    cls.btnLike = cls:GetButtonComponent("trans_comment/btn_like");
+
+    cls.btnLike.onClick:AddListener(function()
+        self._selectItem = cls;
+        Comment:SetSelectCId(cls.dataId);
+        Comment:LikeReq();
+    end);
+    cls.btnOpenReply = cls:GetButtonComponent("trans_reply");
+    cls.btnOpenReply.onClick:AddListener(function ()
+        self._selectItem = cls;
+        if(cls.data.isReply)then
+            Comment:SetCommentIsOpenReply(cls.data, false);
+            if(#cls.data.replys == 1)then
+                self._tvController:UpdateCellHeight(cls.index - 1,323);
+            else
+                self._tvController:UpdateCellHeight(cls.index - 1,384);
+            end
+            Comment:CloseReplyPagesByCid(cls.dataId);
+            self:SetReplyItemData(cls.reply,cls.data);
+        else
+            Comment:SetSelectCId(cls.dataId);
+            Comment:GetReplyReq();
+        end
+    end);
+    cls.btnReply = cls:GetButtonComponent("trans_comment");
+
+    cls.btnReply.onClick:AddListener(function()
+        self._selectItem = cls;
+        Comment:SetSelectCId(cls.dataId);
+        core.require("xlua/lua_UI/Comment/ReplyLayer.txt"):new():show(false);
+    end);
+    return cls;
+end
+
+function CommentLayer:SetCellItemData(cls,row)
+    cls.dataId = self._commentData[row].commentid;
+    cls.index = row;
+    cls.data = self._commentData[row]
+    local data = cls.data;
+    set_com_enabled(cls.imgHot,row <= 3);
+    set_com_enabled(cls.imgLike,Comment:GetLikeStateById(cls.dataId));
+    cls.txtName.text = data.comment.name;
+    cls.txtLv.text = "Lv."..data.comment.level;
+    cls.txtDes.text = data.comment.content;
+    cls.txtLikeNum.text = data.like_num;
+    self:SetReplyItemData(cls.reply,cls.data);
+end
+
+function CommentLayer:NewReplyItem(trans)
+    local cls = clsbase:new(trans);
+    cls.rect = cls.transform:GetComponent("RectTransform");
+    cls.replyItemList = cls:Find("reply_item_list");
+    cls.items = {};
+    for i = 1, Comment.ReplyPagesMaxNum do
+        cls.items[i] = clsbase:new(cls.replyItemList:Find("reply_item_"..i));
+        cls.items[i].txtName = cls.items[i]:GetTextComponent("txt_name");
+        cls.items[i].txtDes = cls.items[i]:GetTextComponent("txt_des");
+    end
+    cls.unOpenUI = cls:Find("un_open_show_ui");
+    cls.unOpenItems = {};
+    for i = 1, 2 do
+        cls.unOpenItems[i] = clsbase:new(cls.unOpenUI:Find("txt_item_"..i));
+        cls.unOpenItems[i].txtName = cls.unOpenItems[i]:GetTextComponent("txt_name");
+        cls.unOpenItems[i].txtDes = cls.unOpenItems[i]:GetTextComponent("txt_des");
+    end
+    cls.imgOpenReply = cls:GetImageComponent("un_open_show_ui/info_ui_bg/img_icon");
+    cls.txtReplyNum = cls:GetTextComponent("un_open_show_ui/info_ui_bg/txt_num");
+
+    cls.objBottomUI = cls:Find("reply_item_list/trans_bottom_ui").gameObject;
+    cls.txtReplyPages = cls:GetTextComponent("reply_item_list/trans_bottom_ui/txt_reply_pages");
+    cls.btnHomePage = cls:GetButtonComponent("reply_item_list/trans_bottom_ui/btn_home_page");
+    cls.btnNextPage = cls:GetButtonComponent("reply_item_list/trans_bottom_ui/btn_next_page");
+    cls.btnPreviousPage = cls:GetButtonComponent("reply_item_list/trans_bottom_ui/btn_previous_page");
+    cls.btnEndPage = cls:GetButtonComponent("reply_item_list/trans_bottom_ui/btn_end_page");
+
+    cls.btnHomePage.onClick:AddListener(function()
+        if(cls.data.replyPages <= 1)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000021));
+            return;
+        end
+        self._selectItem = cls.parentCls;
+        Comment:SetSelectCId(cls.data.commentid);
+        Comment:SetCurReplyPage(1);
+        self:SetReplyItemData(cls,cls.data);
+        self:UpdateCellHeight();
+    end);
+
+    cls.btnNextPage.onClick:AddListener(function()
+        if(cls.data.replyPages <= 1)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000021));
+            return;
+        end
+        self._selectItem = cls.parentCls;
+        Comment:SetSelectCId(cls.data.commentid);
+        Comment:DecCurReplyPages();
+        Comment:GetReplyReq();
+    end);
+
+    cls.btnPreviousPage.onClick:AddListener(function()
+        local endPage = math.ceil(cls.data.curNum / Comment.ReplyPagesMaxNum);
+        if(cls.data.replyPages >= endPage)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000022));
+            return;
+        end
+        self._selectItem = cls.parentCls;
+        Comment:SetSelectCId(cls.data.commentid);
+        Comment:AddCurReplyPages();
+        Comment:GetReplyReq();
+    end);
+
+    cls.btnEndPage.onClick:AddListener(function()
+        local endPage = math.ceil(cls.data.curNum / Comment.ReplyPagesMaxNum);
+        if(cls.data.replyPages >= endPage)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000022));
+            return;
+        end
+        self._selectItem = cls.parentCls;
+        Comment:SetSelectCId(cls.data.commentid);
+        Comment:SetCurReplyPage(endPage);
+        Comment:GetReplyReq();
+    end);
+
+    return cls;
+end
+
+function CommentLayer:SetReplyItemData(cls,data)
+    cls.data = data;
+    if(#data.replys == 0)then
+        if(data.isReply)then
+            Comment:SetCommentIsOpenReply(data, false);
+        end
+        cls.obj:SetVisible(false);
+        return;
+    end
+    cls.obj:SetVisible(true);
+    cls.replyItemList.gameObject:SetVisible(data.isReply);
+    cls.unOpenUI.gameObject:SetVisible(not data.isReply);
+    if(data.isReply)then
+        Comment:UpdateCurReplyPages();
+        local curReply,isEnd = Comment:GetReplyDatasByCid(data.commentid,data.replyPages);
+        local yNum = #curReply;
+        if(isEnd)then
+            yNum = yNum + 1;
+        end
+        if(yNum >= Comment.ReplyPagesMaxNum)then
+            if(data.curNum > Comment.ReplyPagesMaxNum)then
+                yNum = 9;
+            end
+        end
+        if(#curReply == 0)then
+
+        else
+            for i, v in ipairs(cls.items) do
+                if(curReply[i] ~= nil)then
+                    v.txtName.text = curReply[i].name;
+                    v.txtDes.text = curReply[i].content;
+                end
+                v.obj:SetVisible(curReply[i] ~= nil);
+            end
+            cls.objBottomUI:SetVisible(yNum == 9 or isEnd);
+            if(yNum == 9 or isEnd)then
+                cls.txtReplyPages.text = data.replyPages;
+            end
+            cls.rect:DOSizeDelta(CS.UnityEngine.Vector2(cls.rect.sizeDelta.x,yNum * 115 + 60),0.1);
+        end
+    else
+        cls.txtReplyNum.text = string.format(LanguageMgr:GetTextByID(74000019),data.curNum);
+        if(#data.replys == 1)then
+            cls.rect:DOSizeDelta(CS.UnityEngine.Vector2(cls.rect.sizeDelta.x,120),0);
+            local item = cls.unOpenItems[2];
+            item.txtName.text = data.replys[1].name;
+            item.txtDes.text = data.replys[1].content;
+            CS.UIHelpScript.Instance:SetTextLen(item.txtDes);
+        else
+            cls.rect:DOSizeDelta(CS.UnityEngine.Vector2(cls.rect.sizeDelta.x,190),0);
+            for i = 1, 2 do
+                local item = cls.unOpenItems[i];
+                item.txtName.text = data.replys[i].name;
+                item.txtDes.text = data.replys[i].content;
+                CS.UIHelpScript.Instance:SetTextLen(item.txtDes);
+            end
+        end
+    end
+end
+
+function CommentLayer:initDrag()
+    InitEventTriggerEx(self._rectContent.transform.parent,
+            function(arg)
+            end,
+            function(arg)
+
+            end,
+            function(arg)
+                self:onEndDrag(arg)
+            end)
+end
+
+function CommentLayer:onEndDrag(arg)
+
+    if(self._rectContent.anchoredPosition.y > self._rectContent.rect.height - self._transTableviewcontroller.rect.height + 200)then
+        self._isSend = true;
+        self:SetLoadObjState(true);
+        Comment:AddCurPages();
+        Comment:GetCommentReq();
+    end
+end
+
+function CommentLayer:UpdateCellHeight()
+    if(self._selectItem.data.isReply)then
+        local curReply,isEnd = Comment:GetReplyDatasByCid(self._selectItem.data.commentid,self._selectItem.data.replyPages);
+        local yNum = #curReply;
+        if(isEnd)then
+            yNum = yNum + 1;
+        end
+        if(yNum >= Comment.ReplyPagesMaxNum)then
+            if(self._selectItem.data.curNum > Comment.ReplyPagesMaxNum)then
+                yNum = 9;
+            end
+        end
+        self._tvController:UpdateCellHeight(self._selectItem.index - 1,270 + yNum * 116);
+    else
+        if(#self._selectItem.data.replys == 0)then
+            self._tvController:UpdateCellHeight(self._selectItem.index - 1,230);
+        elseif(#self._selectItem.data.replys == 1)then
+            self._tvController:UpdateCellHeight(self._selectItem.index - 1,323);
+        else
+            self._tvController:UpdateCellHeight(self._selectItem.index - 1,384);
+        end
+    end
+end
+
+function CommentLayer:SetSpineState()
+    if(Comment:GetCurCommentType() == Comment.CommentMod.MODULE_HERO)then
+        if(not self._isLodeSpine)then
+            if(#self._commentData > 0)then
+                self._transSpineParent.gameObject:SetVisible(true);
+                Hero:LoadSpineAsync(self.__cname,self._transSpineParent, tonumber(Comment:GetCurEntry()), Hero.SPINE_UI_TYPE_COMMENT);
+                self._isLodeSpine = true;
+            else
+                self._transSpineParent.gameObject:SetVisible(false);
+            end
+        end
+    elseif(Comment:GetCurCommentType() == Comment.CommentMod.MODULE_SKINS)then
+        if(not self._isLodeSpine)then
+            if(#self._commentData > 0)then
+                self._transSpineParent.gameObject:SetVisible(true);
+                local curEntry = tonumber(Comment:GetCurEntry());
+                local hero = Hero:GetHero(Hero:GetHeroIdBySkinId(curEntry));
+                if(curEntry == hero.skinids[1])then
+                    Hero:LoadSpineAsync(self.__cname,self._transSpineParent, hero.id, Hero.SPINE_UI_TYPE_COMMENT);
+                else
+                    Hero:LoadSpineAsync(self.__cname,self._transSpineParent, curEntry, Hero.SPINE_UI_TYPE_COMMENT);
+                end
+                self._isLodeSpine = true;
+            else
+                self._transSpineParent.gameObject:SetVisible(false);
+            end
+        end
+    end
+    self._objCommentIsNull:SetVisible(#self._commentData == 0);
+end
+
+function CommentLayer:SetLoadObjState(isShow)
+    if(isShow)then
+        self._loadTime = 3;
+    end
+    self._objLoad:SetVisible(isShow);
+end
+
+function CommentLayer:onPerSecondUpdate()
+    if(self._loadTime ~= nil and self._loadTime > 0)then
+        self._loadTime = self._loadTime - 1;
+        if(self._loadTime <= 0) then
+            self:SetLoadObjState(false);
+        end
+    end
+end
+
+return CommentLayer;

@@ -1,0 +1,16 @@
+--
+-- author: haosun
+-- date  : 2020-08-17 10:59:47
+-- brief : 测试脚本
+--
+
+Player = Player or {}
+
+function Player:InitTestForFight()
+    self._info = {
+        id = 1
+    }
+    self._snycdata.tch_id = 1
+    self._snycdata.bfirst_modify_name = false
+    PrefsController:InitPrefsController()
+end

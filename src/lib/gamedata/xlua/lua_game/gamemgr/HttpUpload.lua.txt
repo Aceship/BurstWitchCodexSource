@@ -1,0 +1,74 @@
+--
+-- author: haosun
+-- date  : 2021-10-17 02:51:37
+-- brief : 
+--
+
+HttpUpload = HttpUpload or {}
+
+local _upload_proto_name = "PushBugMessageReq"
+
+function HttpUpload:InitHttpUpload()
+    self._uploadData = {
+        platform = GameSdkMgr:GetPlatformId(),
+        device_type     = 2,
+        device_model    = "device_model",
+        device_os       = "device_os",
+        system_cpu      = "system_cpu",
+        system_graphics = "system_graphics",
+        system_mem      = 0,
+        system_os       = "system_os",
+        message     = "",
+        happen_tm   = os.time(),
+        md5         = "",
+    }
+
+    self._playerId = Player:GetId()
+    self._platformId = GameSdkMgr:GetPlatformId()
+
+    self._cache = {}
+
+    -- print("===================上报模块初始化")
+    self._inited = true
+end
+
+function HttpUpload:DoUpload(msg)
+    if not self._inited then return end
+
+    -- print("===================准备上报")
+    self._uploadData.md5 = string.format("%d-%d-%d-%d", self._playerId, self._platformId, os.time(), math.random(self._playerId))
+    self._uploadData.message = msg
+    self._uploadData.happen_tm = tostring(os.time())
+    
+    -- print("===================数据打包")
+    local bytes = ProtoMgr:Encode(_upload_proto_name, self._uploadData)
+    -- print("===================数据上报")
+    Network:SendHttp("106.54.147.112", 8087, Http.BUGLY_PUSH_BUG_MSG_REQ, bytes,
+        function(id, bytes)
+            -- todo: report callback
+            -- print("===============upload success!!!")
+        end, false)
+end
+
+function HttpUpload:SetTempData(msg)
+    self._tempdata = msg
+end
+
+function HttpUpload:UploadFightAttr()
+    if self._tempdata ~= nil then
+        self:DoUpload(self._tempdata)
+    end
+end
+
+function HttpUpload:UploadTraceback(msg)
+    if self._cache[msg] ~= nil then return end
+
+    self._cache[msg] = 1
+
+    local data = {
+        playerId = self._playerId,
+        platformId = self._platformId,
+        traceback = msg,
+    }
+    self:DoUpload(luajson.encode(data))
+end

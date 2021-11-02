@@ -1,0 +1,4 @@
+ID,中文,繁体,备注,策划用
+LOC_ID,CHS,CHT,Comment1,Comment2
+number,string,string,string,
+10010001,七日登录,七日登錄,Active,

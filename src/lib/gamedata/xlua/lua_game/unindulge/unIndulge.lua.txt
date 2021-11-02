@@ -1,0 +1,243 @@
+--
+-- author: liangxt
+-- date  :2020年3月19日13:41:58
+-- brief : 
+-- 
+--
+
+UnIndulge = UnIndulge or {}
+
+function UnIndulge:UnIndulgeCtor()
+    self._accountType = UnIndulge.Account_Type.tourist
+    self._playTime = 0 --游玩时间
+    self._canPlay = false  -- 是否能游戏
+    self._canReward = false --是否能领取实名奖励
+    self._isHoliday = false    --是否节假日
+    self._isForbidden = false  --是否未成年人游玩时间
+    self._isShowing = false --打开界面时不在弹出
+
+    self._noticeTime = {
+        [UnIndulge.NoticeTime.time50] = false,
+        [UnIndulge.NoticeTime.time55] = false,
+        [UnIndulge.NoticeTime.time60] = false,
+        [UnIndulge.NoticeTime.time70] = false,
+        [UnIndulge.NoticeTime.time80] = false,
+        [UnIndulge.NoticeTime.time120] = false,
+        [UnIndulge.NoticeTime.time150] = false,
+    }
+end
+
+function UnIndulge:LoginCallBack()
+    self._loginTime = CTime:GetServerTime()
+    self:GetUserAge()
+    self:GetPlayTime()
+    -- self._serverTime, self._canReward = Player:GetPtimeAndGift()
+    self._isHoliday = self:Isholiday()
+
+    for stime, noticed in pairs(self._noticeTime) do
+        if self._playTime >= stime then
+            self._noticeTime[noticed] = true
+        end
+    end
+    if(self._accountType == UnIndulge.Account_Type.unRealNamed)then      --未实名认证
+        local addUpTime = tonumber(Groble_SceneMgr:PrefsGetString("gameAddUpTime")) or 0;
+        self:StartCounting(addUpTime,CTime.MIN_SEC * 3)
+    end
+end
+
+function UnIndulge:StartCounting(addUpTime, stime)
+    if(addUpTime < CTime.HOUR_SEC)then
+        self._timerId = Timer:AddTimerCall(stime,function ()
+            Groble_SceneMgr:PrefsSetString("gameAddUpTime", tostring(addUpTime + stime));
+            self:StartCounting(addUpTime + stime,stime);
+            print(addUpTime + stime)
+        end)
+    else
+        local startTime = tonumber(Groble_SceneMgr:PrefsGetString("gameStartTime"));
+        if((startTime == nil) or startTime == 0)then
+            startTime = CTime:GetServerTime();
+            Groble_SceneMgr:PrefsSetString("gameStartTime", tostring(startTime));
+        end
+        if((startTime + CTime.DAY_SEC * 1) < CTime:GetServerTime())then
+            -- CD 结束,重置游戏时间
+            Groble_SceneMgr:PrefsSetString("gameAddUpTime", tostring(0));
+        else
+            self._notStartGame = true;
+        end
+    end
+end
+
+function UnIndulge:GetNotStartGame()
+    return self._notStartGame or false;
+end
+
+function UnIndulge:UnIndulgeClear()
+    Timer:RemoveTimerCall(self._timerId or 0)
+    self:UnIndulgeCtor()
+end
+
+function UnIndulge:GetUserAge()
+    local age = GameSdkMgr:GetUserAge()
+    --todo 调用sdk获得用户年龄
+    if age == -1 then
+        self._accountType = UnIndulge.Account_Type.tourist
+        AppMgr:LogInfo("--------------游客账号--------------")
+    elseif age == 0 then
+        self._accountType = UnIndulge.Account_Type.unRealNamed
+        AppMgr:LogInfo("--------------未实名账号--------------")
+    elseif age < 18 and age > 0 then
+        self._accountType = UnIndulge.Account_Type.children
+        AppMgr:LogInfo("--------------未成年账号--------------")
+    else
+        self._accountType = UnIndulge.Account_Type.normal
+        AppMgr:LogInfo("--------------成年账号--------------")
+    end
+end
+
+function UnIndulge:GetCurrentType()
+   return self._accountType
+end
+
+function UnIndulge:GetCurrentAccType()
+   --正常账号
+    if  self._accountType == UnIndulge.Account_Type.normal then
+        return 0
+    end
+    self:GetPlayTime()
+   --游客号
+    if  self._accountType == UnIndulge.Account_Type.tourist then
+        if self._playTime < UnIndulge.NoticeTimeSec.time50 then
+            return 0
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time50 and self._playTime < UnIndulge.NoticeTimeSec.time55 then
+            if not self._noticeTime[UnIndulge.NoticeTimeSec.time50] then
+                self._noticeTime[UnIndulge.NoticeTimeSec.time50] = true
+                return UnIndulge.CurrentType.type101,UnIndulge.NoticeTime.time50
+            else
+                return 0
+            end
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time55 and self._playTime < UnIndulge.NoticeTimeSec.time60 then
+            if not self._noticeTime[UnIndulge.NoticeTimeSec.time55 ] then
+                self._noticeTime[UnIndulge.NoticeTimeSec.time55 ] = true
+                return UnIndulge.CurrentType.type101,UnIndulge.NoticeTime.time55
+            else
+                return 0
+            end
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time60  then
+            return UnIndulge.CurrentType.type102
+        end
+      --未实名
+    elseif  self._accountType == UnIndulge.Account_Type.unRealNamed then
+        if self._playTime < UnIndulge.NoticeTimeSec.time50 then
+            return 0
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time50 and self._playTime < UnIndulge.NoticeTimeSec.time55 then
+            if not self._noticeTime[UnIndulge.NoticeTimeSec.time50] then
+                self._noticeTime[UnIndulge.NoticeTimeSec.time50] = true
+                return UnIndulge.CurrentType.type201,UnIndulge.NoticeTime.time50
+            else
+                return 0
+            end
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time55  and self._playTime < UnIndulge.NoticeTimeSec.time60 then
+            if not self._noticeTime[UnIndulge.NoticeTimeSec.time55] then
+                self._noticeTime[UnIndulge.NoticeTimeSec.time55] = true
+                return UnIndulge.CurrentType.type201,UnIndulge.NoticeTime.time55
+            else
+                return 0
+            end
+        elseif self._playTime >= UnIndulge.NoticeTimeSec.time60 then
+            return UnIndulge.CurrentType.type202
+        end
+      --未成年人
+    elseif self._accountType == UnIndulge.Account_Type.children then
+        if self._isForbidden then
+            return UnIndulge.CurrentType.type305
+        end
+        if not self._isHoliday then
+            if self._playTime <UnIndulge.NoticeTimeSec.time60 then
+                return 0
+            elseif self._playTime >= UnIndulge.NoticeTimeSec.time60 and self._playTime < UnIndulge.NoticeTimeSec.time70 then
+                if not self._noticeTime[UnIndulge.NoticeTimeSec.time60] then
+                    self._noticeTime[UnIndulge.NoticeTimeSec.time60] = true
+                    return UnIndulge.CurrentType.type301,UnIndulge.NoticeTime.time60
+                else
+                    return 0
+                end
+            elseif self._playTime >= UnIndulge.NoticeTimeSec.time70 and self._playTime < UnIndulge.NoticeTimeSec.time80  then
+             if not self._noticeTime[UnIndulge.NoticeTimeSec.time70] then
+                 self._noticeTime[UnIndulge.NoticeTimeSec.time70] = true
+                 return UnIndulge.CurrentType.type301,UnIndulge.NoticeTime.time70
+             else
+                 return 0
+             end
+            elseif  self._playTime >= UnIndulge.NoticeTimeSec.time80 and self._playTime < UnIndulge.NoticeTimeSec.time90 then
+               if not self._noticeTime[UnIndulge.NoticeTimeSec.time80] then
+                   self._noticeTime[UnIndulge.NoticeTimeSec.time80] = true
+                   return UnIndulge.CurrentType.type301,UnIndulge.NoticeTime.time80
+               else
+                   return 0
+               end
+            elseif  self._playTime >= UnIndulge.NoticeTimeSec.time90 then
+                return UnIndulge.CurrentType.type303
+            end
+        else
+            if self._playTime <UnIndulge.NoticeTimeSec.time60  then
+                return 0
+            elseif self._playTime >=UnIndulge.NoticeTimeSec.time60 and self._playTime < UnIndulge.NoticeTimeSec.time120 then
+                if not self._noticeTime[UnIndulge.NoticeTimeSec.time60] then
+                    self._noticeTime[UnIndulge.NoticeTimeSec.time60] = true
+                    return UnIndulge.CurrentType.type302,UnIndulge.NoticeTime.time60
+                else
+                    return 0
+                end
+            elseif self._playTime >= UnIndulge.NoticeTimeSec.time120 and self._playTime < UnIndulge.NoticeTimeSec.time150 then
+                if not self._noticeTime[UnIndulge.NoticeTimeSec.time120] then
+                    self._noticeTime[UnIndulge.NoticeTimeSec.time120] = true
+                    return UnIndulge.CurrentType.type302,UnIndulge.NoticeTime.time120
+                else
+                    return 0
+                end
+            elseif  self._playTime >= UnIndulge.NoticeTimeSec.time150 and self._playTime < UnIndulge.NoticeTimeSec.time180 then
+                if not self._noticeTime[UnIndulge.NoticeTimeSec.time150] then
+                    self._noticeTime[UnIndulge.NoticeTimeSec.time150] = true
+                    return UnIndulge.CurrentType.type302,UnIndulge.NoticeTime.time150
+                else
+                    return 0
+                end
+            elseif  self._playTime >= UnIndulge.NoticeTimeSec.time180 then
+                return UnIndulge.CurrentType.type304
+            end
+        end
+    end
+end
+
+--激活账号
+--调起sdk 账号激活页面
+function UnIndulge:ActiveAccount()
+   --todo
+end
+
+--实名认证
+--调起sdk 实名页面
+function UnIndulge:AuthAccount()
+   --todo
+end
+
+function UnIndulge:RewardRedTip()
+    return self._accountType > UnIndulge.Account_Type.unRealNamed and not self._canReward
+end
+
+function UnIndulge:GetPlayTime()
+    self._playTime = Player:GetTodayPlayTime() + CTime:GetServerTime() - self._loginTime
+    return self._playTime
+end
+
+function UnIndulge:HasReward()
+    return self._canReward
+end
+
+function UnIndulge:SetState(isShow)
+    self._isShowing = isShow
+end
+
+function UnIndulge:GetState()
+    return self._isShowing
+end

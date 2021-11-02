@@ -1,0 +1,55 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+--
+Fetter = Fetter or {}
+
+Fetter.Img_path = 
+{
+    red     = "Img_HaoGan_AiXinTuBiao2",
+    gary    = "Img_HaoGan_HuiXing",
+}
+
+
+Fetter.Relation =
+{
+    blue      = 1,   --信赖
+    green     = 2,   --友善
+    purple    = 3,   --抵触
+    red       = 4,   --敌对
+    gray      = 5,   --未拥有
+    
+}
+Fetter.Relation_cn =
+{
+    blue      = "信赖",   --信赖
+    green     = "友善",   --
+    purple    = "抵触",   --
+    red       = "敌对",   --
+    
+
+}
+
+Fetter.Skill = 
+{
+    out    = 1 ,
+    fight  = 2 ,
+    
+}
+
+Fetter.Ani = 
+{
+    haogan = 1 ,
+    tujian = 2 ,
+    
+}
+Fetter.Diary_Count = 9 --回忆本每日挑战次数
+
+Fetter.Heart_Max_Level = 10 --心之羁绊最大等级
+
+Fetter.Heart_Lock_Point = "·%s·"
+
+Fetter.Emblem_Condition = "heartemblem_unlock_"
+
+Fetter.Emblem_Open = false --纹章开关

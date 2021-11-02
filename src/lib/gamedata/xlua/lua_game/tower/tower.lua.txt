@@ -1,0 +1,93 @@
+--
+-- author: haosun
+-- date  : 2019-10-21 20:11:42
+-- brief : 
+--
+
+Tower = Tower or {}
+
+function Tower:Ctor()
+    self._heroUsed  = {}
+    self._bossHp    = {}
+end
+
+function Tower:Clear()
+    for k, v in pairs(self._heroUsed) do
+        self._heroUsed[k] = nil
+    end
+    for k, v in pairs(self._bossHp) do
+        self._bossHp[k] = nil
+    end    
+end
+
+function Tower:SetData(data)
+    self._heroUsed  = {}
+    for hid, v in pairs(data.hero_used or {}) do
+        self._heroUsed[hid] = {
+            hero_hp = v.hero_hp,
+            pet_hp  = v.pet_hp
+        }
+    end
+    self._bossHp = {}
+    local chapter = Chapter:GetTowerChapter()
+    if chapter ~= nil and chapter.levelid ~= 0 then
+        self._bossHp[chapter.levelid] = data.boss_hp or 100
+    end
+end
+
+function Tower:SetHpPer(data)
+    for hid, v in pairs(data) do
+        if self._heroUsed[hid] == nil then
+            self._heroUsed[hid] = {
+                hero_hp = v.hero_hp,
+                pet_hp  = v.pet_hp
+            }
+        else
+            self._heroUsed[hid].hero_hp = v.hero_hp
+            self._heroUsed[hid].pet_hp  = v.pet_hp
+        end
+    end
+end
+
+function Tower:GetHeroPetHp(heroid)
+    for id, data in pairs(self._heroUsed) do
+        if id == heroid then
+            return data.hero_hp, data.pet_hp
+        end
+    end
+    return 100, 100
+end
+
+function Tower:HeroIsAlive(heroid)
+    for id, data in pairs(self._heroUsed) do
+        if id == heroid then
+            return data.hero_hp > 0
+        end
+    end
+    return true
+end
+
+function Tower:TowerRemainSec()
+    return CTime:GetRemainByWeeks(Tower.REFRESH_WEEK_DAY)
+end
+
+function Tower:SetBossHp(levelid, boss_hp)
+    self._bossHp[levelid] = boss_hp
+end
+
+function Tower:GetBossHp(levelid)
+    return self._bossHp[levelid] or 100
+end
+
+function Tower:OnUpdateTowerDay(week)
+    for id, data in pairs(self._heroUsed or {}) do
+        data.hero_hp = 100
+    end
+    self._bossHp    = {}
+    if week then
+        local chapter = Chapter:GetTowerChapter()
+        if chapter ~= nil then
+            chapter.levelid = chapter.levelids[1]
+        end
+    end
+end

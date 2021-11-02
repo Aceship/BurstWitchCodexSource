@@ -1,0 +1,952 @@
+--
+-- author: haosun
+-- date  : 2021-04-12 15:48:33
+-- brief : 
+--
+
+UI_ChangePlayerLayer = UI_ChangePlayerLayer or {}
+
+function UI_ChangePlayerLayer:ChangePlayerLayerCreator()
+    self._hasDestroyed  = false
+    self._isVisible     = false
+    self._skillTutorial = false
+    self._hasSkillTutorial = false
+    self._isEnergyTutorial  = false
+    self._changeIndexTutorial = 1
+    self._curIndex      = 1
+    self.cache_gf_color = 0
+    self._isNoTimeOut   = FightController:IsNoTimeOut()
+    self._isFightRight  = PrefsController:IsFightRight()
+    local _avoidLevel   = FightController:IsOnlyAvoidLevel()
+    self._isTutorial    = TutorialController:IsFirstTutorial()
+    -- 隐藏技能
+    self._isHideSkill   = _avoidLevel
+    -- 隐藏神火条
+    self._isHideGf      = self._isTutorial or _avoidLevel
+    -- 隐藏时间
+    self._isHideTime    = self._isTutorial
+
+    self:onInitAlphaInfo()
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/ChangePlayerInfo")
+    self.prefab:AddAnimationBehaviour(self)
+    self.prefab:SetVisible(false)
+    CS.UnityHelper.NotchfitY(self.prefab:Get("fighttime"))
+    self:onInitTimeCd()
+    self:onInitSkill()
+    
+    self._playerHeader  = {}
+
+    self._heroids = HeroController:GetHeroIds()
+    self:onInitPlayerInfo(1, self._heroids[2], 2)
+    self:onInitPlayerInfo(2, self._heroids[3], 3)
+
+    self:onInitEnergyWarning(self._heroids[1])
+
+    if self._isHideSkill then
+        self.PlayerSkill.skill:SetVisible(false)
+        self.PlayerGunTypeSkill.skill:SetVisible(false)
+        for i = 1, 2 do
+            if(self._playerHeader[i] ~= nil) then
+                if(self._playerHeader[i].skill_obj ~= nil) then
+                    self._playerHeader[i].skill_obj:SetVisible(false)
+                end
+                if(self._playerHeader[i].guntype_skill_obj ~= nil) then
+                    self._playerHeader[i].guntype_skill_obj:SetVisible(false)
+                end
+            end
+        end
+    end
+    self:onLoadSkillIcon(self._heroids[1])
+    self:onLoadGunTypeSkillIcon(self._heroids[1])
+
+    self.cloneLineList = {}
+    self.PlayerGfInfo   = self.prefab:Get("PlayerGfInfo")
+    if self._isHideGf then
+        self.PlayerGfInfo:SetVisible(false)
+    else
+        self:onInitGf()        
+    end
+    self._heroCnt = #self._heroids
+    if self._heroCnt == 1 then return end
+    
+    self:onInitPlayerHeader()
+    -- 特殊副本头像区域透明度修改
+    if _avoidLevel then
+        for _, v in pairs(self._alpha_Info) do
+            if v.inited then v.alphaComp.alpha = 0.5 end
+        end
+    end
+    -- 暂时屏蔽角色头像
+    if self._isTutorial then
+        self._playerHeader[1].layer:SetVisible(false)
+        self._playerHeader[2].layer:SetVisible(false)
+        self.PlayerSkill.skill:SetVisible(false)
+        self.PlayerGunTypeSkill.skill:SetVisible(false)
+    end
+
+    self._addTime = 0
+    self._addTimeSingle = 0
+
+end
+
+function UI_ChangePlayerLayer:ChangePlayerLayerDestructor()
+    if self._hasDestroyed then return end
+
+    if(self.PlayerSkill ~= nil
+        and self.PlayerSkill.skill ~= nil) then
+        self.PlayerSkill.skill:GetButtonComponent("skill_icon").onClick:RemoveAllListeners()
+    end
+
+    if(self.PlayerGunTypeSkill ~= nil
+        and self.PlayerGunTypeSkill.skill ~= nil) then
+        self.PlayerGunTypeSkill.skill:GetButtonComponent("skill_icon").onClick:RemoveAllListeners()
+    end
+    DoClassClear(self.PlayerGunTypeSkill)
+
+    for k, v in pairs(self._playerHeader) do
+        if(v.button ~= nil) then
+            v.button.onClick:RemoveAllListeners()
+        end
+    end
+
+    self._hasDestroyed      = true
+    DoClassClear(self._timeInfo)
+    DoClassClear(self.PlayerSkill)
+    DoArrayClassClear(self._playerHeader)
+    self.PlayerRefreshSkill = nil
+    self.gfBar              = nil
+    self.gfBar_Image        = nil
+    self.curGf              = nil
+    -----
+    self.ToutalTips = nil
+    self.cloneLineLayer     = nil
+    self.cloneLine          = nil
+
+    self.gfEffectPrefab = nil
+    self.gfEffect       = nil
+    
+    self.PlayerGfInfo = nil
+    for _, v in ipairs(self.cloneLineList) do
+        v:Release()
+    end
+    self.cloneLineList      = nil
+    self._isFightRight  = nil
+
+    self._skillCDPer    = nil
+    self._skillCdTime   = nil
+    
+    self.prefab:Release()
+    self.prefab = nil
+    
+    --cache_calue release
+    self.cache_gf_cost = nil
+    self.cache_gf_color = nil
+    self.cache_cdtimes = nil
+    self.cache_curgf = nil
+    self.cache_Gfper = nil
+    self.cache_leftTime = nil
+    self.cache_skillCD = nil
+
+    self._energyWarning = nil
+    self._energyEffect = nil
+    self._energyWarningAvatar = nil
+    self._heroids = nil
+
+    self:doAlphaInfoClear()
+end
+
+function UI_ChangePlayerLayer:doAlphaInfoClear()
+    if self._alpha_Info ~= nil then
+        for _, v in ipairs(self._alpha_Info) do
+            v.isAlpha   = false
+            v.inited    = false
+            v.alphaComp = nil
+        end
+    end
+end
+
+function UI_ChangePlayerLayer:onInitTimeCd()
+    -- 时间信息
+    local _timePrefab   = self.prefab:Get("fighttime")
+    if self._isHideTime then
+        _timePrefab:SetVisible(false)
+    else
+        self._timeInfo = clearbase:new()
+        self._timeInfo.prefab      = _timePrefab
+        self._timeInfo.cd_Text     = _timePrefab:GetTextComponent("txt_times")
+        self._timeInfo.percent     = _timePrefab:GetImageComponent("percent")
+        self._timeInfo.txtAdd      = _timePrefab:GetTextComponent("text_add_number")
+        self._timeInfo.colorSet    = false
+        if self._isNoTimeOut then
+            _timePrefab:Find("icon_infinite"):SetVisible(true)
+            _timePrefab:Find("icon_timing"):SetVisible(false)
+            self._timeInfo.cd_Text:SetText("00:00:00")
+        else
+            _timePrefab:Find("icon_infinite"):SetVisible(false)
+            _timePrefab:Find("icon_timing"):SetVisible(true)
+            self._timeInfo.cd_Text:SetText(Lib:GetMsm(FightController:GetFightConfigTime()))
+            self._timeInfo.percent.fillAmount = 1
+        end    
+        self._timeInfo.txtAdd:SetVisible(false)
+    end
+end
+
+function UI_ChangePlayerLayer:refreshTimeCd(value)
+    if self._isHideTime then return end
+    if self._hasDestroyed then return end
+
+    if self._timeInfo == nil then return end
+
+    self._leftTime = math.max(0, value)
+
+    if self.cache_leftTime ~= self._leftTime then
+        self.cache_leftTime = self._leftTime
+        if not self._isNoTimeOut then
+            if self._leftTime <= 10 and self._timeInfo.colorSet == false then
+                self._timeInfo.colorSet = true
+                self._timeInfo.cd_Text:SetTextColor(1, 0.4, 0.32, 1)
+                UI_TimeTipsLayer:EnterTimeTipsLayer()
+            end
+            if self._leftTime >= 10 and self._timeInfo.colorSet == true then
+                self._timeInfo.colorSet = false
+                self._timeInfo.cd_Text:SetTextColor(1, 1, 1, 1)
+                UI_TimeTipsLayer:ExitTimeTipsLayer()
+            end
+        end
+
+        local leftTime = self._leftTime
+        self._timeInfo.cd_Text:SetText(Lib:GetMsm(leftTime))
+        self._timeInfo.percent.fillAmount = math.min(leftTime / FightController:GetFightConfigTime(), 1)
+    end
+
+    if(FightController:IsRankLevel()) then
+        local leftTime = self._leftTime
+        if(self._addTime ~= nil
+            and self._addTime > 0) then
+            self._addTime = self._addTime - self._addTimeSingle    
+            leftTime = leftTime - self._addTime
+            self._timeInfo.txtAdd.text = "+" .. string.format("%0.3f", self._addTime)
+
+            if(self._addTime <= 0) then
+                self._addTime = 0
+                self._addTimeSingle = 0
+                self._timeInfo.txtAdd:SetVisible(false)
+                leftTime = self._leftTime
+            end
+        end
+        self._timeInfo.cd_Text:SetText(Lib:GetMsm(leftTime))
+        self._timeInfo.percent.fillAmount = math.min(leftTime / FightController:GetFightConfigTime(), 1)
+    end
+end
+
+-- 
+-- brief：技能信息
+-- 
+function UI_ChangePlayerLayer:onInitSkill()
+    local _prefab = self.prefab:Get("PlayerSkill")
+    self._alpha_Info[3].inited = true
+    self._alpha_Info[3].alphaComp = _prefab:GetComponent("CanvasGroup")
+
+    self.PlayerSkill = clearbase:new()
+    self.PlayerSkill.skill       = _prefab
+    self.PlayerSkill.skill_Icon  = _prefab:GetImageComponent("skill_icon")
+    self.PlayerSkill.skill_black = _prefab:GetImageComponent("icon_black")
+    self.PlayerSkill.skill_mask  = _prefab:GetImageComponent("icon_mask")
+    self.PlayerSkill.cdTime_Text = _prefab:GetTextComponent("cdTime")
+    self.PlayerSkill.skillEffect = _prefab:Get("skillEffect")
+    self.PlayerSkill.showEffect  = false
+    self.PlayerSkill.costGf_Text = _prefab:GetTextComponent("needCost")
+    self.PlayerSkill.skillEffect:SetVisible(false)    
+
+    _prefab = self.prefab:Get("PlayerGunTypeSkill")
+    self._alpha_Info[4].inited = true
+    self._alpha_Info[4].alphaComp = _prefab:GetComponent("CanvasGroup")
+
+    self.PlayerGunTypeSkill = clearbase:new()
+    self.PlayerGunTypeSkill.skill       = _prefab
+    self.PlayerGunTypeSkill.skill_Icon  = _prefab:GetImageComponent("skill_icon")
+    self.PlayerGunTypeSkill.skill_black = _prefab:GetImageComponent("icon_black")
+    self.PlayerGunTypeSkill.skill_mask  = _prefab:GetImageComponent("icon_mask")
+    self.PlayerGunTypeSkill.cdTime_Text = _prefab:GetTextComponent("cdTime")
+    self.PlayerGunTypeSkill.skillEffect = _prefab:Get("skillEffect")
+    self.PlayerGunTypeSkill.showEffect  = false
+
+    -- 技能重制刷新机制TODO
+    self.PlayerRefreshSkill = self.prefab.transform:Find("RefreshSkill")
+    self.PlayerRefreshSkill:SetVisible(false)
+    self.PlayerSkill.skill:AddButtonListener("skill_icon",
+        function()
+            self:onClickSkillToPlay()
+        end)
+    self.PlayerGunTypeSkill.skill:AddButtonListener("skill_icon",
+        function()
+            self:onClickGunTypeSkillToPlay()
+        end)
+    self._alpha_Info[5].inited = false
+    self._alpha_Info[5].alphaComp = self.PlayerRefreshSkill:GetComponent("CanvasGroup")
+end
+
+function UI_ChangePlayerLayer:onLoadSkillIcon(heroid)
+    if self._isHideSkill then return end
+    
+    local hero = HeroController:GetHeroById(heroid)
+    self.PlayerSkill.skill_Icon:LoadSprite(hero.skillicon)
+end
+
+function UI_ChangePlayerLayer:refreshSkill(uiAttr, curGf)
+    if (not self._isVisible) or self._hasDestroyed or self._isHideSkill then return end
+   
+    local UIAttrIndex = FightArrController.UIAttrIndex
+
+    if self.cache_gf_cost ~= uiAttr[UIAttrIndex.iMustCostGf] then
+        self.cache_gf_cost = uiAttr[UIAttrIndex.iMustCostGf]
+        self.PlayerSkill.costGf_Text:SetText(uiAttr[UIAttrIndex.iMustCostGf])
+    end
+    self._gf_usable = curGf >= uiAttr[UIAttrIndex.iMustCostGf]
+    if self._gf_usable then
+        if self.cache_gf_color ~= 1 then
+            self.cache_gf_color = 1
+            self.PlayerSkill.costGf_Text:SetTextColor(1, 1, 1, 1)
+        end
+    else
+        if self.cache_gf_color ~= 2 then
+            self.cache_gf_color = 2
+            self.PlayerSkill.costGf_Text:SetTextColor(1.00, 0.40, 0.32, 1.00)
+        end
+    end
+    
+    self._skillCDPer    = uiAttr[UIAttrIndex.fMustCurCd] / uiAttr[UIAttrIndex.fMustMaxCd]
+    self._skillCdTime   = uiAttr[UIAttrIndex.fMustCurCd]
+    if self.cache_skillCD ~= self._skillCDPer or self.cache_leftTime ~= self._skillCdTime then
+        self.PlayerSkill.skill_mask.fillAmount = self._skillCDPer
+        self.PlayerSkill.cdTime_Text.text = string.format("%.1f", self._skillCdTime)
+        self.PlayerSkill.cdTime_Text:SetVisible(self._skillCDPer > 0)
+        self.PlayerSkill.skill_black:SetVisible(self._skillCDPer > 0)
+
+        self.PlayerSkill.skillEffect:SetVisible(self._gf_usable and self._skillCdTime <= 0)
+    end
+end
+
+function UI_ChangePlayerLayer:onLoadGunTypeSkillIcon(heroid)
+    if self._isHideSkill then return end
+    
+    local hero = HeroController:GetHeroById(heroid)
+    local skillLv = FightController:GetChangeSkllLv(hero.atk_type)
+    local skillid, lv = skillLv.id, skillLv.level
+    local isShow = lv > 0
+    self.PlayerGunTypeSkill.skill:SetVisible(isShow)
+    if(isShow) then
+        self.PlayerGunTypeSkill.skill_Icon:LoadSprite(Skill:GetHeroChangeSkillIcon(skillid))
+    end
+end
+
+function UI_ChangePlayerLayer:refreshGunTypeSkill(uiAttr)
+    if (not self._isVisible) or self._hasDestroyed or self._isHideSkill then return end
+   
+    local UIAttrIndex = FightArrController.UIAttrIndex
+
+    local _skillCDPer    = uiAttr[UIAttrIndex.fChangeCdPer]
+    local _skillCdTime   = uiAttr[UIAttrIndex.fChangeCd]
+
+    self.PlayerGunTypeSkill.skill_mask.fillAmount = _skillCDPer
+    self.PlayerGunTypeSkill.cdTime_Text.text = string.format("%.1f", _skillCdTime)
+    self.PlayerGunTypeSkill.cdTime_Text:SetVisible(_skillCDPer > 0)
+    self.PlayerGunTypeSkill.skill_black:SetVisible(_skillCDPer > 0)
+
+    self.PlayerGunTypeSkill.skillEffect:SetVisible(_skillCdTime <= 0)
+end
+
+-- 
+-- brief：神火信息
+-- 
+function UI_ChangePlayerLayer:onInitGf()
+    self.gfEffectPrefab = self.PlayerGfInfo:Get("gfEffect")
+    self.gfEffect       = self.PlayerGfInfo:Find("gfEffect/gfPB"):GetComponent("ParticleSystem")
+    self.gfEffectPrefab:SetVisible(false)
+    self.gfEffectInit   = false
+
+    self.gfBar          = self.PlayerGfInfo:Find("gfBar")
+    self.gfBar_Image    = self.gfBar:GetComponent("Image")
+    self.gfBar_Image.fillAmount = 0
+
+    self.cloneLineLayer = self.PlayerGfInfo:Find("lineLayer")
+    self.cloneLine      = self.cloneLineLayer:Find("cloneLine")
+    self.curGf          = self.PlayerGfInfo:GetTextComponent("curGF")
+end
+
+function UI_ChangePlayerLayer:refreshPlayerGf(curGf, maxGf, uiAttr)
+    if (not self._isVisible) or self._hasDestroyed or self._isHideGf then return end
+
+    self._gfBar = curGf / maxGf
+    if self.cache_Gfper ~= self._gfBar then
+        self.cache_Gfper = self._gfBar
+        self.gfBar_Image.fillAmount = self._gfBar
+    end
+
+    if self.cache_curgf ~= curGf then
+        self.cache_curgf = curGf
+        self.curGf:SetText(curGf)
+    end
+
+    local UIAttrIndex = FightArrController.UIAttrIndex
+
+    local gf_cost = uiAttr[UIAttrIndex.iMustCostGf]
+    
+    local count = 0
+    if(gf_cost <= 0) then
+        for i = 1, #self.cloneLineList do
+            self.cloneLineList[i]:SetVisible(false)
+        end
+        return
+    end
+
+    local count = maxGf / gf_cost
+    local linePosOffest = math.floor(468/count)
+
+    count = math.floor(count)
+
+    for i = 1, count do
+        local _item = self.cloneLineList[i]
+        if _item == nil then
+            _item = self.cloneLineLayer:AddChild(self.cloneLine.gameObject)
+            self.cloneLineList[i] = _item
+        end
+        local y = linePosOffest * i
+        _item:SetPosition(0, y, 0, true)
+        _item:SetVisible(y < 458)
+    end
+    
+    for i = count + 1, #self.cloneLineList do
+        self.cloneLineList[i]:SetVisible(false)
+    end
+
+end
+
+function UI_ChangePlayerLayer:onInitAlphaInfo()
+    if not self._alpha_inited then
+        self._alpha_inited = true
+        self._alpha_Info = {
+            [1] = { minz = -330, maxz = -140, isAlpha = false, inited = false, right = false},  -- 角色
+            [2] = { minz = -118,  maxz = 72,   isAlpha = false, inited = false, right = false},  -- 角色
+            [3] = { minz = -522, maxz = -394, isAlpha = false, inited = false, right = false},  -- 技能图标
+            [4] = { minz = -724, maxz = -596, isAlpha = false, inited = false, right = false},  -- 流派技能图标
+            [5] = { minz = -660, maxz = -540, isAlpha = false, inited = false, right = false},  -- 刷新球
+        }
+    else
+        self:doAlphaInfoClear()
+    end
+end
+
+-- 
+-- brief: 场下魔女头像
+-- 
+function UI_ChangePlayerLayer:onInitPlayerHeader()
+    for _, v in ipairs(self._playerHeader) do
+        v.layer:SetVisible(v.inited)
+        if v.inited then
+            self:refreshPlayerHeader(v)
+        end
+    end
+end
+
+function UI_ChangePlayerLayer:refreshPlayerHeader(obj)
+    local hero = HeroController:GetHeroById(obj.heroid)
+    obj.isDead = false
+    obj.img_nor:SetVisible(true)
+    obj.img_dead:SetVisible(false)
+    obj.button.interactable = true
+    obj.img_nor:LoadSprite("source_avatar/hero_main/head_" .. hero.skinid)
+    obj.img_dead:LoadSprite("source_avatar/hero_main/head_" .. hero.skinid)
+    obj.img_attr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(hero.attri_type)])
+    obj.skill_icon:LoadSprite(hero.skillicon)
+    local skillLv = FightController:GetChangeSkllLv(hero.atk_type)
+    local skillid, lv = skillLv.id, skillLv.level
+    local isShow = lv > 0
+    obj.guntype_skill_obj:SetVisible((not self._isHideSkill) and isShow)
+    if(isShow) then
+        obj.guntype_skill_icon:LoadSprite(Skill:GetHeroChangeSkillIcon(skillid))
+    end
+end
+
+function UI_ChangePlayerLayer:tryGetObjByHeroid(heroid)
+    if self._playerHeader == nil then
+        AppMgr:LogError("UI_ChangePlayerLayer:tryGetObjByHeroid self._playerHeader == nil")
+    end
+    for _, v in ipairs(self._playerHeader or {}) do
+        if v.heroid == heroid then
+            return v
+        end
+    end
+    return nil
+end
+
+function UI_ChangePlayerLayer:refreshPlayerAttr(index, uiAttr, curGf, curFrame)
+    local UIAttrIndex = FightArrController.UIAttrIndex
+
+    local heroid = self._heroids[index]
+    local obj = self:tryGetObjByHeroid(heroid)
+    if obj == nil or false == obj.inited then return end
+
+    if uiAttr[UIAttrIndex.iIsDeath] > 0 then
+        obj.hp_bar.fillAmount = 0
+        obj.energy_bar.fillAmount = 0
+        obj.xuli_bar.fillAmount = 0
+        obj.skill_obj:SetVisible(false)
+        obj.guntype_skill_obj:SetVisible(false)
+        -- obj.img_cd_l:SetVisible(false)
+        -- obj.img_cd_r:SetVisible(false)
+        obj.uibuff:SetVisible(false)
+        obj.shield_bar:SetVisible(false)
+        obj.img_nor:SetVisible(false)
+        obj.img_dead:SetVisible(true)
+        obj.button.interactable = false
+        return
+    end
+
+    obj.hp_bar.fillAmount = math.floor(uiAttr[UIAttrIndex.fCurValue]) / math.floor(uiAttr[UIAttrIndex.fMaxValue])
+    -- 盾的临时处理
+    local hpScale, shieldScale = 1, 0  --playerCtrl:_calcShieldScale()    
+    -- u3d_set_scale(uiInfo.hp_bar, hpScale, 1)
+    if(shieldScale > 0) then
+        obj.shield_bar:SetVisible(true)
+        u3d_set_scale(obj.shield_bar, shieldScale, 1)
+        local posX = obj._hpX + obj._hpWidth * hpScale * curHp/maxHp
+        obj.shield_bar.transform.localPosition = CS.UnityEngine.Vector3(posX, obj._hpY, obj._hpZ)
+    else
+        obj.shield_bar:SetVisible(false)
+    end
+
+    obj.energy_bar.fillAmount = math.floor(uiAttr[UIAttrIndex.fCurEnergy]) / math.floor(uiAttr[UIAttrIndex.fMaxEnergy])
+    obj.xuli_bar.fillAmount = uiAttr[UIAttrIndex.fXuliCdPer]
+    local cdper = 0
+    --if uiAttr[UIAttrIndex.fMustCurCd] <= uiAttr[UIAttrIndex.fMustMaxCd] or uiAttr[UIAttrIndex.fMustMaxCd] <= 0 then
+    if false then
+        cdper = 0
+    else
+        cdper = uiAttr[UIAttrIndex.fMustCurCd] / uiAttr[UIAttrIndex.fMustMaxCd]
+    end
+
+    -- obj.img_cd_l.fillAmount = cdper
+    -- obj.img_cd_r.fillAmount = cdper
+    -- if  cdper < 1 and false == obj.visible then
+    --     obj.visible = true
+    --     obj.effect_l:SetVisible(true)
+    --     obj.effect_r:SetVisible(true)
+    -- end
+    -- if cdper <= 0.25 then
+    --     obj.effect_l:SetRotation(0, 0, 90, true)
+    --     obj.effect_r:SetRotation(0, 0, 90, true)
+    --     obj.effect_l:SetPosition(42 - 66 * cdper*4, -64, 0, true)
+    --     obj.effect_r:SetPosition(42 - 66 * cdper*4, -64, 0, true)
+    -- elseif cdper > 0.25 and cdper <= 0.75 then
+    --     obj.effect_l:SetRotation(0, 0, 0, true)
+    --     obj.effect_r:SetRotation(0, 0, 0, true)
+    --     obj.effect_l:SetPosition(-24, -64 + 136 * (cdper - 0.25)*2, 0, true)
+    --     obj.effect_r:SetPosition(-24, -64 + 136 * (cdper - 0.25)*2, 0, true)
+    -- else
+    --     obj.effect_l:SetRotation(0, 0, -90, true)
+    --     obj.effect_r:SetRotation(0, 0, -90, true)
+    --     obj.effect_l:SetPosition(-24 + 66 * (cdper-0.75)*4, 72, 0, true)
+    --     obj.effect_r:SetPosition(-24 + 66 * (cdper-0.75)*4, 72, 0, true)
+    -- end
+    -- if cdper >= 1 and obj.visible then
+    --     obj.visible = false
+    --     obj.effect_l:SetVisible(false)
+    --     obj.effect_r:SetVisible(false)
+    --     obj.effect_l:SetPosition(42, -64, 0, true)
+    --     obj.effect_r:SetPosition(42, -64, 0, true)
+    -- end
+    obj.effect:SetVisible(curGf >= uiAttr[UIAttrIndex.iMustCostGf] and uiAttr[UIAttrIndex.fMustCurCd] <= 0)
+    obj.img_cd.fillAmount = cdper
+    -- buff 
+    -- obj.uibuff:UpdateBuff(uiAttr.renderBuffs, curFrame)
+    -- 换人技能cd
+    obj.guntype_effect:SetVisible(uiAttr[UIAttrIndex.fChangeCdPer] <= 0)
+    obj.guntype_img_cd.fillAmount = uiAttr[UIAttrIndex.fChangeCdPer]
+end
+
+function UI_ChangePlayerLayer:playToutalTips(isPlay)
+    self.ToutalTips:SetVisible(true)
+    if isPlay then
+        self.ToutalTips:AnimationPlay("toutalTipsFadeIn")
+    else
+        self.ToutalTips:AnimationPlay("toutalTipsFadeOut")
+    end
+end
+function UI_ChangePlayerLayer:PlayGfEffect()
+    if self._isHideGf then return end
+    if self._hasDestroyed then return end
+
+    if self.gfEffectInit == false then
+        self.gfEffectPrefab:SetVisible(true)
+        self.gfEffectInit = true
+    else
+        self.gfEffect:Play()
+    end
+end
+
+function UI_ChangePlayerLayer:onInitPlayerInfo(index, heroid, hidIndex)
+    local uiplayer = self.prefab:Get("Player"..index)
+    local clsHeader = clearbase:new()
+    if heroid ~= nil and heroid ~= 0 then
+        clsHeader.inited      = true
+        clsHeader.visible     = true
+        clsHeader.isDead      = false
+        clsHeader.heroid      = heroid
+        clsHeader.hidIndex    = hidIndex
+        clsHeader.layer       = uiplayer
+        clsHeader.hp_bar      = uiplayer:GetImageComponent("hp_bar")
+        clsHeader.energy_bar  = uiplayer:GetImageComponent("energy_bar")
+        clsHeader.xuli_bar    = uiplayer:GetImageComponent("xuli_bar")
+        clsHeader.img_attr    = uiplayer:GetImageComponent("attribk/img_attrib")
+        clsHeader.button      = uiplayer:GetButtonComponent("Btn")
+        clsHeader.img_nor     = uiplayer:GetImageComponent("Btn/img_bg/AvatarNormal")
+        clsHeader.img_dead    = uiplayer:GetImageComponent("Btn/img_bg/AvatarDeath")
+        clsHeader.skill_obj   = uiplayer:Get("obj_skill")
+        clsHeader.effect      = uiplayer:Get("obj_skill"):Get("skillEffect")
+        clsHeader.img_cd      = uiplayer:GetImageComponent("obj_skill/icon_mask")
+        clsHeader.skill_icon  = uiplayer:GetImageComponent("obj_skill/skill_icon")
+
+        clsHeader.guntype_skill_obj   = uiplayer:Get("obj_gun_type_skill")
+        clsHeader.guntype_effect      = uiplayer:Get("obj_gun_type_skill"):Get("skillEffect")
+        clsHeader.guntype_img_cd      = uiplayer:GetImageComponent("obj_gun_type_skill/icon_mask")
+        clsHeader.guntype_skill_icon  = uiplayer:GetImageComponent("obj_gun_type_skill/skill_icon")
+
+        clsHeader.uibuff      = core.require("xlua/lua_UI/GameFightScene/uibuff.txt"):new()
+        
+        self._playerHeader[index] = clsHeader        
+        clsHeader.uibuff:Init(uiplayer:Get("BossBuffInfo"), true)
+        clsHeader.effect:SetVisible(false)
+        --盾的临时处理
+        clsHeader.shield_bar = uiplayer:GetImageComponent("shield_bar")
+        local hpPos = clsHeader.hp_bar.transform.localPosition
+        clsHeader._hpX = hpPos.x
+        clsHeader._hpY = hpPos.y
+        clsHeader._hpZ = hpPos.z
+        clsHeader._hpWidth = clsHeader.hp_bar:GetComponent("RectTransform").sizeDelta.x
+        -- 切换魔女监听
+        clsHeader.button:AddButtonListener(
+            function()
+                self:onClickChangeFightPlayer(clsHeader.hidIndex)
+            end)
+        self._alpha_Info[index].inited = true
+        self._alpha_Info[index].alphaComp = uiplayer:GetComponent("CanvasGroup")
+    else
+        clsHeader.inited  = false
+        clsHeader.layer   = uiplayer
+        self._playerHeader[index] = clsHeader
+    end
+    uiplayer:SetVisible(false)
+end
+
+function UI_ChangePlayerLayer:onClickChangeFightPlayer(hidIndex)
+    if self._changeByNoEnergy then
+        self._changeByNoEnergy = false
+        TutorialController:ClickTutorialComplete()
+    end
+    LuaScriptController:ChangeFightPlayer(self._curIndex, hidIndex)
+end
+
+function UI_ChangePlayerLayer:changeCurPlayer(newIndex)
+    local hid = self._heroids[newIndex]
+    if hid == nil or hid == 0 then return end
+    self:onLoadSkillIcon(hid)
+    self:onLoadGunTypeSkillIcon(hid)
+    local obj = self:tryGetObjByHeroid(hid)
+    obj.heroid   = self._heroids[self._curIndex]
+    obj.hidIndex = self._curIndex
+    self:refreshPlayerHeader(obj)
+    self._curIndex = newIndex
+    -- 检测换人引导
+    if self._changeTutorial then
+        TutorialController:ClickTutorialComplete()
+    end
+end
+
+function UI_ChangePlayerLayer:ClearChangeTutorial()
+    self._changeTutorial = nil
+    self._changeByNoEnergy = false
+end
+
+function UI_ChangePlayerLayer:onClickSkillToPlay()
+    -- if self._changeTutorial then return end    
+    self:onExitTutorial()
+    LuaScriptController:PrePlayMustSkillCall()
+end
+
+function UI_ChangePlayerLayer:onClickGunTypeSkillToPlay()
+    -- if self._changeTutorial then return end    
+    --self:onExitTutorial()
+    LuaScriptController:PlayGunTypeSkillCall()
+end
+
+function UI_ChangePlayerLayer:onExitTutorial()
+    if self._skillTutorial then
+        self._skillTutorial = nil
+        TutorialController:ClickTutorialComplete()
+    end
+end
+
+function UI_ChangePlayerLayer:onInitEnergyWarning(heroid)
+    self._energyWarning = self.prefab:Get("EnergyWarning")
+    self._energyEffect = self.prefab:Get("EnergyEffect")
+    local avatarBg = self._energyWarning:Get("AvatarBg")
+    self._energyWarningAvatar = avatarBg:GetImageComponent("AvatarNormal")
+    self:LoadEnergyWarningAvatar(heroid)
+    self:ShowEnergyWarning(false)
+end
+
+function UI_ChangePlayerLayer:LoadEnergyWarningAvatar(heroid)
+    local hero = HeroController:GetHeroById(heroid)
+    self._energyWarningAvatar:LoadSprite("source_avatar/hero_main/head_" .. hero.skinid)
+end
+
+function UI_ChangePlayerLayer:onRefershEnergyWarning(index)
+    local heroid = self._heroids[index]
+    self:LoadEnergyWarningAvatar(heroid)
+end
+
+function UI_ChangePlayerLayer:ShowEnergyWarning(isVisible)
+    self._energyWarning:SetVisible(isVisible)
+    self._energyEffect:SetVisible(isVisible)
+
+    if not isVisible then return end
+
+    if self._isTutorial then return end
+    
+    if self._isEnergyTutorial then return end
+
+    if self._heroCnt == 1 then return end
+
+    self._isEnergyTutorial = true
+    if Guide:OnceGuideCheck(Guide.FIRST_FIGHT_ENERGY) then
+        AppMgr:LogInfo("--------------------触发精力值耗尽引导--------------------")
+        TutorialController:IsTutorialTrigger(88888)
+    end
+end
+
+--new interface-----------------------------------------------------------------------------------------------------
+function UI_ChangePlayerLayer:onAnimationDestroy()
+    self:ChangePlayerLayerDestructor()
+end
+
+function UI_ChangePlayerLayer:onAnimationEvent(anitype, keyTag)
+    if anitype == 6 then
+        self:onLayerFadeOutEndCall()
+    end
+end
+
+function UI_ChangePlayerLayer:onLayerFadeOutEndCall()
+    self._isVisible = false
+    self.prefab:SetVisible(false)
+end
+
+-- 
+-- brief：键盘切换角色事件
+-- 
+function UI_ChangePlayerLayer:SelectPlayerByKeyboard(index)
+
+end
+
+-- 
+-- brief：新手引导神火介绍
+-- 
+function UI_ChangePlayerLayer:ShowChangePlayerSkillGF()
+    self:onInitGf()
+    self.PlayerSkill.skill:GetButtonComponent("skill_icon").interactable = false
+    self.PlayerGfInfo:SetVisible(true)
+    self.PlayerSkill.skill:SetVisible(true)
+
+    self._isHideGf = false
+    self._isHideSkill = false
+end
+
+-- 
+-- brief：新手引导技能介绍
+-- 
+function UI_ChangePlayerLayer:ShowChangePlayerSkillEffect()
+    self._skillTutorial = true
+    if not self._hasSkillTutorial then
+        self:ShowChangePlayerSkillGF()
+        self.PlayerSkill.skill:GetButtonComponent("skill_icon").interactable = true
+        self.PlayerSkill.skillEffect:SetVisible(true)
+        self._hasSkillTutorial = true
+    end
+end
+
+-- 
+-- brief：新手引导切换角色
+-- 
+function UI_ChangePlayerLayer:ShowPlayerByTutorial()
+    self._changeTutorial = true
+    self._playerHeader[self._changeIndexTutorial].layer:SetVisible(true)
+    self._changeIndexTutorial = self._changeIndexTutorial + 1
+end
+
+-- 
+-- brief：精力耗尽引导切换角色
+-- 
+function UI_ChangePlayerLayer:ShowPlayerByNoEnergy()
+    self._changeByNoEnergy = true
+end
+
+function UI_ChangePlayerLayer:ShowChangePlayerInfoLayer()
+    if self._isVisible then return end
+
+    self._isVisible = true
+    self.prefab:SetVisible(true)
+    if self._isFightRight then
+        self.prefab:AnimationPlay("FightAvatarFadeIn2")
+    else
+        self.prefab:AnimationPlay("FightAvatarFadeIn")
+    end
+end
+
+function UI_ChangePlayerLayer:HideChangePlayerInfoLayer()
+    if not self._isVisible then return end
+
+    if self._isFightRight then
+        self.prefab:AnimationPlay("FightAvatarFadeOut2")
+    else
+        self.prefab:AnimationPlay("FightAvatarFadeOut")
+    end
+
+    self:onExitTutorial()
+end
+
+function UI_ChangePlayerLayer:GetWitchPos(witchid)
+    for index, v in ipairs(self._playerHeader) do
+        if v.heroid == witchid then
+            return index
+        end
+    end
+    return -1
+end
+
+
+-- public interface -------------------------------------------------------------------------------------------------
+function UI_ChangePlayerLayer:EnterChangePlayerLayer()
+    if self._isVisible then return end
+
+    self._isVisible = true
+    self.prefab:SetVisible(true)
+    if self._isFightRight then
+        self.prefab:AnimationPlay("FightAvatarFadeIn2")
+    else
+        self.prefab:AnimationPlay("FightAvatarFadeIn")
+    end
+end
+
+function UI_ChangePlayerLayer:ExitChangePlayerLayer()
+    if not self._isVisible then return end
+
+    if self._isFightRight then
+        self.prefab:AnimationPlay("FightAvatarFadeOut2")
+    else
+        self.prefab:AnimationPlay("FightAvatarFadeOut")
+    end
+end
+
+function UI_ChangePlayerLayer:UpdateChangePlayerLayerData(battleData)
+    if self._curIndex ~= battleData.bwIndex + 1 then
+        self:changeCurPlayer(battleData.bwIndex + 1)
+    end
+    -- 刷新时间
+    self:refreshTimeCd(battleData.battleTime)
+
+    local uiAttr = FightArrController:GetUIAttr(battleData.bwIndex)
+    -- 刷新神火
+    self:refreshPlayerGf(math.floor(battleData.curGf), math.floor(battleData.maxGf), uiAttr)
+    -- 刷新技能
+    self:refreshSkill(uiAttr, math.floor(battleData.curGf))
+    self:refreshGunTypeSkill(uiAttr)
+    self:onRefershEnergyWarning(self._curIndex)
+
+    if self._heroCnt == 1 then return end
+
+    -- 刷新属性
+    for i = 1, self._heroCnt, 1 do
+        if i - 1 ~= battleData.bwIndex then
+            self:refreshPlayerAttr(i, FightArrController:GetUIAttr(i-1), battleData.curGf, battleData.curFrame)
+        end
+    end
+end
+
+
+function UI_ChangePlayerLayer:UpdateUIAlpha(prefabPosX, prefabPosZ)
+    if not self._isVisible then return end
+
+    local function isTouch(a, b)
+        return not (a.r < b.l or b.r < a.l or a.t < b.b or b.t < a.b)
+    end
+
+    local playerSize = Player._ui_alpha_size
+    local halfW, halfH = playerSize[1], playerSize[2]
+    local rectPlayer = { l = prefabPosX - halfW, r = prefabPosX + halfW, b = prefabPosZ - halfH, t = prefabPosZ + halfH }
+
+    for _, info in pairs(self._alpha_Info) do
+        if info.inited then            
+            local rectInfo = { b = info.minz, t = info.maxz,
+                               l = self._isFightRight and 360 or -510,
+                               r = self._isFightRight and 510 or -360,
+                             }
+            if(isTouch(rectPlayer, rectInfo)) then
+                if info.isAlpha == false then
+                        info.isAlpha = true
+                        info.alphaComp.alpha = 0.2
+                    end
+                else
+                    if info.isAlpha == true then
+                        info.isAlpha = false
+                        info.alphaComp.alpha = 1
+                    end
+                end
+            end
+        end
+
+
+    -- local lr = prefabPosX <= -360 and prefabPosX >= -510
+    -- if self._isFightRight then
+    --     lr = prefabPosX >= 360 and prefabPosX <= 510
+    -- end
+    -- for _, info in pairs(self._alpha_Info) do
+    --     if info.inited then
+    --         if (prefabPosZ >= info.minz and prefabPosZ < info.maxz) and lr then
+    --             if info.isAlpha == false then
+    --                 info.isAlpha = true
+    --                 info.alphaComp.alpha = 0.2
+    --             end
+    --         else
+    --             if info.isAlpha == true then
+    --                 info.isAlpha = false
+    --                 info.alphaComp.alpha = 1
+    --             end
+    --         end
+    --     end
+    -- end
+end
+
+function UI_ChangePlayerLayer:PlayGfRecoverEffect()
+    self:PlayGfEffect()
+end
+
+function UI_ChangePlayerLayer:TutorialTriggerAfterEnter()
+    self.prefab:DelayInvoke(0.6, function()
+            TutorialController:TutorialTrigger()
+        end)
+end
+
+function UI_ChangePlayerLayer:DoAddTime(time)
+    self._addTime = time
+    self._addTimeSingle = self._addTime / 30
+
+    local txt = self._timeInfo.txtAdd
+    txt:SetVisible(true)
+
+    txt.transform:DOScale(1.4, 0.3):OnComplete(
+        function()
+            txt.transform:DOScale(1.0, 0.3)
+        end)
+
+end
+

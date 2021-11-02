@@ -1,0 +1,171 @@
+--
+-- author: haosun
+-- date  : 2021-01-12 10:40:03
+-- brief : 初始起名UI
+--
+local StartNameLayer = class("StartNameLayer")
+
+function StartNameLayer:ctor(super)
+end
+
+function StartNameLayer:EnterStartNameLayer(call)
+    self._call = call
+
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_StartNameLayer")
+    self.layer:AddAnimationBehaviour(self);
+    -- button event
+    self.layer:GetButtonComponent("obj_name/btn_random"):AddButtonListener(function()
+        -- random name
+        self:randomForPlayerName()
+    end)
+    self.layer:GetButtonComponent("obj_name/btn_name"):AddButtonListener(function()
+        -- set player name
+        if self.sending then return end
+        self.sending = true
+        Player:ModifyNameReq(self._comInputField.text, self.togIndex, function()
+            self.sending = false
+        end)
+    end)
+
+    self._objTemplete = self.layer:Get("obj_tutor/obj_header").gameObject
+    self._transSelect = self.layer:Get("obj_tutor/trans_select");
+    self._transSelect:SetVisible(false);
+    self._objTemplete:SetVisible(false)
+    -- input event
+    self._comInputField = self.layer:GetInputFieldComponent("obj_name/InputField")
+    self._comInputField.onValueChanged:AddListener(function(value)
+        self._comInputField.text = filter_spec_chars(value)
+    end)
+
+    -- event listener
+    GEvent:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME, function()
+        self.sending = nil
+        self:onExitStartNameLayer()
+    end)
+    GEvent:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME_ERR, function()
+        self.sending = false
+    end)
+    self.tutorData = Player:GetTutorhead()
+
+    self.imgTutor = self.layer:GetImageComponent("obj_tutor/img_tutor")
+    self.imgTutor:SetImageColor(1, 1, 1, 0)
+    self.imgTutor:LoadSprite(self.tutorData[1]["Sublimation"])
+
+    self:randomForPlayerName()
+
+    self.objLeft = self.layer:Get("obj_tutor/img_left")
+    self.objRight = self.layer:Get("obj_tutor/img_right")
+    self:setArrow()
+    self.sending = false
+
+    self.layer:AnimationPlay("StartNameLayerAni")
+end
+
+function StartNameLayer:randomForPlayerName()
+    local library = core.require("xlua/lua_Game/GameMgr/NameLibrary.txt")
+    if self._useGender == 1 then
+        self._comInputField.text = string.format("%s·%s·%s", library.randomformanname())
+    else
+        self._comInputField.text = string.format("%s·%s·%s", library.randomforwomanname())
+    end
+end
+
+function StartNameLayer:onExitStartNameLayer()
+    GEvent:removeEventListenerByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME)
+    GEvent:removeEventListenerByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME_ERR)
+    
+    self.objLeft = nil
+    self.objRight = nil
+    self.imgTutor = nil
+    self._contentTrans = nil
+    self._objHeaders = nil
+    self._transSelect = nil;
+    self._call()
+    self._call = nil
+    self.tutorData = nil
+    
+    self.layer:Release()
+    self.layer = nil
+end
+
+function StartNameLayer:initTableView()
+    self.layer:GetButtonComponent("obj_tutor/img_left"):AddButtonListener(function()
+        if self.togIndex == 1 then
+            return
+        end
+        self.togIndex = self.togIndex - 1
+        self:gotoIndex(self.togIndex)
+    end)
+    self.layer:GetButtonComponent("obj_tutor/img_right"):AddButtonListener(function()
+        if self.togIndex == #self.tutorData then
+            return
+        end
+        self.togIndex = self.togIndex + 1
+        self:gotoIndex(self.togIndex)
+    end)
+    local rows = #self.tutorData
+
+    self._objHeaders = {}
+    self._contentTrans = self.layer:Get("obj_tutor/TableView/Content")
+    for i = 1, rows, 1 do
+        local gameObject = self._contentTrans:AddChild(self._objTemplete)
+        self._objHeaders[i] = {
+            gameObject = gameObject,
+            objOn   = gameObject:Get("img_on"),
+            objOff  = gameObject:Get("img_off"),
+        }
+        gameObject:SetVisible(true)
+        gameObject:GetImageComponent("img_icon"):LoadSprite(self.tutorData[i].headchoose)
+        gameObject:GetComponent("Button"):AddButtonListener(
+            function()
+                self:onHeaderClick(i)
+            end)
+        gameObject:SetScale(0, 0, 0)
+        gameObject.transform:DOScale(1, 0.05):SetDelay((i-1)*0.05)
+    end
+end
+
+-- 切换导师形象
+function StartNameLayer:onHeaderClick(index)
+    if self.togIndex == index then return end
+
+    self.togIndex = index
+    self.imgTutor:LoadSprite(self.tutorData[index]["Sublimation"])
+    for i, v in ipairs(self._objHeaders) do
+        if(index == i)then
+            self._transSelect:SetVisible(true);
+            self._transSelect:SetParent(v.objOn,true);
+            self._transSelect:SetPosition(0,0,0,true);
+            self._transSelect:SetScale(1,1,1);
+        end
+        v.objOff:SetVisible(index ~= i)
+    end 
+    
+    local gender = self.tutorData[index].sexuality
+    if self._useGender ~= gender then
+        self._useGender = gender
+        self:randomForPlayerName()
+    end
+end
+
+function StartNameLayer:gotoIndex(index)
+    self.togIndex = -1
+    self:onHeaderClick(index)
+end
+
+function StartNameLayer:setArrow()
+    self.objLeft:SetVisible(false)
+    self.objRight:SetVisible(false)
+end
+
+function StartNameLayer:onAnimationEvent(anitype, intkey)
+    if 1 == intkey then
+        self.togIndex = -1
+        self:initTableView()
+        self:onHeaderClick(1)
+        self.imgTutor:SetVisible(true)
+    end
+end
+
+return StartNameLayer
+

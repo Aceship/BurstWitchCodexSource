@@ -1,0 +1,261 @@
+--
+-- author: haosun
+-- date  : 2019-08-19 19:28:46
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local RankFightLayer = class("RankFightLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    fight   = "viewInfo/button_fight",
+    clock   = "viewInfo/info_clock/button_clock",
+    rule2   = "viewInfo/info_self/image_attr"
+}
+
+function RankFightLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_rank/UI_RankFightLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo         = Player.CURRENCY_SY,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self:onEnter()
+end
+
+function RankFightLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function RankFightLayer:initObj()
+    self._clockObj      = self.layer:Get("viewInfo/info_clock")
+    self._txt_remain    = self._clockObj:GetTextComponent("txt_remain")
+
+    self._btnRule       = self.layer:GetButtonComponent("viewInfo/button_rule")
+
+    self._bossInfo      = self.layer:Get("bossInfo")
+
+    self._btnRule.onClick:AddListener(function() 
+        Groble_UIMgr:ShowGeneralRuleTipsLayer(77000122, 77000124, 77000123, false)
+    end)
+
+    self._bossInfoCom = core.require("xlua/lua_UI/HomeScene/rankfight/RankBossInfo.txt"):new(self._bossInfo)
+    self._bossInfoCom:show()
+end
+
+function RankFightLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            Chapter:GoFight(self._heroids, levelid)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BUY_RANK_BUFF,
+        function(buffid)
+            self:onUpdateCurrency()
+            self:onBuyBuffRep(buffid)
+        end)
+    MidNight:UpdateLastRanking();--此处更新上次排名
+    MidNight:UpdateIsNewMaxScore();
+end
+
+function RankFightLayer:onExit()
+    self._teams = nil
+    self._chapter = nil
+    self._blesscfgs = nil
+    self._levelAddition:onExit();
+    self._levelAddition = nil;
+    self._heroSelectCtrl:OnDestroy();
+
+    self._clockObj      = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function RankFightLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+function RankFightLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.rule2 then
+        Groble_UIMgr:ShowAttrRuleTipsLayer(self._chapter.levelids[1])
+    elseif buttontype == BUTTON_TYPE.fight then
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+            return;
+        end
+        if(not MidNight:MidNightIsRegister())then
+            Groble_UIMgr:LocateToLayer(LayerType_Plot);
+            Groble_UIMgr:ShowGameWordTipsLayer(120059)
+            return;
+        end
+        Rank:ResetBuffIdArr()
+        if MidNight:RankFightCheck() then
+            self:doFight()
+        end
+    elseif buttontype == BUTTON_TYPE.clock then
+        core.require("xlua/lua_UI/HomeScene/rankfight/RankClockLayer.txt"):new():show(Clock.CLOCK_TYPE_SY, 
+            function(clockid)
+                self:refreshClockUi(clockid)
+            end)
+    end
+end
+
+function RankFightLayer:onUpdateCurrency()
+    Groble_UIMgr:SetTopData(self._topData)
+end
+
+function RankFightLayer:onHeroClick(i)
+    local temp = lua_deep_copy(self._teams);
+    if(temp[i].hero ~= nil)then
+        temp[i].hero = nil;
+    end
+    Chapter:OpenWitchesLayer(temp, function(ids)
+        for idx, info in pairs(self._teams) do
+            self._teams[idx].hero = nil
+        end
+        for id, v in pairs(ids) do
+            self._teams[v].hero = Hero:GetHero(id)
+        end
+        self._heroSelectCtrl:UpdateHeroItem(self:GetCurHeroIds());
+        self:ShowHeroPower(self:GetCurHeroIds())
+    end)
+end
+
+function RankFightLayer:ShowHeroPower(ids)
+    local count = 0
+    for i,v in pairs(ids) do
+        if v ~= 0 then
+            count = count + math.ceil(Hero:GetFightingCapacity(ids[i]))
+        end
+    end
+
+end
+
+function RankFightLayer:show(callback)
+    self._fading = false
+    self._callback = callback
+    self._chapter = Chapter:GetShenYeChapter()
+    self._teams = Chapter:GenFightTeam(self._chapter.levelids[1])
+    self:onUpdateCurrency()
+    self:refreshClockUi(Clock:GetSYUsingClock())
+    self:initLevelView()
+    self:showLayer()
+    if(self._heroSelectCtrl == nil)then
+        self:InitHeroSelectController();
+    end
+    self:playAni("RankFightLayerAni")
+end
+
+function RankFightLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    self:ShowHeroPower(self:GetCurHeroIds())
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+end
+
+function RankFightLayer:initLevelView()
+    self._levelAddition = Chapter:InitLevelAddition(self.layer:Get("viewInfo/trans_level_addition"));
+    self._levelAddition:SetLevelId(tonumber(self._chapter.levelids[1]));
+    self._levelAddition:SetUI();
+end
+
+function RankFightLayer:onAtkTypeClick(trans,atktype)
+    local atkcfg = Build:GetAtkTypeCfgById( atktype)
+    UIMgr:ShowDescTipsLayer(trans, atkcfg.name, atkcfg.desc)
+end
+
+function RankFightLayer:refreshClockUi(clockid)
+    self._clockid = clockid
+    local empty = self._clockid == nil
+    self._clockObj:Get("button_clock/img_empty"):SetVisible(empty)
+    self._clockObj:Get("button_clock/img_icon"):SetVisible(not empty)
+    local drops = {}
+    if empty then
+        self._clockObj:GetTextComponent("button_clock/label_title"):SetTextById(77000098)
+        self._clockObj:GetTextComponent("button_clock/label_title_en"):SetTextById(77000099)
+    else
+        self._clockObj:GetTextComponent("button_clock/label_title"):SetTextById(77000100)
+        self._clockObj:GetTextComponent("button_clock/label_title_en"):SetTextById(77000101)
+        Item:SetItemIcon(self._clockObj:Get("button_clock/img_icon"), self._clockid)
+        local clockcfg = Clock:GetClockCfg(self._clockid)
+        drops = clockcfg.items_drop
+    end
+    local obj
+    for i = 1, 3, 1 do
+        obj = self._clockObj:Get("obj_drop_" .. i.."/img_drop")
+        -- obj.parent:SetVisible(drops[i] ~= nil)
+        obj.parent:SetVisible(false)
+        if drops[i] ~= nil then
+            Item:SetItemIcon(obj, drops[i][1])
+        end
+    end
+
+    local count = Item:GetCount(clockid)
+    self._txt_remain.text = tostring(count) .. "/1" --string.format(LanguageMgr:GetTextByID(77000120), count)
+end
+
+function RankFightLayer:doFight()
+    self._heroids = Chapter:OnCheckFightTeam(self._teams)
+    if self._heroids ~= nil then
+        if Chapter:GetShenYeChapterId() ~= self._chapter.id then
+            self._chapter = Chapter:GetShenYeChapter()
+        end
+        if self._clockid == nil or self._clockid == 0 then
+            Groble_UIMgr:ShowGameWordTipsLayer(121032)
+        else
+            Chapter:ChapterLevelBeginReq(self._chapter.levelids[1], self._heroids)
+        end
+    end
+end
+
+function RankFightLayer:InitHeroSelectController()
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(self.layer:Get("viewInfo/info_self"));
+
+    local btnClick = function(index)
+        self:onHeroClick(index);
+    end;
+
+    local onEndDrag = function (heroIsNull,heroIds)
+        for i, v in pairs(heroIds) do
+            if not self._teams[i].plot then
+                if(v == 0)then
+                    self._teams[i].hero = nil;
+                else
+                    self._teams[i].hero = Hero:GetHero(v);
+                end
+            end
+        end
+    end;
+
+    self._heroSelectCtrl:Init(self:GetCurHeroIds(), btnClick, nil, onEndDrag);
+    self._heroSelectCtrl:UpdateHeroItem();
+    self:ShowHeroPower(self:GetCurHeroIds())
+end
+
+function RankFightLayer:GetCurHeroIds()
+    local retArr = {0,0,0};
+    for i, v in ipairs(self._teams) do
+        if(v.hero ~= nil)then
+            retArr[i] = v.hero.id;
+        end
+    end
+    return retArr;
+end
+
+function RankFightLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return RankFightLayer
+

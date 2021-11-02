@@ -1,0 +1,123 @@
+--
+-- author: haosun
+-- date  : 2021-07-18 16:57:19
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SevenSignLayer = class("SevenSignLayer", CBaseLayer)
+
+function SevenSignLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_SevenSignLayer",
+    }
+    self:onEnter()
+end
+
+function SevenSignLayer:onEnter()
+    self:createPnl()
+    self:addEventListener(EVENT_TYPE.ACTIVITY_GET_REP, self.__cname,
+        function(drops)
+            self:genData()
+            self:refreshLayer()
+            Bag:ShowDrops(drops)
+            GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE)
+        end)
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG, self.__cname, function(isUptateDay)
+        if isUptateDay == false then
+            self:genData()
+            self:refreshLayer()
+        end
+    end)
+end
+
+function SevenSignLayer:onExit()
+    self._spine:Release()
+    self._spine = nil
+
+    self._cfg = nil
+    self._playerLoginDays = nil
+    self._canAwardList = nil
+    self._items = nil
+
+    CBaseLayer.onExit(self)    
+end
+
+function SevenSignLayer:onBackClick()
+    self:onPopLayer()
+
+    uimgr:CheckTodoList()
+end
+
+function SevenSignLayer:show()
+    self:genData()
+    self:initLayer()
+    self:showLayer()
+
+    self.layer:DelayInvoke(0.5, 
+        function()
+            self._fading = false
+        end)
+end
+
+function SevenSignLayer:genData()
+    self._cfg = Activity:GetActivityByUId(Operation.ActivityID.NewWelfare)
+    self._reqId = tonumber(self._cfg.info.id)
+    self._playerLoginDays = Player:GetLoginDays()
+    self._canAwardList = Activity:GetNewPlayerAwardsList()
+end
+
+function SevenSignLayer:initLayer()
+    local heroId = self._cfg.info.spine[1] ~= nil and tonumber(self._cfg.info.spine[1]) or 1009
+    AssetAsyncLoader:LoadSpineAsync(self.__cname, heroId,
+        function(obj)
+            self._spine = self.layer:Get("spine"):AddChild(obj)
+            Hero:FixedSpineOrder(self._spine, heroId, Hero.SPINE_SEVEN_SIGN)
+        end)
+    self._items = {}
+
+    for _, data in pairs(self._cfg.formCfg) do
+        local i = tonumber(data.id)
+        self._items[i] = lua_str_split(data.Items, "&", true)
+        local obj = self.layer:Get("container/item" .. i)
+        local clsBag = Bag:CtorComSimpleGoodsUi(obj:Get("prefab_item"), function() self:onClick(i) end)
+        Bag:SetComSimpleGoodsUi(clsBag, self._items[i][1], self._items[i][2], self._items[i][3])
+        obj:SetScale(0, 0, 1)
+        obj:DOScale(1, 0.05):SetDelay(0.03 * i):OnComplete(
+            function()
+                self:refreshReward(i)
+            end)
+    end
+end
+
+function SevenSignLayer:onClick(i)
+    if self._canAwardList[i] ~= nil and self._playerLoginDays >= i then
+        Activity:GetItemReq(self._reqId, i)
+    else
+        SingletonMgr:ShowItemTipsLayer(self.layer:Get("container/item" .. i), self._items[i][1], self._items[i][2], false)
+    end
+end
+
+function SevenSignLayer:refreshLayer()
+    for i = 1, 7, 1 do
+        self:refreshReward(i)
+    end
+end
+
+function SevenSignLayer:refreshReward(dayIndex)
+    local obj = self.layer:Get("container/item" .. dayIndex)
+    if self._playerLoginDays >= dayIndex then
+        if self._canAwardList[dayIndex] ~= nil then
+            obj:Get("ui_effect"):SetVisible(true)
+            obj:Get("image_geted"):SetVisible(false)
+        else
+            obj:Get("ui_effect"):SetVisible(false)
+            obj:Get("image_geted"):SetVisible(true)
+        end
+    else
+        obj:Get("ui_effect"):SetVisible(false)
+        obj:Get("image_geted"):SetVisible(false)
+    end
+end
+
+return SevenSignLayer

@@ -1,0 +1,476 @@
+--
+-- author: haosun
+-- date  : 2018-10-27 21:09:35
+-- brief : 英雄属性
+--
+
+function Hero:GetCfgAttrs(heroid)
+    heroid = tonumber(heroid)
+    if self._cfgAttrs[heroid] == nil then
+        self._cfgAttrs[heroid] = {}
+        local cfg = self:GetCfg(heroid)
+        local tbl = lua_parse_cfg(cfg.OrgAttribute, true)
+        for _, v in pairs(tbl) do
+            self._cfgAttrs[heroid][v[1]] = v[2]
+        end
+
+        self._cfgAttrs[heroid][CAttr.TYPE_LIGHT_ATK]    = tonumber(cfg.lt_atk)
+        self._cfgAttrs[heroid][CAttr.TYPE_LIGHT_DEF]    = tonumber(cfg.lt_def)
+        self._cfgAttrs[heroid][CAttr.TYPE_DARK_ATK]     = tonumber(cfg.dk_atk)
+        self._cfgAttrs[heroid][CAttr.TYPE_DARK_DEF]     = tonumber(cfg.dk_def)
+        self._cfgAttrs[heroid][CAttr.TYPE_CHAOS_ATK]    = tonumber(cfg.cs_atk)
+        self._cfgAttrs[heroid][CAttr.TYPE_CHAOS_DEF]    = tonumber(cfg.cs_def)
+        self._cfgAttrs[heroid][CAttr.TYPE_SCORE]        = tonumber(cfg.OrgScore)
+    end
+    return self._cfgAttrs[heroid]
+end
+
+
+function Hero:GetFightingCapacity(heroid)
+    heroid = tonumber(heroid);
+    local hero = Hero:GetHero(heroid);
+    if(hero == nil)then
+        return 0;
+    end
+    return hero.fighting_capacity;
+end
+
+--计算英雄属性战力
+function Hero:GetHeroAttrPower(hero)
+    local power = 0
+    for i, v in ipairs(Hero.Fighting) do
+        power = power + hero.attrs[v] * Hero.FightingCoef[v];
+    end
+    return power
+end
+
+--计算英雄构筑点战力
+function Hero:GetHeroBuildPower(hero)
+    local power = 0
+    power = Build:GetBuildNum(hero) * Hero:GetCommonValue("build_dot")
+    return power
+end
+
+--计算英雄技能战力
+function Hero:GetHeroSkillPower(hero)
+    local power = 0
+--hero.skills[v.slot].level = v.level
+    if hero.skills == nil then
+        return power
+    end
+
+    --技能顺序是否确定？
+    power = power + hero.skills[1].level * Hero:GetCommonValue("base_skill") + hero.skills[2].level * Hero:GetCommonValue("clutch_skill") + hero.skills[3].level * Hero:GetCommonValue("storage_skill")
+    local curLvData = Build:GetBuildLvDataByAtkType(hero.atktype);
+    local skillId,skillLv = Build:GetChangerSkillIdByAtkType(hero.atktype,curLvData.lv)
+    power = power + skillLv * Hero:GetCommonValue("out_skill")
+    return power;
+end
+
+--计算英雄星级战力
+function Hero:GetHeroStarPower(hero)
+    local power = 0
+    local strStar = string.format("star%s",tostring(hero.star))
+    power = Hero:GetCommonValue(strStar)
+    return power
+end
+
+-- 计算英雄套装战力: 2件套、4件套
+function Hero:GetHeroSuitPower(hero)
+    local power = 0
+    local num = self:GetHeroSuitNum(hero)
+    -- print("当前套装个数  ：  "..num)
+    if num >= 4 then
+        power = self:GetCommonValue("equip4")
+    elseif num >= 2 then
+        power = self:GetCommonValue("equip2")
+    end
+    return power
+end
+
+--计算英雄暴击战力
+function Hero:GetHeroCritPower(hero)
+    local powerHit = Hero:CalcHitValue(hero) * 180 * 100
+    local powerDmg = Hero:CalcDmgValue(hero) * 180 * 100
+    local power = powerHit + powerDmg
+    return power
+end
+
+
+--获取英雄总战力
+function Hero:GetHeroPower(hero)
+    local power = 0
+    if hero == nil then
+        return power
+    end
+    local attrPower = self:GetHeroAttrPower(hero)
+    local buildPower = self:GetHeroBuildPower(hero)
+    local skillPower = self:GetHeroSkillPower(hero)
+    local starPower = self:GetHeroStarPower(hero)
+    local suitPower = self:GetHeroSuitPower(hero)
+    local critPower = self:GetHeroCritPower(hero)
+
+    power = attrPower + buildPower + skillPower + starPower + suitPower + critPower;
+    -- print("属性战力 = ", attrPower)
+    -- print("构筑战力 = ", buildPower)
+    -- print("技能战力 = ", skillPower)
+    -- print("星级战力 = ", starPower)
+    -- print("套装战力 = ", suitPower)
+    -- print("暴击战力 = ", critPower)
+    -- print("英雄总战力 = ", power)
+    return power
+end
+
+function Hero:UpdateFightingCapacity(hero)
+    hero.fighting_capacity = 0;
+
+    hero.fighting_capacity = self:GetHeroPower(hero)
+
+    -- 刷新主页魔力值
+    UIController:OnProgressTopPlayer(Player.INFO_FIGHT)
+end
+
+--
+function Hero:OnCalcAttr(hero)
+    CAttr:ClearAttrs(hero.attrs)
+    CAttr:ClearAttrs(hero.addPer)
+    local attrs = self:CalcAttr(hero)
+    CAttr:AddAttrs(hero.attrs, attrs)
+
+    local cfg
+    for attrtype , value in pairs(hero.attrs) do
+        cfg = CAttr:GetCfg(attrtype)
+        if cfg ~= nil then
+            if cfg.show_type == CAttr.CALC_TYPE_VALUE then
+                hero.attrs[attrtype] = hero.attrs[attrtype]
+            elseif cfg.show_type == CAttr.CALC_TYPE_PER then
+                hero.attrs[attrtype] = hero.attrs[attrtype] * 0.001
+            end
+        end
+    end
+
+    --计算百分比加成
+    CAttr:AddPerAttrs(hero.attrs)
+
+    self:CalcSkillCd(hero)
+    self:UpdateFightingCapacity(hero)
+end
+
+function Hero:CalcAttr(hero)
+    -- 重置属性
+    local attrs = CAttr:NewAttrs()
+
+    -- cfg attr
+    local cfgAttrs = self:GetCfgAttrs(hero.id)
+    CAttr:AddAttrs(attrs, cfgAttrs)
+
+    -- level
+    local lvAttrs = self:CalcLevelAddAttr(hero.id, hero.level)
+    CAttr:AddAttrs(attrs, lvAttrs)
+
+    -- step
+    local stepAttrs = self:CalcStepAddAttr(hero.id, hero.step)
+    CAttr:AddAttrs(attrs, stepAttrs)
+
+    -- star
+    local starAttrs = self:CalcStarAddAttr(hero.id, hero.star)
+    CAttr:AddAttrs(attrs, starAttrs)
+
+    -- star_mark
+    local starMarkAttrs = self:CalcMarkAddAttr(hero.id, hero.star, hero.star_mark)
+    CAttr:AddAttrs(attrs, starMarkAttrs)
+
+    local equipAttrs = self:CalcEquipAddAttr(hero)
+    CAttr:AddAttrs(attrs, equipAttrs)
+
+    local deskillAttrs = self:CalcDeskillAttr(hero)
+    CAttr:AddAttrs(attrs, deskillAttrs)
+
+    local buildAttrs = self:CalcBuildAddAttr(hero)
+    CAttr:AddAttrs(attrs, buildAttrs)
+
+    if(next(hero.intimacy_data))then
+        if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_favour) and hero.intimacy_data.raise > 0 then
+            local sublimationAttrs = self:CalcSublimationAddAttr(hero)
+            CAttr:AddAttrs(attrs, sublimationAttrs)
+        end
+    end
+
+    --图鉴加成为全体魔女
+    local archiveAddAttrs = self:CalcArchiveAddAttr()
+    CAttr:AddAttrs(attrs, archiveAddAttrs)
+
+    -- fetter
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_fetter) or hero.other == true then
+        local fetterAttrs = self:CalcFetterAttr(hero)
+        CAttr:AddAttrs(attrs, fetterAttrs)
+    end
+
+    return attrs
+end
+
+--
+-- Brief 升级附加属性 (备注：属性&系数|属性&系数 ... )
+-- 升级附加的数值 = 系数 * (level-1)
+--
+function Hero:CalcLevelAddAttr(heroid, level)
+    local attrs = {}
+    if level > 1 then
+        for _, v in pairs(self._lvUpAttrUp[heroid] or {}) do
+            attrs[v[1]] = v[2] * (level-1)
+        end
+    end
+    return attrs
+end
+
+--
+-- Brief 升阶附加属性 (备注：(血|攻|防|魔力|暴击|暴伤|瞳距|瞳力))
+-- 累加  每次数值 = 系数
+--
+function Hero:CalcStepAddAttr(heroid, step)
+    local attrs = {}
+    for _, v in pairs(self._stepUpAttrUp[heroid] or {}) do
+        for i = 1, step, 1 do
+            attrs[v[1]] = (attrs[v[1]] or 0) + v[i + 1]
+        end
+    end
+
+    return attrs
+end
+
+--
+-- Brief 升星附加属性 （属性&值1&值2&值3&值4&值5&值6属性&值1&值2&值3&值4&值5&值6 ...）
+-- 计算方式 累加
+--
+function Hero:CalcStarAddAttr(heroid, star)
+    local attrs = {}
+    for _, v in pairs(self._starUpAttrUp[heroid] or {}) do
+        if star+1 > #v then
+            AppMgr:LogError("!!!!!!!!!!!!!!!!魔女星级属性配置错误. heroid = " .. heroid)
+        else
+            for i = 1, star, 1 do
+                attrs[v[1]] = (attrs[v[1]] or 0) + v[i + 1]
+            end
+        end
+    end
+    return attrs
+end
+
+--
+-- Brief 刻印附加属性 （属性&值）
+-- 计算方式 累加
+--
+function Hero:CalcMarkAddAttr(heroid, star, mark)
+    local attrs = {}
+    for i = 1, star ,1  do
+        if self._markUpAttrUp[heroid][i] ~= nil then
+            if i < star then
+                for j = 1, 8 , 1 do
+                    for attrtype, value in pairs( self._markUpAttrUp[heroid][i][j] or {}) do
+                        attrs[attrtype] = (attrs[attrtype] or 0) + value
+                    end
+                end
+            else
+                for j = 1, mark , 1 do
+                    for attrtype, value in pairs( self._markUpAttrUp[heroid][i][j] or {}) do
+                        attrs[attrtype] = (attrs[attrtype] or 0) + value
+                    end
+                end
+            end
+
+        end
+
+    end
+    return attrs
+end
+--
+-- Brief
+--
+function Hero:CalcTalentAddAttr()
+end
+
+
+--
+-- Brief 计算羁绊的属性
+--
+function Hero:CalcFetterAttr(hero)
+    local attrs = CAttr:NewAttrs()
+    local attr = Fetter:GetFetterAttrs(hero)
+    for _, v in pairs(attr) do
+        attrs[v.type] = attrs[v.type] + v.value
+    end
+    return attrs
+end
+
+function Hero:CalcBuildAddAttr(hero)
+    local addAttr = Build:GetBuildLvDataByAtkType(tonumber(hero.config.AtkType)).attrAdds;
+    return addAttr;
+end
+
+--升华
+function Hero:CalcSublimationAddAttr(hero)
+    local lvUpCfg = Hero:GetCurSublimationCfgByHeroId(hero.id);
+    local attrs = CAttr:NewAttrs()
+    for _, v in ipairs(lvUpCfg.lvUpAttrAdd) do
+        attrs[v[1]] = attrs[v[1]] + v[2];
+    end
+    return attrs;
+end
+
+function Hero:CalcArchiveAddAttr()
+    local add = Archive:GetAttrAdds();
+    local addAttr = {}
+    for _, v in pairs(add) do
+        if(addAttr[v.id] == nil)then
+            addAttr[v.id] = 0;
+        end
+        addAttr[v.id] = addAttr[v.id] + v.addNum
+    end
+    return addAttr;
+end
+
+
+--
+-- Brief 装备附加属性（武器和符石）
+--
+function Hero:CalcEquipAddAttr(hero)
+    local attrs = CAttr:NewAttrs()
+    local equip
+    for _, uid in pairs(hero.equipids) do
+         equip = Hero:FindEquipInHero(hero, uid)
+        if equip ~= nil then
+            --未解锁的基础属性不计算
+            CAttr:AddAttrs(attrs, equip.attrs)
+        end
+    end
+
+    return attrs
+end
+
+--
+-- Brief: 计算魔女被动属性
+--
+function Hero:CalcDeskillAttr(hero)
+    local addPer = CAttr:NewAttrs()
+    local attrs = CAttr:NewAttrs()
+    local attrtype = 0
+    for _, cfgid in pairs(hero.out_deskills) do
+        local cfg = Skill:GetDeskillCfg(cfgid)
+        if cfg ~= nil then
+            -- 属性增加
+            if cfg.attrib_add ~= "-1" then
+                -- 属性作用对象&属性类型&数值类型&投放值
+                local arr = lua_parse_cfg(cfg.attrib_add, true)
+                for _, v in pairs(arr) do
+                    attrtype = v[2]
+                    attrs[attrtype] = attrs[attrtype] + v[4]
+                   -- local value, per = self:__CalcValue(v[3], v[1], v[4], math.floor(hero.attrs[attrtype]))
+                   -- addPer[attrtype] = addPer[attrtype] + v[4]
+                end
+            end
+        end
+    end
+
+    return attrs, addPer
+end
+
+function Hero:__CalcValue(calctype, calcobj, value, basevalue)
+    local addValue, addPer = 0, 0
+    if calctype == CAttr.CALC_TYPE_VALUE then
+        -- 加属性
+        addValue = value
+    else
+        if calcobj == CAttr.CALC_VALUE then
+            -- TODO:
+        elseif calcobj == CAttr.CALC_BASE then
+            addValue = basevalue * value/1000
+        elseif calcobj == CAttr.CALC_TOTAL then
+            addPer = value/1000
+        else
+            -- TODO: Error
+        end
+    end
+    return addValue, addPer
+end
+
+function Hero:CalcTmpLevelAddAttr(id, level)
+    local hero = self:GetHero(id)
+    local copy_hero = lua_deep_copy(hero)
+    copy_hero.level = level
+    return self:CalcAttr(copy_hero)
+end
+
+function Hero:GmHeroAttr(heroid, level, star, step)
+    local attrs = CAttr:NewAttrs()
+
+    -- cfg attr
+    local cfgAttrs = self:GetCfgAttrs(heroid)
+    CAttr:AddAttrs(attrs, cfgAttrs)
+
+    -- level
+    local lvAttrs = self:CalcLevelAddAttr(heroid, level)
+    CAttr:AddAttrs(attrs, lvAttrs)
+
+    -- star
+    local starAttrs = self:CalcStarAddAttr(heroid, star)
+    CAttr:AddAttrs(attrs, starAttrs)
+
+    -- step
+    local stepAttrs = self:CalcStepAddAttr(heroid, step)
+    CAttr:AddAttrs(attrs, stepAttrs)
+    return lvAttrs, starAttrs, stepAttrs, attrs
+end
+
+function Hero:SetHeroTmpAttr(heroid)
+    local hero = self:GetHero(heroid)
+    self._heroTmpAttr[heroid] = lua_deep_copy(hero.attrs)
+end
+
+function Hero:GetHeroTmpAttr(heroid)
+    return self._heroTmpAttr[heroid]
+end
+--界面上显示所有符石加成
+function Hero:GetHeroEquipAttr(hero)
+    local addattrs = CAttr:NewAttrs()
+    local attrs = self:CalcEquipAddAttr(hero)
+    --显示取整
+    if attrs[CAttr.TYPE_PER_HP] ~= nil then
+        attrs[CAttr.TYPE_HP] = math.floor(attrs[CAttr.TYPE_HP] + (hero.attrs[CAttr.TYPE_HP] * attrs[CAttr.TYPE_PER_HP] * 0.001) + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_ATK] ~= nil then
+        attrs[CAttr.TYPE_ATK] = math.floor(attrs[CAttr.TYPE_ATK] + (hero.attrs[CAttr.TYPE_ATK] * attrs[CAttr.TYPE_PER_ATK] * 0.001) + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_DEF] ~= nil then
+        attrs[CAttr.TYPE_DEF] = math.floor(attrs[CAttr.TYPE_DEF] + (hero.attrs[CAttr.TYPE_DEF] * attrs[CAttr.TYPE_PER_DEF] * 0.001) + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_HIT] ~= nil then
+        attrs[CAttr.TYPE_HIT] = math.floor(attrs[CAttr.TYPE_HIT] + (hero.attrs[CAttr.TYPE_HIT] * attrs[CAttr.TYPE_PER_HIT] * 0.001) + 0.5)
+    end
+    if attrs[CAttr.TYPE_PER_DMG] ~= nil then
+        attrs[CAttr.TYPE_DMG] = math.floor(attrs[CAttr.TYPE_DMG] + (hero.attrs[CAttr.TYPE_DMG] * attrs[CAttr.TYPE_PER_DMG] * 0.001) + 0.5)
+    end
+    CAttr:AddAttrs(addattrs, attrs)
+    return addattrs
+end
+
+function Hero:CalcTempFightAttr(heroId)
+    local tempAttrs = CAttr:NewAttrs()
+    local hero = Hero:GetHero(heroId)
+
+    CAttr:AddAttrs(tempAttrs, self:CalcAttr(hero))
+
+    local cfg
+    for attrtype , value in pairs(tempAttrs) do
+        cfg = CAttr:GetCfg(attrtype)
+        if cfg ~= nil then
+            if cfg.show_type == CAttr.CALC_TYPE_VALUE then
+                tempAttrs[attrtype] = tempAttrs[attrtype]
+            elseif cfg.show_type == CAttr.CALC_TYPE_PER then
+                tempAttrs[attrtype] = tempAttrs[attrtype] * 0.001
+            end
+        end
+    end
+    CAttr:AddPerAttrs(tempAttrs)
+
+    return tempAttrs
+end

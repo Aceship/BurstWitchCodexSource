@@ -1,0 +1,14 @@
+--
+-- author: haosun
+-- date  : 2018-10-08 20:47:55
+-- brief : init tools module
+--
+debuglog = function(msg)
+    print(msg)
+    print(debug.traceback())
+end
+AssetLoader:LoadLuaAsset("xlua/lua_Utils/bit_util.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Utils/lib.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Utils/math_util.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Utils/str_util.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Utils/tbl_util.txt")

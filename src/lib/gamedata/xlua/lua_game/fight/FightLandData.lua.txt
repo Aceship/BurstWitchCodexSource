@@ -1,0 +1,55 @@
+FightLandData = FightLandData or {}
+
+local data = CfgLoader:LoadCfgTable("FightLand")
+
+local default = "-1"
+
+local num = 1
+local str = 2
+
+local format = string.format
+local function strFormat(fmt, str)
+    if(str == default) then
+        return ""
+    end
+
+    return format(fmt, str)
+end
+
+
+local ColType = {
+    id = num,
+    landPath = _,
+    landMoveType = _,
+    landLength = _,
+    lightPath = str,
+    effectPath = str,
+    fogMode = num,
+    fogConfig = str,
+    cloud = _,
+    cloudCfg = _,
+}
+
+for i, item in pairs(data) do
+    local idx = tonumber(i)
+    FightLandData[idx] = {}
+    local dt = FightLandData[idx]
+    for k, v in pairs(item) do
+        local colType = ColType[k]
+        local value
+        if(type(colType) == "function") then
+            value = colType(v)
+        elseif(colType == num) then
+            value = tonumber(v)
+        elseif(colType == str) then
+            if(v == default) then
+                value = ""
+            else
+                value = v
+            end
+        end
+
+        dt[k] = value
+    end
+end
+

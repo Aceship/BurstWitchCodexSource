@@ -1,0 +1,202 @@
+--
+-- author: haosun
+-- date  : 2020-02-18 22:04:26
+-- brief : 
+--
+
+Mystery = Mystery or {}
+
+function Mystery:Ctor()
+    self._mysterydata = {
+        floor       = 0,        -- 战斗层数
+        settle      = 0,        -- 结算层 0无需结算
+        remain      = 3,    -- 剩余奖励次数
+        maxLimit    = 3,    -- 最大拥有上限
+        buyTimes    = 0,    -- 已购买奖励次数
+        maxBuy      = 1,    -- 每日最大购买次数
+        costId      = 0,
+        costNum     = 0,
+        reqtime     = 0,    -- 排行榜请求时间
+        ranking     = 0,    -- 排行榜名次
+    }
+end
+
+function Mystery:Clear()
+    self._mysterydata.floor     = 0
+    self._mysterydata.settle    = 0
+    self._mysterydata.reqtime   = 0
+    self._mysterydata.ranklist  = nil
+    self._mysterydata.levelids  = nil
+end
+
+function Mystery:SetMystery(data, levelids, words)
+    self._mysterydata.floor     = data.floor
+    self._mysterydata.oldfloor  = data.floor
+    self._mysterydata.settle    = data.settle
+    self._mysterydata.remain    = data.reward_left
+    self._mysterydata.buyTimes  = data.reward_add
+
+    self._mysterydata.levelids  = levelids
+    self._mysterydata.words     = words
+
+    local num, tmpstr = Player:GetMysteryCfg()
+    self._mysterydata.maxLimit = num
+    local arr = lua_str_split(tmpstr, "&")
+    self._mysterydata.maxBuy  = tonumber(arr[1])
+    self._mysterydata.costId  = tonumber(arr[2])
+    self._mysterydata.costNum = tonumber(arr[3])
+end
+
+function Mystery:GetMysteryLevelIds()
+    return self._mysterydata.levelids
+end
+
+function Mystery:GetMysteryWords()
+    return self._mysterydata.words
+end
+
+function Mystery:GetMysteryFloor()
+    return self._mysterydata.floor
+end
+
+function Mystery:GetMysteryRankList()
+    return self._mysterydata.ranklist
+end
+
+local _test = false
+function Mystery:GetMysteryBuff()
+    if _test then
+        return {1001,1002,1003,1004,1005,1006,1007,1028,1029,1030, 1060, 1061, 1062, 1063, 1064}
+    else
+        return Buff:GetMysteryBuff()
+    end
+end
+
+function Mystery:GetMysteryTicket()
+    return self._mysterydata.remain .. "/" .. self._mysterydata.maxLimit
+end
+
+function Mystery:GetTicketBuyInfo()
+    return self._mysterydata.costId, self._mysterydata.costNum, self._mysterydata.maxBuy - self._mysterydata.buyTimes
+end
+
+function Mystery:IsBuyTicket()
+    return self._mysterydata.maxBuy - self._mysterydata.buyTimes > 0
+end
+
+function Mystery:GetFightWordBuffIds()
+    if self._inFightFloor ~= nil then
+        local cfg = Mystery:GetMysteryFloorCfg(self._inFightFloor)
+        local ids = {}
+        for i = 1, #cfg.words, 1 do
+            local tmpcfg = self:GetMysteryWordCfg(self._mysterydata.words[i])
+            table.insert(ids, tmpcfg.buff)
+        end
+        return ids
+    else
+        return {}
+    end
+end
+
+function Mystery:SetFightFloor(floor)
+    self._inFightFloor = floor
+end
+
+function Mystery:GetFightFloor()
+    return self._inFightFloor
+end
+
+function Mystery:UpdateMysteryData()
+    if self._mysterydata.remain > 0 then
+        self._mysterydata.remain = self._mysterydata.remain -1
+    end    
+    if self._inFightFloor > self._mysterydata.floor then
+        self._mysterydata.floor = self._inFightFloor
+        self:_refreshRankList()
+    end
+end
+
+function Mystery:_refreshRankList()
+    -- 更新自己的排名
+    local pid = Player:GetId()
+    if self._mysterydata.ranklist ~= nil and #self._mysterydata.ranklist > 0 then
+        local bfind = false
+        local tmpdata = GTemp:GetFightTmpData()
+        local ranking = self._mysterydata.floor*10000 + (10000 - tmpdata.usingtime)
+        for i, v in ipairs(self._mysterydata.ranklist) do
+            if v[1] == pid then
+                self._mysterydata.ranklist[i][2] = self._mysterydata.floor
+                self._mysterydata.ranklist[i][7] = ranking
+                bfind = true
+                break
+            end
+        end
+        if not bfind then
+            local rankdata = {
+                [1] = pid,
+                [2] = self._mysterydata.floor,
+                [3] = Player:GetName(),
+                [4] = Player:GetLevel(),
+                [5] = Player:GetHeadBorder(),
+                [6] = Player:GetHeadIcon(),
+                [7] = ranking,
+            }
+            table.insert(self._mysterydata.ranklist, rankdata)
+        end 
+        if #self._mysterydata.ranklist > 1 then
+            table.sort(self._mysterydata.ranklist, function(a, b)
+                    return a[7] > b[7]
+                end)
+            for i, v in ipairs(self._mysterydata.ranklist) do
+                if v[1] == pid then
+                    self._mysterydata.ranking = i
+                    break
+                end
+            end
+        end
+    end
+end
+
+function Mystery:OnUpdateMysteryDay()
+    self._mysterydata.remain    = self._mysterydata.maxLimit
+    self._mysterydata.buyTimes  = 0
+end
+
+function Mystery:GetMysteryBuffByHeroid(heroid)
+    local ids = {}
+    local hero = Hero:GetHero(heroid)
+    local cfg
+    for _, buffid in pairs(Buff:GetMysteryBuff()) do
+        cfg = self:GetMysteryBuffCfg(buffid)
+        if cfg.target == Mystery.BUFF_TARGET_ALL or cfg.target == hero.id or cfg.target == hero.attri_type then
+            if cfg.buff ~= -1 then
+                table.insert(ids, cfg.buff)
+            end
+        end        
+    end
+    return ids
+end
+
+function Mystery:IsMysterySettle()
+    return self._mysterydata.settle ~= 0
+end
+
+function Mystery:GetModeMysteryId()
+    return Chapter.MODE_MYSTERY_CID;
+end
+
+function Mystery:SetMysteryLevelData(data)
+    self._mysteryLevelData = data;
+end
+
+function Mystery:GetMysteryLevelData()
+    return self._mysteryLevelData;
+end
+
+function Mystery:SetIsUpdate(update)
+    self._isUpdate = update or true;
+end
+
+function Mystery:GetIsUpdate()
+    return self._isUpdate or true;
+end

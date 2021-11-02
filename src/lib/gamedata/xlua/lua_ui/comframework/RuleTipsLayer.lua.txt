@@ -1,0 +1,86 @@
+--
+-- author: haosun
+-- date  : 2019-01-15 16:45:31
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local RuleTipsLayer = class("RuleTipsLayer", CBaseLayer)
+
+function RuleTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_RuleTipsLayer",
+    }
+    self._uitype = 2
+    self._fading = false
+    self:onEnter()
+end
+
+function RuleTipsLayer:onEnter()
+    self:createPnl()
+end
+
+function RuleTipsLayer:show(desc, showattr)
+    self.layer:Get("container/info_attr"):SetVisible(showattr)
+    self._scrollCom = self.layer:GetScrollRectComponent("container/scrollview")
+    self._scrollCom.vertical = false
+    local uitext = self.layer:GetTextComponent("container/scrollview/viewport/content/text_desc")
+    uitext.text = desc
+    -- container max h = 1300
+    self._scroll = false
+    local y = uitext:GetTextY()
+    -- scrollview szie
+    self.layer:Get("container/scrollview/viewport/content"):SetSizeY(y + 20)
+    local maxh = 1000
+    if showattr then
+        maxh = 460
+    end
+    self.layer:Get("container/scrollview"):SetSizeY(maxh)
+    self._scroll = y > maxh
+
+    -- container size
+    local height = y + 100
+    if showattr then height = height + 560 end
+    height = lua_math_in_range(height, 740, 1000)
+    self.layer:Get("container"):SetSizeY(height)
+
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function RuleTipsLayer:showRule(ruleid)
+    local cfg = CCfg:GetRuleCfg(ruleid)
+    if cfg == nil then
+        self:show("Error rule config！！！", RULE_SHOW_ATTR[ruleid] ~= nil)
+    else
+        self:show(string.gsub(cfg.desc, '\\n', '\n'), RULE_SHOW_ATTR[ruleid] ~= nil)
+    end
+end
+
+function RuleTipsLayer:showAttr(levelid)
+    local _level_cfg = Chapter:GetLevel(levelid)
+    if _level_cfg == nil then return end
+
+    local _msg_title = string.format("%sLv%d", LanguageMgr:GetTextByID(76000041), _level_cfg.Restraint_level[1])
+    self.layer:GetTextComponent("container/image_bg/txt_title").text = _msg_title
+    self.layer:GetTextComponent("container/image_bg/txt_title_E"):SetTextById(76000040)
+
+    local _msg_desc = string.gsub(LanguageMgr:GetTextByID(76000042), '/n', '\n')
+    _msg_desc = string.format(_msg_desc,_level_cfg.Restraint_level[3], _level_cfg.Restraint_level[2])
+    self:show(_msg_desc, true)
+end
+
+function RuleTipsLayer:onLayerFadeInEndCall()
+    self._scrollCom.vertical = self._scroll
+end
+
+function RuleTipsLayer:showGeneral(titleId, titleEId, descId, showAttr)
+    self.layer:GetTextComponent("container/image_bg/txt_title"):SetTextById(titleId)
+    self.layer:GetTextComponent("container/image_bg/txt_title_E"):SetTextById(titleEId)
+
+    local desc = LanguageMgr:GetTextByID(descId)
+    self:show(desc:gsub('\\n', '\n'), showattr)
+end
+
+return RuleTipsLayer
+

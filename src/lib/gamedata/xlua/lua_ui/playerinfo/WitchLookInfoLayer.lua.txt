@@ -1,0 +1,129 @@
+--
+-- author: cjj
+-- date  : 2019-1-7 10:55:51
+-- brief :
+--
+local CBaseLayer    = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchLookInfoLayer = class("WitchLookInfoLayer", CBaseLayer)
+
+function WitchLookInfoLayer:ctor(super, hero)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_playerinfo/UI_WitchLookInfo",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function WitchLookInfoLayer:onEnter()
+    self:createPnl()
+    local prefab        = Hero:AddPrefabHalf(self.layer:Get("container/pnl_avatar"), 0, 0, 1)
+    self._halfObj       = Hero:HalfItemClassNew(prefab)
+    self._attrCObjArr   = CAttr:NewAttrObjArr(self.layer:Get("container/info_attr"), 5)
+end
+
+function WitchLookInfoLayer:onExit()
+    self.infoTalent     = nil
+    self._hero = nil
+    self._callback = nil
+    CBaseLayer.onExit(self)
+end
+
+function WitchLookInfoLayer:onBackClick(buttontype)
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+function WitchLookInfoLayer:show(hero, callback)
+    play_effect_show()
+    self._hero = hero
+    self._callback = callback
+    self:initLayer()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function WitchLookInfoLayer:initLayer()
+    Hero:SetHalfItemClassData(self._halfObj, self._hero.id, self._hero, true, false)
+    -- talent
+    self:setSkills();
+    self:setEquips();
+    self:setAttrs()
+    self:setBuildInfo()
+    local cfg = Hero:GetCfg(self._hero.id)
+    self.layer:GetTextComponent("container/text_lv_num"):SetText(self._hero.level)
+    --self.layer:GetTextComponent("container/text_name"):SetText( cfg.Name)
+    self.layer:GetTextComponent("container/text_name"):SetText( string.format("%s<color=#FFFEE0FF>%s</color>",cfg.Name,uistr.com_chapterstr[self._hero.step + 1]))
+--    Hero:SetHeroMarkTxt( self.layer:GetTextComponent("container/text_step"), self._hero)
+    Hero:SetHeroQlty( self.layer:Get("container/image_qlty"), self._hero.qlty)
+end
+
+function WitchLookInfoLayer:setAttrs()
+    Hero:SetHeroAttr(self._attrCObjArr, self._hero)
+end
+
+function WitchLookInfoLayer:setSkills()
+    for _, skill in pairs(self._hero.skills) do
+        local item = self.layer:Get("container/info_skill/skill_item_" .. skill.slot).transform
+        local skillcfg =  Skill:GetHeroSkillShowCfg(tonumber(skill.showid), self._hero.star)
+        item:GetComponent("Button").onClick:AddListener(
+            function()
+                core.require("xlua/lua_UI/Build/BuildDotTipsLayer.txt"):new():show(item,skillcfg.name,
+                        Skill:GetSkillHurtDesc(self._hero.attrs[CAttr.TYPE_ATK],skill.cfgid, skill.showid, true,skill.level,self._hero.star))
+            end)
+        Skill:SetUi(item, skill)
+    end
+end
+
+function WitchLookInfoLayer:setEquips()
+    for i = 1,6 do
+        local item = self.layer.transform:Find("container/info_fs/prefab_equip_" .. i)
+        local equip = self._hero.equips[i]
+        if(self.equipClass == nil)then
+            self.equipClass = {};
+        end
+        if(self.equipClass[i] == nil)then
+            self.equipClass[i] = Equip:CtorEquipCObj( item)
+            self.equipClass[i].btn = self.equipClass[i].transform:GetComponent("Button");
+            self.equipClass[i].btn.onClick:AddListener(function ()
+                Groble_UIMgr:ShowRestPlayerEquipTipsLayer(item, self._hero.equips,i)
+            end);
+        end
+        if equip ~= 0 then
+            Equip:_SetEquipCObj(self.equipClass[i], equip.cfgid, equip.level, equip.heroid, equip.star)
+            self.equipClass[i].transform:SetVisible(true)
+        else
+            self.equipClass[i].transform:SetVisible(false)
+        end
+    end
+end
+-- {[1] => {[b_lv] => 3[b_id] => 23}
+function WitchLookInfoLayer:setBuildInfo()
+    local index = 1
+    if self._hero.builds ~= nil then
+        for _ , v in pairs(self._hero.builds) do
+            local cfg = Build:GetBuildDotCfgById(v.b_id)
+            local attrCfg = Build:GetBuildAttrCfgByCfgId(cfg.effectID)
+            Build:SetBuildImage( self.layer:GetImageComponent("container/info_build/build_item_"..index.."/img_icon"), attrCfg.iconPath)
+            self.layer:GetTextComponent("container/info_build/build_item_"..index.."/text_lv"):SetText("Lv."..v.b_lv)
+            index = index + 1
+        end
+        for i = index ,6 do
+            self.layer:Get("container/info_build/build_item_"..i):SetVisible(false)
+        end
+    else
+        self.layer:Get("container/info_build"):SetVisible(false)
+        self.layer:Get("container/image_bg"):SetSize(1255,1300)
+    end
+
+end
+
+
+
+
+
+return WitchLookInfoLayer
+

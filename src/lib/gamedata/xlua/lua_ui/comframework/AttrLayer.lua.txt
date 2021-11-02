@@ -1,0 +1,63 @@
+--
+-- author: haosun
+-- date  : 2019-04-03 14:56:14
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local AttrLayer = class("AttrLayer", CBaseLayer)
+
+function AttrLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_AttrLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function AttrLayer:onEnter()
+    self:createPnl()
+end
+
+function AttrLayer:show(heroId, trans)
+    if(heroId == nil or (heroId == 0))then
+        CS.Logger.LogError("heroId is nill !!! {0}", heroId)
+        return;
+    end
+    local hero = Hero:GetHero(heroId);
+    if(hero == nil)then
+        CS.Logger.LogError("hero is nill !!! {0}", heroId)
+        return;
+    end
+    self:refreshPos(trans)
+    local txtDesc = self.layer.transform:Find("container/txt_name"):GetComponent("Text");
+    play_effect_show()
+    self:showLayer()
+    txtDesc:SetTextById(8810250 + tonumber(hero.attri_type));
+    Hero:LoadAttrIconSpEX(self.layer.transform:Find("container/image_icon/img_attr"):GetComponent("Image"), tonumber(hero.attri_type))
+    --self.layer.transform:Find("container/image_icon/img_attr"):GetComponent("Image").sprite =
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function AttrLayer:refreshPos(trans)
+    -- 计算位置
+    self.layer.transform:Find("container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local rect = self.layer.transform:Find("container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-rect.sizeDelta.x/2,rect.sizeDelta.x/2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y * 1.5 > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y/2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y/2 - 50;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2)+ transRect.sizeDelta.y/2 - 50;
+    end
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+return AttrLayer
+

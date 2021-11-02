@@ -1,0 +1,223 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-19 13:37:14
+---
+--角色选择界面
+local ConcertHeroSelectCtrl = class("ConcertHeroSelectCtrl");
+local HeroNum = 4;
+local MIN_HERO_SCALE    = 0.7
+local MAX_HERO_SCALE    = 0.8
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function ConcertHeroSelectCtrl:ctor(super,trans)
+    self._transform = trans;
+    self._heroItems = {};
+    self._curSelectPos = -1;
+
+    for i = 1, HeroNum do
+        self._heroItems[i] = self:InitHeroItem(i)
+    end
+    self._enabled = true
+    self._selectType = Concert.SelectType.Book
+end
+
+
+--进入Ui调用一次
+function ConcertHeroSelectCtrl:onEnter()
+
+end
+
+
+--初始化
+function ConcertHeroSelectCtrl:Init()
+    self:InitUI();
+end
+
+--释放
+function ConcertHeroSelectCtrl:OnDestroy()
+    self._btnHeroClick = nil;
+    self._btnChangeClick = nil;
+    self._transform = nil
+    if self._heroItems ~= nil then
+        for _, cls in pairs(self._heroItems) do
+            cls:clear()
+        end
+    end
+    self._heroItems = nil
+end
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ConcertHeroSelectCtrl:OnHeroItemClick(cls)
+    if not cls.enable then
+        return
+    end
+
+    if self._selectType == Concert.SelectType.Hero then
+        if self._curSelectPos == cls.posIndex then
+            return
+        end
+    end
+
+    self._curSelectPos = cls.posIndex;
+    if self._btnHeroClick ~= nil then
+        self._btnHeroClick(cls)
+    end
+end
+
+function ConcertHeroSelectCtrl:OnChangeHeroClick(cls)
+    if self._btnChangeClick ~= nil then
+        self._btnChangeClick(cls)
+    end
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertHeroSelectCtrl:OnEnabled()
+    self._enabled = true
+end
+
+function ConcertHeroSelectCtrl:InitView(heroIds, btnHeroClick,btnChangeClick)
+    self:refreshHeroIds(heroIds)
+    self._btnHeroClick = btnHeroClick;
+    self._btnChangeClick = btnChangeClick;
+end
+
+function ConcertHeroSelectCtrl:InitHeroItem(i)
+    local trans = self._transform:Find("cell_heroitem_"..i)
+    local heroObj = trans:Find("hero")
+    local cls = clearbase:new(heroObj)
+    cls.transform   = trans
+    cls.item        = trans:Get("hero");
+    cls.icon        = trans:GetImageComponent("hero/img_icon");
+    cls.musicIcon   = trans:GetImageComponent("music_tag/img_icon");
+    cls.bgIcon      = trans:GetImageComponent("img_icon");
+    cls.musicDes    = trans:GetTextComponent("music_tag/txt_des");
+    cls.img_border  = trans:GetImageComponent("hero/img_border")
+    cls.mask        = trans:Get("hero/img_dark");
+    cls.btnchange   = trans:Get("uibtn_change");
+    cls.objBorder   = trans:Get("hero/img_border")
+    cls.objMask     = trans:Get("obj_mask")
+    cls.posIndex    = i;
+    cls.heroId      = 0;
+    cls.musicalType = 0;
+    cls.select      = false;
+    cls.enable      = true;
+
+    cls.btnchange:SetVisible(cls.select);
+    --cls.objMusic:SetVisible(cls.select);
+
+    local listener = CS.EventTriggerListener.Get(trans.gameObject);
+    -- 点击回调
+    listener.onClick = function() self:OnHeroItemClick(cls) end;
+
+    local changBtn = CS.EventTriggerListener.Get(cls.btnchange.gameObject);
+    changBtn.onClick = function() self:OnChangeHeroClick(cls)  end;
+
+    return cls
+end
+
+function ConcertHeroSelectCtrl:UpdateHeroItem(heroIds)
+    self:refreshHeroIds(heroIds)
+    for i, v in ipairs(self._heroItems) do
+        self:SetHeroItem(v)
+    end
+end
+
+function ConcertHeroSelectCtrl:setHeroId(index, heroId)
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == index then
+            v.heroId = heroId
+        end
+    end
+end
+
+function ConcertHeroSelectCtrl:setFightHero(data)
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == data.pos then
+            v.heroId = data.heroId
+            v.musicalType = data.musical
+        end
+    end
+end
+
+function ConcertHeroSelectCtrl:refreshHeroIds(heroFights)
+    if heroFights == nil then return end
+
+    for i, v in pairs(heroFights) do
+        self:setFightHero(v)
+    end
+end
+
+function ConcertHeroSelectCtrl:SetHeroItem(cls)
+    cls.item:SetVisible(cls.heroId > 0)
+    set_com_enabled(cls.img_border,cls.heroId > 0)
+
+    if cls.heroId > 0 then
+        local hero = Hero:GetHero(cls.heroId);
+        cls.icon:LoadSprite("source_avatar/hero_main/head_" ..hero.skinid);
+        --cls.img_border:LoadAtlasSprite("source_atlas/atlas_common_res","Common_Btn_WuPing_n_"..hero.qlty)
+        local state = Concert:IsCanMusicAndHero(hero,cls.musicalType)
+        self:SetHeroMask(cls,state == false and cls.heroId > 0 and cls.musicalType > 0)
+        Hero:SetHeroBorder(cls,hero.qlty)
+    else
+        self:SetHeroMask(cls,false)
+    end
+    cls.musicIcon:LoadSprite("source_icon/music_hall/music_"..cls.musicalType);
+    if cls.musicalType > 0 then
+        local music = Concert:GetMusicalByType(cls.musicalType)
+        cls.musicDes.text = music.Name;
+        cls.bgIcon:LoadAtlasSprite("source_atlas/concert","yyt_daojijiacheng_add")
+    else
+        cls.musicDes.text = LanguageMgr:GetTextByID(809012)
+        cls.bgIcon:LoadAtlasSprite("source_atlas/concert","yyt_daojijiacheng")
+    end
+    if self._curSelectPos ~= cls.posIndex then
+        cls.musicDes.color = COLOR_TYPE.White_a_40
+        cls.musicIcon.color = COLOR_TYPE.White_a_50
+    end
+end
+
+function ConcertHeroSelectCtrl:SetHeroMask(cls,state)
+    if cls.objMask ~= nil then
+        cls.objMask:SetVisible(state)
+    end
+end
+
+function ConcertHeroSelectCtrl:GetHeroItem(index)
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == index then
+            return v;
+        end
+    end
+    return nil
+end
+
+--取消指定按钮的选中状态
+function ConcertHeroSelectCtrl:CancelSelectHero(index,selectType)
+    self._selectType = selectType
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == index then
+            v.select = false
+            v.transform:SetScale(MIN_HERO_SCALE,MIN_HERO_SCALE,MIN_HERO_SCALE)
+            v.btnchange:SetVisible(selectType == Concert.SelectType.Book and false)
+            v.musicDes.color = COLOR_TYPE.White_a_40
+            v.musicIcon.color = COLOR_TYPE.White_a_40
+        end
+    end
+end
+
+function ConcertHeroSelectCtrl:ConfirmSelectHero(index,selectType)
+    self._selectType = selectType
+    for _, v in ipairs(self._heroItems) do
+        if v.posIndex == index then
+            v.select = true
+            v.transform:SetScale(MAX_HERO_SCALE,MAX_HERO_SCALE,MAX_HERO_SCALE)
+            v.btnchange:SetVisible(selectType == Concert.SelectType.Book and true)
+            v.musicDes.color = COLOR_TYPE.White
+            v.musicIcon.color = COLOR_TYPE.White
+        end
+    end
+end
+
+return ConcertHeroSelectCtrl;

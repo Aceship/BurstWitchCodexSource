@@ -1,0 +1,359 @@
+--
+-- author: haosun
+-- date  : 2018-12-10 21:18:19
+-- brief : 
+--
+
+Chapter = Chapter or {}
+
+function Chapter:OpenWitchesLayer(teams, callback, showUp)
+    local params = {
+        intype      = WITCHES_IN_TYPE.FIGHT,
+        useids      = {},
+        fightids    = {},
+        plotids     = {},
+        showUp      = showUp,
+    }
+    for i, v in ipairs(teams) do
+        if v.hero ~= nil and v.hero ~= 0 then
+            if v.plot == true then
+                table.insert(params.plotids, v.hero.id)
+            else
+                table.insert(params.useids, v.hero.id)
+            end
+            params.fightids[v.hero.id] = i;
+        end
+    end
+    -- if isTower then
+    --     params.deadids = {}
+    --     for _, hid in ipairs(Hero:GetHasHeroIds()) do
+    --         if not Tower:HeroIsAlive(hid) then
+    --             table.insert(params.deadids, hid)
+    --         end
+    --     end
+    --     params.intype = WITCHES_IN_TYPE.FIGHT_TOWER
+    -- end        
+    Hero:OpenWitchesLayer(params, callback)
+end
+
+function Chapter:GoFight(ids, levelid)
+    -- CS.Logger.LogWarning("---------------------- on begin fight, level : {0}", levelid)
+    GTemp:SetSweepTmpData(nil)
+    Guide:ClearGuideLayer()
+    self:SetJumpChapterLevel(nil, levelid)
+    HeroController:InitHeroController(ids, levelid)
+    if self:LevelIsMemory(levelid) then
+        self:ClearJumpChapterLevel()
+    end
+    local function onFadeCall()
+        self:OnFixedJumpChapter()
+    end
+    self:SetCoinChapterState(false)
+    self:SetDailyChapterState(false)
+    local level = Chapter:GetLevel(levelid)
+    local chapter = Chapter:GetChapter(level.chapterid)
+    UI_Loading:SetLoadingModule(chapter.sub_type)
+    uimgr:onFightScene(onFadeCall)
+end
+
+function Chapter:OnCheckFightTeam(teams, levelid)
+    local ids = {0, 0, 0}
+    local empty = true
+    for i = 1, 3 do
+        if teams[i].hero ~= nil and teams[i].plot == false  then
+            ids[i] = tonumber(teams[i].hero.id)
+            empty = false
+        end
+        if teams[i].plot == true then
+            empty = false
+        end
+    end
+    if empty then
+        Groble_UIMgr:ShowGameWordTipsLayer(21003)
+        return nil
+    end
+    return ids
+end
+
+function Chapter:ShowFightCoinLayer(data, clayer)
+    core.require("xlua/lua_UI/GameFightScene/FightCoinLayer.txt"):new():show(data, clayer)
+end
+
+function Chapter:OnLevelStarRewardClick(item, levelid)
+    local level = self:GetLevel(levelid)
+    if level.receive == Chapter.REWARD_STATE_CAN then
+        self:LevelThreeStarRewardReq({tonumber(levelid)})
+    else
+        local drop = self:GetLevelStarReward(levelid)
+        SingletonMgr:ShowItemTipsLayer(item, drop.itype, drop.cfgid)
+    end
+end
+
+function Chapter:ShowAchieveLayer(levelid, showtype, achieve, callback)
+    if levelid ~= nil and levelid ~= -1 then
+        core.require("xlua/lua_UI/HomeScene/AchieveLayer.txt"):new():show(levelid, showtype, achieve, callback)
+    end
+end
+
+function Chapter:ShowLevelLayer(levelid, buffstrid, isFeelWall)
+    core.require("xlua/lua_UI/UIFight/LevelLayer.txt"):new():show(levelid, buffstrid, isFeelWall)
+end
+
+function Chapter:ShowDailyFightLayer(levelid,callback,levellayer)
+    core.require("xlua/lua_UI/HomeScene/DailyLevelFightLayer.txt"):new():show(levelid,callback,levellayer)
+end
+
+function Chapter:ShowChapterLayer(chapterId)
+    local modes = self._modes[Chapter.SHOW_TYPE_PLOT]
+    local _noError = false
+    for _, mode in pairs(modes) do
+        if lua_value_in_tbl(chapterId, mode.ids) then
+            _noError = true
+            self:SetCurChapterMode(mode)
+            break
+        end
+    end
+    if _noError then
+        core.require("xlua/lua_UI/UIFight/ChapterLayer.txt"):new():show()
+    else
+        AppMgr:LogError("！！！！！！！未找到章节所属类型 = " .. chapterId)
+    end
+end
+
+function Chapter:CtorTeamObj(obj, callback)
+    local cobjs = {}
+    for i = 1, 3, 1 do
+        cobjs[i]        = Chapter:CtorItem(obj.transform:Find("heroitem_" .. i))
+    end
+    return cobjs
+end
+
+function Chapter:CtorItem(obj)
+    local cls       = clsbase:new(obj.transform)
+    cls.emptyObj    = cls:Find("img_empty")
+    cls.heroBg      = cls:Find("hero_bg")
+    cls.lockObj     = cls:Find("hero_bg/img_locked")
+    cls.flagCom     = cls:GetComponent("hero_bg/txt_flag", "Text")
+    cls.sliderBgCom = cls:GetComponent("hero_bg/slider_hphero/img_bg", "Image")
+    cls.heroHpCom   = cls:GetComponent("hero_bg/slider_hphero", "Slider")
+    cls.petHpCom    = cls:GetComponent("hero_bg/slider_hppet", "Slider")
+    cls.clshero     = Hero:CtorHeroCObj(cls:Find("hero_bg/prefab_hero"))
+    cls.rect        = obj.transform:GetComponent("RectTransform")
+    cls.locked      = false
+    cls.cutPos      = false;
+    return cls;
+end
+
+function Chapter:SetItem(cls,data,tower)
+    cls.locked = data.locked
+    --set_obj_active(cls.emptyObj, data.hero == nil)
+    if cls.flagCom ~= nil then
+        if data.hero ~= nil and data.plot then
+            cls.flagCom:SetTextById(99000074)
+        else
+            cls.flagCom.text = ""
+        end
+    end
+    if cls.lockObj ~= nil then
+        set_obj_active(cls.lockObj, data.hero ~= nil and data.locked)
+    end
+    cls.clshero:Visible(data.hero ~= nil)
+    local hero_hp = 0
+    local pet_hp  = 0
+    if data.hero ~= nil then
+        Hero:SetHeroCObj(cls.clshero, data.hero)
+        if tower then
+            hero_hp, pet_hp = Tower:GetHeroPetHp(data.hero.id)
+        end
+    end
+    if cls.sliderBgCom ~= nil then
+        set_com_enabled(cls.sliderBgCom, tower and data.hero ~= nil)
+    end
+    if cls.heroHpCom ~= nil then
+        cls.heroHpCom.value = hero_hp
+    end
+    if cls.petHpCom ~= nil then
+        cls.petHpCom.value = pet_hp
+    end
+end
+
+function Chapter:SetTeamObj(cobjs, teams, tower)
+    local data
+    for i, cls in ipairs(cobjs) do
+        data = teams[i]
+        Chapter:SetItem(cls,data,tower)
+        cls.data = data;
+    end
+end
+
+function Chapter:ClickLevelCall(call)
+    self._clickLevelCall = call
+end
+
+function Chapter:TriggerLevelCall(levelid)
+    if self._clickLevelCall ~= nil then
+        self._clickLevelCall(levelid)
+    end
+end
+
+function Chapter:CtorLevelCObj(obj)
+    local cls       = clsbase:new(obj)
+    cls.starsCom    = {}
+    cls.starsCom[1] = cls:GetImageComponent("img_star1")
+    cls.starsCom[2] = cls:GetImageComponent("img_star2")
+    cls.starsCom[3] = cls:GetImageComponent("img_star3")
+    cls.objNewTips  = cls.transform:Get("img_new")
+    cls.lockCom     = cls:GetImageComponent("img_lock")
+    cls.orderCom    = cls:GetTextComponent("txt_order")
+    cls.orderEnCom  = cls:GetTextComponent("txt_order_en")
+    cls.nameCom     = cls:GetTextComponent("txt_name")
+    cls.valueCom    = cls:GetTextComponent("txt_consume_value")
+    --cls.doneCom     = cls:GetTextComponent("item_reward/txt_complete")
+    cls.stateCom    = cls:GetTextComponent("txt_state")
+    cls.itemObj     = cls:Find("item_reward")
+    cls.recvObj     = cls:Find("item_reward/spine_recv")
+    cls.citem       = Bag:CtorComSimpleGoodsUi(cls:Find("item_reward/prefab_item"))
+    cls.numCom      = cls:GetComponent("item_reward/prefab_item/txt_num", "Text")
+    cls.obj:GetComponent("Button"):AddButtonListener(
+        function()
+            Chapter:TriggerLevelCall(cls.levelid)
+        end)
+    cls.itemObj:GetComponent("Button"):AddButtonListener(
+        function()
+            Chapter:OnLevelStarRewardClick(cls.obj, cls.levelid)
+        end)
+
+    cls.levelid     = 0
+    cls.index       = 0
+
+    return cls
+end
+
+function Chapter:SetLevelCObj(cls, levelid, index, shownext)
+    local _level = self:GetLevel(levelid)
+    if cls.levelid ~= levelid then
+        cls.nameCom.text    = _level.name
+        cls.valueCom.text   = _level.cost_power
+        for i = 1, 3 do
+            cls.starsCom[i]:SetEnabled(_level.has_star >= i)
+        end
+        -- 是否解锁
+        local unlock, lockstr = self:LevelIsUnlock(levelid)
+        unlock = shownext or unlock
+        set_com_enabled(cls.lockCom, not unlock)
+        -- 关卡状态:未解锁、进行中、已完成
+        if cls.stateCom ~= nil then
+            if _level.open then
+                cls.stateCom:SetTextById(881010)
+            else
+                if unlock then
+                    cls.stateCom:SetTextById(881009)
+                else
+                    cls.stateCom:SetTextById(881008)
+                end
+            end
+        end
+        -- 新关卡标识
+        if cls.objNewTips ~= nil then
+            cls.objNewTips:SetVisible(shownext and self:IsLevelNeverFought(levelid))
+        end
+    end
+    if cls.index ~= index then
+        local lvorder = string.format(LanguageMgr:GetTextByID(20017), uistr.com_orderstr[index])
+        cls.orderCom.text   = lvorder .. "·"
+        cls.orderEnCom.text = "SECTION " .. uistr.com_stepstr[index]
+        cls.index = index
+    end
+    -- 
+    -- 三星奖励
+    local drop = self:GetLevelStarReward(_level.id)
+    cls.itemObj:SetVisible(drop.cfgid ~= 0)
+    if drop.cfgid ~= 0 then
+        Bag:SetComSimpleGoodsUi(cls.citem, drop.itype, drop.cfgid)
+        --设置数量
+        if cls.numCom ~= nil then
+            cls.numCom:SetVisible(drop.num > 0)
+            cls.numCom.text = drop.num
+        end
+        cls.citem.checkCom:SetVisible(_level.receive == Chapter.REWARD_STATE_HAS)
+    end
+    cls.recvObj:SetVisible(_level.receive == Chapter.REWARD_STATE_CAN)
+
+    cls.levelid = levelid
+end
+
+function Chapter:OnRefreshStarReward(cls, levelid, levelids)
+    for i, v in ipairs(levelids) do
+        if v == levelid then
+            if cls[i] ~= nil then
+                self:SetLevelCObj(cls[i], levelid, i)
+            end
+            break
+        end
+    end
+end
+
+function Chapter:ShowDailyLayer(chapterid, callback)
+    if chapterid ~= 0 then
+        local chapter = Chapter:GetChapter(chapterid)
+        if chapter.sub_type == Chapter.MODE_COIN then
+            --已经在金币本 不在跳转至金币本
+            if self._isInCoinChapter then
+                return false
+            end
+            --如果在其他日常本
+            if self._isInDaily then            
+                GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.ON_FIGHT_CLOSE,chapterid)
+                return false
+            end
+        end
+        local open, desc = self:ChapterIsOpen(chapterid)
+        if open then
+            core.require("xlua/lua_UI/HomeScene/DailyLevelLayer.txt"):new():show(chapterid,callback)
+            self._isInDaily = true
+            return true
+        else
+            self:ClearJumpChapterLevel()
+            Groble_UIMgr:ShowTipsLayer(desc)
+        end
+    end
+    return false
+end
+
+function Chapter:BuyRewardCount(cid, callBack)
+    core.require("xlua/lua_UI/HomeScene/mystery/MysteryBuyLayer.txt"):new():show(cid, callBack)                
+end
+
+function Chapter:OpenWhiteNightLayer()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        core.require("xlua/lua_UI/HomeScene/WhiteNightLayer.txt"):new():show();
+    end);
+end
+
+function Chapter:SetEnemyAttri(transform, config)
+    local attri_type = tonumber(config.attri_type)
+    transform:GetImageComponent("image_attrBg/image_attr"):LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[attri_type])
+    if attri_type == 0 then
+        transform:Get("kezhi"):SetVisible(false)
+    else
+        transform:GetImageComponent("kezhi/enemy"):LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[attri_type])
+        local forbearType = Hero:GetForbearAttrType(config.attri_type)
+        transform:GetImageComponent("kezhi/source"):LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[forbearType])
+    end
+end
+
+function Chapter:EnterFightFeelWallLayer(levelId, showChange)
+    self:SetTriggerLevelId(0)
+    if levelId == -1 then
+        if self._triggerLevels ~= nil and type(self._triggerLevels) == "table" then
+            levelId = self._triggerLevels[1]
+        end
+    end
+    if levelId ~= nil and levelId ~= -1 then
+        core.require("xlua/lua_UI/GameFightScene/FightFeelWallLayer.txt"):new():show(levelId, showChange)
+    end
+end
+
+function Chapter:InitLevelAddition(trans)
+    return core.require("xlua/lua_UI/Comframework/LevelAddition.txt"):new(trans:CreateChild("prefab_comframeWork/UI_LevelAddition"));
+end

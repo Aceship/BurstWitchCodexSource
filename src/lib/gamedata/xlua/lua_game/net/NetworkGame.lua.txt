@@ -1,0 +1,82 @@
+--
+-- author: haosun
+-- date  : 2020-05-27 20:14:24
+-- brief : 
+--
+NetworkGame = NetworkGame or {}
+
+local ERR_NONE              = 0
+local ERR_VERIFY_PARAM      = 3001
+local ERR_VERIFY            = 3002       
+local ERR_REVERIFY          = 3003      -- 重连验证失败，Token失效，需要重登
+local ERR_VERIFY_LOAD       = 3004      -- 达到负载
+local ERR_ROLE_LIST_PARAM   = 4001      -- 获取角色列表参数错误
+local ERR_ROLE_NEW_PARAM    = 4002      -- 创建角色参数错误
+local ERR_ROLE_ENTER_PARAM  = 4003      -- 进入角色参数错误
+local ERR_HEARTBEAT         = 5001      -- 
+local ERR_RECONNECT         = 5002      -- 
+local ERR_BAN_ACCOUNT       = 1006        -- 账号被封
+local ERR_UNKNOWN           = 9999      -- 未知错误
+
+function NetworkGame:GameLogin(zoneid)
+    Network:GameLogin(zoneid, 
+        function(rst, bantime)
+            self:_doLoginRst(rst, bantime)
+        end)
+end
+
+function NetworkGame:_doLoginRst(rst, bantime)
+    AppMgr:LogInfo("===========游戏服登录结果 = " .. rst)
+    if rst == ERR_NONE then
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, true)
+        ThinkingMgr:SendTrack("login",{
+            login_time = CTime:UTime2Str(os.time())
+        })
+    elseif rst == ERR_BAN_ACCOUNT then
+        local timeDes = os.date("%Y年%m月%d日%H时%M分%S秒",bantime + os.time())
+        local des = string.format("提示:\n违规游戏行为，账号已被封停\n解封时间为:%s",timeDes)
+        Groble_UIMgr:ShowMessageBox(false, false, des, nil, nil, false)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+    else
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+    end
+end
+
+function NetworkGame:LineUp()
+    Network:LineUp()
+end
+
+function NetworkGame:Logout()
+    Network:LogoutAccount()
+end
+
+local LOGOUT_ACTIVE     = 0     -- 主动退出
+local LOGOUT_KICKOUT    = 1     -- 被踢掉
+local LOGOUT_REPLACE    = 2     -- 其它地方登录
+local LOGOUT_CLOSE      = 3     -- 服务器关闭
+local LOGOUT_UNKNOWN    = 4     -- 未知    
+local LOGOUT_CRASH      = 5     -- 部分服务器crash
+
+function NetworkGame:LogoutNtf(reason)
+    if reason == LOGOUT_ACTIVE then
+        return
+    end 
+    local str = ""
+    if reason == LOGOUT_KICKOUT then
+        str = LanguageMgr:GetTextByID(10032)
+    elseif reason == LOGOUT_REPLACE then
+        str = LanguageMgr:GetTextByID(10033)
+    elseif reason == LOGOUT_CLOSE then
+        str = LanguageMgr:GetTextByID(10034)
+    elseif reason == LOGOUT_UNKNOWN then
+        str = LanguageMgr:GetTextByID(10035)
+    else
+        str = LanguageMgr:GetTextByID(10036)
+    end
+    Groble_UIMgr:ShowMessageBox(false, false, str, 
+        function()
+            uimgr:onLoginScene()
+        end, false, true)
+end
+
+

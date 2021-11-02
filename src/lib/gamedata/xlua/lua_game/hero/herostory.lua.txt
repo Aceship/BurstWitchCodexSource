@@ -1,0 +1,87 @@
+--
+-- author: haosun
+-- date  : 2018-11-16 14:25:31
+-- brief :
+--
+
+Hero = Hero or {}
+
+-- 人物传记
+local StoryOpenType = {
+    chapter_level   = "1",      -- 关卡方式开启
+    hero_level      = "2",      -- 角色等级开启
+    density         = "3",      -- 亲密度开启
+    accompanier     = "4",      -- 拥有指定的魔女开启
+}
+
+function Hero:GetHeroStory(heroid)
+    local hero = self:GetHero(heroid)
+    local cfg = self:GetCfg(heroid)
+    local storys = lua_parse_cfg(cfg.Story_id, "|")
+    local complete = false
+    local open_desc = ""
+    local ret = {}
+    for i, story in ipairs(storys) do
+        -- parse story
+        -- 类型&条件&故事表ID
+        local storyid = story[3]
+        local openLv = 0;
+        if story[1] == StoryOpenType.chapter_level then
+            complete = Chapter:GetLevel(story[2]).open
+            local level = Chapter:GetLevel(story[2])
+            open_desc = string.format(LanguageMgr:GetTextByID(71002), level.name)
+
+        elseif story[1] == StoryOpenType.hero_level then
+            complete = hero.level >= tonumber(story[2])
+            open_desc = string.format(LanguageMgr:GetTextByID(71003), story[2])
+
+        elseif story[1] == StoryOpenType.density then
+            complete = hero.intimacy_data.level and hero.intimacy_data.level >= tonumber(story[2])
+            open_desc = string.format(LanguageMgr:GetTextByID(71004), story[2])
+            openLv = tonumber(story[2]);
+        elseif story[1] == StoryOpenType.accompanier then
+            local _hero = self:GetHero(story[2])
+            local _cfg = self:GetCfg(story[2])
+            complete = _hero.owner
+            open_desc = string.format(LanguageMgr:GetTextByID(71005), cfg.Name)
+
+        else
+            -- TODO: Error Type
+        end
+        local tmp = {
+            sortid    = tonumber(storyid) * 100,
+            complete    = complete,
+            open_desc   = open_desc,
+            config      = self:GetStoryCfg(storyid),
+            openLv = openLv
+        }
+        if tmp.complete then
+            tmp.sortid = tmp.sortid /100
+        end
+        table.insert(ret, tmp)
+    end
+    -- 排序
+    table.sort(ret, function(a, b)
+            return a.sortid < b.sortid
+        end)
+    return ret
+end
+
+function Hero:GetStoryCfg(cfgid)
+    if self._hero_story_cfg == nil then
+        self._hero_story_cfg = {}
+        local cfgs = CfgLoader:LoadCfg("Story")
+        for _, v in pairs(cfgs) do
+            self._hero_story_cfg[tonumber(v.id)] = {
+                title = tonumber(v.title),
+                des = tonumber(v.des),
+            }
+        end
+    end
+    local cfg = self._hero_story_cfg[tonumber(cfgid)]
+    if cfg == nil then
+        AppMgr:LogError("story config error!, id = {0}" .. cfgid)
+        return {}
+    end
+    return cfg
+end

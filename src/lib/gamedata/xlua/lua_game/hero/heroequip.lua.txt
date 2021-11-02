@@ -1,0 +1,44 @@
+--
+-- author: haosun
+-- date  : 2019-03-21 16:09:29
+-- brief : 
+--
+
+Hero = Hero or {}
+
+function Hero:GetBetterEquipUid(heroid)
+    local betterids = {}
+    local hero = self:GetHero(heroid)
+    for _, v in ipairs(Equip.TYPES) do
+        local betterid = Equip:GetBestOneEquip(hero, v, hero.equipids[v])
+        if betterid ~= 0 then
+            table.insert(betterids, betterid)
+        end
+    end
+    return betterids
+end
+
+function Hero:UpdateAttrByEquip(heroid)
+    local hero = self:GetHero(heroid)
+    self:SetDeskills(hero)
+    self:OnCalcAttr(hero)
+end
+
+function Hero:EquipSuitExistNum(heroid, suitid)
+    local hero = self:GetHero(heroid)
+    local c = 0
+    for _, eid in pairs(hero.equipids) do
+        if eid ~= 0 then
+            local equip = Equip:GetEquip(eid)
+            if equip.suitid == suitid then
+                c = c + 1
+            end
+        end
+    end
+    return c
+end
+
+function Hero:EquipSuitIsActive(heroid, suitid, num)
+    local c = self:EquipSuitExistNum(heroid, suitid)
+    return c >= num
+end

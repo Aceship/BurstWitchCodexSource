@@ -1,0 +1,50 @@
+--
+-- author: haosun
+-- date  : 2018-11-16 16:52:02
+-- brief :
+--
+Skill.PLAY_TYPE_AUTO    = 1         -- 自动释放
+Skill.PLAY_TYPE_DOUBLE  = 2         -- 手动释放
+
+Skill.PLAY_TYPE_NAME            = {
+    [Skill.PLAY_TYPE_AUTO]      = LanguageMgr:GetTextByID(70000022),
+    [Skill.PLAY_TYPE_DOUBLE]    = LanguageMgr:GetTextByID(70000023),
+}
+
+Skill.TYPE_RIFLE    = 1     -- 步枪
+Skill.TYPE_LASERY   = 2     -- 光束
+Skill.TYPE_GUANGZHU   = 3     -- 光柱
+Skill.TYPE_XIANDAN   = 4     -- 霰弹
+Skill.TYPE_LIUDAN   = 5     -- 榴弹
+Skill.TYPE_ZIJU   = 6     -- 自狙
+Skill.TYPE_KILL     = 10    -- 必杀
+Skill.TYPE_XULI     = 13    -- 蓄力技
+
+
+Skill.PLAY_TYPES = {
+    [Skill.TYPE_RIFLE]      = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_LASERY]     = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_GUANGZHU]   = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_XIANDAN]    = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_LIUDAN]     = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_ZIJU   ]    = Skill.PLAY_TYPE_AUTO,
+    [Skill.TYPE_KILL]       = Skill.PLAY_TYPE_DOUBLE,
+    [Skill.TYPE_XULI   ]    = Skill.PLAY_TYPE_AUTO,
+}
+--普攻类型
+Skill.SKILL_TYPE_NORMAL = 1 --普攻
+Skill.SKILL_TYPE_SPECIAL = 2 --必杀
+Skill.SKILL_TYPE_XULI = 3 --蓄力
+
+--temp
+
+Skill.explosionScale = {
+    [100803] = 1,
+    [101503] = 0.38,
+    [102203] = 0.07143,
+    [102253] = 0.07143,
+}
+
+Skill.shieldEffect = "prefab_Barrage/playerBarrage_1015/barrage_101503"
+Skill.lostHpBonusEffect = "prefab_Barrage/playerBarrage_1009/barrage_1009_blood5x"
+

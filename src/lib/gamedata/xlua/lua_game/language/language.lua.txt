@@ -1,0 +1,14 @@
+Language = Language or {}
+
+function Language:Ctor()
+    self._languageCode = LanguageMgr:GetLanguageCode();
+    AssetLoader:LoadLuaAsset("xlua/lua_Game/Language/"..Language.TableName[self._languageCode]);
+end
+
+function Language:Clear()
+    self:Ctor()
+end
+
+function Language:GetTxtBuyId(id)
+    return self.LanguageTxt[tonumber(id)] or id
+end

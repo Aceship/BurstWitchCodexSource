@@ -1,0 +1,40 @@
+--
+-- author: haosun
+-- date  : 2018-11-11 14:00:22
+-- brief : 技能模块
+--              主动技：
+--              被动技：装备(武器&符文)
+--
+
+Skill = Skill or {}
+
+function Skill:Ctor()
+end
+
+function Skill:GetSkillHurtDesc(atk, skillid, skillShowId, bcolor, level,star)
+    local cfg   = self:GetHeroSkillCfg(skillid, star)
+    local showCfg = self:GetHeroSkillShowCfg(skillShowId, star)
+    local hurt1, hurt2 = 0, 0
+
+    if cfg.showDot ~= -1 then
+        hurt2 = math.floor(atk * cfg.showDot * (1 + (level -1) * cfg.up_rate/100)) 
+    end
+    
+    if cfg.showHurt ~= 0 then
+        hurt1 = math.floor(atk * cfg.showHurt * (1 + (level -1) * cfg.up_rate/100))
+    end
+
+    if hurt1 == 0 and hurt2 == 0 then
+        return lua_color_str(showCfg.desc, bcolor)
+    elseif hurt1 > 0 and hurt2 > 0 then
+        return string.format(lua_color_str(showCfg.desc, bcolor), hurt1, hurt2)
+    else
+        return string.format(lua_color_str(showCfg.desc, bcolor), hurt1+hurt2)
+    end
+end
+
+
+function Skill:ShowSkillLayer(heroid, skincfg, callback)
+    core.require("xlua/lua_UI/Witch/WitchSkillShowLayer.txt"):new():show(heroid,skincfg,callback);
+end
+

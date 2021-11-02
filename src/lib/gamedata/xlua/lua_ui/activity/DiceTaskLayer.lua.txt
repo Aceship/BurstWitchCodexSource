@@ -1,0 +1,139 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-12 19:47:47
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DiceTaskLayer = class("DiceTaskLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function DiceTaskLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_DiceTaskLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function DiceTaskLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function DiceTaskLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function DiceTaskLayer:Init()
+    self:InitUI();
+end
+
+function DiceTaskLayer:UpdateData()
+    self._taskids = Task:SortTaskIds(Task:GetSubTasks(Task.ChessTask_DayTask));
+end
+
+--初始化UI
+function DiceTaskLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function DiceTaskLayer:show()
+    self:UpdateData();
+    self:SetTableView();
+    self:showLayer();
+end
+
+--退出按钮事件
+function DiceTaskLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function DiceTaskLayer:onExit()
+    self._taskids = nil;
+    self._transTableviewcontroller = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function DiceTaskLayer:RegisterHandler()
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+            function()
+                self:UpdateData();
+                self:SetTableView();
+            end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY,
+            function()
+                self:UpdateData();
+                self:SetTableView();
+            end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function DiceTaskLayer:SetTableView()
+    local row = #self._taskids;
+    if(self._tvController == nil)then
+        self._tasksCell = {};
+        self._tvController = UIController:CtorTableView(self._transTableviewcontroller)
+        self._tvController:Init(row, true,
+                function(cell, row)
+                    self:SetTaskCell(cell, row + 1);
+                end, 0.15, 0.07)
+    else
+        self._tvController:Reload(row,true);
+        self._tvController:ScrollToTop();
+    end
+end
+
+function DiceTaskLayer:SetTaskCell(cell,row)
+    local taskid = self._taskids[row]
+    local cls = self._tasksCell[cell]
+    if cls == nil then
+        cls = Task:InitTaskCell(cell.transform, 2)
+        self._tasksCell[cell] = cls
+    end
+    Task:SetTaskCell(cls, taskid)
+end
+
+return DiceTaskLayer;

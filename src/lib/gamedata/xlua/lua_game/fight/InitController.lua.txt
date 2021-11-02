@@ -1,0 +1,34 @@
+--
+-- author: haosun
+-- date  : 2020-07-15 10:49:33
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightLandData.txt")
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/AttrController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/CameraController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/EffectController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/GuideController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/HeroController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/LandController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/PlaybackController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/PrefsController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/MapEventControllerNew.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightResController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightScreenEffect.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightTipsController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/LightController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/LuaScriptController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/EventController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/MathController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/KeyboardController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ShenYeController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/TalkController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/TestController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/UIController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/VideoController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/WeatherController.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/FightArrController.txt")
+

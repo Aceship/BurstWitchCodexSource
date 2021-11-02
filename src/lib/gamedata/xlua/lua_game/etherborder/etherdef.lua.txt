@@ -1,0 +1,57 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-17 19:59:31
+---
+
+Ether.Affix_Context = 0;--环境
+Ether.Affix_Strategy = 1;--战略
+Ether.Affix_Support = 2;--支援
+
+--词缀解锁类型
+Ether.AffixUnLockType = {
+    Null = 0,
+    Last = 1,
+    LvAndLast = 2,
+}
+
+--支援点获取条件类型
+Ether.SupportPointConditionType = {
+    Lv = 1,--等级
+    Attr = 2,--属性
+    Atk = 3,--攻击类型
+    Grade = 4,--上阵魔女品级
+    Star = 5,--上阵单魔女星级
+    AllStar = 6,--上阵所有魔女星级总和
+}
+
+Ether.SupportPointGetConditionType = {
+    All = 0,--上阵魔女必须全部满足条件
+    One = 1,--上阵魔女必须1个以上满足条件
+    Two = 2,--上阵魔女必须2个以上满足条件
+    Three = 3,--上阵魔女必须3个以上满足条件
+}
+
+Ether.ETHER_ADD_HP      = 1     -- 生命
+Ether.ETHER_ADD_ATK     = 2     -- 攻击
+Ether.ETHER_ADD_DEF     = 3     -- 防御
+Ether.ETHER_SUB_GF      = 4     -- 降低神火恢复速度
+Ether.ETHER_ADD_SPD     = 5     -- 增加弹速
+Ether.ETHER_ADD_VOLUME  = 6     -- 增加体积
+Ether.ETHER_SUB_DPS     = 7     -- 减伤
+Ether.ETHER_ADD_DPS     = 8     -- 增伤
+Ether.ETHER_ADD_CD      = 9     -- 干扰
+Ether.ETHER_SKILL       = 10    -- 技能强化
+Ether.ETHER_GOD_RATE    = 11    -- 神圣意志，触发天罚概率
+Ether.ETHER_SUCK_HP     = 12    -- 吸血
+-- 孵化
+Ether.ETHER_CALL_ATTR   = 14    -- 召唤强化
+Ether.ETHER_CURE_HP     = 15    -- 自愈
+Ether.ETHER_SUB_DEF     = 16    -- 破防
+Ether.ETHER_ADD_HIT     = 17    -- 暴击率增加
+Ether.ETHER_DEBUFF      = 18    -- debuff
+Ether.ETHER_SUB_CD      = 19    -- 减少大招CD
+Ether.ETHER_ADD_GF      = 20    -- 增加神火恢复速度
+Ether.ETHER_GOD_DPS     = 21    -- 天罚
+Ether.ETHER_LIGHT_DARK  = 22    -- 光合
+Ether.ETHER_TOXIC_BUFF  = 23    -- 剧毒
+Ether.ETHER_DEF_BUFF    = 24    -- 减防BUFF

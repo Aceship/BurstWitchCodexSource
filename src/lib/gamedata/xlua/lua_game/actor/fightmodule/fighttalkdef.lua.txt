@@ -1,0 +1,44 @@
+FightModule = FightModule or {}
+
+----------------对话类型
+FightModule.talk_type_talk 			   =1;--正常对话
+FightModule.talk_type_show 			   =2;--演出
+FightModule.talk_type_select 		   =3;--分支
+FightModule.talk_type_openUI 		   =4;--打开界面 1 选导师界面
+
+
+FightModule.show_left_fadein 		   =1;--.角色左侧飞入（无参数）
+
+FightModule.show_right_fadein 		   =2;--.角色右侧飞入（无参数）
+
+FightModule.show_mid_fadein 		   =3;--.角色中间淡入（无参数）
+
+FightModule.show_screen_blink 		   =4;--.屏幕闪烁（参数：r#g#b|持续时间）
+
+FightModule.show_bg_shake       	   =5;--.对话框抖动（参数:抖动震级|持续时间）
+
+FightModule.show_role_shake 		   =6;--.角色抖动（参数:抖动震级|持续时间）
+
+FightModule.show_black      		   =7;--.黑幕（内容#出现时间|内容#出现时间）
+
+FightModule.show_bg_in         		   =8;--.背景图淡入
+
+FightModule.show_bg_out         	   =9;--.背景图淡出
+
+FightModule.show_left_fadeout 		   =10;--.角色左侧飞出
+
+FightModule.show_right_fadeout         =11;--.角色右侧飞出
+
+FightModule.show_video          = 12        -- 视屏载入
+FightModule.hide_video          = 13        -- 视屏卸载
+
+
+FightModule.bg_type_bc         		   =1;--背景
+FightModule.bg_type_fw         		   =2;--前置
+
+
+FightModule.bgm_type_begin         	   =1;--开始
+FightModule.bgm_type_pause         	   =2;--暂停
+FightModule.bgm_type_stop         	   =3;--停止
+FightModule.bgm_type_resume            =4;--继续
+

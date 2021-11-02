@@ -1,0 +1,232 @@
+--
+-- author: lvqiang
+-- date  : 2021-08-20 16:04:25
+-- brief :
+--
+
+MidNight = MidNight or {}
+function MidNight:LoadCfg()
+    MidNight:_loadDanGradingCfg();
+    MidNight:_loadSeasonCfg();
+    MidNight:_loadAwardCfg();
+    MidNight:_loadMidNightBossCfg();
+end
+
+--加载段位配置
+function MidNight:_loadDanGradingCfg()
+    self._danGradingCfgs = {};
+    self._danGradingGroups = {};
+    local cfgs = CfgLoader:LoadCfg("MidnightDivision");
+    local data,id,groupId;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        groupId = tonumber(cfg.SeniorDivId);
+        data = {
+            id = id,
+            name = Language:GetTxtBuyId(cfg.DivTitle),
+            trophySection = lua_str_split(cfg.DivTrophyRange,"&",true),--奖杯区间
+            robotNum = tonumber(cfg.RobotNum),--机器人数量
+            groupId = groupId,--组ID
+            maxNum = tonumber(cfg.MembTotal),--最大人数
+            iconPath = cfg.Icon,
+            robotRangeId = tonumber(cfg.RobotRange),
+            addTrophyRate = tonumber(cfg.TrophyRate)/100,
+            weekSettleDay = lua_str_split(cfg.WeekSettleDay,"&",true),
+            midnight_coin_list = cfg.midnight_coin_list,
+            midnight_list_chance = cfg.midnight_list_chance,
+            gashaponId = tonumber(cfg.gashaponId),
+            inited = false
+        }
+        if(self._danGradingGroups[groupId] == nil)then
+            self._danGradingGroups[groupId] = {
+                id = data.groupId,
+                groups = {},
+                name = Language:GetTxtBuyId(cfg.SeniorDivTitle),
+                iconPath = data.iconPath,
+                trophyNum = data.trophySection[1],
+            };
+        end
+        table.insert(self._danGradingGroups[groupId].groups,data);
+        self._danGradingCfgs[id] = data;
+    end
+    for _, v in pairs(self._danGradingGroups) do
+        table.sort(v.groups,function (a,b)
+            return a.id < b.id;
+        end);
+    end
+end
+
+
+
+--
+-- 深夜赛季相关配置
+--
+function MidNight:_loadSeasonCfg()
+    self._seasonCfg = {}
+    local cfgs = CfgLoader:LoadCfg("season")
+    local id = 0
+    for _, v in ipairs(cfgs) do
+        self._seasonCfg[tonumber(v.id)] = {
+            start_time  = v.start_time,
+            end_time    = v.end_time,
+            coin_award  = v.coin_award,
+            big_award   = v.big_award,
+            ui_1        = v.ui_1,
+            ui_2        = v.ui_2,
+            spineid     = tonumber(v.ui_3),
+            ui_4        = v.ui_4,
+            ui_5        = v.ui_5,
+            seasonid    = tonumber(v.season_number),
+            name        = tonumber(v.season_name),
+            rank_name   = tonumber(v.season_name_big),
+            rank_nameE  = tonumber(v.season_name_en),
+            inited      = false,
+        }
+    end
+end
+
+function MidNight:_loadAwardCfg()
+    local cfgs = CfgLoader:LoadCfg("MidnightAwardNew");
+    self._awardCfg = {};
+    local data,id;
+    for _, cfg in ipairs(cfgs) do
+        id = tonumber(cfg.id);
+        data = {
+            id = id,
+            txt = Language:GetTxtBuyId(tonumber(cfg.Award_id)),
+            rank = tonumber(cfg.Rank),
+            danGradingId = tonumber(cfg.Division),
+            dayAward = lua_parse_cfg(cfg.DayAward,true),
+            weekAward = tonumber(cfg.WeekAward),
+        }
+        if(self._awardCfg[data.danGradingId] == nil)then
+            self._awardCfg[data.danGradingId] = {};
+        end
+        self._awardCfg[data.danGradingId][data.rank] = data;
+    end
+end
+
+function MidNight:_loadMidNightBossCfg()
+    local cfgs = CfgLoader:LoadCfg("MidNightBoss");
+    self._bossCfgs = {};
+    local id,data;
+    for _, cfg in pairs(cfgs) do
+        id = tonumber(cfg.id);
+        data = {
+          id = id,
+          boss_id = tonumber(cfg.boss_id),
+          avatar = cfg.avatar,
+          attri_type = tonumber(cfg.attri_type),
+          des = Language:GetTxtBuyId(tonumber(cfg.des)),
+          spinePos = lua_str_split(cfg.SpinePos,"&",true),
+          spineScale = lua_str_split(cfg.SpineScale,"&",true),
+        };
+        self._bossCfgs[id] = data;
+    end
+end
+
+function MidNight:GetMidNightBossCfgById(id)
+    local retCfg = self._bossCfgs[id];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = MidNight:GetMidNightBossCfgById()  ** id = "..id);
+    end
+    return retCfg;
+end
+
+--根据组Id获取大组配置
+function MidNight:GetGroupCfgByGroupId(groupId)
+    local retCfg = self._danGradingGroups[groupId];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = MidNight:GetGroupCfgByGroupId()  ** groupId = "..groupId);
+    end
+    return retCfg;
+end
+
+function MidNight:GetAllGroupCfgs()
+    return self._danGradingGroups;
+end
+
+function MidNight:GetGroupCfgByDanId(danId)
+    local danCfg = MidNight:GetDanGradingCfgById(danId);
+    return MidNight:GetGroupCfgByGroupId(danCfg.groupId);
+end
+
+--根据奖杯数获取段位Id
+function MidNight:GetDanIdByTrophyNum(trophyNum)
+    if(trophyNum < 0)then
+        trophyNum = 0;
+    end
+    local danCfgs = MidNight:GetAllDanGradingCfg();
+    local retId = 0;
+    for _, cfg in pairs(danCfgs) do
+        if(trophyNum >= cfg.trophySection[1] and trophyNum <= cfg.trophySection[2])then
+            retId = cfg.id;
+            break;
+        end
+    end
+    return retId;
+end
+
+--根据段位Id获取段位配置
+function MidNight:GetDanGradingCfgById(dId)
+    local retCfg = self._danGradingCfgs[dId];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = MidNight:GetDanGradingCfgById()  ** dId = "..dId);
+    end
+    return retCfg;
+end
+
+--获得所有段位配置
+function MidNight:GetAllDanGradingCfg()
+    return self._danGradingCfgs;
+end
+
+function MidNight:GetSeasonCfg(seasonId)
+    if self._seasonCfg[seasonId] == nil then
+        AppMgr:LogError("can't find season cfg = " .. seasonId)
+    end
+    return self._seasonCfg[seasonId]
+end
+
+function MidNight:GetCurSeasonCfg()
+    return MidNight:GetSeasonCfg(self._seasonId)
+end
+
+function MidNight:GetCurSeasonReward()
+    local cfg = MidNight:GetSeasonCfg(self._seasonId)
+    if not cfg.inited then
+        cfg.rewards = lua_parse_cfg(cfg.coin_award, true)
+        local _last = 0
+        for i = 1, #cfg.rewards, 1 do
+            cfg.rewards[i][5] = cfg.rewards[i][1] - _last
+            cfg.rewards[i][6] = _last
+            _last = cfg.rewards[i][1]
+        end
+    end
+    return cfg.rewards
+end
+
+--获取当前段位的所有奖励配置
+function MidNight:GetAwardCfgsByDanGradingId(danGradingId)
+    local retCfgs = self._awardCfg[danGradingId];
+    if(retCfgs == nil)then
+        AppMgr:LogError("retCfgs is null !!!!   **path = MidNight:GetAwardCfgsByDanGradingId()  ** danGradingId = "..danGradingId);
+    end
+    return retCfgs;
+end
+
+--获取当前段位当前排名的奖励配置
+function MidNight:GetAwardCfgByDanGradingIdAndRank(danGradingId,rank)
+    local retCfg = self._awardCfg[danGradingId];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = MidNight:GetAwardCfgByDanGradingIdAndRank()  ** danGradingId = "..danGradingId);
+        return;
+    end
+    retCfg = retCfg[rank];
+    if(retCfg == nil)then
+        AppMgr:LogError("retCfg is null !!!!   **path = MidNight:GetAwardCfgByDanGradingIdAndRank()  ** rank = "..danGradingId);
+        return;
+    end
+    return retCfg;
+end
+

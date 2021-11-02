@@ -1,0 +1,185 @@
+---
+--- Author:admin
+--- Create Time:2021-09-02 14:39:58
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightRankTaskLayer = class("MidNightRankTaskLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function MidNightRankTaskLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uimidnight/UI_MidNightRankTaskLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,     --返回按钮
+        showPlayerInfo  = false,    --玩家信息
+        showTopInfo     = false,    --顶部货币菜单栏
+        topInfo        = {},        --货币类型
+    };
+    self._hideOtherLayer = true;
+    self._addStack = true;
+
+    self._index     = -1
+    self._cellsObj  = {}
+
+    self._loadAsync = true
+    self:loadAsync()
+end
+
+
+--进入Ui调用一次
+function MidNightRankTaskLayer:onEnter()
+    self:createPnl()
+    self:addRedTipsListener()
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:initTableViewController()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RANK_DAILY,
+        function()
+            if self._index == Task.RANK_TASK_DAILY then
+                self:initTableViewController()
+            end
+        end)
+    self._tvController = UIController:CtorTableView(self.layer:Get("TableViewController"):CreateChild("prefab_uiHome/sys/prefab_tasklist"))
+    
+    self._imgTogRed1 = self.layer:GetImageComponent("trans_tog_bg/tog_pag_1/img_red")
+    self._imgTogRed2 = self.layer:GetImageComponent("trans_tog_bg/tog_pag_2/img_red")
+    local comToggle = self.layer:GetMToggleComponent("trans_tog_bg/tog_pag_1")
+    comToggle.isOn = true
+    comToggle.onValueChanged:AddListener(function(isOn)
+        if isOn then self:OnTogPagClick(Task.RANK_TASK_DAILY) end
+    end)
+    self.layer:GetMToggleComponent("trans_tog_bg/tog_pag_2").onValueChanged:AddListener(function (isOn)
+        if isOn then self:OnTogPagClick(Task.RANK_TASK_GROW) end
+    end)
+end
+
+--按钮事件
+function MidNightRankTaskLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function MidNightRankTaskLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function MidNightRankTaskLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function MidNightRankTaskLayer:show()
+    if self:loadComplete() then
+        self._showCalled = false
+        self:showReally()
+    else
+        self._showCalled = true
+    end
+end
+
+function MidNightRankTaskLayer:showReally()
+    self._fading = false
+    self:OnTogPagClick(self._index)
+    self:showLayer()
+end
+
+function MidNightRankTaskLayer:initTableViewController()
+    if self._index == Task.RANK_TASK_DAILY then
+        self._taskids = Task:SortTaskIds(Task:GetRankDailyTaskId())
+    else
+        self._taskids = Task:SortTaskIds(Task:GetSubTasks(Task.RANK_TASK_GROW))
+    end
+    if self._init then
+        self._tvController:Reload(#self._taskids, false)
+    else
+        self._tvController:Init(#self._taskids, false,
+            function(cell, row, play)
+                self:refreshRankTaskUnitCell(cell, row + 1)
+            end, 0.3, 0.1)
+        self._init = true
+    end
+    self:onUpdateRedTips()
+end
+
+function MidNightRankTaskLayer:refreshRankTaskUnitCell(cell, row)
+    local taskid = self._taskids[row]
+    local cls = self._cellsObj[cell]
+    if cls == nil then
+        cls = Task:InitTaskCell(cell.transform, 2)
+        self._cellsObj[cell] = cls
+    end
+    Task:SetTaskCell(cls, taskid)
+end
+
+function MidNightRankTaskLayer:OnTogPagClick(_index)
+    if -1 == _index then _index = Task.RANK_TASK_DAILY end
+    if self._index == _index then return end
+    self._index = _index
+    self:initTableViewController()
+end
+
+function MidNightRankTaskLayer:onUpdateRedTips()
+    self._imgTogRed1:SetVisible(Task:GetRankTaskRed())
+    self._imgTogRed2:SetVisible(Task:IsBetterOper(Task.TYPE_RANK, Task.RANK_TASK_GROW))
+end
+
+--退出按钮事件
+-- function MidNightRankTaskLayer:onBackClick()
+--     self:Close();
+--     self:onPopLayer();
+-- end
+
+--释放
+function MidNightRankTaskLayer:onExit()
+    self._taskids   = nil
+    self._cellsObj  = nil
+
+    self._tvController:Clear()
+    self._tvController = nil
+    self._imgTogRed1 = nil
+    self._imgTogRed2 = nil
+
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightRankTaskLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return MidNightRankTaskLayer;

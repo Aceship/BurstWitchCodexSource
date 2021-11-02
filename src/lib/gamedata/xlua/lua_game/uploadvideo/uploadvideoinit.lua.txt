@@ -1,0 +1,11 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:24
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UpLoadVideo/uploadvideo.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UpLoadVideo/uploadvideo_data.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UpLoadVideo/uploadvideodef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UpLoadVideo/uploadvideo_c2s.txt")
+
+UpLoadVideo:Ctor()

@@ -1,0 +1,324 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-21 11:52:01
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherHeroSelectLayer = class("EtherHeroSelectLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnOk = "trans_container/bottom_bg/btn_ok",
+	--@ButtonEnd
+}
+--构造函数
+function EtherHeroSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherHeroSelectLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        topInfo        = {}
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_BABEL,
+    }
+    self._addStack = true
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherHeroSelectLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherHeroSelectLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnOk)then
+	   self:OnBtnOkClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function EtherHeroSelectLayer:onBackClick(isOk)
+    if(isOk)then
+        Ether:SetHeroIds(self._tempHeroIds or {0,0,0});
+    else
+        Ether:SetHeroIds(self._initIds or {0,0,0});
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function EtherHeroSelectLayer:Init()
+    self._heroIds = nil;
+    local heroIds = Ether:GetCurHeroIds();
+    self._tempHeroIds = {0,0,0};
+    self._initIds = {0,0,0};
+    for i, v in ipairs(heroIds) do
+        self._tempHeroIds[i] = v;
+        self._initIds[i] = v;
+    end
+    self:InitUI();
+end
+
+--初始化UI
+function EtherHeroSelectLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtLv = self.layer:GetTextComponent("trans_container/bottom_bg/trans_lv_info/txt_lv");
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objEmpty = self.layer:Get("trans_container/obj_empty").gameObject;
+	--@GameObjectEnd
+
+	self._mTogAll = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_all");
+	self._mTogLight = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_light");
+	self._mTogDark = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_dark");
+	self._mTogChaos = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_chaos");
+	--@MToggleEnd
+
+	self._mTogAll.onValueChanged:AddListener(function (isOn)
+	   self:OnTogAllClick(isOn);
+   end);
+	self._mTogLight.onValueChanged:AddListener(function (isOn)
+	   self:OnTogLightClick(isOn);
+   end);
+	self._mTogDark.onValueChanged:AddListener(function (isOn)
+	   self:OnTogDarkClick(isOn);
+   end);
+	self._mTogChaos.onValueChanged:AddListener(function (isOn)
+	   self:OnTogChaosClick(isOn);
+   end);
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function EtherHeroSelectLayer:show(closeIndex)
+    if(self._tempHeroIds[closeIndex] > 0)then
+        self._tempHeroIds[closeIndex] = 0;
+    end
+    Ether:SetHeroIds(self._tempHeroIds or {0,0,0});
+    self._mTogAll.isOn = true;
+    self:SetCriteria();
+    self:playAni("EtherHeroSelectLayerAnim");
+    self:showLayer();
+end
+
+--释放
+function EtherHeroSelectLayer:onExit()
+
+    self._txtLv = nil;
+	self._mTogAll = nil;
+	self._mTogLight = nil;
+	self._mTogDark = nil;
+	self._mTogChaos = nil;
+	self._transTableviewcontroller = nil;
+	self._objEmpty = nil;
+    self._tempHeroIds = nil;
+    self._initIds = nil;
+    self._heroIds  = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherHeroSelectLayer:OnBtnOkClick()
+    self:onBackClick(true);
+end
+
+function EtherHeroSelectLayer:OnHeroItemClick(cls)
+    if(cls.isLock)then
+        --print("该魔女已在其他副本出战");
+        return;
+    end
+    if(cls.isSelect)then
+        if(cls.index ~= 0)then
+            Ether:CloseCurHeroIdByIndex(cls.index);
+        end
+    else
+        Ether:SetCurHeroId(cls.heroId);
+    end
+    self:SetHeroItem(cls,cls.heroId);
+    self:SetCriteria();
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function EtherHeroSelectLayer:OnTogAllClick(isOn)
+    if(isOn)then
+        self:CutSelectAttr(Hero.ATTR_TYPE_ALL);
+    end
+ end
+function EtherHeroSelectLayer:OnTogLightClick(isOn)
+    if(isOn)then
+        self:CutSelectAttr(Hero.ATTR_TYPE_LIGHT);
+    end
+ end
+function EtherHeroSelectLayer:OnTogDarkClick(isOn)
+    if(isOn)then
+        self:CutSelectAttr(Hero.ATTR_TYPE_DARK);
+    end
+ end
+function EtherHeroSelectLayer:OnTogChaosClick(isOn)
+    if(isOn)then
+        self:CutSelectAttr(Hero.ATTR_TYPE_CHAOS);
+    end
+ end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherHeroSelectLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherHeroSelectLayer:CutSelectAttr(attrType)
+    if(self._curSelectType == attrType)then
+        return;
+    end
+    self._curSelectType = attrType;
+    self._heroIds = Hero:GetHeroIdByAttr(attrType,true);
+    self:SetTableView();
+    self._objEmpty:SetVisible(#self._heroIds == 0);
+end
+
+local rowMaxNum = 4;
+function EtherHeroSelectLayer:SetTableView()
+    local num = math.ceil(#self._heroIds/rowMaxNum);
+    if(self._tvController == nil)then
+        self._affixItems = {};
+        self._tvController = UIController:CtorTableView(self._transTableviewcontroller)
+        self._tvController:Init(num, true,
+                function(cell, row)
+                    self:SetHeroCell(cell, row)
+                end, 0.1, 0.03)
+    else
+        self._tvController:Reload(num,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function EtherHeroSelectLayer:SetHeroCell(cell,row)
+    if(self._heroCells == nil)then
+        self._heroCells = {};
+    end
+    local cls = self._heroCells[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.heroItems = {};
+        for i = 1, rowMaxNum do
+            cls.heroItems[i] = Hero:HalfItemClassNew(cls:Find("hero_item_"..i), nil,
+            function (heroid)
+                uimgr:showMainWitchLayerWithHid(heroid)
+            end, Hero.PRESS_DELAY);
+            cls.heroItems[i].isLock = false;
+            cls.heroItems[i].isSelect = false;
+            cls.heroItems[i].objLock = cls.heroItems[i]:Find("img_lock");
+            cls.heroItems[i].objSelect = cls.heroItems[i]:Find("obj_select");
+            cls.heroItems[i].imgIndex = cls.heroItems[i]:GetImageComponent("obj_select/img_index");
+            cls.heroItems[i].btn = cls.heroItems[i].obj:GetComponent("Button");
+            cls.heroItems[i].btn.onClick:AddListener(function()
+                self:OnHeroItemClick(cls.heroItems[i]);
+            end);
+        end
+        self._heroCells[cell] = cls;
+    end
+    self:SetCellInfo(self._heroCells[cell],row);
+end
+
+function EtherHeroSelectLayer:SetCellInfo(cls,row)
+    local curIndex = 0;
+    local heroId = 0;
+    for i, heroItem in ipairs(cls.heroItems) do
+        curIndex = row * rowMaxNum + i;
+        heroId = self._heroIds[curIndex] or 0;
+        self:SetHeroItem(heroItem,heroId);
+    end
+end
+
+function EtherHeroSelectLayer:SetHeroItem(cls,heroId)
+    cls.obj:SetVisible(heroId ~= 0);
+    if(heroId ~= 0)then
+        Hero:SetHalfItemClassData(cls,heroId,nil,true);
+        cls.heroId = heroId;
+        cls.index = 0;
+        cls.isLock = Ether:GetHeroLockState(heroId);
+        cls.objLock:SetVisible(cls.isLock);
+        cls.isSelect = Ether:GetHeroSelectState(heroId);
+        cls.objSelect:SetVisible(cls.isSelect);
+        if(cls.isSelect)then
+            local index = Ether:GetCurHeroIndex(heroId);
+            cls.index = index;
+            if(index ~= 0)then
+                cls.imgIndex.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", "Common_Img_ShuZi_"..index);
+            end
+        end
+    end
+end
+
+function EtherHeroSelectLayer:SetCriteria()
+    if(self._criteriaItems == nil)then
+        self._criteriaItems = {};
+    end
+    self._supportConditions = Ether:GetSupportByChapterId(Ether:GetCurChapter().id) or {};
+    for i = 1, 3 do
+        if(self._criteriaItems[i] == nil)then
+            self._criteriaItems[i] = clsbase:new(self.layer:Get("trans_container/bottom_bg/trans_criteria_"..i));
+            self._criteriaItems[i].txtDes = self._criteriaItems[i]:GetTextComponent("txt_des");
+            self._criteriaItems[i].txtValue = self._criteriaItems[i]:GetTextComponent("txt_value");
+        end
+        self:SetCriteriaItem(self._criteriaItems[i],self._supportConditions[i]);
+    end
+    self:SetLvInfo();
+end
+
+function EtherHeroSelectLayer:SetCriteriaItem(cls,cfg)
+    cls.obj:SetVisible(cfg ~= nil);
+    if(cfg ~= nil)then
+        local isOver = Ether:GetSupportPointState(cfg.id);
+        cls.txtDes.text = cfg.condition.name;
+        cls.txtValue.text = "+"..cfg.supPoint;
+        if(isOver)then
+            cls.txtDes.color = COLOR_TYPE.White_Gray;
+            cls.txtValue.color = COLOR_TYPE.White_Gray;
+        else
+            cls.txtDes.color = COLOR_TYPE.Color_Has_Done;
+            cls.txtValue.color = COLOR_TYPE.Color_Has_Done;
+        end
+    end
+end
+
+function EtherHeroSelectLayer:SetLvInfo()
+        self._txtLv.text = math.ceil(Ether:GetSupportPointNum());
+end
+
+function EtherHeroSelectLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+return EtherHeroSelectLayer;

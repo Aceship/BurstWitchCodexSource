@@ -1,0 +1,698 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 10:44:33
+-- brief : 玩家
+--
+
+Player = Player or {}
+
+function Player:Init()
+    -- 数值型货币
+    self._values = {}
+    -- 初始化部分数值
+    self._values[Player.VALUE_LEVEL] = 1
+
+    self._snycdata = {
+        login_days = 1,
+        heroids = {0,0,0},
+        buy_power_times = 0,
+        bfirst_modify_name = true,
+        next_power_time = 0,
+        flag_power_time = 0,
+    }
+    self._isnewer = false
+    self._ignorelevelup = false
+    self._oldinfo = {}
+    self._flag = false
+
+    self._playercachedata = {}
+
+    self._unlockids ={} --需要下次显示的解锁id
+    self._witch_redTips = {}
+
+    self._campAttrs  = {};
+    self._campAttrs[Player.CAMP_TYPE_LIGHT]       = 0;
+    self._campAttrs[Player.CAMP_TYPE_DARK]        = 0;
+    self._campAttrs[Player.CAMP_TYPE_VACANT]      = 0;
+    self._campAttrs[Player.CAMP_TYPE_LIMITLESS]   = 0;
+    self._playTime = 0 --登陆时间
+    self._getVerify = false --认证奖品
+    self._playerCardType = nil;--玩家信息界面类型
+    self._reportTime = 0;
+    self:InitHomeLayerInfoData()
+    self:InitHomeLayerBtnData()
+end
+
+function Player:Clear()
+    self:Init()
+end
+
+function Player:SyncBaseInfo(info)
+    self._info = {
+        id = info.id,
+        name = info.nickname,
+        border = info.frameid,
+        icon = info.iconid,
+        desc = info.autograph,
+    }
+    Talk:Init(info.id)
+    PrefsController:InitPrefsController()
+
+    if self._isnewer then
+        ThinkingMgr:AddUserSet("role_name", info.nickname)
+        ThinkingMgr:AddUserSet("role_create_time", CTime:UTime2Str(os.time()))
+        ThinkingMgr:UserSet()
+        GameSdkMgr:CreateGame()
+    end
+    GameSdkMgr:EnterGame()
+end
+
+function Player:GetId()
+    if self._info then
+        return self._info.id
+    end
+    return 0
+end
+
+function Player:ClearNewPlayer()
+    self._isnewer = false
+end
+
+function Player:SetNewPlayer()
+    self._isnewer = true
+end
+
+function Player:IsNewPlayer()
+    return self._isnewer == true
+end
+
+function Player:GetName()
+
+    -- if not self._snycdata.tch_id or self._snycdata.tch_id == 0 then
+    --     return "???"
+    -- end
+
+    if self._info.name == nil or self._info.name == "" then
+        return self._info.id
+    end
+    return self._info.name
+end
+
+function Player:SetName(name)
+    if self._info ~= nil then
+        self._info.name = name
+        ThinkingMgr:AddUserSet("role_name", name)
+        ThinkingMgr:UserSet()
+        GZSDKHelper:doUpdatePlayerInfo()
+    end
+end
+
+function Player:SetHeadIcon(iconid)
+    self._info.icon = iconid
+end
+
+function Player:GetHeadIcon()
+    if self._info ~= nil and self._info.icon ~= nil and self._info.icon ~= 0 then
+        if(Hero:IsDefSkin(self._info.icon))then
+            return Hero:GetHero(self._info.icon).skinids[1];
+        else
+            return self._info.icon
+        end
+    end
+    return self:GetDefaultIcon()
+end
+
+-- 当前头像是导师头像
+function Player:IsTutorialIcon(icon)
+    if not icon then
+        icon = tonumber(Player:GetHeadIcon())
+    end
+    if icon == tonumber(self:GetDefaultIcon()) then
+        return true
+    end
+
+    local tID = self:GetTutorID()
+    if not tID then
+        return true
+    end
+
+    local data = self:GetTutorheadByID(tID)
+    if icon == data.headitemid then
+        return true
+    end
+
+    return false
+end
+
+function Player:SetHeadBorder(borderid)
+    if(borderid == 0)then
+        local isTutorial = self:IsTutorialIcon()
+        if isTutorial then -- 导师取最低品质边框
+            self._info.border = Player.DEFAULT_BORDER_INDEX
+            return
+        end
+        borderid = Hero:GetHero(Hero:GetHeroIdBySkinId(self:GetHeadIcon())).qlty
+    end
+    self._info.border = borderid
+end
+
+function Player:GetHeadBorder()
+    if self._info ~= nil and self._info.border ~= nil then
+        return self._info.border
+    end
+    return Player.DEFAULT_BORDER_INDEX
+end
+
+function Player:SetPlayerSign(signstr)
+    self._info.desc = signstr
+end
+
+function Player:GetPlayerSign()
+    return self._info.desc
+end
+
+function Player:OnCurrencyTdOper(key, value, reason, param)
+    if reason == nil or reason == 0 then return end
+    if Player.TD_OPER[key] ~= nil then
+        local oldvalue = self:GetValue(key)
+        local dis = value - oldvalue
+        if key == Player.VALUE_MONEY then
+            local eventName = "store_increase"
+            if dis < 0 then
+                eventName = "store_decrease"
+            end
+            ThinkingMgr:SendTrack(eventName, {
+                previous_number = oldvalue,
+                increase_number = dis,
+                reasons         = reason
+            })
+
+            GZSDKHelper:goldFlowWithPlayerInfo(dis > 0 and "add" or "reduce", key, Player.TD_OPER[key], Player.TD_OPER[key], dis, oldvalue, value ,reason)
+        end
+    end
+end
+
+function Player:PushSuperProperties()
+    local pushData = {
+        total_recharge_amount           = self:GetValue(Player.VALUE_RMB_CHARGED),
+        level                           = self:GetLevel(),
+        current_magic_stock             = self:GetValue(Player.VALUE_MONEY),
+        current_soul_stock              = self:GetValue(Player.VALUE_COIN),
+        current_physical_power_stock    = self:GetValue(Player.VALUE_POWER)
+    }
+
+    ThinkingMgr:SendSuperProperties("user_info", pushData)
+
+    ThinkingMgr:AddUserSet("total_recharge_amount", self:GetValue(Player.VALUE_RMB_CHARGED))
+    ThinkingMgr:UserSet()
+end
+
+function Player:SyncValues(values)
+    for _, v in pairs(values) do
+        if(v.key == Player.VALUE_MONEY or v.key == Player.VALUE_COIN or v.key == Player.VALUE_POWER) then
+            local oldValue = self:GetValue(v.key)
+            local itemId = Player.ITEM_VALUE_COIN
+            if v.key == Player.VALUE_MONEY then
+                itemId = Player.ITEM_VALUE_MONEY
+            elseif v.key == Player.VALUE_POWER then
+                itemId = Player.ITEM_VALUE_POWER
+            end
+            if(v.reason ~= 0) then
+                if(oldValue > v.value) then
+                    ThinkingMgr:SendTrack("item_decrease", {
+                        item_id             = itemId,
+                        previous_number     = oldValue,
+                        decrease_number     = tonumber(oldValue) - tonumber(v.value),
+                        current_number      = v.value,
+                        reasons             = v.reason
+                    })
+                else
+                    ThinkingMgr:SendTrack("item_increase", {
+                        item_id             = itemId,
+                        previous_number     = oldValue,
+                        increase_number     = tonumber(v.value) - tonumber(oldValue),
+                        current_number      = v.value,
+                        reasons             = v.reason
+                    })
+                end
+            end
+            
+            if(oldValue ~= v.value) then
+                if v.key == Player.VALUE_MONEY then
+                    ThinkingMgr:AddUserSet("current_magic_stock", v.value)
+                elseif v.key == Player.VALUE_COIN then
+                    ThinkingMgr:AddUserSet("current_pyroxene_stock", v.value)
+                elseif v.key == Player.VALUE_POWER then
+                    ThinkingMgr:AddUserSet("current_physical_power_stock", v.value)
+                end
+            end
+        end
+        -- reason param
+        self:OnCurrencyTdOper(v.key, v.value, v.reason, v.param)
+        self:SetValue(v.key, v.value)
+    end
+    ThinkingMgr:UserSet()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+    self:PushSuperProperties();
+    if next(self._oldinfo) == nil then
+        self:SetOldInfo()
+    end
+end
+
+function Player:GetValue(key)
+    return self._values[key] or 0
+end
+
+function Player:GetMoney()
+    return self:GetValue(Player.VALUE_WITCH_COIN) or 0
+end
+
+function Player:SetValue(key, value)
+    if Player.VALUE_EXP == key then
+        if next(self._oldinfo) ~= nil then
+            if false == self._flag and value >= self._oldinfo.exp then
+                if value >= self._oldinfo.next_exp then
+                    self._flag = true
+                end
+                self:SetOldInfo()
+            end
+        end
+    end
+    self._values[key] = value
+    if Player.VALUE_EXP == key then
+        UIController:OnProgressTopPlayer(Player.INFO_LEVEL)
+    end
+    if Player.VALUE_LEVEL == key then
+        self:UpdateSysFunc()
+        if self:IsLevelUp() then
+            if false == self._ignorelevelup then
+                Player:ShowLevelUpLayer()
+            end
+            if(Player:GetLevel() % 10 == 0)then
+                Operation:SetIsSetUpLvRed(true);
+            end
+            Operation:SetTogRedPoint();
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_OPERATION_RED_POINT);
+            Stats:UpdateStatsCount(Stats.STATS_TYPE_PLAYER_LVEL)
+            -- 触发礼包
+            Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_P_LEVEL})
+            -- 数据统计接口
+            GZSDKHelper:playerExpWithPlayerInfo(value)
+            if(Player:GetLevel() >= GameSdkMgr:GetDownResLevel()) then
+                GameSdkMgr:DownByLeBian()
+            end
+        end
+        UIController:OnProgressTopPlayer(Player.INFO_LEVEL)
+    end
+end
+
+function Player:GetVigour()
+    return self:GetValue(Player.VALUE_VIGOUR)
+end
+
+function Player:GetLevel()
+    return self:GetValue(Player.VALUE_LEVEL)
+end
+
+function Player:IsMaxLevel()
+    return self:GetValue(Player.VALUE_LEVEL) == Player.MAX_LEVEL
+end
+
+function Player:GetPlayerPower()
+    return self:GetValue(Player.VALUE_POWER)
+end
+
+function Player:CheckCurrency(key, value)
+    return self:GetValue(key) >= value
+end
+
+function Player:GetLevelUpExp()
+    local level = self:GetValue(Player.VALUE_LEVEL)
+    local config = self:GetLevelCfg(level)
+    if config ~= nil then
+        return tonumber(config.cost_exp)
+    else
+        return 0
+    end
+end
+
+function Player:GetLevelExpPer()
+    local exp = self:GetValue(Player.VALUE_EXP)
+    local next_exp = self:GetLevelUpExp()
+    if next_exp == 0 then
+        return 1
+    else
+        return exp/next_exp
+    end
+end
+
+function Player:GetLevelExp()
+    local exp = self:GetValue(Player.VALUE_EXP)
+    local next_exp = self:GetLevelUpExp()
+    if next_exp == 0 then
+        next_exp = -1
+    end
+    return exp, next_exp
+end
+
+function Player:GetNextLevelNeedExp()
+    local exp = self:GetValue(Player.VALUE_EXP)
+    local next_exp = self:GetLevelUpExp()
+    if next_exp == 0 then
+        return 0
+    else
+        return next_exp - exp
+    end
+end
+
+function Player:GetItemIdByValueType(valuetype)
+    if valuetype == nil  then
+        return
+    end
+    valuetype = tonumber(valuetype)
+    return Player.kPlayerValue2Item[valuetype]
+end
+
+function Player:GetValueTypeByItemId(itemid)
+    if itemid == nil  then
+        return
+    end
+    itemid = tonumber(itemid)
+    return Player.kPlayerItem2Value[itemid]
+end
+
+function Player:SetOldInfo()
+    self._oldinfo = {
+        level       = self:GetValue(Player.VALUE_LEVEL),
+        exp         = self:GetValue(Player.VALUE_EXP),
+        next_exp    = self:GetLevelUpExp(),
+        power       = self:GetValue(Player.VALUE_POWER),
+        powerMax    = self:GetValue(Player.VALUE_MAX_POWER),
+    }
+end
+
+function Player:GetOldLvExp()
+    return self._oldinfo
+end
+
+function Player:IsLevelUp()
+    if self._oldinfo.level ~= nil then
+        local canUp = self:GetValue(Player.VALUE_LEVEL) > self._oldinfo.level
+        if canUp then
+            ThinkingMgr:SendTrack("levelup", {
+                old_level = self._oldinfo.level
+            })
+
+            ThinkingMgr:AddUserSet("level", self:GetValue(Player.VALUE_LEVEL))
+            ThinkingMgr:UserSet()
+        end
+        return canUp
+    else
+        return false
+    end
+end
+
+function Player:IgnoreLevelUp(value)
+    self._ignorelevelup = value
+end
+
+function Player:SetPlayerShowTeam(heroids)
+    for i, v in ipairs(heroids or {}) do
+        self._snycdata.heroids[i] = v
+    end
+end
+
+function Player:GetPlayerShowTeam()
+    return self._snycdata.heroids
+end
+
+function Player:GetBusinessData()
+    local data = {
+        id          = self:GetId(),
+        level       = self:GetValue(Player.VALUE_LEVEL),
+        name        = self:GetName(),
+        autograph   = self:GetPlayerSign(),
+        iconid      = self:GetHeadIcon(),
+        frameid     = self:GetHeadBorder(),
+        sy_score    = MidNight:GetCurScore(),
+        --sy_level    = 0,
+        sy_ranking  = 0,
+        sy_mystery  = Mystery:GetMysteryFloor(),
+        trophy = Player:GetTrophyNum() or 0,--基础奖杯
+        glory = Player:GetGloryTrophyNum() or 0,--荣耀奖杯
+        heroes      = {0, 0, 0}
+    }
+    local heroids = self:GetPlayerShowTeam()
+    for i, v in ipairs(heroids) do
+        if v ~= 0 then
+            data.heroes[i] = Hero:GetHero(v)
+        end
+    end
+    return data
+end
+
+function Player:SetBuyPowerTimes(value)
+    self._snycdata.buy_power_times = value
+end
+
+function Player:GetBuyPowerTimes()
+    return self._snycdata.buy_power_times
+end
+
+function Player:GetPowerRecoveryTime(showtype)
+    local cur = Player:GetValue(Player.VALUE_POWER)
+    local max = Player:GetValue(Player.VALUE_MAX_POWER)
+    local remain = 0
+    if cur < max then
+        local tmp = (os.time() - self._snycdata.flag_power_time) % 300
+        remain = self._snycdata.next_power_time - tmp
+        if remain < 0 then
+            remain = remain + Player.PER_POWER_TIME
+        end
+        if showtype == 2 then
+            if (max - cur - 1) > 0 then
+                remain = remain + (max - cur - 1) * Player.PER_POWER_TIME
+            end
+        end
+    end
+    return remain
+end
+
+--获取玩家累计登录天数
+function Player:GetLoginDays()
+    return self._snycdata.login_days;
+end
+
+function Player:GetLoginServerId()
+    return Login:GetLoginServerId()
+end
+
+function Player:GetTalker()
+    local talker = {
+        id      = self._info.id,
+        name    = self._info.name,
+        iconid  = self._info.icon,
+        frameid = self._info.border,
+    }
+    return talker
+end
+
+function Player:OnUpdateDay()
+    self._shareNum = 0
+    Player:AddOffsetDay();
+    self._snycdata.buy_power_times  = 0
+    self._snycdata.login_days       = self._snycdata.login_days + 1;
+end
+
+function  Player:CheckPlayerBorder(hero)
+    if self:GetHeadIcon() ~= hero.id then
+        return
+    end
+    if self:GetHeadBorder() == hero.qlty then
+        return
+    end
+    if self:GetHeadBorder() < Player.DEFAULT_ICON_INDEX then
+        self:SetHeadBorder(hero.qlty)
+    end
+end
+
+function Player:PlayerChargeMoney()
+    self._snycdata.is_recharge = true
+end
+--获取魔女红点开启状态
+function Player:GetHeroRedTips()
+    return self._witch_redTips
+end
+
+function Player:GetHeroRedTipsById(heroid)
+    return self._witch_redTips[heroid]
+end
+
+function Player:InitHeroRedTips()
+    local tbl = {}
+    for _,heroid in pairs(Hero:GetHeroIds()) do
+        if self._witch_redTips[heroid] ~= nil then
+            tbl[heroid] = true
+        else
+            tbl[heroid] = false
+        end
+    end
+    self._witch_redTips = tbl
+end
+
+function Player:GetBuyPowerCost()
+    local hasbuy = self:GetBuyPowerTimes()
+    if hasbuy < Player.MAX_POWER_BUY then
+        local cfg = self:GetPhysicalLimitPrice()
+        return cfg[hasbuy + 1][2]
+    end
+    return 0
+end
+
+--获取体力购买红点(消耗为0 时显示红点)
+function Player:GetBuyPowerRed()
+    local hasbuy = self:GetBuyPowerTimes()
+    if hasbuy >= Player.MAX_POWER_BUY then return false end
+    
+    return Player:GetBuyPowerCost() <= 0;
+end
+
+--计算当前钻石可购买多少次体力
+function Player:GetBuyPowerCostNum()
+    local cfg = self:GetPhysicalLimitPrice()
+    local hasbuy = self:GetBuyPowerTimes()
+    local num,allCost,costNum = 0,0,Player:GetValue(Player.VALUE_MONEY);
+    for i = hasbuy + 1, #cfg do
+        allCost = cfg[i][2] + allCost;
+        if(costNum < allCost)then
+            break;
+        end
+        num  = num + 1;
+    end
+    return num
+end
+
+--第一次改名红点
+function Player:CanChangeNameTip()
+    if not Guide:ForceGuideIsEnd() then
+        return false
+    end
+    local id, cost = self:GetChangeNameCost()
+    if cost > 0 then return false end
+    
+    return PrefsController:IsChangeNameTips()
+end
+--每周是否领取过分享奖励
+function Player:HasShared()
+    return self._shareNum > 0
+end
+function Player:IsFirstShare()
+   return self._isFirstShare
+end
+--获得看板娘
+function Player:GetSignWitch()
+    return self._mainWitch
+end
+
+function Player:SetSignWitch(skinid)
+    if  self._mainWitch == skinid then
+        return
+    else
+        self:SignHeroReq(skinid)
+    end
+end
+
+function Player:GetCampAttrByCampType(campType)
+    return  self._campAttrs[campType] or 0;
+end
+
+function Player:GetPtimeAndGift()
+    return self._playTime,self._getVerify
+end
+
+function Player:GetTodayPlayTime()
+    return self._todayOnlineTime or 0
+end
+
+-- brief: 是否已经起名
+function Player:IsModifyName()
+    return self._snycdata.bfirst_modify_name == false
+end
+
+-- 当前导师ID
+function Player:GetTutorID()
+    if not self._snycdata.tch_id or self._snycdata.tch_id == 0 then -- 未赋值
+        return nil
+    end
+    return self._snycdata.tch_id
+end
+
+-- 主页快速处理消息按钮数据
+function Player:InitHomeLayerInfoData()
+    self._homeMsgData = {}
+    for k, v in pairs(HomeLayerMsgType) do
+        self._homeMsgData[v] = 0
+    end
+end
+
+function Player:RefreshHomeLayerData(itype, num)
+    if itype then
+        if num then
+            self._homeMsgData[itype] = num
+        else
+            self._homeMsgData[itype] = self._homeMsgData[itype] + 1
+        end
+        self:ChageHomeLayerInfo()
+        return
+    end
+    self:InitHomeLayerInfoData()
+end
+
+function Player:ReduceHomeLayerData(itype)
+    if itype then
+        if(self._homeMsgData[itype] == nil)then
+            self._homeMsgData[itype] = 0;
+        else
+            if(self._homeMsgData[itype] >= 1)then
+                self._homeMsgData[itype] = self._homeMsgData[itype] - 1
+            end
+        end
+        return
+    end
+end
+
+function Player:ChageHomeLayerInfo()
+    GEvent:fireEvent(EVENT_TYPE.HOME_MSG_UPDATE)
+end
+
+-- 主界面左下角邮件提醒按钮数据
+function Player:InitHomeLayerBtnData()
+    self._homeBtnData = {}
+end
+
+function Player:RefreshHomeLayerBtnData(itype)
+    if self._homeBtnData[itype] then
+        return
+    end
+    self._homeBtnData[itype] = true
+    self:ChangeHomeLayerBtn(itype)
+end
+
+function Player:ChangeHomeLayerBtn(itype)
+    GEvent:fireEvent(EVENT_TYPE.HOME_MSG_UPDATE, itype)
+end
+
+function Player:CheckRedPoint(utype, uid)
+    if self._red_points == nil then return false end
+
+    if self._red_points[utype] == nil then return false end
+
+    if self._red_points[utype][uid] == nil then return false end
+    
+    return self._red_points[utype][uid]
+end
+
+--获取举报时间
+function Player:GetReportTime()
+    return self._reportTime;
+end

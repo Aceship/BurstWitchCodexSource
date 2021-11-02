@@ -1,0 +1,43 @@
+CsvLoadFile = class("CsvLoadFile")
+
+
+function CsvLoadFile:ctor(super,name)
+	self.FileName = name;
+	self.IdName   = "id";
+	self.lineData = {};
+	self.Dict  	  = {};
+end
+
+function CsvLoadFile:LoadCsv()
+	self:Init()
+	local otherFileName = "source_gameConfig/"..self.FileName
+	local binAsset = AssetLoader:LoadTextFromTextAsset(otherFileName);
+	if binAsset == nil then
+		CS.Logger.LogError("LoadFileError!!!:"..otherFileName);
+		return
+	end;
+    self.Dict = AnlyAssetText(binAsset);
+end
+
+function CsvLoadFile:Init()
+end
+
+function CsvLoadFile:GetDatas()
+	return self.Dict
+end
+
+function CsvLoadFile:GetListData()
+	local DataList  = {};
+	for _, v in pairs(self.Dict) do
+		table.insert(DataList, v)
+	end
+	return DataList;
+end
+
+function CsvLoadFile:GetData(id,idName)
+	if type(id) == "number" then
+		id = id ..""
+	end
+	return self.Dict[id] or {}
+end
+

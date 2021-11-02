@@ -1,0 +1,64 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CadpaLayer = class("CadpaLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    btnOk = "container/button_ok",
+}
+--构造函数
+function CadpaLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_Cadpa",
+    }
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function CadpaLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function CadpaLayer:onButtonClick(itype)
+    if(itype == BTNS.btnOk)then
+        self:OnBtnOkClick();
+    end
+end
+
+--退出按钮事件
+function CadpaLayer:onBackClick()
+    if(self.callback ~= nil)then
+        self:callback();
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function CadpaLayer:Init()
+    self.contentView = self.layer:Get("container/content_view"):GetComponent("ScrollRect")
+    self.contentView.vertical = false;
+    self._aniPanelFadeInEndCallback = function()
+        self.contentView.vertical = true;
+    end
+    self.txtContent = self.layer:GetTextComponent("container/content_view/view_port/content")
+end
+
+--显示UI
+function CadpaLayer:show()
+    self:showLayer();
+    self:InitUI();
+end
+
+--初始化
+function CadpaLayer:InitUI()
+    self.txtContent.text = string.gsub(LanguageMgr:GetTextByID(10042),"\\n","\n")
+end
+
+function CadpaLayer:OnBtnOkClick()
+    self:onBackClick();
+end
+
+return CadpaLayer;

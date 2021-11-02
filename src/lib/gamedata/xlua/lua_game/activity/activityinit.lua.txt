@@ -1,0 +1,24 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:24
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activity.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activity_data.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitycfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitydef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activity_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitypatrol.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activityseven.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activityui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activityupgrade.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitywitchbook.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitysixthseal.txt")
+
+--活动关卡
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitylevel.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitylevel_ui.txt")
+
+Activity:Ctor()
+Activity:_LoadCfg()
+Activity:InitData()

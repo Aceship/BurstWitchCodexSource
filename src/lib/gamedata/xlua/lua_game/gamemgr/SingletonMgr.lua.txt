@@ -1,0 +1,85 @@
+--
+-- author: haosun
+-- date  : 2020-04-16 16:37:15
+-- brief : 
+--
+SingletonMgr = SingletonMgr or {}
+
+function SingletonMgr:ShowGetTipsLayer(items, callback,closeTime,showSettleTips)
+    if( #items <= 0)then
+        return;
+    end
+
+    local heros = {};
+    for _, v in ipairs(items) do
+        if(v[1] == Bag.TYPE_HERO)then
+            table.insert(heros,v);
+        end
+    end
+    SingletonMgr:ShowDropGetLayer(heros,items,callback,closeTime,showSettleTips);
+end
+
+function SingletonMgr:ShowDropGetLayer(heros,items,callback,closeTime,showSettleTips)
+    if(#heros > 0)then--有魔女时弹出魔女获得界面
+        local layer = core.require("xlua/lua_UI/HomeScene/WitchEffectLayer.txt"):new()
+        layer:show(heros[1][2], false, function()
+            table.remove(heros,1);
+            SingletonMgr:ShowDropGetLayer(heros,items,callback,closeTime,showSettleTips);
+        end)
+        return;
+    end
+    local CGetTipsLayer = core.require("xlua/lua_UI/Comframework/GetTipsLayer.txt")
+    CGetTipsLayer.GetInstance():AddItems(items)
+    if(closeTime ~= nil and closeTime > 0)then
+        CGetTipsLayer.GetInstance():AddCloseTimer(closeTime);
+    end
+    CGetTipsLayer.GetInstance():SetTitleState(showSettleTips);
+    LayerMgr:AddGetTipsLayer(CGetTipsLayer.GetInstance(), callback);
+end
+
+function SingletonMgr:ShowAttrTipsLayer(trans, attrtype, value, convert)
+    core.require("xlua/lua_UI/Comframework/AttrTipsLayer.txt").GetInstance():show(trans, attrtype, value, convert)
+end
+
+function SingletonMgr:ShowNameDescTipsLayer(trans, name, desc)
+    core.require("xlua/lua_UI/Comframework/AttrTipsLayer.txt").GetInstance():showByNameDesc(trans, name, desc)
+end
+
+function SingletonMgr:ShowItemTipsLayer(trans, bagtype, cfgid, isuid, shownum, isPass,hideSkin)
+    if(bagtype == Bag.TYPE_ITEM)then
+        local cfg = Item:GetCfg(cfgid);
+        local isSkin = tonumber(cfg.itemType) == Item.TYPE_ROLE_ATTIRE;
+        hideSkin = hideSkin or false;
+        if(isSkin and not hideSkin)then
+            Hero:OpenWitchSkinLayer(cfgid);
+        else
+            if bagtype ~= Bag.TYPE_MUSIC then
+                core.require("xlua/lua_UI/Comframework/ItemTipsLayer.txt").GetInstance():showById(trans, bagtype, cfgid, isuid, shownum,isPass)
+            end
+        end
+    elseif bagtype == Bag.TYPE_HERO then
+        Hero:OpenWitchHeroSkillLayer(cfgid)
+    else
+        if bagtype ~= Bag.TYPE_MUSIC then
+            core.require("xlua/lua_UI/Comframework/ItemTipsLayer.txt").GetInstance():showById(trans, bagtype, cfgid, isuid, shownum,isPass)
+        end
+    end
+end
+
+function SingletonMgr:ShowFightingUpTipsLayer(showType,timer,heroId)
+    core.require("xlua/lua_UI/Comframework/FightingUpTipsLayer.txt").GetInstance():SetData(showType,timer,heroId);
+end
+
+function SingletonMgr:CloseFightingUpTipsLayerTime()
+    core.require("xlua/lua_UI/Comframework/FightingUpTipsLayer.txt").GetInstance():CloseTimer();
+end
+
+function SingletonMgr:ClearInstance()
+    core.require("xlua/lua_UI/Comframework/GetTipsLayer.txt").DestoryInstance()
+
+    core.require("xlua/lua_UI/Comframework/AttrTipsLayer.txt").DestoryInstance()
+
+    core.require("xlua/lua_UI/Comframework/ItemTipsLayer.txt").DestoryInstance()
+
+    core.require("xlua/lua_UI/Comframework/FightingUpTipsLayer.txt").DestoryInstance()
+end

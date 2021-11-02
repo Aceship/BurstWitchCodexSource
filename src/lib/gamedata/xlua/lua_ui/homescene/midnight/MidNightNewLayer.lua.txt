@@ -1,0 +1,156 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-23 19:54:35
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightNewLayer = class("MidNightNewLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnEnter = "container/btn_enter",
+	--@ButtonEnd
+}
+--构造函数
+function MidNightNewLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightNewLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_MID_NIGHT_2,
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function MidNightNewLayer:onEnter()
+    Chapter:ClearJumpChapterLevel();
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function MidNightNewLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnEnter)then 
+	   self:OnBtnEnterClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function MidNightNewLayer:Init()
+    self:InitUI();
+end
+
+--初始化UI
+function MidNightNewLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transSpine = self.layer:Get("trans_spine");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self:LoadSpine();
+end
+
+--显示UI
+function MidNightNewLayer:show()
+    self:doNext();
+    self:showLayer();
+end
+
+--退出按钮事件
+function MidNightNewLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function MidNightNewLayer:onExit()
+    
+    self._transSpine = nil;
+    self._heroObj = nil;
+	--@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightNewLayer:OnBtnEnterClick()
+    if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+        Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+        return;
+    end
+    MidNight:RankRegisterReq();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightNewLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.MID_NIGHT_SETTLE_STEP, self.__cname,
+            function()
+                self:doNext();
+            end)
+    self:addEventListener(EVENT_TYPE.RANK_REGISTER_REP, self.__cname,
+            function()
+                MidNight:GetRankListReq();
+            end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function MidNightNewLayer:LoadSpine()
+    local seasoncfg = MidNight:GetCurSeasonCfg()
+    if seasoncfg == nil then return end
+    Hero:LoadSpineAsync(self.__cname, self._transSpine, seasoncfg.spineid, Hero.SPINE_UI_TYPE_RANK_REWARD,
+            function(obj)
+                self._heroObj = obj;
+            end)
+end
+
+function MidNightNewLayer:doNext()
+    if(MidNight:GetSmallStageSettleStepNum() > 0)then
+        local data = MidNight:GetCurSmallStageSettleStep();
+        if(data.stepType == MidNight.SmallStageSettleStep_DayAward)then
+            MidNight:ShowSettleGetTipsLayer(data.data,function ()
+                self:doNext();
+            end,true);
+        elseif(data.stepType == MidNight.SmallStageSettleStep_LastRank)then
+            MidNight:OpenMidNightLastRankTipsLayer();
+        elseif(data.stepType == MidNight.SmallStageSettleStep_Trophy)then
+            MidNight:OpenMidNightTrophySettleTipsLayer();
+        end
+        MidNight:RemoveSmallStageSettleStep();
+    end
+end
+
+return MidNightNewLayer;

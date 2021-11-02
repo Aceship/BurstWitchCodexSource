@@ -1,0 +1,187 @@
+--
+-- author: haosun
+-- date  : 2019-02-21 13:36:56
+-- brief :
+--
+
+Lottery = Lottery or {}
+
+function Lottery:_LoadLotteryCfg()
+    -- 卡池
+    self:_LoadLotteryPoolCfg()
+    -- 抽卡类型(UI)
+    self:_LoadLotteryTypeCfg()
+    -- 掉落
+    self:_LoadDropCfg()
+    -- 预览显示
+    self:_LoadLotteryShowCfg()
+end
+
+function Lottery:_LoadDropCfg()
+    self._drops = CfgLoader:LoadCfgTable("Dropweight")
+end
+
+function Lottery:_LoadLotteryPoolCfg()
+    self._lotterypools = CfgLoader:LoadCfgTable("Gashapon")
+end
+
+function Lottery:_LoadLotteryShowCfg()
+    self._lotteryshows = {}
+    local cfgs = CfgLoader:LoadCfgTable("GashaponShow")
+    for k, v in pairs(cfgs) do
+        local data = {}
+        local id = tonumber(v.Gashapon_id)
+        data.id = id
+
+        data.tips = {}
+        data.tips[Bag.QLTY_SSR] = tonumber(v.Ssrare_tag) ~= -1 and Language:GetTxtBuyId(v.Ssrare_tag) or ""
+        data.tips[Bag.QLTY_SR] = tonumber(v.Srare_tag) ~= -1 and Language:GetTxtBuyId(v.Srare_tag) or ""
+        data.tips[Bag.QLTY_R] = tonumber(v.rare_tag) ~= -1 and Language:GetTxtBuyId(v.rare_tag) or ""
+
+        data.hero = {}
+        data.hero[Bag.QLTY_SSR] = {}
+        local ssrHeros = lua_str_split(v.Ssr_id, "|")
+        for _k, _v in pairs(ssrHeros) do
+            local heroID = tonumber(_v)
+            data.hero[Bag.QLTY_SSR][heroID] = true
+        end
+
+        data.hero[Bag.QLTY_SR] = {}
+        local srHeros = lua_str_split(v.Srare_id, "|")
+        for _k, _v in pairs(srHeros) do
+            local heroID = tonumber(_v)
+            data.hero[Bag.QLTY_SR][heroID] = true
+        end
+
+        data.hero[Bag.QLTY_R] = {}
+        local rHeros = lua_str_split(v.rare_id, "|")
+        for _k, _v in pairs(rHeros) do
+            local heroID = tonumber(_v)
+            data.hero[Bag.QLTY_R][heroID] = true
+        end
+
+        data.rate = {}
+        local rates = lua_str_split(v.Roll_show, "|")
+        data.rate[Bag.QLTY_SSR] = string.format("%.0f%%", tonumber(rates[1]) / 100)
+        data.rate[Bag.QLTY_SR] = string.format("%.0f%%", tonumber(rates[2]) / 100)
+        data.rate[Bag.QLTY_R] = string.format("%.0f%%", tonumber(rates[3]) / 100)
+
+        data.Star_show = {} -- tonumber(v.Star_show)
+        if v.Star_show and v.Star_show ~= -1 and v.Star_show ~= "-1" then
+            local itemData = lua_str_split(v.Star_show, "|")
+            for _k, _v in ipairs(itemData) do
+                local item = lua_str_split(_v, "&")
+                table.insert(data.Star_show, {itype = tonumber(item[1]), id = tonumber(item[2])})
+            end
+        end
+
+        self._lotteryshows[id] = data
+    end
+end
+
+function Lottery:GetLotteryPoolCfg(cfgid)
+    return self._lotterypools[cfgid]
+end
+
+function Lottery:GetLotteryShowCfg(cfgid)
+    return self._lotteryshows[tonumber(cfgid)]
+end
+
+function Lottery:_LoadLotteryTypeCfg()
+    self._lotterytypes = {}
+    local cfgs = CfgLoader:LoadCfg("GashaponList")
+    for i, v in ipairs(cfgs) do
+        local lottery = {
+            id      = tonumber(v.id),
+            ntype   = tonumber(v.CardType),
+            ctype   = tonumber(v.Card),
+            name    = v.name,
+            taskType = tonumber(v.QuestType),
+            sortid  = tonumber(v.List),
+            poolids = lua_str_split(v.Gashapon_id, "|"),
+            prefab  = v.Print,
+            timeid  = tonumber(v.Time),
+            poolcfg = {},
+            lifeCycle = tonumber(v.LifeCycle),
+            ruleid  = tonumber(v.RuleId),
+            incrementalWeight = lua_str_split(v.Incremental_weight,"&"),
+            poolTag = tonumber(v.Pool_tag),
+            tagId = tonumber(v.Resources_tag),
+            txtShowTime = Language:GetTxtBuyId(v.ShowTime),
+            group = tonumber(v.Card_grouping),
+            ruleId = tonumber(v.RuleId),
+            heroId = tonumber(v.Heroid),
+        }
+
+        if(v.LotteryBanner ~= "-1")then
+            lottery.LotteryBanner = lua_str_split(v.LotteryBanner,"&");
+        end
+
+        if(v.LotteryTitle ~= "-1")then
+            lottery.LotteryTitle = lua_str_split(v.LotteryTitle,"&");
+        end
+
+        if(v.LotteryStand ~= "-1")then
+            lottery.LotteryStand = lua_parse_cfg(v.LotteryStand);
+        end
+
+        if(v.LotteryGift ~= "-1")then
+            lottery.LotteryGift = lua_str_split(v.LotteryGift,"&");
+        end
+
+        for _, id in ipairs(lottery.poolids) do
+            local poolcfg = self:GetLotteryPoolCfg(id)
+            local consume = lua_str_split(poolcfg.cost, "&")
+            local tbl = {
+                poolid      = tonumber(id),
+                name        = poolcfg.des,
+                count       = tonumber(poolcfg.Gashapon_times),
+                cost_cfgid  = tonumber(consume[1]),
+                cost_count  = tonumber(consume[2]),
+            }
+            table.insert(lottery.poolcfg, tbl)
+        end
+        self._lotterytypes[lottery.id] = lottery
+    end
+end
+
+function Lottery:GetLotteryDropShowById(id)
+    local cfgs = self._lotterytypes[id].poolcfg
+    local temp = {}
+    local list = {}
+    for k, v in pairs(cfgs) do
+        local pool = self:GetLotteryPoolCfg(tostring(v.poolid))
+        local dropID = pool.Dropweight_id
+        local dropDB = self._drops[dropID]
+        local strs = lua_str_split(dropDB.drop, "|")
+        for m, n in pairs(strs) do
+            local datas = lua_str_split(n, "&")
+            local heroID = tonumber(datas[2])
+            if not temp[heroID] then
+                temp[heroID] = true
+                table.insert(list, {id = heroID})
+            end
+        end
+    end
+    return list
+end
+
+function Lottery:GetLotteryTypeCfg(id)
+    return self._lotterytypes[id]
+end
+
+function Lottery:GetLotteryCfgById(id)
+    if(id == nil)then
+        CS.Logger.LogError("Lottery:GetLotteryCfgById Id Is Nil")
+        return nil;
+    end
+    for i, v in pairs(self._lotterytypes) do
+        for _, k in pairs(v.poolids) do
+            if(tonumber(k) == tonumber(id))then
+                return v;
+            end
+        end
+    end
+    CS.Logger.LogError("can't find lottery pool id. {0}", id)
+end
+

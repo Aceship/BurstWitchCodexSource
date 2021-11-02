@@ -1,0 +1,49 @@
+--
+-- author: haosun
+-- date  : 2019-04-09 22:48:02
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PowerTipsLayer = class("PowerTipsLayer", CBaseLayer)
+
+function PowerTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._destory = true
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_PowerTipsLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function PowerTipsLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("container"))
+end
+
+function PowerTipsLayer:onPerSecondUpdate()
+    self:refreshTime()
+end
+
+function PowerTipsLayer:show()
+    play_effect_show()
+
+    self:refreshTime()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function PowerTipsLayer:refreshTime()
+    local serverTime = CTime:GetServerTime()
+    self.layer:GetTextComponent("container/text_curr_time").text = CTime:UTime2DayStr(serverTime)
+
+    local remain = Player:GetPowerRecoveryTime(1)
+    self.layer:GetTextComponent("container/text_next_time").text = CTime:Time2Str(remain)
+
+    local remain = Player:GetPowerRecoveryTime(2)
+    self.layer:GetTextComponent("container/text_end_time").text = CTime:Time2Str(remain)
+end
+
+return PowerTipsLayer
+

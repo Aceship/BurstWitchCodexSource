@@ -1,0 +1,14 @@
+--
+-- author: haosun
+-- date  : 2019-08-28 15:03:48
+-- brief : 
+--
+
+Clock = Clock or {}
+
+Clock.CLOCK_TYPE_PLOT       = 1
+Clock.CLOCK_TYPE_DAILY      = 2
+Clock.CLOCK_TYPE_TRAIN      = 3
+Clock.CLOCK_TYPE_SY         = 4
+Clock.CLOCK_TYPE_TOWER      = 5
+

@@ -1,0 +1,409 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-03 11:04:54
+---
+Comment = Comment or {};
+
+--获取评论全局数据
+function Comment:GetServerDataReq()
+    if(self._serverData == nil)then
+        Network:CallServerScript({c2s.COMMENT_USER_DATA_REQ})
+    else
+        GEvent:fireEvent(EVENT_TYPE.COMMENT_DATA_UPDATE_OVER);
+    end
+end
+
+--获取评论全局数据返回
+function Comment:GetServerDataRep(weekCommentNum ,weekReplyNum,dayLikeNum)
+    self._serverData = {};
+    self._serverData.weekCommentNum = weekCommentNum or 0;
+    self._serverData.weekReplyNum = weekReplyNum or 0;
+    self._serverData.dayLikeNum = dayLikeNum or 0;
+    GEvent:fireEvent(EVENT_TYPE.COMMENT_DATA_UPDATE_OVER);
+end
+
+function Comment:AddCommentReq()
+    if(self._serverData.weekCommentNum >= Comment.WEEK_COMMENT_MAX_NUM)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000023));
+        return false;
+    end
+    if(self._sendStr == "" or self._sendStr == nil)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000024));
+        return false;
+    end
+    if(CTime:GetServerTime() - self._sendTime <= Comment.SendMaxTime)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000025));
+        return false;
+    end
+    if(not SensitiveWordUtil:CheckIsLegal(self._sendStr))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000032));
+        return false;
+    end
+    if(not CS.UnityHelper.IsUtf8(self._sendStr))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000039));
+        return false;
+    end
+    Network:CallServerScript({ c2s.COMMENT_ADD_REQ, self._commentModeData.commentType, self._commentModeData.entry, self._sendStr});
+    return true;
+end
+
+function Comment:AddCommentRep(module,entryid,msgid)
+    local commentNumIsMax = false;
+    if(msgid <= 0)then
+        msgid = self._commentModeData.entry..CTime:GetServerTime();
+        commentNumIsMax = true;
+    end
+    self._commentData[msgid] = Comment:NewComment(Comment:NewComment(nil,msgid));
+    if(commentNumIsMax)then
+        local str = lua_table_serialize(self._commentData[msgid]);
+        CS.LocalTalkHelper.Instance():AppendText(Comment:GetMyCommentCacheName(), str);
+    end
+    self._sendTime = CTime:GetServerTime();
+    self._sendStr = "";
+    self._serverData.weekCommentNum = self._serverData.weekCommentNum + 1;
+    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000033));
+    Comment:AddCurCommentNumByEntryId(entryid);
+    if(self._sendCommentTimes[self._commentModeData.entry] == nil)then
+        self._sendCommentTimes[self._commentModeData.entry] = CTime:GetServerTime();
+    end
+    GEvent:fireEvent(EVENT_TYPE.COMMENT_DATA_UPDATE,msgid);
+end
+
+function Comment:LikeReq()
+    if(self._serverData.dayLikeNum >= Comment.DAY_LIKE_MAX_NUM)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000026));
+        return;
+    end
+    if(CTime:GetServerTime() - self._likeSendTime <= Comment.LikeCD)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(8880016));
+        return;
+    end
+    if(Comment:GetLikeStateById(self._selectCId))then
+        self._likeSendTime = CTime:GetServerTime();
+        Network:CallServerScript({ c2s.COMMENT_LIKE_REQ, self._commentModeData.commentType, self._commentModeData.entry, tonumber(self._selectCId)});
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000027));
+    end
+end
+
+function Comment:LikeRep()
+    if(self._commentLikeData[self._selectCId] == nil)then
+        self._commentLikeData[self._selectCId] = 1;
+        self._commentData[self._selectCId].like_num = self._commentData[self._selectCId].like_num + 1;
+        Comment:SetCommentIndex(self._commentData[self._selectCId]);
+        local str = lua_table_serialize(self._commentLikeData);
+        CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetCurCommentTypeLikeFileName());
+        CS.LocalTalkHelper.Instance():AppendText(Comment:GetCurCommentTypeLikeFileName(), str);
+    end
+    self._serverData.dayLikeNum = self._serverData.dayLikeNum + 1;
+    GEvent:fireEvent(EVENT_TYPE.COMMENT_LIKE_UPDATE);
+end
+
+function Comment:ReplyReq()
+    if(self._commentData[self._selectCId].comment.playerid == Player:GetId())then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000028));
+        return false;
+    end
+    if(self._serverData.weekReplyNum >= Comment.WEEK_REPLY_MAX_NUM)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000029));
+        return false;
+    end
+    if(self._sendStr == "" or self._sendStr == nil)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000030));
+        return false;
+    end
+    if(CTime:GetServerTime() - self._sendReplyCD <= Comment.SendMaxTime)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000031));
+        return;
+    end
+    if(not SensitiveWordUtil:CheckIsLegal(self._sendStr))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000032));
+        return false;
+    end
+    if(not CS.UnityHelper.IsUtf8(self._sendStr))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000039));
+        return false;
+    end
+    Network:CallServerScript({ c2s.COMMENT_REPLY_REQ, self._commentModeData.commentType, self._commentModeData.entry, self._selectCId, self._sendStr});
+    return true;
+end
+
+function Comment:ReplyRep(create_time)
+    local reply;
+    if(create_time <= 0)then
+        reply = Comment:NewReply(nil,CTime:GetServerTime());
+        reply.isCache = true;
+        if(self._replyCacheData[self._selectCId] == nil)then
+            self._replyCacheData[self._selectCId] = {};
+        end
+        table.insert(self._replyCacheData[self._selectCId],1,reply);
+        Comment:SaveReply();
+    else
+        reply = Comment:NewReply(nil,create_time);
+        --[[if(self._myReplyCacheData == nil)then
+            self._myReplyCacheData = {};
+        end
+        if(self._myReplyCacheData[self._selectCId] == nil)then
+            self._myReplyCacheData[self._selectCId] = {};
+        end
+        table.insert(self._myReplyCacheData[self._selectCId],1,reply);]]--
+    end
+    self._commentData[self._selectCId].reply_num = self._commentData[self._selectCId].reply_num + 1;
+    self._commentData[self._selectCId].curNum = self._commentData[self._selectCId].curNum + 1;
+    self._serverData.weekReplyNum = self._serverData.weekReplyNum + 1;
+    Comment:AddReplyShowData(reply);
+    table.insert(self._commentData[self._selectCId].replys,1,reply);
+    if(self._commentData[self._selectCId].replys[3] ~= nil)then
+        self._commentData[self._selectCId].replys[3] = nil;
+    end
+    self._sendStr = "";
+    self._sendReplyCD = CTime:GetServerTime();
+    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000034));
+    GEvent:fireEvent(EVENT_TYPE.COMMENT_REPLY_REP);
+end
+
+---------------------------------------------------------HTTP--------------------------------------------------------
+--获取评论数据
+function Comment:GetCommentReq()
+    if(self._commentModeData.pages <= 3)then
+        if(Comment:GetCurCommentSendTimeState())then
+            local caches = CS.LocalTalkHelper.Instance():LoadText(Comment:GetCommentCacheName());
+            if(caches ~= nil)then
+                for k, v in pairs(caches) do
+                    local tbl = lua_table_unserialize(v)
+                    if(self._commentData[tbl.commentid] == nil)then
+                        self._commentData[tbl.commentid] = Comment:NewComment(tbl);
+                    end
+                end
+            end
+        else
+            CS.LocalTalkHelper.Instance():ClearTalkers(Comment:GetCommentCacheName());
+        end
+    end
+    local commentNum = lua_table_len(self._commentData);
+    if(commentNum >= self._commentModeData.pages * Comment.OnePageCommentNum or commentNum == Comment:GetCurCommentNumByEntryId(Comment:GetCurEntry())) then
+        if(self._commentModeData.pages * Comment.OnePageCommentNum >= Comment.COMMENT_ALL_MAX_NUM and not self._commentCacheIsLoad)then--评论数已达上限并且没加载过缓存数据
+            local caches = CS.LocalTalkHelper.Instance():LoadText(Comment:GetMyCommentCacheName());--加载缓存中自己评论的的数据
+            if(caches ~= nil)then
+                for k, v in pairs(caches) do
+                    local tbl = lua_table_unserialize(v)
+                    if(self._commentData[tbl.commentid] == nil)then
+                        self._commentData[tbl.commentid] = Comment:NewComment(tbl);
+                    end
+                end
+            end
+            self._commentCacheIsLoad = true
+            local commentNum = lua_table_len(self._commentData);--重新计算数量
+            if(commentNum > Comment:GetCurCommentNumByEntryId(Comment:GetCurEntry()))then
+                self._modeCommentNum[Comment:GetCurCommentType()][Comment:GetCurEntry()] = commentNum;
+            end
+        end
+        GEvent:fireEvent(EVENT_TYPE.OPEN_COMMENT_LAYER);
+        return;
+    end
+    local data = {
+        moduleid    = self._commentModeData.commentType,
+        entryid     = self._commentModeData.entry,
+        page        = self._commentModeData.pages,
+    }
+    local bytes = ProtoMgr:Encode(Comment.QueryDiscussReq,data);
+    -- CS.Logger.LogError("Send Http ***Pos = comment_c2s  187 ***  ip = "..Comment.Ip.."   Port = "..Comment.Port);
+    Network:SendHttp(Comment.Ip,Comment.Port,Http.QUERY_DISCUSS_REQ,bytes,function(id,bytes)
+        Comment:GetCommentRep(id,bytes)
+    end);
+end
+
+--获取评论数据返回
+function Comment:GetCommentRep(id,bytes)
+    local loadCacheData = false;
+    local temp = ProtoMgr:Decode(Comment.QueryDiscussRep,bytes);
+    if(temp.cvunits ~= nil)then
+        self._commentModeData.curPages = self._commentModeData.pages;
+        for i, v in ipairs(temp.cvunits) do
+            v.comment = ProtoMgr:Decode(Comment.MessageUnit,v.comment);
+            if(v.replys ~= nil)then
+                for i2 = 1, #v.replys do
+                    v.replys[i2] = ProtoMgr:Decode(Comment.MessageUnit,v.replys[i2]);
+                end
+            end
+            local tempComment = Comment:NewComment(v);
+            if(tempComment ~= nil)then
+                if(self._commentData[v.commentid] ~= nil)then
+                    local likeNum = self._commentData[v.commentid].like_num;
+                    if(self._commentData[v.commentid].reply_num <= tempComment.reply_num)then
+                        self._commentData[v.commentid] = tempComment;
+                    end
+                    if(likeNum > tempComment.like_num)then
+                        self._commentData[v.commentid].like_num = likeNum;
+                    end
+                else
+                    self._commentData[v.commentid] = tempComment;
+                end
+            end
+        end
+        if(#temp.cvunits < Comment.OnePageCommentNum)then
+            loadCacheData = true;
+        end
+    else
+        loadCacheData = true;
+    end
+    if(loadCacheData and self._commentCacheIsLoad)then--加载缓存中自己评论的的数据
+        local caches = CS.LocalTalkHelper.Instance():LoadText(Comment:GetMyCommentCacheName());
+        if(caches ~= nil)then
+            for k, v in pairs(caches) do
+                local tbl = lua_table_unserialize(v)
+                if(self._commentData[tbl.commentid] == nil)then
+                    self._commentData[tbl.commentid] = Comment:NewComment(tbl);
+                end
+            end
+        end
+        self._commentCacheIsLoad = true
+    end
+    local commentNum = lua_table_len(self._commentData);
+    if(commentNum > Comment:GetCurCommentNumByEntryId(Comment:GetCurEntry()))then
+        self._modeCommentNum[Comment:GetCurCommentType()][Comment:GetCurEntry()] = commentNum;
+    end
+    Comment:SetSendCommentTimes();
+    -- CS.Logger.LogError("Get Http ***Pos = comment_c2s  242 ***");
+    -- CS.Logger.LogError("Close Comment Send Time");
+    GEvent:fireEvent(EVENT_TYPE.OPEN_COMMENT_LAYER);
+end
+
+--获取回复数据
+function Comment:GetReplyReq()
+    if(Comment:IsGetCurReplyDataByServer())then
+        local startPos,endPos = Comment:GetCurReplyDataStartAndEndPos();
+        local data = {
+            moduleid    = self._commentModeData.commentType,
+            entryid     = self._commentModeData.entry,
+            cmtid       = self._selectCId,
+            startpos    = startPos,
+            endpos      = endPos,
+        }
+        local bytes = ProtoMgr:Encode(Comment.QueryMoreReplyReq,data);
+        Network:SendHttp(Comment.Ip,Comment.Port,Http.QUERY_MORE_REPLY_REQ,bytes,function(id,bytes)
+            Comment:GetReplyRep(id,bytes)
+        end);
+    else
+        GEvent:fireEvent(EVENT_TYPE.COMMENT_GET_REPLY_REP);
+    end
+end
+
+--获取回复数据返回
+function Comment:GetReplyRep(id,bytes)
+    local temp = ProtoMgr:Decode(Comment.QueryMoreReplyRep,bytes);
+    if(temp.replys ~= nil)then
+        local comment = self._commentData[self._selectCId];
+        if(#temp.replys > 0)then
+            Comment:UpdateCurReplyPages();
+        end
+        local reply;
+        if(self._replyDatas[self._selectCId] == nil)then
+            self._replyDatas[self._selectCId] = {};
+        end
+        if(self._replyShowDatas[self._selectCId] == nil)then
+            self._replyShowDatas[self._selectCId] = {};
+        end
+        if(self._replyShowDatas[self._selectCId][comment.replyPages] == nil)then
+            self._replyShowDatas[self._selectCId][comment.replyPages] = {};
+        end
+
+
+
+        for _, v in ipairs(temp.replys) do
+            reply = ProtoMgr:Decode(Comment.MessageUnit,v);
+            local id = reply.create_time..reply.playerid;
+            if(self._replyDatas[self._selectCId][id] == nil)then
+                reply = Comment:NewReply(reply);
+                Comment:AddReplyShowData(reply,comment.replyPages);
+            end
+        end
+    else
+        self._curCommentData.curReplyPage = self._curCommentData.replyPages;
+    end
+    local replyNum = lua_table_len(self._replyDatas[self._selectCId]);
+    if(self._replyShowDatas[self._selectCId] == nil)then
+        self._replyShowDatas[self._selectCId] = {};
+    end
+    if(self._replyShowDatas[self._selectCId][1] == nil)then
+        self._commentData[self._selectCId].replys = {};
+    else
+        for i = 1, 2 do
+            if(self._replyShowDatas[self._selectCId][1][i] ~= nil)then
+                self._commentData[self._selectCId].replys[i] = self._replyShowDatas[self._selectCId][1][i];
+            else
+                self._commentData[self._selectCId].replys[i] = nil;
+            end
+        end
+    end
+    if(replyNum > self._commentData[self._selectCId].reply_num)then
+        self._commentData[self._selectCId].reply_num = replyNum;
+        self._commentData[self._selectCId].curNum = replyNum;
+    end
+    if(replyNum <= 0)then
+        self._commentData[self._selectCId].reply_num = replyNum;
+        self._commentData[self._selectCId].curNum = replyNum;
+        GEvent:fireEvent(EVENT_TYPE.OPEN_COMMENT_LAYER);
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(74000040));
+        return;
+    end
+    GEvent:fireEvent(EVENT_TYPE.COMMENT_GET_REPLY_REP);
+end
+
+local getCommentNumCallBack;
+--获取模块评论数量
+function Comment:GetModeCommentNumReq(callback, catchError)
+    if(self._modeCommentNumGetTimes[Comment:GetCurCommentType()] ~= nil)then
+        if(CTime:GetServerTime() - self._modeCommentNumGetTimes[Comment:GetCurCommentType()] > Comment.CommentNumCD)then
+            if(self._modeCommentNum[Comment:GetCurCommentType()] ~= nil)then
+                if callback ~= nil then
+                    callback()
+                end
+                return;
+            end
+        end
+    end
+
+    getCommentNumCallBack = callback;
+    local data = {
+        moduleid = Comment:GetCurCommentType(),
+    }
+    local bytes = ProtoMgr:Encode(Comment.QueryMdlCmtCountReq,data);
+    Network:SendHttp(Comment.Ip, Comment.Port, Http.QUERY_CMT_COUNT_REQ, bytes, function(id,bytes)
+        Comment:GetModeCommentNumRep(id,bytes)
+    end, catchError);
+end
+
+
+--获取模块评论数量返回
+function Comment:GetModeCommentNumRep(id,bytes)
+    local temp = ProtoMgr:Decode(Comment.QueryMdlCmtCountRep,bytes);
+    if(self._modeCommentNum[temp.moduleid] == nil)then
+        self._modeCommentNum[temp.moduleid] = {};
+    end
+    if temp.units ~= nil then
+        for _, v in pairs(temp.units) do
+            self._modeCommentNum[temp.moduleid][v.entryid] = v.count;
+        end
+    end
+   
+    if(getCommentNumCallBack ~= nil)then
+        getCommentNumCallBack();
+        getCommentNumCallBack = nil;
+    end
+    self._modeCommentNumGetTimes[Comment:GetCurCommentType()] = CTime:GetServerTime();
+end
+
+function Comment:GetModeCommentNumErrRep(id)
+    if(getCommentNumCallBack ~= nil)then
+        getCommentNumCallBack();
+        getCommentNumCallBack = nil;
+    end
+end
+
+------------------------------------注册回调---------------------------------
+c2s[c2s.COMMENT_USER_DATA_RSP]                    = {Comment, Comment.GetServerDataRep}
+c2s[c2s.COMMENT_ADD_RSP]                          = {Comment, Comment.AddCommentRep}
+c2s[c2s.COMMENT_LIKE_RSP]                         = {Comment, Comment.LikeRep}
+c2s[c2s.COMMENT_REPLY_RSP]                        = {Comment, Comment.ReplyRep}
+

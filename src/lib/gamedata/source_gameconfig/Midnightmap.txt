@@ -1,0 +1,4 @@
+id,对应魔女,绘卷图路径
+id,HeroId,Hero_map
+number,number,string
+100101,1021,source_avatar/Midnightmap/1021

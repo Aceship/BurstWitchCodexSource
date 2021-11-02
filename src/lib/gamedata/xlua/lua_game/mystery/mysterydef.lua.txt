@@ -1,0 +1,36 @@
+--
+-- author: haosun
+-- date  : 2020-02-18 22:04:49
+-- brief : 
+--
+
+Mystery = Mystery or {}
+
+Mystery.REQ_RANK_INTERVIAL      = 600   -- 排行榜请求间隔
+Mystery.MAX_FLOOR_NUM           = 40
+
+Mystery.QLTY_COLOR  = {
+    CS.UnityEngine.Color(0.48, 0.80, 0.89, 1.00),
+    CS.UnityEngine.Color(0.78, 0.46, 0.93, 1.00),
+    CS.UnityEngine.Color(1.00, 0.72, 0.00, 1.00),
+}
+
+Mystery.QLTY_WORD   = {
+    LanguageMgr:GetTextByID(3001044),
+    LanguageMgr:GetTextByID(3001045),
+    LanguageMgr:GetTextByID(3001046)
+}
+
+Mystery.BUFF_TARGET_ALL = 0  -- 全部
+Mystery.BUFF_TARGET_ATTR = 1 --属性（光暗系）
+Mystery.BUFF_TARGET_GUNTYPE = 2 --流派（枪型）
+Mystery.BUFF_TARGET_HERO = 3 --指定魔女
+Mystery.BUFF_TARGET_ONE = 4 --属性克制
+
+Mystery.QLTY_ICON   = {
+    "Img_MiJing_YiWuDi_BaoShi_Lan",
+    "Img_MiJing_YiWuDi_BaoShi_Zi",
+    "Img_MiJing_YiWuDi_BaoShi_Chen",
+}
+
+Mystery.MAX_RANK_NUM    = 50

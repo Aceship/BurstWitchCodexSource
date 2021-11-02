@@ -1,0 +1,34 @@
+--
+-- author: haosun
+-- date  : 2020-12-25 20:49:45
+-- brief : 
+--
+local AttrTutorialLayer = class("AttrTutorialLayer")
+
+function AttrTutorialLayer:ctor(super)
+    self.layer = CanvasMgr:CreateCanvasChild("tutorial_dir/tutorial_attr")
+    
+    self.layer:GetComponent("Button").onClick:AddListener(
+        function()
+            self:onNextClick()
+        end)
+end
+
+function AttrTutorialLayer:AttrTutorialLayerDestructor()
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function AttrTutorialLayer:onNextClick()
+    self.layer:SetVisible(false)
+    TutorialController:AttrTutorialEnd()
+end
+
+function AttrTutorialLayer:AttrTutorialLayerEnter()
+    self.layer:SetVisible(true)
+end
+
+return AttrTutorialLayer
+

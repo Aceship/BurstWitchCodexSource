@@ -1,0 +1,40 @@
+--
+-- author: haosun
+-- date  : 2020-08-17 19:50:44
+-- brief :
+--
+HeroTest = HeroTest or {}
+
+function HeroTest:HeroTestData(data)
+    local hero = Hero:GetHero(data.heroid)
+    if hero ~= nil then
+        hero.skinid = data.skinid
+        hero.attrs[CAttr.TYPE_ATK]  = data.atk
+        hero.star = data.star
+        hero.attrs[CAttr.TYPE_HP]   = data.hp
+        hero.attrs[CAttr.TYPE_DEF]  = data.def
+        hero.attrs[CAttr.TYPE_SPD]  = data.spd
+        hero.attrs[CAttr.TYPE_LIGHT_ATK]  = data.latk *0.001
+        hero.attrs[CAttr.TYPE_DARK_ATK]   = data.datk *0.001
+        hero.attrs[CAttr.TYPE_CHAOS_ATK]  = data.catk *0.001
+        hero.attrs[CAttr.TYPE_LIGHT_DEF]  = data.ldef *0.001
+        hero.attrs[CAttr.TYPE_DARK_DEF]   = data.ddef *0.001
+        hero.attrs[CAttr.TYPE_CHAOS_DEF]  = data.cdef *0.001
+        hero.attrs[CAttr.TYPE_HIT] = data.hit
+        hero.attrs[CAttr.TYPE_DMG] = data.dmg
+
+        hero.deskills = {}
+        for k, v in ipairs(data.deskills) do
+            hero.deskills[k] = v
+        end
+
+        local skills = {
+            {slot = 1, level = data.skilllv1},
+            {slot = 2, level = data.skilllv1}
+        }
+        Hero:SetHeroSkills(hero, skills)
+
+        hero.build_ids = Hero:GetSkinBuildById(hero.skinid)
+        hero.build_levels = data.build
+    end
+end

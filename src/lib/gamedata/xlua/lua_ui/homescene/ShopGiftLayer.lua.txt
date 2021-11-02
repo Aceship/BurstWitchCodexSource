@@ -1,0 +1,118 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 14:17:04
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ShopGiftLayer = class("ShopGiftLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    buy     = "container/button_buy"
+}
+
+local function initCell(obj)
+    local cls = {}
+    cls.citem = Bag:CtorComSimpleGoodsUi(obj.transform:Find("prefab_item"))
+    cls.name = obj.transform:Find("text_name"):GetComponent("Text")
+    cls.number = obj.transform:Find("text_number"):GetComponent("Text")
+    return cls
+end
+
+local function setCell(cls, data)
+    Bag:SetComSimpleGoodsUi(cls.citem, data[1], data[2])
+    local cfg = Bag:GetCfgByTypeCfgid(data[1], data[2])
+    cls.name.text = "·" .. cfg.Name
+    cls.number.text = "x" .. data[3]
+end
+
+function ShopGiftLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_ShopGiftLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function ShopGiftLayer:initObj()
+    self._tvController = UIController:CtorTableView(self.layer.transform:Find("container/TableViewController"))
+    self.item = Operation:NewGiftBagClass(self.layer.transform:Find("container/prefab_item"))
+end
+
+function ShopGiftLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+end
+
+function ShopGiftLayer:show(data, callback)
+    play_effect_show()
+    self._callback = callback
+    self._cellsObj = {}
+    self.data = data;
+    self:setGiftInfo(data)
+    self._tvController:ScrollRectVertical(false)
+    self._aniPanelFadeInEndCallback = function()
+        self._tvController:ScrollRectVertical(true)
+    end
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function ShopGiftLayer:onButtonClick(itype)
+    play_effect_buy()
+    Operation:Buy(self.data,function ()
+        if(self._callback ~= nil)then
+            self._callback();
+        end
+        self:onPopLayer();
+    end,
+            function ()
+                self:onPopLayer();
+    end);
+end
+
+function ShopGiftLayer:setGiftInfo(data)
+    local container = self.layer.transform:Find("container")
+    local rmbNum = 0;
+    if(data.priceId == Player.ITEM_VALUE_WITCH_COIN)then
+        rmbNum = Player:GetMoney();
+    elseif(data.priceId == Player.ITEM_VALUE_MONEY)then
+        rmbNum = Item:GetCount(Player.ITEM_VALUE_MONEY);
+    else
+        rmbNum = Item:GetCount(data.priceId);
+    end
+    local price = math.ceil(data.price * data.discount);
+    if(tonumber(rmbNum) < price)then
+        price = string.format(uistr.txtColorRed,price)
+    end
+    container:Find("image_icon"):GetComponent("Image").sprite = Item:LoadSprite(data.priceId)
+    container.transform:Find("text_name"):GetComponent("Text").text = data.name
+    container.transform:Find("text_price"):GetComponent("Text").text = price
+    set_com_nameBg(container.transform:Find("text_name"), container.transform:Find("name_bg"))
+    Shop:SetBuyCountUi(container.transform:Find("text_number"), container.transform:Find("name_bg"))
+    set_obj_active(container.transform:Find("text_limit"), data.buytype ~= Shop.BUY_TYPE_NONE)
+    if data.buytype ~= Shop.BUY_TYPE_NONE then
+        local str = LanguageMgr:GetTextByID(1006300 + data.buytype)
+        str = string.format(str, data.count, data.stock)
+        container.transform:Find("text_limit"):GetComponent("Text").text = str
+    end
+    Operation:SetGiftBagClass(self.item,data.cfgid);
+    self._tvController:Init(#data.goods, false,
+            function(cell, row, play)
+                self:refreshUnitCell(cell, data.goods[row+1])
+            end, 0.3, 0.1)
+end
+
+function ShopGiftLayer:refreshUnitCell(cell, data)
+    local cls = self._cellsObj[cell.name]
+    if cls == nil then
+        cls = initCell(cell)
+        self._cellsObj[cell.name] = cls
+    end
+    setCell(cls, data)
+end
+
+return ShopGiftLayer
+

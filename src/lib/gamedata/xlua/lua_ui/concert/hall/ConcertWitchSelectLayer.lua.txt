@@ -1,0 +1,638 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-20 17:37:57
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertWitchSelectLayer = class("ConcertWitchSelectLayer", CBaseLayer)
+
+local ROW_CELL_NUM  = 3
+--按钮
+local BTNS = {
+    BtnDotSelect = "trans_container/top/btn_dot_select",
+    BtnScreen = "trans_container/top/trans_screen",
+    BtnConfirm = "trans_container/bottom/btn_send",
+    --@ButtonEnd
+}
+--构造函数
+function ConcertWitchSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertWitchSelectLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertWitchSelectLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    CS.UnityHelper.NotchfitY(self._objTop)
+end
+
+--按钮事件
+function ConcertWitchSelectLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+    if itype == BTNS.BtnDotSelect then
+        self:OnBtnDotSelectClick();
+    elseif itype == BTNS.BtnScreen then
+        self:OnBtnScreenClick();
+    elseif itype == BTNS.BtnConfirm then
+        self:OnBtnConfirmClick();
+    end
+end
+
+--初始化
+function ConcertWitchSelectLayer:Init()
+    self._heroIds = nil;
+    self._togDatas = Concert:GetAllOpernAddTags()--Concert.SelectTags
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertWitchSelectLayer:InitUI()
+    self._talentEffect     = self.layer:Get("effect_xunh")
+
+    self._texBg = self.layer:GetRawImageComponent("tex_bg");
+
+    self._transTableviewcontroller = self.layer:Get("trans_container/TableViewController");
+
+    self._transBg = self.layer:Get("trans_container/top/trans_screen/tog_bg");
+    self._transScreen = self.layer:Get("trans_container/top/trans_screen");
+    self._mTogAll = self.layer:GetMToggleComponent("trans_container/top/trans_screen/tog_all");
+    self._txtSelectDotName = self.layer:GetTextComponent("trans_container/top/btn_dot_select/txt_select_dot_name");
+
+    self._objEmpty = self.layer:Get("trans_container/top/obj_empty").gameObject;
+    self._objItem = self.layer:Get("item_hide/tog_item").gameObject;
+    self._objMusicTag = self.layer:Get("trans_container/bottom/extr_drops/music_tags").gameObject
+    self._objTips = self.layer:Get("trans_container/bottom/extr_drops/obj_tips").gameObject
+    self._tagCell = self.layer:Get("trans_container/bottom/extr_drops/tag_hide").gameObject
+    self._objTop = self.layer:Get("trans_container/top").gameObject
+
+    self._musicTags = {}
+
+    local cls = nil
+    for i = 1, Concert.MUSIC_TAG_NUM do
+        cls =  Concert:CtorHeroMusicTags(self._objMusicTag:AddChild(self._tagCell))
+        cls.obj:SetVisible(true)
+        self._musicTags[i] = cls
+    end
+
+    self._mTogAll.onValueChanged:AddListener(function (isOn)
+        self:OnTogAllClick(isOn);
+    end);
+
+    self:InitSelectTogItems();
+    self._mTogAll.isOn = false;
+end
+
+
+--显示UI
+function ConcertWitchSelectLayer:show(params)
+
+    self:copyFightHero(params);
+    self._index = params.index    --选中的魔女
+    self._tags = params.tags
+    self._itemId = params.itemId
+    self._callback = params.callback
+    self._curMusical = self._selectHeros[params.index].musical --槽位对应乐器类型
+    self._curSelectSlodId = params.index;
+
+    self._curApprId = -1;
+    self._curSelectItem = nil  --
+    Concert:SetRtBg(self._texBg);
+    self:InitView();
+
+    if(self._heroSelectCtrl == nil)then
+        self:InitHeroSelectController();
+    end
+
+    self:showLayer();
+end
+
+function ConcertWitchSelectLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+end
+
+function ConcertWitchSelectLayer:copyFightHero(params)
+    local tmpTable =  params.fightids or {}
+    self._selectHeros ={};
+    local tmpData = nil;
+    
+    for index, value in ipairs(tmpTable) do
+        tmpData = {};
+        tmpData.pos = value.pos;
+        tmpData.heroId = value.heroId;
+        tmpData.musical = value.musical;
+        self._selectHeros[index] = tmpData;
+    end
+end
+
+--退出按钮事件
+function ConcertWitchSelectLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function ConcertWitchSelectLayer:onExit()
+    self._transTableviewcontroller = nil;
+    self._transScreen = nil;
+    self._objItem = nil;
+    self._transBg = nil;
+    self._objEmpty = nil;
+    self._txtSelectDotName = nil;
+    self._musicTags = nil;
+    self._objMusicTag = nil;
+    self._texBg = nil
+    self._talentEffect     = nil
+
+    self._selectHeros = nil;
+    self._curSelectItem = nil
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnDestroy();
+    end
+
+    if self._callback ~= nil then
+        self._callback = nil
+    end
+    if self._tvController ~= nil then
+        self._tvController = nil
+    end
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ConcertWitchSelectLayer:OnBtnDotSelectClick()
+    self._transScreen:DOScaleY(1, 0.1);
+end
+
+function ConcertWitchSelectLayer:OnBtnScreenClick()
+    self._transScreen:DOScaleY(0, 0.1);
+end
+
+
+
+function ConcertWitchSelectLayer:OnBtnConfirmClick()
+    local params = {
+        curIndex = self._index,
+        fightids = {},
+    }
+    local tmpData = nil;
+    for i, v in pairs(self._selectHeros) do
+        tmpData = {};
+        tmpData.pos = v.pos;
+        tmpData.heroId = v.heroId;
+        tmpData.musical = v.musical;
+        params.fightids[i] = tmpData;
+    end
+
+    if self._callback ~= nil then
+        self._callback(params)
+    end
+
+    self:onPopLayer()
+end
+--@ButtonFunctionEnd
+--
+
+function ConcertWitchSelectLayer:onChangeClick(cls)
+    print("更换英雄  ： "..cls.heroId)
+end
+
+function ConcertWitchSelectLayer:heroClick(cls)
+    local heroStateData = self._heroExData[cls.heroId];
+    local num = lua_table_len(self._heroExData)
+    if(heroStateData == nil) then
+        return;
+    end
+
+    if(heroStateData.workHallId > 0) then
+        return;
+    end
+
+    local curSelectSlotData = self._selectHeros[self._curSelectSlodId];
+
+
+    if(heroStateData.selectId > 0) then
+        if heroStateData.selectId == self._curSelectSlodId then
+            self:updateCurtSelectHeroIds(curSelectSlotData,0);
+        end
+    else
+        self:updateCurtSelectHeroIds(curSelectSlotData,cls.heroId);
+    end
+
+    local dicTable = {};
+    for index, value in ipairs(self._selectHeros) do
+        if(value.heroId>0) then
+            dicTable[value.heroId] = value.pos;
+        end
+    end
+    
+    local tmpData = nil
+    for index, value in pairs(self._heroExData) do
+        tmpData = dicTable[value.heroId];
+        if(tmpData == nil) then
+            value.selectId = 0;
+        else
+            value.selectId = tmpData;
+        end
+    end
+    self._tvController:Reload(math.ceil(num/ROW_CELL_NUM),false);
+
+    Concert:SetMusicTags(self._selectHeros,self._musicTags,self._itemId)
+
+    self._heroSelectCtrl:UpdateHeroItem(self._selectHeros);
+end
+
+
+function ConcertWitchSelectLayer:updateCurtSelectHeroIds(data,heroId) 
+    data.heroId = heroId;
+end
+
+function ConcertWitchSelectLayer:ResetToggle()
+    self._curApprId = -1
+    self._txtSelectDotName.color = COLOR_TYPE.White;
+    self._txtSelectDotName:SetTextById(72000031);
+    self:CutSelectRace();
+end
+
+function ConcertWitchSelectLayer:ResetToggleView()
+    self._curApprId = -1
+    self._txtSelectDotName.color = COLOR_TYPE.White;
+    self._txtSelectDotName:SetTextById(72000031);
+end
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+function ConcertWitchSelectLayer:OnTogAllClick(isOn)
+    if(isOn)then
+        if(self._curApprId == -1)then
+            return;
+        end
+        self._curApprId = -1;
+        self:CutSelectRace();
+    end
+end
+
+function ConcertWitchSelectLayer:OnTogClick(isOn,cls)
+    if(isOn)then
+        if(self._curApprId == cls.apprId)then
+            return;
+        end
+        self._curApprId = cls.apprId;
+        cls.txtName.color = COLOR_TYPE.Black;
+        cls.icon.color = COLOR_TYPE.Black
+        self:CutSelectRace();
+    else
+        cls.txtName.color = COLOR_TYPE.White_Gray;
+        cls.icon.color = COLOR_TYPE.White_Gray
+    end
+end
+
+function ConcertWitchSelectLayer:OnTogAttrClick(isOn)
+    if(isOn)then
+        if(self._curApprId == 0)then
+            return;
+        end
+        self._curApprId = 0;
+        self:CutSelectRace();
+    end
+end
+
+function ConcertWitchSelectLayer:onHeroClick(cls)
+    self._index = cls.posIndex
+    self._curMusical = cls.musicalType
+    self._curSelectSlodId = cls.posIndex;
+    self._heroSelectCtrl:SetHeroItem(cls)
+    self:ResetToggleView()
+    if self.curSelectHero == nil then
+        self:SetTableView()
+        self:ConfirmHeroSelect(cls);
+    else
+        if self.curSelectHero.posIndex ~= cls.posIndex then
+            self:SetTableView()
+            self:SwitchHeroSelect(cls)
+        end
+    end
+end
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertWitchSelectLayer:RegisterHandler()
+
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertWitchSelectLayer:InitView()
+    Concert:SetMusicTags(self._selectHeros,self._musicTags,self._itemId)
+    --self:ResetToggle()
+    self._objTips:SetVisible(self._itemId <= 0)
+end
+--
+function ConcertWitchSelectLayer:InitHeroSelectController()
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Concert/Hall/ConcertHeroSelectCtrl.txt"):new(self.layer:Get("trans_container/bottom/obj_info_hero"));
+
+    local heroClick = function(index)
+        self:onHeroClick(index);
+    end;
+
+    local changeClick = function(index)
+        self:onChangeClick(index)
+    end
+
+    self._heroSelectCtrl:InitView(self._selectHeros, heroClick,changeClick);
+    self._heroSelectCtrl:UpdateHeroItem(self._selectHeros);
+
+    local cls = self._heroSelectCtrl:GetHeroItem(self._index)
+    self._heroSelectCtrl:OnHeroItemClick(cls);
+end
+
+
+function ConcertWitchSelectLayer:InitSelectTogItems()
+    self._togItems = {};
+    for i, v in ipairs(self._togDatas) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transBg));
+        cls.txtName = cls:GetTextComponent("txt_name");
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.imgMask = cls:GetImageComponent("img_mask");
+        cls.icon = cls:GetImageComponent("img_icon");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnTogClick(isOn,cls);
+        end);
+        cls.apprId = i;
+
+        cls.txtName.text = v.name
+        cls.icon:LoadSprite(v.tagPath);
+        self._togItems[v] = cls;
+    end
+end
+
+function ConcertWitchSelectLayer:SetTableView()
+    self:UpdateMusicData(self._curMusical);
+    local num = math.ceil(#self._heroIds/ROW_CELL_NUM);
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self._transTableviewcontroller)
+
+        self._affixItems = {};
+        self._tvController:Init(num, true,
+                function(cell, row)
+                    self:SetHeroCell(cell, row)
+                end, 0.1, 0.03)
+    else
+        self._tvController:Reload(num,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function ConcertWitchSelectLayer:UpdateData()
+    self:UpdateSelectData()
+    --更新数据
+    self._objEmpty:SetVisible(#self._heroIds == 0);
+    --更新UI
+    local rows = math.ceil(#self._heroIds / ROW_CELL_NUM);
+    self._tvController:Reload(rows,true)
+    self._tvController:ScrollToTop()
+end
+
+
+
+function ConcertWitchSelectLayer:SetHeroCell(cell,row)
+    if(self._heroCells == nil)then
+        self._heroCells = {};
+    end
+    local cls = self._heroCells[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.heroItems = {};
+        for i = 1, ROW_CELL_NUM do
+            cls.heroItems[i] = Hero:HalfItemClassNew(cls:Find("hero_item_"..i));
+            cls.heroItems[i].objLock        = cls.heroItems[i]:Find("obj_lock");
+            cls.heroItems[i].tagMusic       = cls.heroItems[i]:GetImageComponent("obj_select/tag_music");
+            cls.heroItems[i].nameMusic      = cls.heroItems[i]:GetTextComponent("obj_select/txt_atk_name");
+            cls.heroItems[i].objSelect      = cls.heroItems[i]:Find("obj_select");
+            cls.heroItems[i].objRed         = cls.heroItems[i]:Find("obj_select/image");
+            cls.heroItems[i].objBlue        = cls.heroItems[i]:Find("obj_select/image_blue");
+            cls.heroItems[i].imgIndex       = cls.heroItems[i]:GetImageComponent("obj_lock/img_index");
+            cls.heroItems[i].hallDes        = cls.heroItems[i]:GetTextComponent("obj_lock/txt_mask");
+            cls.heroItems[i].btn            = cls.heroItems[i].obj:GetComponent("Button");
+            cls.heroItems[i].btn.onClick:AddListener(function()
+                self:heroClick(cls.heroItems[i])
+            end);
+            cls.heroItems[i].musicTags = {}
+            for j =1, 4 do
+                cls.heroItems[i].musicTags[j] = Concert:CtorHeroMusicTags(cls.heroItems[i]:Find("music_tags/tag"..j))
+            end
+        end
+        self._heroCells[cell] = cls;
+    end
+    self:SetCellInfo(self._heroCells[cell],row);
+end
+
+function ConcertWitchSelectLayer:UpdateMusicData(musicalType)
+    local heros = Hero:GetOwnerIds()
+    self._heroIds = Concert:SortHeroByMusical(heros,musicalType)
+    self._heroExData = {};
+    local count = lua_table_len(self._heroIds);
+    
+    local tmpData = nil;;
+    local tmpId = nil;
+    for i = 1,count do
+        tmpId = self._heroIds[i];
+        tmpData = {};
+        tmpData.heroId = tmpId;
+        tmpData.selectId = self:getHeroFightIndex(tmpId);
+        tmpData.workHallId =  Concert:GetHeroAtConcertHall(tmpId);
+        self._heroExData[tmpId] = tmpData;
+    end   
+end
+
+function ConcertWitchSelectLayer:UpdateSelectData()
+    self._heroIds = Concert:GetHerosByAppearance(self._curApprId)
+    self._heroExData = {};
+    local count = lua_table_len(self._heroIds);
+
+    local tmpData = nil;;
+    local tmpId = nil;
+    for i = 1,count do
+        tmpId = self._heroIds[i];
+        tmpData = {};
+        tmpData.heroId = tmpId;
+        tmpData.selectId = self:getHeroFightIndex(tmpId);
+        tmpData.workHallId = Concert:GetHeroAtConcertHall(tmpId);
+        self._heroExData[tmpId] = tmpData;
+    end
+end
+
+function ConcertWitchSelectLayer:getHeroFightIndex(id)
+    for index, value in ipairs(self._selectHeros) do
+        if(value.heroId == id) then
+            return index;
+        end
+    end
+    return 0;
+end
+
+function ConcertWitchSelectLayer:getHeroWorkingHallId(id)
+    local isWorking = Concert:GetHeroAtConcertHall(id);
+    if(isWorking) then
+        return 5;
+    end
+    return 0;
+end
+
+
+function ConcertWitchSelectLayer:SetCellInfo(cls,row)
+    local curIndex = 0;
+    local heroId = 0;
+    for i, heroItem in ipairs(cls.heroItems) do
+        curIndex = row * ROW_CELL_NUM + i;
+        heroId = self._heroIds[curIndex] or nil;
+        heroItem.heroId = heroId
+        heroItem.index = curIndex
+        self:SetHeroItem(heroItem, heroId);
+    end
+end
+
+--取消选择英雄
+function ConcertWitchSelectLayer:CancelHeroItem(cls,heroId)
+    cls.isSelect = false
+    cls.objSelect:SetVisible(cls.isSelect);
+end
+
+function ConcertWitchSelectLayer:SetHeroItem(cls, heroId)
+    cls.obj:SetVisible(heroId ~= nil);
+
+    if heroId == nil then
+        return
+    end
+    local stateData = self._heroExData[heroId]
+
+    if(heroId ~= nil)then
+        Hero:SetHalfItemClassData(cls,heroId,nil,true);
+        cls.heroId = heroId;
+
+        cls.objLock:SetVisible(stateData.workHallId > 0);
+        cls.objSelect:SetVisible(stateData.selectId > 0);
+        local hero = Hero:GetHero(heroId)
+
+        local musicType = hero.musics[1].mtype
+        local tagTbl = Hero:GetMusicTagWithOutType(hero, Hero.TAG_ATTR)
+
+        for i= 1,4 do
+            cls.musicTags[i].data = tagTbl[i] or nil
+            Concert:SetHeroMusicState(cls.musicTags[i],self._curMusical,self._itemId,heroId)
+        end
+
+        if musicType > 0 then
+            local music = Concert:GetMusicalByType(musicType)
+            cls.nameMusic.text = music.Name;
+            cls.tagMusic:LoadSprite(music.itemPath);
+        else
+            cls.nameMusic.text = LanguageMgr:GetTextByID(809012)
+            cls.tagMusic:LoadSprite("source_icon/music_hall/music_0");
+        end
+        local hall
+        if stateData.workHallId > 0 then
+            hall = Concert:GetConcertById(stateData.workHallId)
+            cls.hallDes.text = hall.name
+        end
+
+        if stateData.selectId > 0 then
+            cls.objBlue:SetVisible(stateData.selectId == self._curSelectSlodId)
+            cls.objRed:SetVisible(stateData.selectId ~= self._curSelectSlodId)
+            cls.objLock:SetVisible(false);
+        end
+    end
+end
+
+
+function ConcertWitchSelectLayer:GetCurHeroIndex(heroId)
+    for i, v in pairs(self._selectHeros) do
+        if(v.heroId == heroId)then
+            return i;
+        end
+    end
+    return 0;
+end
+
+function ConcertWitchSelectLayer:CutSelectRace()
+    self._transScreen:DOScaleY(0, 0.1);
+    self:SetSelectRaceName();
+    self:UpdateData();
+end
+
+function ConcertWitchSelectLayer:SetSelectRaceName()
+    if(self._curApprId <= 0)then
+        self._txtSelectDotName:SetTextById(72000031);
+    else
+        self._txtSelectDotName.text = LanguageMgr:GetTextByID(809200 + self._curApprId)
+    end
+end
+
+
+function ConcertWitchSelectLayer:CancelHeroSelect()
+    self._heroSelectCtrl:CancelSelectHero(self.curSelectHero.posIndex)
+    set_obj_active(self._objCancel,false)
+    self.curSelectHero.transform:SetScale(Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE)
+    self._curSelectItem = self:GetHeroItemByHeroId(self.curSelectHero.heroId)
+    self.curSelectHero = nil
+end
+
+function ConcertWitchSelectLayer:SwitchHeroSelect(cls)
+    self._heroSelectCtrl:CancelSelectHero(self.curSelectHero.posIndex,Concert.SelectType.Hero)
+    self._heroSelectCtrl:ConfirmSelectHero(cls.posIndex,Concert.SelectType.Hero)
+    self.curSelectHero.transform:SetScale(Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE)
+    cls.transform:SetScale(Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE)
+
+    if self._talentEffect ~= nil then
+        self._talentEffect.transform:SetParent(cls.transform)
+        self._talentEffect:SetPosition(0, -10, 0, true)
+        self._talentEffect:SetVisible(true)
+    end
+
+    self._curSelectItem = self:GetHeroItemByHeroId(cls.heroId)
+    self.curSelectHero = cls
+end
+
+function ConcertWitchSelectLayer:ConfirmHeroSelect(cls)
+    self._heroSelectCtrl:ConfirmSelectHero(cls.posIndex,Concert.SelectType.Hero)
+    cls.transform:SetScale(Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE)
+
+    if self._talentEffect ~= nil then
+        self._talentEffect.transform:SetParent(cls.transform)
+        self._talentEffect:SetPosition(0, -10, 0, true)
+        self._talentEffect:SetVisible(true)
+    end
+
+
+    self._curSelectItem = self:GetHeroItemByHeroId(cls.heroId)  --
+    self.curSelectHero = cls
+end
+
+function ConcertWitchSelectLayer:GetHeroItemByHeroId(heroId)
+    for i, v in pairs(self._heroCells) do
+        for j = 1, ROW_CELL_NUM do
+            if v.heroItems[j].heroId == heroId then
+                return v.heroItems[j]
+            end
+        end
+    end
+    return nil
+end
+
+return ConcertWitchSelectLayer;

@@ -1,0 +1,45 @@
+--
+-- author: haosun
+-- date  : 2020-05-27 16:06:39
+-- brief : 
+--
+NetworkLogin = NetworkLogin or {}
+
+function NetworkLogin:LoginAccount(account, token, zoneid, platform)
+    Network:ShowMask()
+    Network:LoginAccountHttpNew(account, token, zoneid, platform,
+        function(rst, bytes)
+            self:LoginAccountCompleted(rst, bytes)
+        end)
+end
+
+function NetworkLogin:LoginAccountCompleted(rst, bytes)
+    Network:ClearWait()
+    AppMgr:LogInfo("===========登录服登录成功，游戏服登录请求===========")
+    local data = ProtoMgr:Decode(ProtoMgr.LoginRep, bytes)
+    Network:SetLoginToken(data.token)
+    Network:SetLoginState(false)
+    NetworkGame:GameLogin(data.token.zone)
+end
+
+function NetworkLogin:AccActivityReq(account,code,activityCallBack)
+    local data = {
+        platform = GameSdkMgr:GetPlatformId(),
+        account = account,
+        code = code,
+    }
+    local bytes = ProtoMgr:Encode(ProtoMgr.LoginActivateReq,data);
+    local tdata = Login:GetLastServer();
+    local ip, port = Login:GetLoginIpPort(tdata.zoneid);
+    Network:ActivityAccount(ip,port,Http.LOGIN_ACTIVATE_REQ,bytes,function()
+        Login:SetAccUnActivityState(false);
+        NetworkLogin:AccActivityRep(activityCallBack);
+    end);
+end
+
+function NetworkLogin:AccActivityRep(activityCallBack)
+    Network:SetLoginState(false);
+    if(activityCallBack ~= nil)then
+        activityCallBack();
+    end
+end

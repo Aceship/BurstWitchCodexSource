@@ -1,0 +1,118 @@
+--
+-- author: haosun
+-- date  : 2021-09-03 11:16:56
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightRankupLayer = class("MidNightRankupLayer", CBaseLayer)
+
+function MidNightRankupLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uimidnight/ui_midnightrankuplayer",
+    }
+    self._uitype = 2
+
+    self._clsArrPlayer = {}
+    self:onEnter()
+end
+
+function MidNightRankupLayer:onEnter()
+    self:createPnl()
+    self._selfTrans     = self.layer:Get("container/prefab_self")
+    self._txtSelfRank   = self._selfTrans:Get("txt_ranking")
+    self._tvController  = UIController:CtorTableView(self.layer:Get("container/TableViewController"))
+end
+
+function MidNightRankupLayer:onExit()
+    self._param = nil
+    if self._clsArrPlayer ~= nil then
+        for i, cls in pairs(self._clsArrPlayer) do
+            cls.clsplayer:clear()
+            cls:clear()
+        end
+        self._clsArrPlayer = nil
+    end
+    CBaseLayer.onExit(self)
+end
+
+function MidNightRankupLayer:onBackClick()
+    self:onPopLayer()
+    
+    uimgr:onMainScene()
+end
+
+function MidNightRankupLayer:show(param)
+    self._param = param
+    self._fading = false
+    self:initSelfLayer()
+    self:initTableViewController()
+    self:showLayer()
+    self:doScale()
+end
+
+function MidNightRankupLayer:initSelfLayer()
+    local cls = Player:CtorPlayerIconBorder(self._selfTrans:Get("prefab_player"))
+    Player:SetPlayerIconBorderObj(cls, Player:GetHeadIcon(), Player:GetHeadBorder())
+    cls:clear()
+    self._selfTrans:GetTextComponent("txt_name").text = self._param.selfrank.name
+    self._selfTrans:GetTextComponent("txt_score").text = self._param.selfrank.score
+    self._selfTrans:GetTextComponent("txt_ranking").text = self._param.oldranking
+end
+
+function MidNightRankupLayer:initTableViewController()
+    self._tvController:Init(#self._param.list, false,
+        function(cell, row, play)
+            self:refreshUnitCell(cell.transform, row+1)
+        end)
+end
+
+function MidNightRankupLayer:refreshUnitCell(trans, row)
+    local pdata = self._param.list[row]    
+    local cls = self._clsArrPlayer[trans.name]
+    if cls == nil then
+        cls = clearbase:new()
+        cls.txtName = trans:GetTextComponent("txt_name")
+        cls.txtScore = trans:GetTextComponent("txt_score")
+        cls.txtRank  = trans:GetTextComponent("txt_ranking")
+        cls.clsplayer = Player:CtorPlayerIconBorder(trans:Get("prefab_player"))
+        self._clsArrPlayer[trans.name] = cls
+    end
+    cls.txtName.text = pdata.name
+    cls.txtScore.text = pdata.score
+    cls.txtRank.text = pdata.rank
+    Player:SetPlayerIconBorderObj(cls.clsplayer, pdata.iconid, pdata.frameid)
+end
+
+function MidNightRankupLayer:doScale()
+    self._tvController:ScrollToBottom()
+    self._selfTrans:DOScale(1.4, 0.2):SetDelay(0.1):OnComplete(
+        function()
+            self._selfTrans:Get("effect"):GetComponent("ParticleBehaviour"):Play()
+            self._selfTrans:DOScale(1.2, 0.1):SetDelay(0.4):OnComplete(function()
+                    self:doMoveUp()
+                end)
+        end)
+end
+
+function MidNightRankupLayer:doMoveUp()
+    local add = self._param.oldranking - self._param.newranking
+    self._tvController:ScrollToTop(add*0.05, 
+        function()
+            self:onAniEnd()
+        end)
+    self._selfTrans:Get("txt_ranking"):GetComponent("UITextNumberJump"):DoJump(self._param.oldranking, (0-add), add * 0.04)
+    self._selfTrans:DOLocalMoveY(204, add*0.055)
+end
+
+function MidNightRankupLayer:onAniEnd()
+    self._fading = false
+    self._selfTrans:DOScale(1.4, 0.2):SetDelay(0.1):OnComplete(
+        function()
+            self._selfTrans:DOScale(1, 0.1):SetDelay(0.1)
+        end)
+    self.layer:Get("container/TableViewController"):SetSizeY(440)
+    self.layer:GetScrollRectComponent("container/TableViewController/TableView").enabled = false
+end
+
+return MidNightRankupLayer

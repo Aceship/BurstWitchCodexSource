@@ -1,0 +1,141 @@
+--
+-- author: haosun
+-- date  : 2020-11-20 14:23:57
+-- brief : 
+--
+UI_ComboWipeNumberLayer = UI_ComboWipeNumberLayer or {}
+
+local _perfect_number = 50
+
+function UI_ComboWipeNumberLayer:ComboWipeNumberLayerCreator()
+    self._isVisible     = false
+    self._isAvoidLevel  = FightController:IsOnlyAvoidLevel()
+    if self._isAvoidLevel then
+        self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/ComboWipeNumber")
+        self.layer:AddAnimationBehaviour(self)
+        self.layer:SetVisible(false)
+        
+        self._txtnumber = self.layer:GetTextComponent("txt_number")
+        self._txtani    = self.layer:GetAnimationComponent("txt_number")
+        self._aniPlay   = self.layer:GetComponent("Animation")
+        self._bar   = self.layer:GetImageComponent("bar")
+        self._bar.fillAmount = 0
+
+        self._txtrate       = self.layer:GetTextComponent("txt_rate")
+        self._txtcopy       = self.layer:GetTextComponent("txt_rate_copy")
+        self._img_combo     = self.layer:GetImageComponent("img_combo")
+        self._img_perfect   = self.layer:GetImageComponent("img_perfect")
+
+        self._combo_panel   = self.layer:Get("ComboPanel")
+        local panel = self._combo_panel:Get("Panel")
+        self._combo_good = panel:Get("img_good")
+        self._combo_perfect = panel:Get("img_perfect")
+        self._combo_perfect_x = panel:Get("img_perfect_x")
+        self._combo_perfect_num = self._combo_perfect_x:GetTextComponent("txt_num")
+        self._combo_anim = self._combo_panel:GetComponent("Animation")
+        self._combo_panel:SetVisible(false)
+
+        self._cfg = FightModule:GetAvoidLevelCfg(FightController:GetLevelId())
+        if self._cfg == nil then
+            _perfect_number = 50
+        else
+            _perfect_number = self._cfg.combo
+        end
+        self._cachenumber = -1
+        self:hidePerfect()
+    end
+end
+
+function UI_ComboWipeNumberLayer:EnterComboWipeNumberLayer()
+    if self._isAvoidLevel then
+        self._isVisible = true
+        self.layer:SetVisible(true)
+        self.layer:AnimationPlay("ComboWipeNumberLayer")
+    end
+end
+
+function UI_ComboWipeNumberLayer:ExitWipeNumberLayer()
+    self._txtnumber = nil
+    self._txtani    = nil
+    self._aniPlay   = nil
+    self._txtrate   = nil
+    self._txtcopy   = nil
+    self._img_combo = nil
+    self._img_perfect = nil
+    self._isVisible = false
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end
+
+function UI_ComboWipeNumberLayer:UpdateNumber(number)
+    if (not self._isVisible) or (not self._isAvoidLevel) then return end
+    if self._cachenumber == number then return end
+    self._cachenumber = number
+    self._txtnumber:SetText(number)
+    if number > 0 then
+        self._txtani:Play("ComboWipeNumberUp")
+        if number % _perfect_number == 0 then
+            self._txtrate:SetText(tostring(number))
+            self._txtcopy:SetText(tostring(number))
+            self:playPerfact()
+            self._bar.fillAmount = 1
+        else
+            self._bar.fillAmount = (number % _perfect_number) / _perfect_number
+        end
+    else
+        self._bar.fillAmount = 0
+    end
+
+    self:ShowCombo(number)
+end
+
+function UI_ComboWipeNumberLayer:playPerfact()
+    self._txtrate:SetVisible(true)
+    self._img_combo:SetVisible(true)
+    self._img_perfect:SetVisible(true)
+    self._aniPlay:Play("ComboWipeNumberUp2")
+    if self._cfg ~= nil then
+        -- 触发怪物的技能 C#处理
+        -- 触发减速效果 C#处理
+        -- 触发视野变化
+        CameraController:CheckVignetteV3(self._cfg.viewid)
+    end
+end
+
+function UI_ComboWipeNumberLayer:hidePerfect()
+    self._txtrate:SetVisible(false)
+    self._txtcopy:SetVisible(false)
+    self._img_combo:SetVisible(false)
+    self._img_perfect:SetVisible(false)
+end
+
+function UI_ComboWipeNumberLayer:onAnimationEvent(anitype, keyTag)
+    if 6 == anitype then
+        self:hidePerfect()
+    end
+end
+
+function UI_ComboWipeNumberLayer:ShowCombo(number)
+    if(number > 0) then
+        self._combo_panel:SetVisible(true)
+        if(number <= 4) then
+            self._combo_good:SetVisible(true)
+            self._combo_perfect:SetVisible(false)
+            self._combo_perfect_x:SetVisible(false)
+        elseif(number == 5) then
+            self._combo_good:SetVisible(false)
+            self._combo_perfect:SetVisible(true)
+            self._combo_perfect_x:SetVisible(false)
+        else 
+            self._combo_good:SetVisible(false)
+            self._combo_perfect:SetVisible(false)
+            self._combo_perfect_x:SetVisible(true)
+            self._combo_perfect_num:SetText(tostring(number - 4))
+        end
+        self._combo_anim:Play("ComboWipePerfect")
+    else
+        self._combo_panel:SetVisible(false)
+    end
+end

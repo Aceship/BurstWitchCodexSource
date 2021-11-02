@@ -1,0 +1,364 @@
+--
+-- author: hao_sun
+-- data  : 2019-6-27 10:06:29
+-- brief : 好友主页
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FriendLayer = class("FriendLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Look        = "container/container_find/button_look",
+    ApplyList   = "container/container_find/button_applylist",
+    ListChange  = "container/container_find/button_change",
+    NickId      = "container/container_find/info_nick_id",
+}
+
+local SHOW_TYPE = {
+    List        = 1,
+    Find        = 2,
+    Blacklist   = 3,
+}
+
+function FriendLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiFriend/UI_FriendLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_FRIEND ,
+    }
+    self._bgData = {
+        showEffect  = true,
+        bgType      = BackBgPath.DEF,
+    }
+    self._dt = 0
+    self._cellobj ={}
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._typeObjs = {}
+    self._tipsObjs = {}
+
+    self:onEnter()
+end
+
+function FriendLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer, 0, true)
+    self._spine = self.layer:Get("container/spine_ui")
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addRedTipsListener()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FIND_FRIEND,
+        function(data)
+            self:showLookPlayer(data)
+        end)
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FIND_RECOMMENDFRIEND,
+        function()
+            self:showRecommendList()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GET_FRIEND_APPLY,
+        function()
+            self.FindHaoyou:RefreshRequstFriendImg()
+            self:showApplyLayer()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FRIEND_APPLY_SUCC,
+        function(pid)
+            self:onApplyRep(pid)
+        end)
+
+    self._friendTableViewCtrl = core.require("xlua/lua_UI/Comframework/FriendTableViewCtrl.txt"):new(self, self._spine)
+    for _, v in pairs(SHOW_TYPE) do
+        self._typeObjs[v] = self.layer:GetMToggleComponent("obj_tog_bg/show_type_" .. v)
+    end
+    self:registerEvent()
+
+    Player:IgnoreHomeLayerInfo(HomeLayerMsgType.FriendApply)
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("container"), 0, true)
+end
+
+function FriendLayer:registerEvent()
+    for _, v in pairs(SHOW_TYPE) do
+        self._typeObjs[v].onValueChanged:AddListener(function (isOn)
+            self:onTypeClick(v,isOn);
+        end);
+    end
+end
+
+function FriendLayer:onTypeClick(showtype, isOn)
+    self:showType(showtype)
+end
+
+function FriendLayer:onExit()
+    if  self._friendTableViewCtrl ~= nil then
+        self._friendTableViewCtrl:onExit()
+        self._friendTableViewCtrl = nil
+    end
+
+    self._backCall = nil
+    self._applytmp = nil
+    Friend:CloseFriendLayer()
+    CBaseLayer.onExit(self)
+end
+
+function FriendLayer:onUpdateCurrency()
+    Groble_UIMgr:SetTopData(self._topData)
+end
+
+function FriendLayer:onBackClick()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        if self._backCall == nil then
+            self:onPopLayer()
+        else
+            self._backCall()
+            self:onPopLayer()
+        end
+    end)
+end
+
+function FriendLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.List then
+        self:showType(SHOW_TYPE.List)
+    elseif itype == BUTTON_TYPE.Find then
+        self:showType(SHOW_TYPE.Find)
+    elseif itype == BUTTON_TYPE.Blacklist then
+        self:showType(SHOW_TYPE.Blacklist)
+    elseif itype == BUTTON_TYPE.Look then
+        self:onLookFriend()
+    elseif itype == BUTTON_TYPE.ApplyList then
+        Friend:OpenApplyLayer()
+    elseif itype == BUTTON_TYPE.ListChange then
+        local remain = Friend:GetRecommendCountdown()
+        if remain <= 0 then
+            Friend:GetRecommendListReq()
+        else
+            local showstr = string.format(LanguageMgr:GetTextByID(1600080), remain)
+            Groble_UIMgr:ShowTipsLayer(showstr)
+        end
+    elseif itype == BUTTON_TYPE.NickId then
+        self:onLookType()
+    end
+end
+
+function FriendLayer:show(backCall)
+    self._backCall  = backCall
+    self._showtype  = -1
+    self._onLookType = Friend.FIND_TYPE_NAME
+
+    self:onUpdateRedTips()
+    self._friendTableViewCtrl:onInit({showtype =SHOW_TYPE.List})
+    self:showType(SHOW_TYPE.List)
+    self:showLayer()
+    self:playAni("FriendLayerAni")
+end
+
+function FriendLayer:showType(showtype)
+    if self._showtype == showtype then
+        return
+    end
+    self._showtype = showtype
+    if( self.findCont == nil)then
+        self.findCont = self.layer.transform:Find("container/container_find")
+        self.inputFieldFindCont = self.layer.transform:Find("container/container_find/InputField"):GetComponent("InputField")
+    end
+
+
+    local show = self._showtype == SHOW_TYPE.List
+    if show then
+        self._friendTableViewCtrl:showTableview(true)
+        self._friendTableViewCtrl:setOpenBlack(false)
+        self._friendTableViewCtrl:onListClick(SHOW_TYPE.List)
+    --    self._spine:SetVisible(#Friend:GetFriends() > 0)
+    end
+
+    local show = self._showtype == SHOW_TYPE.Find
+
+    set_obj_active(self.findCont, show)
+    if show then
+        self._spine:SetVisible(true)
+        self._friendTableViewCtrl:showTableview(false)
+        self._friendTableViewCtrl:setOpenBlack(false)
+        local data = Friend:GetRecommedList()
+        if #data > 0 then
+            local remain = Friend:GetRecommendCountdown()
+            if remain <= 0 then
+                Friend:GetRecommendListReq()
+            else
+                self:showRecommendList()
+            end
+        else
+            Friend:GetRecommendListReq()
+        end
+        self.inputFieldFindCont.text = ""
+    end
+
+    local show = self._showtype == SHOW_TYPE.Blacklist
+    if show then
+        self._friendTableViewCtrl:setOpenBlack(true)
+        Friend:ReqBlackList()
+    end
+
+    self:refreshFriendsNumber()
+end
+
+function FriendLayer:refreshFriendsList()
+    self._friendTableViewCtrl:onListClick(SHOW_TYPE.List)
+end
+
+function FriendLayer:onFriendsChange()
+    if self._showtype then
+        self:refreshFriendsList()
+    end
+    self:refreshFriendsNumber()
+end
+
+function FriendLayer:refreshFriendsNumber()
+    self._friendTableViewCtrl:refreshFriendsNumber()
+end
+
+function FriendLayer:showRecommendList()
+    local datas = Friend:GetRecommedList()
+    local showlist = {}
+    local c = 0
+    for i, v in pairs(datas) do
+        table.insert(showlist, v)
+        c = c + 1
+        if c >= 4 then break end
+    end
+    self:refreshFindTypeList(showlist, true)
+end
+
+function FriendLayer:showLookPlayer(data)
+    self:refreshFindTypeList({data})
+end
+
+function FriendLayer:refreshFindTypeList(datas)
+    self._applytmp = nil
+    if(self.itemBg == nil)then
+        self.itemBg = self.layer.transform:Find("container/container_find/recommend_list")
+        self.items = {};
+    end
+    local count = math.max(self.itemBg.childCount, #datas)
+    for i = 1, count do
+        local item = self.items[i]
+        if item == nil then
+            item = Groble_ResMgr:Instantiate("prefab_uiFriend/prefab_friend", self.itemBg)
+            item.name = "item" .. i
+            self.items[i] = item;
+        end
+        if self._cellobj[i] == nil then
+            self._cellobj[i]   =   Friend:CtorComFriendUi(item)
+            self._cellobj[i].addCom.onClick:AddListener(function()
+                        self._applytmp = {i, self._cellobj[i].data}
+                        Friend:FriendRequestReq(self._cellobj[i].data.id)
+                    end)
+            self._cellobj[i].talkCom.onClick:AddListener(function()
+                        Talk:OpenSelfTalkUi(self._cellobj[i].data)
+                    end)
+        end
+        set_obj_active(item, datas[i] ~= nil)
+        if datas[i] ~= nil then
+            self._cellobj[i].data = datas[i]
+            Friend:SetFriendInfoUi(self._cellobj[i], datas[i], Friend.SHOW_RECOMMEND)
+            item.transform.localScale = CS.UnityEngine.Vector3(1,0,1);
+            item.transform:DOScaleY(1, 0.1):SetDelay(0.05 * i);
+        end
+    end
+end
+
+function FriendLayer:onLookType()
+    local movex = 0
+    if(self.imgNickBg == nil)then
+        self.imgNickBg = self.layer:Get("container/container_find/info_nick_id/img_bg")
+        self.txtNick = self.layer.transform:Find("container/container_find/info_nick_id/label_nick"):GetComponent("Text")
+        self.txtId = self.layer.transform:Find("container/container_find/info_nick_id/label_id"):GetComponent("Text")
+    end
+    if self._onLookType == Friend.FIND_TYPE_NAME then
+        self._onLookType = Friend.FIND_TYPE_ID
+        movex = 44
+        self.txtNick.color = COLOR_TYPE.White
+        self.txtId.color = COLOR_TYPE.Black
+    elseif self._onLookType == Friend.FIND_TYPE_ID then
+        self._onLookType = Friend.FIND_TYPE_NAME
+        movex = -44
+        self.txtNick.color = COLOR_TYPE.Black
+        self.txtId.color = COLOR_TYPE.White
+    end
+    self.imgNickBg:DOLocalMoveX(movex, 0.1)
+end
+
+function FriendLayer:onLookFriend()
+    local input = self.inputFieldFindCont.text
+    if input == nil or input == "" then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800067)
+        return
+    end
+    if not Groble_SceneMgr:checkStrIsChaneseOrENNUSure(input) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600059)
+        return
+    end
+    -- ID搜索检查ID是否为数字
+    if self._onLookType == Friend.FIND_TYPE_ID then
+        local length = lua_str_utf8len(input)
+        input = tonumber(input)
+        if input == nil then
+            Groble_UIMgr:ShowGameWordTipsLayer(1600079)
+            return
+        end
+        if length < 5 or length > Player.MaxPlayerNameLenght then
+            Groble_UIMgr:ShowGameWordTipsLayer(1600074)
+            return
+        end
+        if length == Player.MaxPlayerNameLenght and input > 100000000000 then
+            Groble_UIMgr:ShowGameWordTipsLayer(1600074)
+            return
+        end
+    end
+    if lua_str_utf8len(input) > Player.MaxPlayerNameLenght then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800071)
+        return
+    end
+    Friend:FindFriendReq(input, self._onLookType)
+end
+
+function FriendLayer:refreshBlacklist()
+    self._friendTableViewCtrl:onListClick(SHOW_TYPE.Blacklist)
+end
+
+function FriendLayer:onApplyRep(pid)
+    if self._applytmp ~= nil then
+        local item = self.items[self._applytmp[1]];
+        if item ~= nil then
+            Friend:SetFriendInfoUi(self._cellobj[self._applytmp[1]], self._applytmp[2], Friend.SHOW_RECOMMEND)
+        end
+    end
+end
+
+function FriendLayer:onUpdateRedTips()
+    -- 刷新申请好友红点
+    -- 刷新好友币赠送红点
+    local show = Friend:IsExistApplyIds()
+    if(self.btnRed1 == nil)then
+        self.btnRed1 = self.layer:Get("obj_tog_bg/show_type_1/img_red_tips");
+        self.btnRed2 = self.layer:Get("obj_tog_bg/show_type_2/img_red_tips");
+        self.findRed = self.layer:Get("container/container_find/button_applylist/image_red_tips");
+    end
+    set_obj_active(self.btnRed1, Friend:IsExistRecvGifts())
+    set_obj_active(self.btnRed2, show)
+    set_obj_active(self.findRed, show)
+end
+
+
+
+
+
+
+
+
+
+return FriendLayer
+

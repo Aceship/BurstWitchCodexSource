@@ -1,0 +1,4 @@
+id,charge表ID,英文名称,文案位置,背景图片,活动时间,活动时间描述,广告字图片,展示用spineID,spine位置,spine缩放,奖励指向表名
+id,ChargeID,EnglishName,Word,Picture,Time,TimeDesc,AD_Image,Spine,SpinePos,SpineScale,PointName
+number,number,string,array_|,number,number,string,array_|,array_|,array_&_|,array_&_|,string
+800001,8001,Reincarnation of blood,271|256|1.1|1.1,30002,360001,-1,30002|100|406|0.5|0.5,1028,108&-236&0,100&100&100,Charge_handbook

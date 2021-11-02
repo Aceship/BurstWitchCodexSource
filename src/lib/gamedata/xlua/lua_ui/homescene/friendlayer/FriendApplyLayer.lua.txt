@@ -1,0 +1,142 @@
+--
+-- author: haosun
+-- date  : 2019-06-27 14:26:41
+-- brief : 好友申请列表
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FriendApplyLayer = class("FriendApplyLayer", CBaseLayer)
+local BUTTON_TYPE =
+{
+    applyAll    =   "container/button_applyAll",
+    delAll      =   "container/button_delAll",
+
+}
+
+
+function FriendApplyLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiFriend/UI_FriendApplyLayer",
+    }
+    self._uitype = 2
+    self._dt = 0
+    self._update = false
+    self:onEnter()
+end
+
+function FriendApplyLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_APPLY_LIST,
+        function(refuseall)
+            if refuseall then
+                self._update = false
+            end
+            self:refreshApplyList()
+        end)
+    self._tvController = UIController:CtorTableView(self.layer.transform:Find("container/TableViewController"))
+    self._tvController:ScrollRectVertical(false)
+    self._btnApply = self.layer:Get("container/button_applyAll")
+    self._btnDel  = self.layer:Get("container/button_delAll")
+    self._aniPanelFadeInEndCallback = function()
+        self._tvController:ScrollRectVertical(true)
+    end
+end
+
+function FriendApplyLayer:onBackClick()
+    if Friend:GetReqState() then
+        return
+    end
+    self:onPopLayer()
+end
+
+function FriendApplyLayer:onButtonClick(itype)
+    if Friend:GetReqState() then
+        return
+    end
+    if itype == BUTTON_TYPE.applyAll then
+        self:ApplyAll()
+    elseif itype == BUTTON_TYPE.delAll then
+        Friend:FriendRequestDelALLReq()
+    end
+end
+
+function FriendApplyLayer:show()
+    self._datas = Friend:GetApplyList()
+    set_obj_active(self.layer.transform:Find("container/label_empty"), #self._datas == 0)
+    self._cellObj = {}
+    self:initTabelViewController()
+    self._btnApply:SetVisible(#self._datas > 0)
+    self._btnDel:SetVisible(#self._datas > 0)
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function FriendApplyLayer:refreshApplyList()
+    self._datas = Friend:GetApplyList()
+    set_obj_active(self.layer.transform:Find("container/label_empty"), #self._datas == 0)
+
+    self._tvController:Reload(#self._datas ,false)
+    self._btnApply:SetVisible(#self._datas > 0)
+    self._btnDel:SetVisible(#self._datas > 0)
+end
+
+function FriendApplyLayer:ctorCell(obj)
+    local cls  = Friend:CtorComFriendUi(obj)
+    cls.agreeCom.onClick:AddListener(function()
+                Friend:FriendRequestOkReq(cls.id)
+            end)
+    cls.refuseCom.onClick:AddListener(function()
+                Friend:FriendRequestDelReq(cls.id)
+            end)
+    return cls
+end
+
+function FriendApplyLayer:initTabelViewController()
+    self._tvController:Init(#self._datas, false,
+        function(cell, row, play)
+            self:refreshItems(cell, row+1)
+        end, 0.3, 0.1)
+end
+
+function FriendApplyLayer:refreshItems(cell, row)
+    local _cellObj = self._cellObj[cell.name]
+    if _cellObj == nil then
+        _cellObj = self:ctorCell(cell)
+        self._cellObj[cell.name] = _cellObj
+    end
+    self:refreshCell(_cellObj, self._datas[row])
+end
+
+function FriendApplyLayer:refreshCell(cls, data)
+    cls.id = data.id
+    Friend:SetFriendInfoUi(cls , data, Friend.SHOW_APLLY)
+end
+
+function FriendApplyLayer:ApplyAll()
+    self._update = true
+    self._dt = 0.1
+end
+
+function FriendApplyLayer:onUpdate(dt)
+    if self._update then
+        self._dt = self._dt + dt
+        if self._dt > 0.1 then
+            --上一条请求没回来不继续发送
+            if Friend:GetReqState() then
+                return
+            else
+                if  #self._datas > 0 then
+                    Friend:FriendRequestOkAllReq(self._datas[1].id)
+                    self._dt = 0
+                else
+                    self._update = false
+                end
+            end
+        end
+    end
+end
+
+return FriendApplyLayer
+

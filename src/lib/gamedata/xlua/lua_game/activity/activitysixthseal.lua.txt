@@ -1,0 +1,95 @@
+--
+-- author: admin
+-- date  : 2021-07-08 17:13:24
+-- brief : 第六封印
+--
+Activity = Activity or {}
+
+function Activity:InitSixthSealServerData(dayData, warm_day_start, offsetDay)
+    self._notice = dayData
+    self._offsetDay = offsetDay
+    self._warm_day_start = warm_day_start
+end
+
+function Activity:GetSixthSealNotice()
+    return self._notice
+end
+
+function Activity:SetSixthSealNotice(i)
+    self._notice[i] = true
+end
+
+function Activity:GetSixthSealStartDay()
+    return self._warm_day_start
+end
+function Activity:GetSixthSealState()
+    local cTimeID = Player:GetWarmUpActivityTimeID()
+    local time = CTime:IsOpen(cTimeID)
+    return Player:GetOffsetDay() >= self._warm_day_start and time
+end
+
+function Activity:IsSixthSealStartState()
+    return Activity:GetOpenWarmUpLevelId() > 0 or Activity:GetOpenActivityLevelId() > 0
+end
+
+function Activity:GetSixthSealDaysRemaining()
+    local _rewardData = Activity:GetSixthSealRewardArray()
+    local _curServerDay = Activity:GetCurSixthSealDay()
+    return #_rewardData - _curServerDay + 1
+end
+
+function Activity:SetSignData(data)
+    self._signData = data
+end
+function Activity:GetoffsetDay(id)
+    return self._offsetDay[id]
+end
+
+function Activity:DayIsSigned(activityId, day)
+    local data = self._signData[activityId]
+    if data == nil then
+        return false
+    end
+    return data[day]
+end
+
+function Activity:SetSignDay(activityId, day)
+    local data = self._signData[activityId]
+    if data == nil then
+        self._signData[activityId] = {}
+        data = self._signData[activityId]
+    end
+
+    data[day] = true
+end
+function Activity:GetSixthSealRedState() --第六封印预告的红点
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.syc_activity_level) then
+        local curServerDay = Activity:GetCurSixthSealDay()
+        if Activity:GetOpenWarmUpLevelId() > 0 then
+            local notice = Activity:GetSixthSealNotice()
+            local flag = false
+            for i = 1, curServerDay do
+                if not notice[i] then
+                    flag = true
+                end
+            end
+            return flag
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+
+function Activity:HeroIsInActivityUp(heroId)
+    local itemAdd = Player:GetActivityLevelItemAdd()
+    for i, v in ipairs(itemAdd) do
+        if heroId == v[1] then
+            return true
+        end
+    end
+
+    return false
+end
+

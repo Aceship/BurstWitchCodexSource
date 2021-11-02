@@ -1,0 +1,151 @@
+--
+-- author: haosun
+-- date  : 2018-11-09 17:30:10
+-- brief : 
+--
+
+Item = Item or {}
+
+function Item:GetItemIconPath(cfgid)
+    if self._item_icon_path[cfgid] == nil then
+        local cfg = self:GetCfg(cfgid)
+        self._item_icon_path[cfgid] = "source_icon/item/" .. cfg.itemPath
+    end
+    return self._item_icon_path[cfgid]
+end
+
+function Item:GetItemIconPathByName(name)
+    if self._item_icon_path[name] == nil then
+        self._item_icon_path[name] = "source_icon/item/" .. name
+    end
+    return self._item_icon_path[name]
+end
+
+function Item:LoadSpriteByCfgid(cfgid)
+    local cfg = self:GetCfg(cfgid)
+    return self:LoadSprite(cfg.itemPath)
+end
+
+function Item:LoadSprite(name)
+    local _filepath = "source_icon/item/" .. name
+    return AssetLoader:LoadSprite(_filepath)
+end
+
+function Item:SetItemIcon(trans, configid)
+    configid = tonumber(configid);
+    if trans == nil or configid == nil then
+        return
+    end
+    local cfg = self:GetCfg(configid)
+    for i = 1, trans.transform.childCount do
+        set_obj_active(trans.transform:GetChild(i - 1), false)
+    end
+    local showicon = cfg.isSpine == nil or cfg.isSpine ~= "1"
+    trans:GetComponent("Image").enabled = showicon
+    if showicon then
+        trans:GetComponent("Image").sprite = self:LoadSprite(cfg.itemPath)
+    else
+        local spine = trans.transform:Find("spine" .. cfg.itemPath)
+        if spine == nil then
+            spine = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_" .. cfg.itemPath, trans.transform)
+            spine.name = "spine" .. cfg.itemPath
+        end
+        set_obj_active(spine, true)
+    end
+end
+
+function Item:SetItemIconEx(img, cfgId)
+    local cfg = self:GetCfg(cfgId)
+
+    local trans = img.transform
+    for i = 1, trans.childCount do
+        trans:GetChild(i - 1):SetVisible(false)
+    end
+    local showicon = cfg.isSpine == nil or cfg.isSpine ~= "1"
+    img.enabled = showicon
+    if showicon then
+        img:LoadSprite(self:GetItemIconPathByName(cfg.itemPath))
+    else
+        local spine = trans:Get("spine" .. cfg.itemPath)
+        if spine == nil then
+            spine = trans:CreateChild("prefab_item_spine/spine_item_" .. cfg.itemPath)
+            spine.name = "spine" .. cfg.itemPath
+        end
+        spine:SetVisible(true)
+    end
+end
+
+function Item:AddNewPrefab(container, posx, posy, scale, name, simple)
+    local item = container:Get(name)
+    if item == nil then
+        if simple then
+            item = container:CreateChild("prefab_comframeWork/prefab_newitem")
+        else
+            item = container:CreateChild("prefab_comframeWork/prefab_newequip")
+        end
+        item.name = name
+        item:SetScale(scale, scale, scale)
+        item:SetPosition(posx, posy, 0, true)
+    end
+    return item
+end
+
+function Item:CreateSimpleItemPrefab(trans, posx, posy, scale)
+    local go = trans:CreateChild("prefab_comframeWork/prefab_item")
+    go:SetPosition(posx, posy, 0, true)
+    go:SetScale(scale, scale, scale)
+    return go
+end
+
+function Item:OnceSetSimpleItemPrefab(trans, itemId, count)
+    local cls = self:CtorSimpleItemPrefab(trans, false)
+    self:SetSimpleItemPrefab(cls, itemId, count)
+    cls:clear()
+end
+
+function Item:CtorSimpleItemPrefab(trans, click)
+    local cls = clearbase:new()
+    cls.trans   = trans
+    cls.imgBg   = trans:GetImageComponent("img_bg")
+    cls.borderCom = trans:GetImageComponent("img_border")
+    cls.imgIcon = trans:GetImageComponent("img_icon")
+    cls.txtNum  = trans:GetTextComponent("txt_num")
+    if click then
+        local btn = trans:GetComponent("Button")
+        if btn ~= nil then
+            btn:AddButtonListener(function()
+                SingletonMgr:ShowItemTipsLayer(cls.trans, Bag.TYPE_ITEM, cls.itemId, false, nil, nil, false)
+            end)
+        end
+    end
+    cls.itemId = 0
+    return cls
+end
+
+function Item:SetSimpleItemPrefab(cls, cfgid, count)
+    local cfg = self:GetCfg(cfgid)
+    if cfgid ~= cls.itemId then
+        local trans = cls.imgIcon.transform
+        for i = 1, trans.childCount do
+            trans:GetChild(i - 1):SetVisible(false)
+        end
+        local showicon = cfg.isSpine == nil or cfg.isSpine ~= "1"
+        cls.imgIcon.enabled = showicon
+        if showicon then
+            cls.imgIcon:LoadSprite(self:GetItemIconPathByName(cfg.itemPath))
+        else
+            local spine = trans:Get("spine" .. cfg.itemPath)
+            if spine == nil then
+                spine = trans:CreateChild("prefab_item_spine/spine_item_" .. cfg.itemPath)
+                spine.name = "spine" .. cfg.itemPath
+            end
+            spine:SetVisible(true)
+        end
+        Bag:SetGoodsBorderByQlty(cls, tonumber(cfg.Quality))
+        cls.itemId = cfgid
+    end
+    if cls.txtNum ~= nil then
+        cls.txtNum:SetText(count)
+    end
+end
+

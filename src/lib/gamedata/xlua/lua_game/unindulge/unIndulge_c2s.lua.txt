@@ -1,0 +1,22 @@
+--
+-- author: liangxt
+-- date  : 2020年3月19日13:42:41
+-- brief : 
+--
+UnIndulge = UnIndulge or {}
+
+function UnIndulge:GiftReq()
+    Network:CallServerScript({c2s.PLAYERINFO_GET_VERIFY_ID_CARD_AWARD_REQ})
+end
+
+function UnIndulge:GiftRes()
+    UnIndulge:GiftFireEvent()
+end
+
+function UnIndulge:GiftFireEvent()
+    self._canReward = true
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.RECV_AUTH_GIFT)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.PLAYERINFO_GET_VERIFY_ID_CARD_AWARD_RES]         = {UnIndulge, UnIndulge.GiftRes}

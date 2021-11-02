@@ -1,0 +1,372 @@
+--
+-- author: haosun
+-- date  : 2021-08-23 10:28:25
+-- brief : 
+--
+GZSDKHelper = GZSDKHelper or {}
+
+function GZSDKHelper:InitGZSDKHelper()
+    self._isBiliSDK = GameSdkMgr:IsBiliSdk()
+
+    if not self._isBiliSDK then return end
+
+    self._playerLoginData = {
+        oper        = 100,
+        func_name       = "playerLoginWithPlayerInfo",
+        role_name       = "role_name",
+        level           = "level",
+        b_account_id    = "b_account_id",
+        b_role_id       = "b_role_id",
+        b_zone_id       = "b_zone_id",
+    }
+
+    self._playerExpData = {
+        oper            = 100,
+        func_name       = "playerExpWithPlayerInfo",
+        change_type     = "level",
+        before_level    = "0"
+    }
+
+    self._goldFlowData = {
+        oper        = 100,
+        func_name   = "goldFlowWithPlayerInfo",
+        act_type    = "act_type", 
+        gold_id     = "gold_id",
+        gold_name   = "gold_name",
+        gold_type   = "gold_type", 
+        gold_num    = "gold_num",
+        before_count= "before_count",
+        after_count = "after_count",
+        reason      = "reason"
+    }
+
+    self._itemFlowData = {
+        oper        = 100,
+        func_name   = "itemFlowWithPlayerInfo",
+        act_type    = "act_type", 
+        item_id     = "item_id",
+        item_name   = "item_name",
+        item_type   = "item_type", 
+        item_num    = "item_num",
+        before_count= "before_count",
+        after_count = "after_count",
+        reason      = "reason"
+    }
+
+    self._guideFlowData = {
+        oper        = 100,
+        func_name   = "guideFlowWithPlayerInfo",
+        guide_id    = "guide_id",
+        guide_name  = "guide_name"
+    }
+
+    self._stageFlowData = {
+        oper        = 100,
+        func_name   = "stageFlowWithPlayerInfo",
+        stage_id    = "stage_id",
+        stage_type  = "单人游戏",
+        stage_result= "stage_result",
+        stage_time  = "stage_time",
+    }
+    
+    self._missionFlowData = {
+        oper            = 100,
+        func_name       = "missionFlowWithPlayerInfo",
+        mission_id      = "mission_id",
+        mission_name    = "mission_name",
+        mission_type    = "mission_type",
+        mission_status  = "mission_status",
+    }
+
+    self._cardFlowData = {
+        oper        = 100,
+        func_name   = "cardFlowWithPlayerInfo",
+        act_type    = "add",
+        card_id     = "card_id",
+        card_name   = "card_name",
+        card_type   = "card_type",
+        card_level  = "1",
+        card_rank   = "card_rank",
+        card_exp    = "0",
+        card_rarity = "card_rarity",
+        reason      = "reason",
+    }
+    
+    self._cardOpFlowData = {
+        oper        = 100,
+        func_name   = "cardOpFlowWithPlayerInfo",
+        act_type    = "act_type",
+        card_id     = "card_id",
+        card_name   = "card_name",
+        card_type   = "card_type",
+        card_level  = "1",
+        card_rank   = "card_rank",
+        card_exp    = "0",
+        card_rarity = "card_rarity",
+    }
+    
+    self._equipOpFlowData = {
+        oper        = 100,
+        func_name   = "equipOpFlowWithPlayerInfo",
+        card_id     = "card_id",
+        act_type    = "ct_type",
+    }
+
+    self._gachaData = {
+        oper        = 100,
+        func_name   = "gachaWithPlayerInfo",
+        gacha_id    = "gacha_id",
+        gacha_type  = "gacha_type",
+        gacha_mode  = "gacha_mode", -- 1:单抽 2:十抽
+        award       = {},
+        cost        = {
+            item_id     = 5533,
+            item_type   = "4",
+            count       = 10
+        }
+    }
+    self._operationalActivityData = {
+        oper        = 100,
+        func_name   = "operationalActivityWithPlayerInfo",
+        activity_id = "activity_id",
+        activity_second_id = "activity_second_id",
+        activity_name = "activity_name",
+        activity_type = "activity_type",
+        activity_status = "activity_status",
+    }
+
+    self._reportCustomEventData = {
+        oper        = 100,
+        func_name   = "reportCustomEventWithEventName",
+        eventName   = "eventName",
+        extention   = {},
+        immediately = true,
+    }
+end
+
+function GZSDKHelper:InitAfterLogin()
+    if not self._isBiliSDK then return end
+
+    local srevername = Login:GetLoginServerName()
+
+    local cp_params = { srevername = srevername }
+
+    self._playerLoginData.cp_params = cp_params
+    self._playerExpData.cp_params = cp_params
+    self._goldFlowData.cp_params = cp_params
+    self._itemFlowData.cp_params = cp_params
+    self._guideFlowData.cp_params = cp_params
+    self._stageFlowData.cp_params = cp_params
+    self._missionFlowData.cp_params = cp_params
+    self._cardFlowData.cp_params = cp_params
+    self._cardOpFlowData.cp_params = cp_params
+    self._equipOpFlowData.cp_params = cp_params
+    self._gachaData.cp_params = cp_params
+    self._operationalActivityData.cp_params = cp_params
+end
+
+function GZSDKHelper:doUpdatePlayerInfo()
+    if not self._isBiliSDK then return end
+
+    self._playerLoginData["func_name"]  = "doUpdatePlayerInfo"
+    self._playerLoginData["role_name"]  = Player:GetName()
+    self._playerLoginData["level"]      = tostring(Player:GetLevel())
+    self._playerLoginData["b_account_id"]   = tostring(Player:GetId())
+    self._playerLoginData["b_role_id"]      = tostring(Player:GetId())
+    self._playerLoginData["b_zone_id"]      = tostring(Login:GetLoginServerId())
+
+    GameSdkMgr:OnTdOper(self._playerLoginData)
+end
+
+-- 登录成功/注册成功/选择区服/创角
+function GZSDKHelper:playerLoginWithPlayerInfo()
+    if not self._isBiliSDK then return end
+
+    self:InitAfterLogin()
+
+    self._playerLoginData["func_name"]  = "playerLoginWithPlayerInfo"
+    self._playerLoginData["role_name"]  = Player:GetName()
+    self._playerLoginData["level"]      = tostring(Player:GetLevel())
+    self._playerLoginData["b_account_id"]   = tostring(Player:GetId())
+    self._playerLoginData["b_role_id"]      = tostring(Player:GetId())
+    self._playerLoginData["b_zone_id"]      = tostring(Login:GetLoginServerId())
+
+    GameSdkMgr:OnTdOper(self._playerLoginData)
+end
+
+-- 人物等级发生变更
+function GZSDKHelper:playerExpWithPlayerInfo(level)
+    if not self._isBiliSDK then return end
+
+    self:doUpdatePlayerInfo()
+
+    self._playerExpData["before_level"] = tostring(level - 1)
+
+    GameSdkMgr:OnTdOper(self._playerExpData)
+end
+
+-- 货币发生变化
+function GZSDKHelper:goldFlowWithPlayerInfo(act_type, gold_id, gold_name, gold_type, gold_num, before_count, after_count, reason)
+    if not self._isBiliSDK then return end
+
+    self._goldFlowData["act_type"]      = act_type
+    self._goldFlowData["gold_id"]       = tostring(gold_id)
+    self._goldFlowData["gold_name"]     = gold_name
+    self._goldFlowData["gold_type"]     = gold_type
+    self._goldFlowData["gold_num"]      = tostring(gold_num)
+    self._goldFlowData["before_count"]  = tostring(before_count)
+    self._goldFlowData["after_count"]   = tostring(after_count)
+    self._goldFlowData["reason"]        = reason
+
+    GameSdkMgr:OnTdOper(self._goldFlowData)
+end
+
+-- 道具发生变化
+function GZSDKHelper:itemFlowWithPlayerInfo(act_type, item_id, item_name, item_type, item_num, before_count, after_count, reason)
+    if not self._isBiliSDK then return end
+
+    self._itemFlowData["act_type"]      = act_type
+    self._itemFlowData["item_id"]       = tostring(item_id)
+    self._itemFlowData["item_name"]     = item_name
+    self._itemFlowData["item_type"]     = item_type
+    self._itemFlowData["item_num"]      = tostring(item_num)
+    self._itemFlowData["before_count"]  = tostring(before_count)
+    self._itemFlowData["after_count"]   = tostring(after_count)
+    self._itemFlowData["reason"]        = reason
+
+    GameSdkMgr:OnTdOper(self._itemFlowData)
+end
+
+-- 每通过一个步骤上报一次
+function GZSDKHelper:guideFlowWithPlayerInfo(guide_id, guide_name)
+    if not self._isBiliSDK then return end
+
+    self._guideFlowData["guide_id"]     = tostring(guide_id)
+    self._guideFlowData["guide_name"]   = guide_name
+
+    GameSdkMgr:OnTdOper(self._guideFlowData)
+end
+
+-- 关卡/副本/对局结束时触发
+function GZSDKHelper:stageFlowWithPlayerInfo(stage_id, stage_result, stage_time)
+    if not self._isBiliSDK then return end
+
+    self._stageFlowData["stage_id"]     = tostring(stage_id)
+    self._stageFlowData["stage_result"] = stage_result
+    self._stageFlowData["stage_time"]   = tostring(stage_time)
+        
+    GameSdkMgr:OnTdOper(self._stageFlowData)
+end
+
+-- 接受/完成/领取/重做任务时触发
+function GZSDKHelper:missionFlowWithPlayerInfo(mission_id, mission_name, mission_type, mission_status)
+    if not self._isBiliSDK then return end
+
+    self._missionFlowData["mission_id"]     = tostring(mission_id)
+    self._missionFlowData["mission_name"]   = mission_name
+    self._missionFlowData["mission_type"]   = Task.TASK_SUB_TYPE_NAME[mission_type] or "未定义任务类型"
+    self._missionFlowData["mission_status"] = mission_status
+
+    GameSdkMgr:OnTdOper(self._missionFlowData)
+end
+
+-- 卡牌获取/销毁时触发
+local card_rarity = {"N", "R", "SR", "SSR", "UR"}
+function GZSDKHelper:cardFlowWithPlayerInfo(card_id, reason)
+    if not self._isBiliSDK then return end
+
+    local hero = Hero:GetHero(card_id)
+    local cfg = Hero:GetCfg(card_id)
+    self._cardFlowData["card_id"]     = tostring(card_id)
+    self._cardFlowData["card_name"]   = cfg.Name
+    self._cardFlowData["card_type"]   = tostring(hero.attri_type)
+    self._cardFlowData["card_rank"]   = tostring(hero.star)
+    self._cardFlowData["card_rarity"] = card_rarity[hero.qlty]
+    self._cardFlowData["reason"]      = tostring(reason)
+
+    GameSdkMgr:OnTdOper(self._cardFlowData)
+end
+
+-- 卡牌升级强化等操作时触发
+function GZSDKHelper:cardOpFlowWithPlayerInfo(act_type, card_id)
+    if not self._isBiliSDK then return end
+
+    local hero = Hero:GetHero(card_id)
+    local cfg = Hero:GetCfg(card_id)
+
+    self._cardOpFlowData["act_type"]    = act_type
+    self._cardOpFlowData["card_id"]     = tostring(card_id)
+    self._cardOpFlowData["card_name"]   = cfg.Name
+    self._cardOpFlowData["card_type"]   = tostring(hero.attri_type)
+    self._cardOpFlowData["card_level"]  = tostring(hero.level)
+    self._cardOpFlowData["card_exp"]    = tostring(hero.exp)
+    self._cardOpFlowData["card_rank"]   = tostring(hero.star)
+    self._cardOpFlowData["card_rarity"] = card_rarity[hero.qlty]
+
+    GameSdkMgr:OnTdOper(self._cardOpFlowData)
+end
+
+-- 英雄穿戴/强化装备时触发
+function GZSDKHelper:equipOpFlowWithPlayerInfo(act_type, card_id)
+    if not self._isBiliSDK then return end
+    
+    self._cardOpFlowData["act_type"]    = act_type
+    self._cardOpFlowData["card_id"]     = tostring(card_id)
+
+    GameSdkMgr:OnTdOper(self._equipOpFlowData)
+end
+
+-- 玩家抽卡时触发
+function GZSDKHelper:gachaWithPlayerInfo(gacha_id, gacha_type, gacha_mode, award, costid, costnum)
+    if not self._isBiliSDK then return end
+
+    self._gachaData["gacha_id"]     = tostring(gacha_id)
+    self._gachaData["gacha_type"]   = tostring(gacha_type)
+    self._gachaData["gacha_mode"]   = tostring(gacha_mode)
+    for i, v in pairs(self._gachaData["award"]) do
+        self._gachaData["award"][i] = nil
+    end
+    for i, v in pairs(award) do
+        table.insert(self._gachaData["award"], {item_id = v.id, item_type = tostring(v.u_type), count = v.count})
+    end
+    
+    self._gachaData["cost"]["item_id"]  = costid
+    self._gachaData["cost"]["count"]    = costnum
+
+    GameSdkMgr:OnTdOper(self._gachaData)
+end
+
+-- 运营活动类
+function GZSDKHelper:operationalActivityWithPlayerInfo(activity_id, activity_second_id, activity_name, activity_type, activity_status)
+    if not self._isBiliSDK then return end
+
+    self._operationalActivityData["activity_id"] = tostring(activity_id)
+    self._operationalActivityData["activity_second_id"] = tostring(activity_second_id)
+    self._operationalActivityData["activity_name"] = activity_name
+    self._operationalActivityData["activity_type"] = activity_type
+    self._operationalActivityData["activity_status"] = activity_status
+
+    GameSdkMgr:OnTdOper(self._operationalActivityData)
+end
+
+-- 
+-- brief: 自定义事件
+--      eventName 事件名称
+--      extention 拓展参数
+--      immediately 是否实时上报
+-- 
+function GZSDKHelper:reportCustomEventWithEventName(eventName, extention, immediately)
+    if not self._isBiliSDK then return end
+
+    self._reportCustomEventData["eventName"] = eventName
+    for k, v in pairs(self._reportCustomEventData["extention"]) do
+        self._reportCustomEventData["extention"][k] = nil
+    end
+    for k, v in pairs(extention) do
+        self._reportCustomEventData["extention"][k] = v
+    end
+    self._reportCustomEventData["extention"] = extention
+    self._reportCustomEventData["immediately"] = immediately or true
+
+    GameSdkMgr:OnTdOper(self._reportCustomEventData)
+end

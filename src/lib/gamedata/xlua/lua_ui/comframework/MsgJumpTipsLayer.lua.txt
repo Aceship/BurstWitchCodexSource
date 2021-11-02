@@ -1,0 +1,167 @@
+
+-- define 信息类型
+-- 1 好友请求
+-- 2 聊天频道领奖
+-- 3 私聊
+
+local jumpDescTxt = {
+    [HomeLayerMsgType.FriendApply] = LanguageMgr:GetTextByID(50028),
+    [HomeLayerMsgType.ChatPrivate] = LanguageMgr:GetTextByID(50029),
+}
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MsgJumpTipsLayer = class("MsgJumpTipsLayer", CBaseLayer)
+
+function MsgJumpTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._destory = true
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_MsgJumpTipsLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function MsgJumpTipsLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    CS.UnityHelper.NotchfitY(self.layer:Get("container"))
+end
+
+function MsgJumpTipsLayer:show(types)
+    self._dataList = Player:GetHomeLayerInfoData()
+    self._cellsSelObj = {}
+    self:showLayer()
+    -- self:playAni("CommonLayerFadeInAni")
+
+    self:initInfoController()
+    self.infoController:ScrollToTop()
+    self.timeDown = 0
+end
+
+function MsgJumpTipsLayer:initObj()
+    self.infoController = UIController:CtorTableView(self.layer:Get("container/TableViewController"))
+    self.layer:GetButtonComponent("button_back"):AddButtonListener(function()
+        self:onBackClick()
+    end)
+end
+
+function MsgJumpTipsLayer:initInfoController()
+    local rows = #self._dataList
+    self.infoController:Init(rows, true, function(cell, row)
+        self:refreshUnitInfoCell(cell, row + 1)
+    end, 0.3, 0.1)
+end
+
+function MsgJumpTipsLayer:refreshUnitInfoCell(cell, row)
+    local cls = self._cellsSelObj[cell.name]
+    if cls == nil then
+        cls = self:newCellSelObj(cell)
+        cls.img_pro.fillAmount = 0
+        self._cellsSelObj[cell.name] = cls
+    end
+    self:refreshCellInfoObj(cls, row)
+end
+
+function MsgJumpTipsLayer:newCellSelObj(cell)
+    local cls    = clsbase:new(cell)
+    cls.cell = cell
+    cls.txtNum   = cell.transform:GetTextComponent("txt_num")
+    cls.txtDesc  = cell.transform:GetTextComponent("btn_jump/txt_name")
+    cls.img_pro  = cell.transform:GetImageComponent("img_pro")
+    cls.img_pro.fillAmount = 0
+    cell.transform:GetButtonComponent("btn_jump"):AddButtonListener(function()
+        -- 跳转
+        local index = cls.row
+        local data = self._dataList[index]
+        if data.itype == HomeLayerMsgType.FriendApply then
+            self._fading = true
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                self._fading = false
+                Friend:OpenFriendLayer()
+            end)
+        elseif data.itype == HomeLayerMsgType.ChatReward then
+        elseif data.itype == HomeLayerMsgType.ChatPrivate then
+            Talk:OpenTalkLayer(2)
+        end
+        self:onBackClick()
+    end)
+    cell.transform:GetButtonComponent("btn_ignore"):AddButtonListener(function()
+        -- 跳转
+        local index = cls.row
+        local data = self._dataList[index]
+        if data.itype == HomeLayerMsgType.FriendApply then
+            self._fading = true
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                self._fading = false
+                Friend:OpenFriendLayer()
+            end)
+        elseif data.itype == HomeLayerMsgType.ChatReward then
+        elseif data.itype == HomeLayerMsgType.ChatPrivate then
+            Talk:OpenTalkLayer(2)
+        end
+        self:onBackClick()
+    end)
+    return cls
+end
+
+function MsgJumpTipsLayer:refreshCellInfoObj(cls, row)
+    cls.row = row
+    local index = cls.row
+    local data = self._dataList[index]
+    cls.txtNum:SetText(data.num)
+    cls.txtDesc:SetText(jumpDescTxt[data.itype])
+end
+
+function MsgJumpTipsLayer:onUpdate(dt)
+    if not self.timeDown then
+        return
+    end
+    if not self.playcell then
+        self.playcell = self:getPlayCell()
+    end
+    self.timeDown = self.timeDown + dt
+    local rate = self.timeDown / 5
+    self.playcell.img_pro.fillAmount = rate
+    if self.timeDown >= 5 then
+        self.timeDown = nil
+        self:removePlayCell()
+        self.playcell = self:getPlayCell()
+    end
+end
+
+function MsgJumpTipsLayer:getPlayCell()
+    self.timeDown = 0
+    for k, v in pairs(self._cellsSelObj) do
+        if v.row == 1 then
+            v.img_pro.fillAmount = 0
+            return v
+        end
+    end
+end
+
+function MsgJumpTipsLayer:removePlayCell()
+    local index = self.playcell.row
+    local data = self._dataList[index]
+    Player:IgnoreHomeLayerInfo(data.itype)
+
+    self._dataList = Player:GetHomeLayerInfoData()
+    if #self._dataList == 0 then
+        self:onBackClick()
+        return
+    end
+    self.infoController:Reload(#self._dataList)
+end
+
+
+function MsgJumpTipsLayer:onBackClick()
+    self:onExit()
+end
+
+function MsgJumpTipsLayer:onExit()
+    CBaseLayer.onExit(self)
+end
+
+return MsgJumpTipsLayer
+

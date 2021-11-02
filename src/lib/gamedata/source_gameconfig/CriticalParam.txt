@@ -1,0 +1,4 @@
+id,暴击常数,暴击系数,暴击率下限,暴击率上限,暴伤常数,暴伤系数,暴伤率下限,暴伤率上限
+id,hit_param,hit_multi,hit_base,hit_max,dmg_param,dmg_multi,dmg_base,dmg_max
+int,number,number,number,number,number,number,number,number
+1,4500,1,0,0.8,4000,4,1.7,3.5

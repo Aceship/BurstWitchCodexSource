@@ -1,0 +1,264 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+Concert = Concert or {}
+
+function Concert:_LoadCfg()
+    self:_LoadOdeumCfg();
+    self:_LoadOpernCfg();
+    self:_LoadOpernAddCfg();
+    self:_LoadMusicCfg();
+    self:_LoadOpernAddTag();
+end
+
+--音乐厅
+function Concert:_LoadOdeumCfg()
+    self._odeumCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("Odeum")
+    for _, v in pairs(cfgs) do
+        v.id                = tonumber(v.id);
+        v.Icon              = v.Icon;           --图标
+        v.OpenLevel         = tonumber(v.OpenLevel);      --开放等级（玩家）
+        v.SampleRoom        = v.SampleRoom;     --展厅初始模型
+        v.Name              = tonumber(v.Concert_name)
+        self._odeumCfgs[tonumber(v.id)] = v
+    end
+end
+
+--乐谱
+function Concert:_LoadOpernCfg()
+    self._opernCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("Opern")
+    for _, v in pairs(cfgs) do
+        v.id            = v.id;
+        v.Quality       = v.Quality;                                                       --品质
+        v.Music         = v.Music;                                                         --乐曲
+        v.Compose       = lua_parse_cfg(v.Compose,true);                          --乐谱合成
+        v.Duration      = v.Duration;                                                      --演奏时长
+        v.Spirit        = v.Spirit;                                                         --体力消耗
+        v.WitchDropId   = lua_str_split(v.WitchDropId,"&",true);          --正确上阵魔女时的奖励
+        v.WitchExp      = v.WitchExp;                                                       --结算，单位时间增加的魔女经验
+        v.BaseDropId    = v.BaseDropId;                                                     --单位时间结算奖励（itemid）
+        v.EndDropId     = v.EndDropId;                                                      --完成结算奖励
+        v.MusicalPos    = lua_str_split(v.MusicalPos,"&",true);           --乐器演奏需求
+        v.ItemChange    = lua_str_split(v.ItemChange,"&",true);           --乐谱重复转化
+        v.Score         = lua_parse_cfg(v.Score,true);                            --评分
+        v.Difficulty    = v.Difficulty;                                 --难度
+        v.Icon          = v.Icon;                                       --cd图标
+        v.SortId        = tonumber(v.Sort);
+        self._opernCfgs[tonumber(v.id)] = v
+    end
+end
+
+--乐谱加成
+function Concert:_LoadOpernAddCfg()
+    self._opernAddCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("OpernAdd")
+    for _, v in pairs(cfgs) do
+        v.id                = tonumber(v.id);
+        v.NeedItems         = lua_str_split(v.RelevanceItemId,"&",true);    --加成消耗的道具
+        v.Appearance        = lua_str_split(v.Appearance,"&",true);         --魔女形象
+        v.AppearanceGift    = lua_str_split(v.AppearanceGift,"&",true);     --魔女形象奖励
+        v.ItemType          = tonumber(v.ItemType)
+        self._opernAddCfgs[tonumber(v.id)] = v
+    end
+end
+
+function Concert:_LoadMusicCfg()
+    self._musicCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("Musical")
+    for _, v in pairs(cfgs) do
+        v.id        = tonumber(v.id);
+        v.Type      = tonumber(v.Type);                 --乐器类型
+        v.Name      = Language:GetTxtBuyId(v.Name);     --乐器名称
+        v.Des       = v.Des;                            --乐器描述
+        v.itemPath  = v.itemPath;                       --图标
+        self._musicCfgs[tonumber(v.id)] = v
+    end
+end
+
+function Concert:_LoadOpernAddTag()
+    self._opernAddTagCfgs = {}
+    local cfgs = CfgLoader:LoadCfg("OpernAdd_witchtag")
+    for i, v in pairs(cfgs) do
+        v.id        = tonumber(v.id);
+        v.tagPath   = v.Icon;
+        v.name      = LanguageMgr:GetTextByID(tonumber(v.UItextid))
+        v.des       = LanguageMgr:GetTextByID(tonumber(v.UItexttips))
+        self._opernAddTagCfgs[tonumber(v.id)] = v
+    end
+end
+
+function Concert:GetAllOpernAddTags()
+    return self._opernAddTagCfgs
+end
+
+--获取指定音乐厅
+function Concert:GetOdeunByCfgId(cfgid)
+    cfgid = tonumber(cfgid);
+    if self._odeumCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find Odeum cfg, id = " .. cfgid)
+    end
+    return self._odeumCfgs[cfgid]
+end
+
+--获取指定乐谱
+function Concert:GetOpernByCfgId(cfgid)
+    cfgid = tonumber(cfgid);
+    if self._opernCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find Opern cfg, id = " .. cfgid)
+    end
+    return self._opernCfgs[cfgid]
+end
+
+--获取指定乐器
+function Concert:GetMusicalByCfgId(cfgid)
+    cfgid = tonumber(cfgid);
+    if self._musicCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find Musical cfg, id = " .. cfgid)
+    end
+    return self._musicCfgs[cfgid]
+end
+
+function Concert:GetItemAddByCfgId(cfgid)
+    cfgid = tonumber(cfgid);
+    if self._opernAddCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find OpernAdd cfg, id = " .. cfgid)
+        return nil
+    end
+    return self._opernAddCfgs[cfgid]
+end
+
+function Concert:GetAddTagByCfgId(cfgid)
+    cfgid = tonumber(cfgid);
+    if self._opernAddTagCfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find OpernAddTag cfg, id = " .. cfgid)
+        return nil
+    end
+    return self._opernAddTagCfgs[cfgid]
+end
+
+--获取加成道具类型
+function Concert:GetItemAddType(cfgid)
+    local addItem = self:GetItemAddByCfgId(cfgid)
+    return addItem.AppearanceGift[1]
+end
+
+--获取加成比率
+function Concert:GetItemAddNum(cfgid)
+    local addItem = self:GetItemAddByCfgId(cfgid)
+    local addType = addItem.AppearanceGift[1]
+end
+
+function Concert:GetMusicalByType(musicalType)
+    musicalType = tonumber(musicalType)
+    if self._musicCfgs == nil then
+        CS.Logger.LogError("can't find Musical cfg, musicalType = " .. musicalType)
+        return nil
+    end
+    return self._musicCfgs[musicalType]
+end
+
+--dropDatas 目标掉落道具，判定加成道具是否有效
+function Concert:GetItemsByType(itemType,dropDatas,heros)
+    --self.rewardDatas = Concert:GetRewardItemsByBookId(self._curBook.id)
+--    local isAdd = Concert:IsAddItemToTarget(itemAdd.id,self.rewardDatas)
+    local tmp = {}
+    for i, v in pairs(self._opernAddCfgs) do
+        local count = Item:GetCount(v.id)
+        if count > 0 then
+            if v.ItemType == itemType then
+                table.insert(tmp,v)
+            elseif itemType == 0 then
+                table.insert(tmp,v)
+            end
+        end
+    end
+    local tbl = {}
+    local result = {}
+    local sortid
+    local itemAdd
+    local addType
+    for i, v in pairs(tmp) do
+        sortid = 0
+
+        itemAdd = Concert:GetItemAddByCfgId(v.id)
+        addType = itemAdd.AppearanceGift[1]
+
+        local isAdd = false
+        local addNum = 0
+        if addType == Concert.AddType.Rate then
+            isAdd = Concert:IsAddItemToTarget(v.id,dropDatas)
+        elseif addType == Concert.AddType.DropItem  then
+            addNum = Concert:GetAddRateId(heros,itemAdd)
+        end
+
+        local sortNum = 0
+        if isAdd == true or addNum > 0 then
+            sortNum = 1
+        end
+        sortid = sortNum * 100000000 + addType * 10000000- v.id
+
+        table.insert(tbl, {id = v.id, sortid = sortid})
+    end
+
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+
+    for i, v in ipairs(tbl) do
+        table.insert(result,v)
+    end
+
+    return result
+end
+
+function Concert:GetItemAddNun(data)
+    local type = data.NeedItems[1];
+    local subType = data.NeedItems[2];
+    local add = data.NeedItems[3];
+
+
+end
+
+function Concert:GetAllItemAdd()
+    return self._opernAddCfgs;
+end
+
+--检测合成乐谱时道具消耗
+function Concert:checkBookItemCost(book)
+    local result = true
+    local costItem = book.compose
+    if costItem ~= nil then
+        for i, v in pairs(costItem) do
+            if self:checkOneItemCost(v) == false then
+                result = false
+            end
+        end
+    end
+    return result
+end
+
+
+--检测某个道具数量是否满足
+function Concert:checkOneItemCost(item)
+    local has = Item:GetCount(item[1])
+    local need = item[2]
+    if has < need then
+        return false
+    end
+    return true
+end
+
+function Concert:GetTextColor(addNum)
+    if addNum >= 0 and addNum < 100 then
+        return CS.UnityEngine.Color(235/255,235/255,235/255,1)
+    elseif addNum >= 100 and addNum < 200 then
+        return CS.UnityEngine.Color(145/255,182/255,250/255,1)
+    else
+        return CS.UnityEngine.Color(162/255,127/255,251/255,1)
+    end
+end
+
+

@@ -1,0 +1,121 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-30 10:42:17
+---
+Stats = Stats or {}
+
+function Stats:StatsCreator()
+    self:_LoadStatisticsQuestConfig()
+end
+
+function Stats:StatsDestructor()
+    for _, data in pairs(self._StatisticsQuest) do
+        data.count = 0
+        for i, v in pairs(data.TaskIds) do
+            data[i] = nil
+        end
+    end
+end
+
+function Stats:GetStatsDataById(id)
+    return self:GetStatisticsQuestConfig(id)
+end
+
+function Stats:ContactTask(id, taskid)
+    local data = self:GetStatisticsQuestConfig(id)
+    if data ~= nil then
+        table.insert(data.TaskIds, taskid)
+    end
+end
+
+function Stats:OnUpdateStateDay(week, month)
+    for _, data in pairs(self._StatisticsQuest) do
+        if data.ResetType == Stats.RESET_TYPE_DAY then
+            data.Count = 0
+            data.Inited = false
+            self:_onClearTaskRecvNumber(data)
+            self:_onUpdateTasks(data)
+        elseif data.ResetType == Stats.RESET_TYPE_WEEK then
+            if week then
+                data.Count = 0
+                data.Inited = false
+                self:_onClearTaskRecvNumber(data)
+                self:_onUpdateTasks(data)
+            end
+        elseif data.ResetType == Stats.RESET_TYPE_MONTH then
+            if month then 
+                data.Count = 0
+                data.Inited = false
+                self:_onClearTaskRecvNumber(data)
+                self:_onUpdateTasks(data)
+            end
+        end
+    end
+    -- 任务红点提示
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY)
+end
+
+function Stats:_onClearTaskRecvNumber(data)
+    for i, taskid in ipairs(data.TaskIds) do
+        Task:ClearRecvNumber(taskid)
+    end
+end
+
+function Stats:_onUpdateTasks(data)
+    for i, taskid in ipairs(data.TaskIds) do
+        Task:UpdateTask(taskid)
+    end
+end
+
+-- 
+-- brief: 客户端计算统计数值
+-- 
+function Stats:UpdateStatsCount(Type)
+    for _, data in pairs(self._StatisticsQuest) do
+        if data.Type == Type then
+            self:_onUpdateTasks(data)
+        end
+    end
+end
+
+function Stats:GetStatsValue(id)
+    local data = self:GetStatisticsQuestConfig(id)
+    if data == nil then
+        return 0
+    end
+    return data.Count
+end
+
+-- 
+-- brief：日常活跃值 ID写死处理
+-- 
+function Stats:GetDailyExpValue()
+    return self:GetStatsValue(1109801)
+end
+
+-- 
+-- brief：夜莺巡查活跃值 ID写死处理
+-- 
+function Stats:GetNightingaleExpValue()
+    return self:GetStatsValue(1400501)
+end
+
+-- 
+-- brief：第六封印积分 ID写死处理
+-- 
+function Stats:GetSixthSealTaskScore()
+    return self:GetStatsValue(1420101)
+end
+
+-- 
+-- brief：刷新时间类型统计数据
+-- 
+function Stats:UpdateStatsTimeListener(timeId)
+    local statsIds = self._allStatsTimeId[timeId]
+    if statsIds ~= nil then
+        for i, sid in ipairs(statsIds) do
+            self:_onUpdateTasks(self._StatisticsQuest[sid])
+        end
+    end    
+end

@@ -1,0 +1,124 @@
+---
+--- @Author:2144
+--- @Create Time:2021-06-10 15:58:27
+---战斗回放界面
+PlaybackLayer = PlaybackLayer or {}
+
+function PlaybackLayer:PlaybackLayerCreator()
+    self._isPlayback = PlaybackController:IsPlaybackFight()
+    if not self._isPlayback then return end
+
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/UI_PlaybackLayer");
+    self.layer:AddAnimationBehaviour(self);
+    
+    self._maxFrame = PlaybackController:GetPlaybackMaxFrame()
+    self._maxTimeStr = Lib:GetMs(self._maxFrame * 0.016)
+    self._curPlaySpeedIndex = -1;
+    AppMgr:LogInfo("----------------------------回放最大帧数 = " .. self._maxFrame)
+    self:InitUI();
+    self:SetUI();
+    self.layer:SetVisible(false);
+    self:EnterPlaybackLayer()
+    self._destory = false
+end
+
+function PlaybackLayer:EnterPlaybackLayer()
+    self._init = true;
+    self.layer:SetVisible(true);
+end
+
+function PlaybackLayer:InitUI()
+    self._imgSlider = self.layer:GetImageComponent("trans_container/img_slider");
+    self._imgSlider.fillAmount = 0
+    self._txtTimer = self.layer:GetTextComponent("trans_container/txt_timer");
+    self._txtTimer:SetText(Lib:GetMs(0 * 0.016).."/"..self._maxTimeStr)
+
+    self._playTrans = self.layer:Get("trans_container/btn_play")
+    self._playTrans:SetVisible(false)
+    self._pauseTrans = self.layer:Get("trans_container/btn_pause")
+    --按钮事件注册
+    self.layer:AddButtonListener("trans_container/btn_play", 
+        function()
+            self:onPlayClick();
+        end);
+    self.layer:AddButtonListener("trans_container/btn_pause", 
+        function()
+            self:onPauseClick();
+        end);
+    self.layer:AddButtonListener("trans_container/btn_back", 
+        function ()
+            self:OnBtnBackClick();
+        end);
+end
+
+function PlaybackLayer:SetUI()
+    local _playerData = UpLoadVideo:GetPlayerData();
+    local _player = Player:CtorPlayerIconBorder(self.layer:Get("trans_container/trans_player"));
+
+    if _playerData.id == Player:GetId() then
+        self.layer:GetTextComponent("trans_container/txt_name"):SetText(Player:GetName());
+        Player:SetPlayerIconBorderObj(_player, Player:GetHeadIcon(), Player:GetHeadBorder(), -1);
+    else
+        self.layer:GetTextComponent("trans_container/txt_name"):SetText(_playerData.name);
+        Player:SetPlayerIconBorderObj(_player, _playerData.iconid, _playerData.frameid, _playerData.id, true)
+    end
+
+    self:UpdatePlaybackLayer(0);
+
+    self.layer:GetTextComponent("trans_container/txt_play_num"):SetText(
+        UpLoadVideo:GetPlayNumStr(UpLoadVideo:GetPlayNumByPlayerId_ShenYe(_playerData.id)));
+end
+
+--设置进度UI
+function PlaybackLayer:UpdatePlaybackLayer(curFrame)
+    if not self._isPlayback then return end
+    if self._destory then return end
+    -- AppMgr:LogInfo("----------------------------当前回放帧数 = " .. curFrame)
+    self._imgSlider.fillAmount = curFrame / self._maxFrame
+    self._txtTimer:SetText(Lib:GetMs(curFrame * 0.016).."/"..self._maxTimeStr)
+end
+
+--------------------------------------------------------------Btn事件---------------------------------------------------
+--退出
+function PlaybackLayer:OnBtnBackClick()
+    self:onPauseClick()
+    UI_CommonTipsLayer:EnterCommonTipsLayer(
+        function()
+            self:onPlayClick()
+        end,
+        function()
+            self:PlaybackLayerDestructor()
+            GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+            Chapter:SetJumpChapterLevel(Chapter:GetShenYeChapterId());
+            uimgr:onMainScene()
+        end, 77000118, false)
+end
+
+------------------------------------------------------------------------------------------------------------------------
+
+function PlaybackLayer:onPlayClick()
+    self._playTrans:SetVisible(false)
+    self._pauseTrans:SetVisible(true)
+    Groble_UIMgr:GamePause(false)
+    LuaScriptController:GamePause(false)
+end
+
+function PlaybackLayer:onPauseClick()
+    self._playTrans:SetVisible(true)
+    self._pauseTrans:SetVisible(false)
+    Groble_UIMgr:GamePause(true)
+    LuaScriptController:GamePause(true)
+end
+
+function PlaybackLayer:PlaybackLayerDestructor()
+    self._destory = true
+    self._imgSlider = nil
+    self._txtTimer  = nil
+    self._playTrans = nil
+    if self.layer ~= nil then
+        self.layer:Release();
+    end
+    self.layer = nil
+    PlaybackController:SetPlayback(false)
+end
+

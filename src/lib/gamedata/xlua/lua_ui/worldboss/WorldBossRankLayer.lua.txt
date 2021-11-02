@@ -1,0 +1,325 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-12 16:38:58
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WorldBossRankLayer = class("WorldBossRankLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnRule = "trans_container/img_rule",
+	--@ButtonEnd
+}
+
+local RankPlayerScale = {CS.UnityEngine.Vector3(0.55,0.55,0.55),CS.UnityEngine.Vector3(0.43,0.43,0.43),CS.UnityEngine.Vector3(0.34,0.34,0.34),CS.UnityEngine.Vector3(0.27,0.27,0.27)}
+
+--构造函数
+function WorldBossRankLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiWorldBoss/UI_WorldBossRankLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.Null,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function WorldBossRankLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/img_rule"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_top_title"))
+end
+
+--按钮事件
+function WorldBossRankLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnRule)then 
+	   self:OnBtnRuleClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function WorldBossRankLayer:Init()
+    self._rankData = WorldBoss:GetRankData();
+    self._awardIds = WorldBoss:GetAllAwardCfgId();
+    self._rankCells = {};
+    self._awardCells = {};
+    self:InitUI();
+end
+
+--初始化UI
+function WorldBossRankLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/trans_top_title/txt_title");
+	self._txtTitleE = self.layer:GetTextComponent("trans_container/trans_top_title/txt_title_E");
+	--@TextEnd
+
+	self._transRankTvCtrl = self.layer:Get("trans_container/trans_rank_tv_ctrl");
+	self._transAwardTvCtrl = self.layer:Get("trans_container/trans_award_tv_ctrl");
+	self._transCurRank = self.layer:Get("trans_container/trans_rank_tv_ctrl/trans_cur_rank");
+	self._transCurAward = self.layer:Get("trans_container/trans_award_tv_ctrl/trans_cur_award");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objRankIsNull = self.layer:Get("trans_container/trans_rank_tv_ctrl/obj_rank_is_null").gameObject;
+	--@GameObjectEnd
+
+	self._mTogRank = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_rank");
+	self._mTogRankAward = self.layer:GetMToggleComponent("trans_container/tog_bg/tog_rank_award");
+	--@MToggleEnd
+
+	self._mTogRank.onValueChanged:AddListener(function (isOn)
+	   self:OnTogRankClick(isOn);
+   end);
+	self._mTogRankAward.onValueChanged:AddListener(function (isOn)
+	   self:OnTogRankAwardClick(isOn);
+   end);
+	--@MToggleCallBackEnd
+
+    self._curRank = self:NewRankItem(self._transCurRank);
+    local data =
+    {
+        isPlayer = true,
+        iconid = Player:GetHeadIcon(),
+        frameid = Player:GetHeadBorder(),
+        name = Player:GetName(),
+        score = self._rankData.value,
+    };
+    self:SetRankItem(self._curRank,self._rankData.ranking, data);
+
+    self._playerAward = self:NewAwardItem(self._transCurAward);
+    self._self_rank_index = WorldBoss:GetAwardIdByRank(self._rankData.ranking)
+    self:SetAwardItem(self._playerAward, self._self_rank_index, true);
+    self._mTogRank.isOn = true;
+end
+
+--显示UI
+function WorldBossRankLayer:show()
+    WorldBoss:BossHideAnim();
+    self:playAni("WorldBossRankLayerAnim");
+    self:showLayer();
+end
+
+--退出按钮事件
+function WorldBossRankLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function WorldBossRankLayer:onExit()
+
+    WorldBoss:BossShowAnim();
+    self._txtTitle = nil;
+	self._txtTitleE = nil;
+    if(self._rankTBViewCtrl ~= nil)then
+        self._rankTBViewCtrl:Clear();
+        self._rankTBViewCtrl = nil;
+    end
+    if(self._awardTBViewCtrl ~= nil)then
+        self._awardTBViewCtrl:Clear();
+        self._awardTBViewCtrl = nil;
+    end
+    self._transRankTvCtrl = nil;
+	self._transAwardTvCtrl = nil;
+	self._mTogRank = nil;
+	self._mTogRankAward = nil;
+	self._transCurRank = nil;
+	self._transCurAward = nil;
+	self._objRankIsNull = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WorldBossRankLayer:OnBtnRuleClick()
+    Groble_UIMgr:ShowRuleTipsLayer(2001)
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function WorldBossRankLayer:OnTogRankClick(isOn)
+    self._transRankTvCtrl:SetVisible(isOn);
+    if(isOn)then
+        self._txtTitle:SetTextById(704016);
+        self._txtTitleE:SetTextById(704017);
+        self._objRankIsNull:SetVisible(not (#self._rankData.rankList > 0));
+        if(self._rankTBViewCtrl == nil)then
+            self._rankTBViewCtrl = UIController:CtorTableView(self._transRankTvCtrl);
+            self._rankTBViewCtrl:InitCustomRowWidth(0,176);
+            self._rankTBViewCtrl:InitCustomRowWidth(1,161);
+            self._rankTBViewCtrl:InitCustomRowWidth(2,147);
+            self._rankTBViewCtrl:Init(#self._rankData.rankList, true,
+                    function(cell, row)
+                        self:SetRankCell(cell, row + 1)
+                    end, 0.2, 0.05)
+        else
+            self._rankTBViewCtrl:Reload(#self._rankData.rankList, true);
+            self._rankTBViewCtrl:ScrollToTop();
+        end
+    end
+end
+function WorldBossRankLayer:OnTogRankAwardClick(isOn)
+    self._transAwardTvCtrl:SetVisible(isOn);
+    if(isOn)then
+        self._txtTitle:SetTextById(704002);
+        self._txtTitleE:SetTextById(704003);
+        if(self._awardTBViewCtrl == nil)then
+            self._awardTBViewCtrl = UIController:CtorTableView(self._transAwardTvCtrl);
+            self._awardTBViewCtrl:Init(#self._awardIds, true,
+                    function(cell, row)
+                        self:SetAwardCell(cell, row + 1)
+                    end, 0.2, 0.05)
+        else
+            self._awardTBViewCtrl:Reload(#self._awardIds, true);
+            self._awardTBViewCtrl:ScrollToTop();
+        end
+    end
+ end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function WorldBossRankLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.WORLD_BOSS_UPDATE_DAY,self.__cname,function()
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(704022));
+        self._rankData = WorldBoss:GetRankData();
+        if(self._mTogRank.isOn)then
+            self:OnTogRankClick(true);
+        end
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WorldBossRankLayer:SetRankCell(cell,row)
+    local cls = self._rankCells[cell];
+    if(cls == nil)then
+        cls = self:NewRankItem(cell);
+        self._rankCells[cell] = cls;
+    end
+    self:SetRankItem(cls,row,self._rankData.rankList[row]);
+end
+
+function WorldBossRankLayer:NewRankItem(cell)
+    local cls = clsbase:new(cell);
+    cls.imgRankIcon = cls:GetImageComponent("img_rank_icon");
+    cls.txtName = cls:GetTextComponent("txt_name");
+    cls.txtGradeNum = cls:GetTextComponent("txt_grade_num");
+    cls.txtRank = cls:GetTextComponent("txt_rank");
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.player = Player:CtorPlayerIconBorder(cls:Find("prefab_player"));
+    return cls;
+end
+
+function WorldBossRankLayer:SetRankItem(cls,rank,rankData)
+    cls.data = rankData;
+    Player:SetPlayerIconBorderObj(cls.player, cls.data.iconid, cls.data.frameid,cls.data.id,true);
+    cls.txtName.text = cls.data.name;
+    cls.txtGradeNum.text = cls.data.score;
+
+    if(cls.data.isPlayer)then
+        cls.pid = -1;
+        set_com_enabled(cls.imgRankIcon,self._rankData.ranking <= 3 and self._rankData.ranking > 0);
+        set_com_enabled(cls.txtRank,self._rankData.ranking > 3 or self._rankData.ranking <= 0);
+        if(self._rankData.ranking <= 0)then
+            cls.txtRank.text = "--";
+        elseif(self._rankData.ranking <= 3)then
+            WorldBoss:SetRankIcon(cls.imgRankIcon,self._rankData.ranking);
+        else
+            if(self._rankData.ranking <= WorldBoss.MaxRankNum)then
+                cls.txtRank.text = self._rankData.ranking;
+            else
+                cls.txtRank.text = WorldBoss.MaxRankNum .. "+";
+            end
+        end
+    else
+        cls.player.pid = cls.data.id;
+        if(rank == 1)then
+            cls.player.transform.localScale = RankPlayerScale[1];
+        elseif(rank == 2)then
+            cls.player.transform.localScale = RankPlayerScale[2];
+        elseif(rank == 3)then
+            cls.player.transform.localScale = RankPlayerScale[3];
+        else
+            cls.player.transform.localScale = RankPlayerScale[4];
+        end
+        set_com_enabled(cls.imgRankIcon,rank <= 3);
+        set_com_enabled(cls.txtRank,rank > 3);
+        if(rank <= 3)then
+            WorldBoss:SetRankIcon(cls.imgRankIcon,rank);
+        else
+            cls.txtRank.text = rank;
+        end
+        set_com_enabled(cls.imgBg,rank % 2 ~= 0);
+    end
+end
+
+-------------------------------------------------------------------------------Award------------------------------------------------------------------
+
+function WorldBossRankLayer:SetAwardCell(cell,row)
+    local cls = self._awardCells[cell];
+    if(cls == nil)then
+        cls = self:NewAwardItem(cell);
+        self._awardCells[cell] = cls;
+    end
+    self:SetAwardItem(cls,row);
+end
+
+local AwardNum = 3;
+function WorldBossRankLayer:NewAwardItem(cell)
+    local cls = clsbase:new(cell);
+    cls.items = {};
+    for i = 1, AwardNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls:Find("item_bg/item_"..i));
+    end
+    cls.objItemBg = cls.transform:Find("item_bg").gameObject;
+    cls.txtRank = cls:GetTextComponent("txt_rank");
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    return cls;
+end
+
+function WorldBossRankLayer:SetAwardItem(cls,index,isPlayer)
+    if(not isPlayer)then
+        set_com_enabled(cls.imgBg,index % 2 ~= 0);
+    else
+        cls.objItemBg:SetVisible(index > 0);
+        if(index <= 0)then
+            cls.txtRank:SetTextById(704018);
+            --暂无奖励
+            return;
+        end
+    end
+    local data = WorldBoss:GetAwardCfgById(self._awardIds[index])
+    cls.txtRank.text = data.des;
+    for i, v in ipairs(cls.items) do
+        v.obj:SetVisible(data.awards[i] ~= nil);
+        if(data.awards[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(v, data.awards[i][1], data.awards[i][2], data.awards[i][3]);
+        end
+    end
+end
+
+return WorldBossRankLayer;

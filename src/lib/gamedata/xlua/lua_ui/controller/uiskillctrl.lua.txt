@@ -1,0 +1,185 @@
+--
+-- author: haosun
+-- date  : 2021-08-28 20:02:22
+-- brief : 
+--
+UISkillCtrl = class("UICostCtrl")
+
+local PS_SCALE  = {1, 1.55, 1}
+
+function UISkillCtrl:ctor(super, parent, onSkillClickCall)
+    self._onSkillClickCall = onSkillClickCall
+    self._uiskill = parent:CreateChild("prefab_witch/ui_com_skill")
+    self._uiskill.transform:SetAsFirstSibling()
+    self._clsArrSkill = {}
+    for i, slot in ipairs(Hero.SKILL_SLOT) do
+        local _item = self._uiskill:Get("skill_item_" .. i)
+        self._clsArrSkill[i] = clearbase:new()
+        self._clsArrSkill[i].trans   = _item
+        self._clsArrSkill[i].txtLv   = _item:GetTextComponent("txt_level")
+        self._clsArrSkill[i].objTips = _item:Get("img_red_tips")
+        -- click
+        _item:GetButtonComponent("button_click"):AddButtonListener(
+            function()
+                self:onClickSkill(i)
+            end)
+    end
+    self._index = -1
+    -- 技能预览
+    self._objPlayEmpty  = self._uiskill:Get("info_play/obj_empty")
+    self._objPlayRawImg = self._uiskill:Get("info_play/obj_rawImage")
+    -- 选中特效
+    self._effect_gxxiao = self._uiskill:Get("effect_gxxiao")
+    self._effectComp_gxxiao = self._effect_gxxiao:GetComponent("UIParticleScale")
+    -- 描述信息
+    self._objSkillTrans = self._uiskill:Get("skill_info")
+    self._txtSkillName  = self._objSkillTrans:GetTextComponent("txt_title")
+    self._txtSkillDesc  = self._objSkillTrans:GetTextComponent("txt_desc")
+    self._txtSkillLv    = self._objSkillTrans:GetTextComponent("txt_level")
+    self._txtSkillType  = self._objSkillTrans:GetTextComponent("txt_type")
+    self._txtSkillCd    = self._objSkillTrans:GetTextComponent("txt_cd")
+    self._txtSkillGf    = self._objSkillTrans:GetTextComponent("txt_gf")
+end
+
+function UISkillCtrl:UISkillCtrlDtor()
+    if self._clsArrSkill ~= nil then
+        for _, v in ipairs(self._clsArrSkill) do
+            v:clear()
+        end
+        self._clsArrSkill = nil
+    end
+
+    self._objPlayEmpty  = nil
+    self._objPlayRawImg = nil
+    self._effect_gxxiao = nil
+    self._effectComp_gxxiao = nil
+
+    self._objSkillTrans = nil
+    self._txtSkillName  = nil
+    self._txtSkillDesc  = nil
+    self._txtSkillLv    = nil
+    self._txtSkillType  = nil
+    self._txtSkillCd    = nil
+    self._txtSkillGf    = nil
+
+    if self._uiskill ~= nil then
+        self._uiskill:Release()
+        self._uiskill = nil
+    end
+    WitchDemoSkill:DestoryWitchDemoSkill()
+end
+
+function UISkillCtrl:InitUISkillCtrl(hero, notUpgrade, skinId)
+    self._hero = hero
+    self._notUpgrade = notUpgrade
+    for i, slot in ipairs(Hero.SKILL_SLOT) do
+        -- icon
+        local cfg = Skill:GetHeroSkillShowCfg(hero.skills[i].showid, self._hero.star)
+        self._clsArrSkill[i].trans:GetImageComponent("img_icon"):LoadSprite(cfg.icon)
+        -- level
+        self:onSetSkillLevel(i)
+        -- upgrade
+        self:onSetTips(i, hero.id)
+        -- skill cfg
+        self._clsArrSkill[i].skillcfg = Skill:GetHeroSkillCfg(hero.skills[i].cfgid, self._hero.star)
+        -- skill show cfg
+        self._clsArrSkill[i].skillShowCfg = cfg
+    end
+
+    self._playIndex = Hero.SKILL_SLOT[1]
+    WitchDemoSkill:InitWitchDemoSkill(hero.id, self._hero.star, false, skinId)
+
+    self:onClickSkill(Hero.SKILL_SLOT[1])
+end
+
+-- 
+-- brief: 刷新等级&刷新描述
+-- 
+function UISkillCtrl:UpdateUISkillCtrl()
+    self:onSetSkillLevel(self._index)
+    self:onSetSkillLvDesc()
+end
+
+function UISkillCtrl:UpdateUISkillTips(heroId)
+    for i, slot in ipairs(Hero.SKILL_SLOT) do
+        self:onSetTips(i, heroId)
+    end 
+end
+
+function UISkillCtrl:SetSkillInfoVisible(visible)
+    self._objSkillTrans:SetVisible(visible)
+    self._effect_gxxiao:SetVisible(visible)
+end
+
+function UISkillCtrl:onSetSkillLevel(index, hero)
+    self._clsArrSkill[index].txtLv:SetText(
+        string.format("<size=50>%d</size>/%d", self._hero.skills[index].level, self._hero.skills[index].maxlevel))
+end
+
+function UISkillCtrl:onSetTips(index, heroId)
+    if self._notUpgrade then
+        self._clsArrSkill[index].objTips:SetVisible(false)
+    else
+        self._clsArrSkill[index].objTips:SetVisible(Hero:HasSlotSkillLevelUp(heroId, index))        
+    end
+end
+
+function UISkillCtrl:onClickSkill(index)
+    if self._index ~= index then
+        self._index = index
+        local data = self._clsArrSkill[self._index]
+
+        self._effect_gxxiao:SetParent(data.trans)
+        self._effect_gxxiao:SetPosition(0, -2, 0, true)
+        self._effectComp_gxxiao:ResetScale(PS_SCALE[self._index])
+        self._effect_gxxiao:SetVisible(true)
+
+        self._objPlayEmpty:SetVisible(not data.skillcfg.show)
+        self._objPlayRawImg:SetVisible(data.skillcfg.show)
+
+        self:refreshSkillInfo()
+        if data.skillcfg.show then
+            if self._playIndex ~= index then
+                -- begin play        
+                self._playIndex = self._index
+                WitchDemoSkill:PlayDemo(data.skillcfg.playtype, self._playIndex)
+            end
+        else
+            self._playIndex = 0
+            WitchDemoSkill:DestoryWitchDemoSkill()
+        end
+    end
+    self._onSkillClickCall(index)
+end
+
+function UISkillCtrl:refreshSkillInfo()
+    local data = self._clsArrSkill[self._index]
+    -- 技能名称
+    self._txtSkillName:SetText(data.skillShowCfg.name)
+    -- 技能类型
+    self._txtSkillType:SetText(Skill.PLAY_TYPE_NAME[Skill.PLAY_TYPES[data.skillcfg.playtype]])
+    -- 技能消耗
+    if tonumber(data.skillcfg.gf_cost) == 0 then
+        self._txtSkillGf:SetTextById(881013)
+    else
+        self._txtSkillGf:SetText(data.skillcfg.gf_cost / 10000)
+    end
+    -- 技能冷却
+    if tonumber(data.skillcfg.playtype) ~= Skill.TYPE_KILL then
+        self._txtSkillCd:SetText("--")
+    else
+        local a,b = math.modf(data.skillcfg.playcd)
+        local cdTime = b > 0 and data.skillcfg.playcd or a
+        self._txtSkillCd:SetText(cdTime.."s")
+    end
+    self:onSetSkillLvDesc()
+end
+
+function UISkillCtrl:onSetSkillLvDesc()
+    local skill = self._hero.skills[self._index]
+    -- 技能描述
+    self._txtSkillDesc:SetText(Skill:GetSkillHurtDesc(self._hero.attrs[CAttr.TYPE_ATK],
+        skill.cfgid, skill.showid, true, skill.level, self._hero.star))
+    -- 技能等级    
+    self._txtSkillLv:SetText(string.format(LanguageMgr:GetTextByID(70000018), skill.level, skill.maxlevel))
+end

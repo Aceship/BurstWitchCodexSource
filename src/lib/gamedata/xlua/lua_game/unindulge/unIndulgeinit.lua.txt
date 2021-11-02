@@ -1,0 +1,14 @@
+--
+-- author: liangxt
+-- date  : 2020年3月19日13:50:15
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UnIndulge/unIndulge.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UnIndulge/unIndulge_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UnIndulge/unIndulge_cfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/UnIndulge/unIndulge_def.txt")
+
+
+UnIndulge:UnIndulgeCtor()
+UnIndulge:_LoadUnIndulgeCfg()

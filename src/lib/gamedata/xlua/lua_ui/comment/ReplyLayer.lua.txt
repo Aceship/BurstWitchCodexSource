@@ -1,0 +1,153 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-12 16:02:06
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ReplyLayer = class("ReplyLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnSend = "trans_container/btn_send",
+	--@ButtonEnd
+}
+--构造函数
+function ReplyLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiComment/UI_ReplyLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self._isSend = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function ReplyLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ReplyLayer:onButtonClick(itype)
+    if(self._isSend)then
+        return;
+    end
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnSend)then 
+	   self:OnBtnSendClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+end
+
+--退出按钮事件
+function ReplyLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function ReplyLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ReplyLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/trans_title/txt_title");
+	self._txtTitleE = self.layer:GetTextComponent("trans_container/trans_title/txt_title_E");
+	self._txtBtnTitle = self.layer:GetTextComponent("trans_container/btn_send/txt_btn_title");
+	self._txtBtnTitleE = self.layer:GetTextComponent("trans_container/btn_send/txt_btn_title_E");
+	self._txtInputTitle = self.layer:GetTextComponent("trans_container/input_txt/txt_input_title");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self._inputField = self.layer:Get("trans_container/input_txt"):GetComponent("InputField");
+end
+
+--显示UI
+function ReplyLayer:show(isComment)
+    self.isComment = isComment;
+    if(self.isComment)then
+        self._txtTitle:SetTextById(74000036);
+        self._txtTitleE:SetTextById(74000037);
+        self._txtBtnTitle:SetTextById(74000007);
+        self._txtBtnTitleE:SetTextById(74000008);
+        self._txtInputTitle:SetTextById(74000009);
+    else
+        self._txtTitle:SetTextById(74000014);
+        self._txtTitleE:SetTextById(74000015);
+        self._txtBtnTitle:SetTextById(74000016);
+        self._txtBtnTitleE:SetTextById(74000017);
+        self._txtInputTitle:SetTextById(74000018);
+    end
+    self:showLayer();
+end
+
+--释放
+function ReplyLayer:onExit()
+
+    self._txtTitle = nil;
+	self._txtTitleE = nil;
+	self._txtBtnTitle = nil;
+	self._txtBtnTitleE = nil;
+	self._txtInputTitle = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ReplyLayer:OnBtnReturnClick()
+    self:onPopLayer();
+ end
+function ReplyLayer:OnBtnSendClick()
+    Comment:SetSendStr(self._inputField.text);
+    if(self.isComment)then
+        Comment:AddCommentReq();
+    else
+        Comment:ReplyReq();
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ReplyLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.COMMENT_REPLY_REP,self.__cname,function ()
+        self:OnBtnReturnClick();
+    end);
+    self:addEventListener(EVENT_TYPE.COMMENT_DATA_UPDATE,self.__cname,function (newId)
+        self:OnBtnReturnClick();
+    end);
+    self:addEventListener(EVENT_TYPE.REMOVE_COMMENT,self.__cname,function (newId)
+        self:OnBtnReturnClick();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return ReplyLayer;

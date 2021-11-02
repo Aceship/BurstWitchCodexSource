@@ -1,0 +1,553 @@
+--
+-- author: haosun
+-- date  : 2019-11-04 13:40:25
+-- brief : 
+--
+GameSdkMgr = GameSdkMgr or {}
+
+local _plat     = "pc"
+local _platform = 0
+local _usesdk   = false
+local _openBang = false;
+local _width    = 0;
+local _height   = 0;
+local _testApk  = false
+local _currency = "TWD"
+local _sdkmgr   = CS.SdkMgr
+local _issue    = CS.SdkMgr.ISSUE_REGION_2144
+
+local SdkIdMgr = {
+    SDK_Pc      = 0,
+    SDK_2144    = 100,
+    SDK_2144_A  = 101,
+    SDK_IOS_2144= 102,
+    SDK_Bili    = 200,
+    SDK_Bili_UO = 900,
+    SDK_Bili_iOS= 202,
+    SDK_Bili_Tap= 203,
+    SDK_HuaWei  = 300,
+    SDK_Oppo    = 400,
+    SDK_Vivo    = 500,
+    SDK_UC      = 600,
+    SDK_XiaoMi  = 700,
+    SDK_Juren   = 800,
+}
+
+local SdkChannelName = {
+    [SdkIdMgr.SDK_Pc]       = "SDK_Pc",
+    [SdkIdMgr.SDK_2144]     = "SDK_2144",
+    [SdkIdMgr.SDK_2144_A]   = "SDK_2144_A",
+    [SdkIdMgr.SDK_IOS_2144] = "SDK_IOS_2144",
+    [SdkIdMgr.SDK_Bili]     = "SDK_Bili",
+    [SdkIdMgr.SDK_Bili_UO]  = "SDK_Bili_UO",
+    [SdkIdMgr.SDK_Bili_iOS] = "SDK_Bili_iOS",
+    [SdkIdMgr.SDK_HuaWei]   = "SDK_HuaWei",
+    [SdkIdMgr.SDK_Oppo]     = "SDK_Oppo",
+    [SdkIdMgr.SDK_Vivo]     = "SDK_Vivo",
+    [SdkIdMgr.SDK_UC]       = "SDK_UC",
+    [SdkIdMgr.SDK_XiaoMi]   = "SDK_XiaoMi",
+    [SdkIdMgr.SDK_Juren]    = "SDK_Juren",
+}
+
+function GameSdkMgr:IsIosPlat()
+    return _plat == "ios"
+end
+
+function GameSdkMgr:GetPlat()
+    return _plat
+end
+
+function GameSdkMgr:GetPlatformId()
+    return _platform
+end
+
+function GameSdkMgr:IsTestApk()
+    return _testApk
+end
+
+function GameSdkMgr:Is2144Sdk()
+    return _platform == SdkIdMgr.SDK_2144 or _platform == SdkIdMgr.SDK_2144_A or _platform == SdkIdMgr.SDK_IOS_2144
+end
+
+function GameSdkMgr:IsJurenSdk()
+    return _platform == SdkIdMgr.SDK_Juren
+end
+
+function GameSdkMgr:IsBiliSdk()
+    return _platform == SdkIdMgr.SDK_Bili or _platform == SdkIdMgr.SDK_Bili_iOS or _platform == SdkIdMgr.SDK_Bili_UO
+end
+
+function GameSdkMgr:IsHasShare()
+    return _platform == SdkIdMgr.SDK_Bili or _platform == SdkIdMgr.SDK_Bili_iOS
+end
+
+function GameSdkMgr:IsBiliUOSdk()
+    return _platform == SdkIdMgr.SDK_Bili_UO
+end
+
+function GameSdkMgr:IsHasUserProtocol()
+    return self:IsBiliSdk()
+end
+
+function GameSdkMgr:IsHasUserPrivacy()
+    return self:IsBiliSdk()
+end
+
+function GameSdkMgr:HasUserCenter()
+    return _sdkmgr.HasUserCenter()
+end
+
+function GameSdkMgr:HasPermissionExplain()
+    if GameSdkMgr:IsIssueJuren() then
+        return true
+    end
+    return false
+end
+
+local productid = {
+    [SdkIdMgr.SDK_2144]     = { [1] = "1", [2] = "2", [3] = "3", [4] = "4", [5] = "5", [6] = "6", [7] = "7", },
+    [SdkIdMgr.SDK_2144_A]   = { [1] = "1", [2] = "2", [3] = "3", [4] = "4", [5] = "5", [6] = "6", [7] = "7", },
+    [SdkIdMgr.SDK_IOS_2144] = { [1] = "1", [2] = "2", [3] = "3", [4] = "4", [5] = "5", [6] = "6", [7] = "7", },
+    [SdkIdMgr.SDK_Juren]   = {
+        [1] = "com.giantglobal.blmn.tier1",
+        [2] = "com.giantglobal.blmn.tier5",
+        [3] = "com.giantglobal.blmn.tier11",
+        [4] = "com.giantglobal.blmn.tier15",
+        [5] = "com.giantglobal.blmn.tier20",
+        [6] = "com.giantglobal.blmn.tier50",
+        [7] = "com.giantglobal.blmn.tier60",
+    },
+}
+
+local _productid_Google = {
+    [SdkIdMgr.SDK_Juren]   = {
+        [1] = "com.giantglobal.blmn.tier1",
+        [2] = "com.giantglobal.blmn.tier5",
+        [3] = "com.giantglobal.blmn.tier11",
+        [4] = "com.giantglobal.blmn.tier15",
+        [5] = "com.giantglobal.blmn.tier20",
+        [6] = "com.giantglobal.blmn.tier50",
+        [7] = "com.giantglobal.blmn.tier60",
+    },
+}
+
+local _productid_iOS = {
+    [SdkIdMgr.SDK_Juren]   = {
+        [1] = "com.giantglobal.blmn.tier1",
+        [2] = "com.giantglobal.blmn.tier5",
+        [3] = "com.giantglobal.blmn.tier11",
+        [4] = "com.giantglobal.blmn.tier15",
+        [5] = "com.giantglobal.blmn.tier20",
+        [6] = "com.giantglobal.blmn.tier50",
+        [7] = "com.giantglobal.blmn.tier60",
+    },
+    [SdkIdMgr.SDK_Bili_iOS]   = {
+        [1]  = "com.bilibili.blmn.20070001",
+        [2]  = "com.bilibili.blmn.20070002",
+        [3]  = "com.bilibili.blmn.20070003",
+        [4]  = "com.bilibili.blmn.20070005",
+        [5]  = "com.bilibili.blmn.20070006",
+        [6]  = "com.bilibili.blmn.20070007",
+        [7]  = "com.bilibili.blmn.20070010",        
+        [8]  = "com.bilibili.blmn.20070011",    -- 68血之轮回
+        [9]  = "com.bilibili.blmn.20070012",    -- 128礼包
+        [10] = "com.bilibili.blmn.20070013",    -- 30礼包
+        [11] = "com.bilibili.blmn.20070014",    -- 68礼包
+        [15] = "com.bilibili.blmn.20070015",    -- 星级礼包
+        [16] = "com.bilibili.blmn.20070016",    -- 筛子礼包
+        [17] = "com.bilibili.blmn.20070017",    -- 觉醒礼包
+        [18] = "com.bilibili.blmn.20070018",    -- 45级直升进阶礼包
+        [19] = "com.bilibili.blmn.20070019",    -- 45级直升进阶礼包
+        [20] = "com.bilibili.blmn.20070020",    -- 魔力契约礼包
+        -- [12] = "com.bilibili.blmn.20070012",
+        -- [13] = "com.bilibili.blmn.20070013",
+        -- [14] = "com.bilibili.blmn.20070014",
+        -- [15] = "com.bilibili.blmn.20070015",
+        -- [16] = "com.bilibili.blmn.20070016",
+        -- [17] = "com.bilibili.blmn.20070017",
+        -- [18] = "com.bilibili.blmn.20070018",
+        -- [19] = "com.bilibili.blmn.20070019",
+        -- [20] = "com.bilibili.blmn.20070020",
+    }
+}
+
+function GameSdkMgr:SdkProdutid(cfgid)
+    if self:IsIssueJuren() then
+        if _plat == "ios" then
+            return _productid_iOS[_platform][cfgid]
+        else            
+            return _productid_Google[_platform][cfgid]
+        end
+    else
+        if _plat == "ios" then
+            return _productid_iOS[_platform][cfgid]
+        else
+            if _platform == SdkIdMgr.SDK_2144 or _platform == SdkIdMgr.SDK_2144_A or _platform == SdkIdMgr.SDK_IOS_2144 then
+                return tostring(cfgid)
+            else
+                if productid[_platform] ~= nil then
+                    return productid[_platform][cfgid] or tostring(cfgid)
+                else
+                    return tostring(cfgid)
+                end
+            end
+        end
+    end
+end
+
+function GameSdkMgr:IsIssue2144()
+    return _issue == _sdkmgr.ISSUE_REGION_2144
+end
+
+function GameSdkMgr:IsIssueJuren()
+    return _issue == _sdkmgr.ISSUE_REGION_JUREN
+end
+
+local _init = false
+function GameSdkMgr:OnGameInit()
+    if _init then return end
+    _init       = true
+    _plat       = _sdkmgr.GetPlat()
+    _platform   = _sdkmgr.GetPlatformId()
+    _testApk    = _sdkmgr.GetTestTarget()
+    _issue      = _sdkmgr.GetIssueRegion()
+    _usesdk     = _plat ~= "pc"
+    self._ageUser = nil
+    _sdkmgr.Init(self)
+    TpsHelper:Init()
+    Network:InitLuaTable()
+    GZSDKHelper:InitGZSDKHelper()
+end
+
+function GameSdkMgr:IsUseSdk()
+    return _usesdk
+end
+
+function GameSdkMgr:Login()
+    self:PushSuperProperties()
+    if _usesdk then
+        _sdkmgr.Login()
+    end
+end
+
+function GameSdkMgr:WriteLoginType(type)
+    if _usesdk then
+        _sdkmgr.WriteLoginType(type)
+    end
+end
+
+function GameSdkMgr:Logout()
+    if _usesdk then
+        _sdkmgr.Logout()
+    end
+end
+
+function GameSdkMgr:Exit()
+    if _usesdk then
+        _sdkmgr.Exit()
+    else
+        Groble_UIMgr:ShowQuitGame(LanguageMgr:GetTextByID(1800052))
+    end
+end
+
+function GameSdkMgr:SwitchUser()
+    if _usesdk then
+        _sdkmgr.SwitchUser()
+    end
+end
+
+function GameSdkMgr:IsSwitchAcc()
+    return _sdkmgr.IsSwitchAcc()
+end
+
+function GameSdkMgr:Pay(data)
+    if _usesdk then
+        -- loading for pay rst
+        if self:IsIssueJuren() then
+            Network:ShowMask()
+        end
+        _sdkmgr.Pay(luajson.encode(data))
+    end
+end
+
+function GameSdkMgr:ShowUserCenter()
+    if _usesdk then
+        _sdkmgr.UserCenter()
+    end
+end
+
+function GameSdkMgr:ShowToolBar()
+    if _usesdk then
+        _sdkmgr.ShowToolBar()
+    end
+end
+
+function GameSdkMgr:HideToolBar()
+    if _usesdk then
+        _sdkmgr.HideToolBar()
+    end
+end
+
+function GameSdkMgr:BindUser()
+    if _usesdk then
+    end
+end
+
+function GameSdkMgr:UserAuth()
+    if _usesdk then
+    end
+end
+
+-- 
+-- brief  用户年龄（-1 未实名 0 未实名 >0 真实年龄）
+-- return age（int）
+-- 
+function GameSdkMgr:GetUserAge()
+    if _usesdk then
+        if self._ageUser == nil then
+            self._ageUser = _sdkmgr.GetUserAge()
+        end
+        return self._ageUser
+    else
+        return 18
+    end
+end
+
+GameSdkMgr.Code_Success         = 0
+GameSdkMgr.Code_PayCancel       = 1
+
+GameSdkMgr.Oper_Init            = 1
+GameSdkMgr.Oper_Login           = 2
+GameSdkMgr.Oper_Logout          = 3
+GameSdkMgr.Oper_Pay             = 4
+GameSdkMgr.Oper_UserCenter      = 5
+GameSdkMgr.Oper_UserAge         = 6
+GameSdkMgr.Oper_Exit            = 7
+GameSdkMgr.Oper_SwitchAccount   = 8
+GameSdkMgr.Oper_AccExpire       = 9
+GameSdkMgr.Oper_QuitApp         = 10
+GameSdkMgr.Oper_Share           = 11
+GameSdkMgr.Oper_ShowLogin       = 12
+GameSdkMgr.Oper_AdChannelId     = 13
+GameSdkMgr.Oper_LogoutByJava    = 14
+
+
+function GameSdkMgr:OnGameSdkCallback(oper, code, data)
+    local param = { code = code, data  = {} }
+    for k, v in pairs(data or {}) do
+        param.data[k] = v
+    end
+    CS.Logger.LogError("GameSdkMgr:OnGameSdkCallback oper: {0} code: {1}", oper, code)
+    lua_table_print(param.data)
+    if oper == GameSdkMgr.Oper_Login then
+        if code == GameSdkMgr.Code_Success then
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_LOGIN, param)
+        else
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_LOGOUT)
+        end
+    elseif oper == GameSdkMgr.Oper_Logout then
+        if code == GameSdkMgr.Code_Success then
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_LOGOUT)
+        end
+    elseif oper == GameSdkMgr.Oper_Exit then
+        NetworkGame:Logout()
+    elseif oper == GameSdkMgr.Oper_SwitchAccount then
+        if uimgr:GetSceneId() == uimgr.LOGIN_SCENE_ID then
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SDK_SWITCH_ACC)
+        else
+        end
+    elseif oper == GameSdkMgr.Oper_Pay then
+        if uimgr:GetSceneId() ~= uimgr.MAIN_SCENE_ID then
+            return
+        end
+        Network:ClearWait()
+        if code == GameSdkMgr.Code_Success then
+            --充值成功
+            Recharge:RechargeSuccess()
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG);
+        elseif code == GameSdkMgr.Code_PayCancel then
+            -- Recharge:CancelOrderReq(param.data["order"])
+            -- Groble_UIMgr:ShowGameWordTipsLayer(79000015)
+            Recharge:RechargeFailed()
+        else
+            -- 充值失败
+            Recharge:RechargeFailed()
+            Groble_UIMgr:ShowGameWordTipsLayer(79000016)
+        end
+    elseif oper == GameSdkMgr.Oper_UserAge then
+        self._ageUser = code
+    elseif oper == GameSdkMgr.Oper_UserAge then
+    elseif oper == GameSdkMgr.Oper_Share then
+        if ShareMgr.canreward then
+            Player:ShareGiftReq()
+        end
+    elseif oper == GameSdkMgr.Oper_ShowLogin then
+        GEvent:fireEvent(EVENT_TYPE.SHOW_LOGIN_QQORWX);
+    elseif oper == GameSdkMgr.Oper_AdChannelId then
+        if code == 31 then --code为31是taptap渠道
+            _platform = SdkIdMgr.SDK_Bili_Tap
+        end
+    elseif oper == GameSdkMgr.Oper_LogoutByJava then
+        Login:SetEnterLoginLayer(false)
+        Login:SetAutoLogin(false)
+        uimgr:onLoginScene();
+    end
+end
+
+GameSdkMgr.Code_NotchFit        = 1
+GameSdkMgr.Code_Currency        = 1002
+
+function GameSdkMgr:OnGameAndroidCallback(code, data)
+    local tbl = {}
+    for k, v in pairs(data or {}) do
+        tbl[k] = v
+    end
+    if code == GameSdkMgr.Code_NotchFit then
+        if next(tbl) ~= nil then
+            _openBang   = tbl["OpenBang"]
+            _height     = tbl["Height"]
+            _width      = tbl["Width"]
+        end
+    elseif code == GameSdkMgr.Code_Currency then
+        if next(tbl) ~= nil then
+            _currency = tbl["currency"]
+        end
+    end
+end
+
+function GameSdkMgr:GetCurrency()
+    if self:IsIssueJuren() then
+        return _currency
+    else
+        return "CNY"
+    end
+end
+
+function GameSdkMgr:GetBangHeight()
+    return _height
+end
+
+function GameSdkMgr:GetBangWidth()
+    return _width;
+end
+
+function GameSdkMgr:IsOpenBang()
+    return _openBang
+end
+
+function GameSdkMgr:OnTdOper(data)
+    _sdkmgr.OnTdOper(luajson.encode(data))
+end
+
+function GameSdkMgr:CopyTextToClipboard(pid)
+    _sdkmgr.CopyTextToClipboard(pid)
+end
+
+function GameSdkMgr:IsVerifyVer()
+    if self:IsTestApk() then
+        return false
+    end
+    return _sdkmgr.IsVerify
+end
+
+function GameSdkMgr:IsMustDown()
+    if GameSdkMgr:IsIosPlat() then
+        return false
+    end
+    return _sdkmgr.IsMustDown
+end
+
+function GameSdkMgr:GetDownResLevel()
+    if GameSdkMgr:IsIosPlat() then
+        return 9999999
+    end
+    return _sdkmgr.DownResLevel
+end
+
+function GameSdkMgr:ShakePhone()
+    -- _sdkmgr.Shake()
+end
+
+function GameSdkMgr:WeixinShare(path)
+    _sdkmgr.WeixinShare(path)
+end
+
+function GameSdkMgr:PushSuperProperties()
+    local pushData = {
+        channel_id = SdkChannelName[_platform]
+    }
+    ThinkingMgr:SendSuperProperties("channel", pushData)
+
+    ThinkingMgr:AddUserSet("channel_id", SdkChannelName[_platform])
+    ThinkingMgr:UserSet()
+end
+
+function GameSdkMgr:GetSDKName()
+    return SdkChannelName[_platform]
+end
+
+GameSdkMgr.TD_CreateRole       = 1
+GameSdkMgr.TD_EnterGame        = 2
+GameSdkMgr.TD_LevelUp          = 3
+GameSdkMgr.TD_Share            = 4
+GameSdkMgr.TD_ShowProtocol     = 5
+GameSdkMgr.TD_DownByLeBian     = 6
+GameSdkMgr.TD_ShowPrivacy       = 7
+GameSdkMgr.TD_GZSDK            = 100
+
+function GameSdkMgr:EnterGame()
+    local data = {
+        oper        = GameSdkMgr.TD_EnterGame,
+        roleid      = Player:GetId(),
+        rolelevel   = Player:GetLevel(),
+        rolename    = Player:GetName(),
+        serverid    = Login:GetLoginServerId(),
+        servername  = Login:GetLoginServerName(),
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+
+function GameSdkMgr:CreateGame()
+    local data = {
+        oper        = GameSdkMgr.TD_CreateRole,
+        roleid      = Player:GetId(),
+        rolelevel   = Player:GetLevel(),
+        rolename    = Player:GetName(),
+        serverid    = Login:GetLoginServerId(),
+        servername  = Login:GetLoginServerName(),
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+
+function GameSdkMgr:Share(path)
+    local data = {
+        oper        = GameSdkMgr.TD_Share,
+        path        = path,
+        type        = 3,
+        targetUrl   = "https://game.bilibili.com/blmn/"
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+
+function GameSdkMgr:ShowProtocol()
+    local data = {
+        oper        = GameSdkMgr.TD_ShowProtocol,
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+
+function GameSdkMgr:ShowPrivacy()
+    local data = {
+        oper        = GameSdkMgr.TD_ShowPrivacy,
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+
+function GameSdkMgr:DownByLeBian()
+    CS.Logger.LogError("GameSdkMgr:DownByLeBian")
+    local data = {
+        oper        = GameSdkMgr.TD_DownByLeBian,
+    }
+    GameSdkMgr:OnTdOper(data)
+end
+

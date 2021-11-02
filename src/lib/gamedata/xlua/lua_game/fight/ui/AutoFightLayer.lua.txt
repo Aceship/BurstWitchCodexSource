@@ -1,0 +1,126 @@
+--
+-- author: haosun
+-- date  : 2021-06-21 20:44:41
+-- brief : 
+--
+UI_AutoFightLayer = UI_AutoFightLayer or {}
+
+function UI_AutoFightLayer:AutoFightLayerCreator()
+    self._hasDestroyed  = false
+    self._isVisible     = false
+    self._hasAutoFight  = Chapter:IsAutoFight()
+    if not self._hasAutoFight then return end
+
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_AutoFightLayer")
+
+    self._objMiddle = self.prefab:Get("num_tips_bg")
+    self._objLeft   = self.prefab:Get("expend_item_bg")
+    self._objRight  = self.prefab:Get("autostop")
+    self._objSet = self.prefab:Get("SetBtn")
+
+    self._objMiddle:SetScale(0, 0, 0)
+    self._objMiddle:SetPositionY(2000, true)
+    self._objLeft:SetPositionX(-850, true)
+    self._objRight:SetPositionX(894, true)
+    self._objSet:SetPositionX(1124, true)
+
+    self:initAutoFightLayer()
+end
+
+function UI_AutoFightLayer:AutoFightLayerDestructor()
+    if self._hasDestroyed then return end
+
+    self._hasDestroyed  = true
+    
+    self._objMiddle = nil
+    self._objLeft   = nil
+    self._objRight  = nil
+    self._objSet = nil
+
+    if self.prefab ~= nil then
+        self.prefab:Release()
+        self.prefab = nil
+    end
+
+    self._autoData = nil
+end
+
+function UI_AutoFightLayer:initAutoFightLayer()
+    self._autoData = Chapter:GetAutoFightParamData()
+
+    if self._autoData.autoItemId ~= 0 and self._autoData.costCnt > 0 then
+        self.prefab:Get("expend_item_bg/txt_num_1"):SetPositionX(155, true)
+        self.prefab:Get("expend_item_bg/txt_num_2"):SetPositionX(155, true)
+        self.prefab:Get("expend_item_bg/txt_num_3"):SetPositionX(155, true)
+        self.prefab:Get("expend_item_bg/txt_tips"):SetPositionX(155, true)
+        local go = Item:CreateSimpleItemPrefab(self.prefab:Get("expend_item_bg"), -92, 97, 0.45)
+        Item:OnceSetSimpleItemPrefab(go, self._autoData.autoItemId, "")
+        local numStr = string.format("%d/%d", Item:GetCount(self._autoData.autoItemId), self._autoData.costCnt)
+        self.prefab:GetTextComponent("expend_item_bg/txt_item_num"):SetText(numStr)
+    else
+        self.prefab:GetTextComponent("expend_item_bg/txt_item_num"):SetText("")
+    end
+        
+    local _multipleNum   = self.prefab:GetTextComponent("expend_item_bg/txt_num_1")
+    _multipleNum.text  = string.format(LanguageMgr:GetTextByID(3009044),self._autoData.multipleValue)
+    
+    local _useCakeNum    = self.prefab:GetTextComponent("expend_item_bg/txt_num_2")
+    _useCakeNum.text   = string.format(LanguageMgr:GetTextByID(3001061),self._autoData._useCakeNum)
+    
+    local _buyPowerNum   = self.prefab:GetTextComponent("expend_item_bg/txt_num_3")
+    _buyPowerNum.text  = string.format(LanguageMgr:GetTextByID(3001062),self._autoData._buyPowerNum)
+
+    local _autoNum = self.prefab:GetTextComponent("num_tips_bg/txt_num")
+    local winNum, loserNum  = Chapter:GetAutoFightCount()
+    if self._autoData.autoCount then
+        _autoNum.text = LanguageMgr:GetTextByID(3001060)
+    else
+        _autoNum.text = string.format("%s %d/%d", LanguageMgr:GetTextByID(3001060), 
+            winNum + 1, self._autoData.maxFightNum)
+    end
+   
+    self.prefab:AddButtonListener("autostop",
+        function()
+            self:doAutoStop()
+        end)
+
+    self.prefab:AddButtonListener("SetBtn", 
+        function()
+            UIController:OpenAutoSetting()
+        end)
+end
+
+function UI_AutoFightLayer:doAutoStop()
+    Chapter:StopAutoFight(Chapter.AUTO_STOP_AUTO)
+    self._objRight:SetVisible(false)
+end
+
+--public interface --------------------------------------------------------------------------------------------------
+
+function UI_AutoFightLayer:EnterAutoFightLayer()
+    if not self._hasAutoFight or self._isVisible then return end
+
+    self._objLeft:DOLocalMoveX(-350, 0.6)
+    self._objRight:DOLocalMoveX(250, 0.6)
+    self._objSet:DOLocalMoveX(480, 0.6)
+    self._objMiddle:SetPositionY(0, true)
+    self._objMiddle:DOScale(1, 0.8):OnComplete(
+        function()
+            self._isVisible = true
+            self._objMiddle:DOScale(0, 0.5):SetDelay(1):OnComplete(function()
+                    self._objMiddle:SetPositionY(1000, true)
+                end)
+        end)
+end
+
+function UI_AutoFightLayer:ExitAutoFightLayer()
+    if not self._hasAutoFight or not self._isVisible then return end
+
+    self._objLeft:DOLocalMoveX(-850, 0.6)
+    self._objRight:DOLocalMoveX(894, 0.6)
+    self._objSet:DOLocalMoveX(1124, 0.6)
+    self._objMiddle:DOScale(0, 0.8):OnComplete(
+        function()
+            self._isVisible = false
+        end)
+end

@@ -1,0 +1,99 @@
+--
+-- author: haosun
+-- date  : 2021-06-24 14:44:44
+-- brief : 
+--
+PlaybackController = PlaybackController or {}
+
+local _ins = nil
+function PlaybackController:InitPlaybackController()
+    _ins = CS.FightPlayback.Instance
+    _ins:LuaBanding(self)
+
+    self._dataUrl = ""
+    self._herodata = {}
+    self._isPlayback = false
+
+    self._changeSkillLv = {}
+end
+
+function PlaybackController:UnInitPlaybackController()
+    _ins = nil
+end
+
+function PlaybackController:DownloadFightData(dataUrl)
+    for i, v in ipairs(self._herodata) do
+        self._herodata[i] = nil
+    end
+    self._dataUrl = string.format("http://%s",dataUrl);
+    _ins:FightDataDownloader(self._dataUrl)
+end
+
+function PlaybackController:SetPlayback(_isPlayback)
+    self._isPlayback = _isPlayback
+end
+
+function PlaybackController:IsPlaybackFight()
+    return self._isPlayback
+end
+
+function PlaybackController:StartPlaybackBattle()
+    _ins:StartPlayback()
+end
+
+function PlaybackController:ShowPlaybackEndLayer()
+    UI_CommonTipsLayer:EnterCommonTipsLayer(nil,
+        function()
+            PlaybackLayer:PlaybackLayerDestructor()
+            GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+            Chapter:SetJumpChapterLevel(Chapter:GetShenYeChapterId());
+            uimgr:onMainScene()
+        end, 77000119, true)
+end
+
+function PlaybackController:GetPlaybackMaxFrame()
+    return self._maxFrame
+end
+
+------------------------------------------------------------
+function PlaybackController:onDownloadErrorNotify(state)
+    if 0 == state then
+        -- 数据正常，开始进入战斗回放        
+    elseif 1 == state then
+        -- 当前有正在下载的适配
+        Groble_UIMgr:ShowGameWordTipsLayer(121037)
+    elseif 2 == state then
+        -- 下载视频错误
+        Groble_UIMgr:ShowGameWordTipsLayer(121036)
+    elseif 3 == state then
+        -- 数据解析异常
+        Groble_UIMgr:ShowGameWordTipsLayer(121036)
+    end
+end
+
+function PlaybackController:onHeroNotify(heroid, star, skinid)
+    table.insert(self._herodata, {heroid, star, skinid})
+end
+
+function PlaybackController:onChangeSkillNotify(gunType, changeSkillId, changeSkillLevel)
+    self._changeSkillLv[gunType] = { id = changeSkillId, level = changeSkillLevel }
+end
+
+function PlaybackController:onStarBattleNotify(levelid, maxFrame)
+    local ids = {}
+    for i, v in ipairs(self._herodata) do
+        table.insert(ids, v[1])
+    end
+    self._isPlayback = true
+    self._maxFrame = maxFrame
+    --UpLoadVideo:AddVideoPlayNumReq(self._dataUrl)
+    Chapter:SetCurFightLevelId(levelid)
+    HeroController:InitHeroController(ids, levelid, self._herodata)    
+    uimgr:onFightScene()
+end
+
+function PlaybackController:GetChangeSkllLv()
+    return self._changeSkillLv
+end
+
+PlaybackController:InitPlaybackController()

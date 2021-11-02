@@ -1,0 +1,39 @@
+--
+-- author: haosun
+-- date  : 2020-07-15 10:43:19
+-- brief : 
+--
+
+LandController = LandController or {}
+
+
+function LandController:InitLandController()
+    CS.LandControllerProxy.InitLandController();
+end
+
+function LandController:UnInitLandController()
+    CS.LandControllerProxy.UnInitLandController();
+end
+
+function LandController:LandShake(duration, shakeAmount)
+    CS.LandControllerProxy.LandShake(duration,shakeAmount);
+end
+
+------------------------------------------------------------------
+function LandController:OnEnterLand(levelid, index, isHide)
+    CS.LandControllerProxy.OnEnterLand(levelid, index, isHide);
+end
+
+function LandController:ShowLand()
+    CS.LandControllerProxy.ShowLand()
+end
+
+function LandController:LandCheck(waveindex)
+    CS.LandControllerProxy.LandCheck(waveindex);
+end
+
+function LandController:CloudEffect()
+    CS.LandControllerProxy.CloudEffect();
+    UIController:LayerFadeOut()
+end
+

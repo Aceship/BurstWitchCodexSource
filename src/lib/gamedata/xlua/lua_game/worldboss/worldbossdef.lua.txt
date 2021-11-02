@@ -1,0 +1,12 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-17 19:59:31
+---
+WorldBoss = WorldBoss or {};
+
+WorldBoss.BOSS_FEATURES_CRIT    = 1
+WorldBoss.BOSS_FEATURES_DEF     = 2
+
+WorldBoss.MaxRankNum = 5000;
+
+WorldBoss.MaxShowRank = 50;

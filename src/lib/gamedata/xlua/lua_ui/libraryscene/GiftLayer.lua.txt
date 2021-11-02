@@ -1,0 +1,804 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日16:09:07
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local GiftLayer = class("GiftLayer", CBaseLayer)
+local TxtShowCD = 3;
+local GetAwardTimeCD = 0.2;
+
+function GiftLayer:ctorCell(transform)
+    local cls = clsbase:new(transform)
+    cls._checkObj  = transform:Get("prefab_gift/image_check")
+    cls._giftObj   = Bag:CtorComSimpleGoodsUi(transform:Get("prefab_gift"))
+    cls.dark    = transform:Get("prefab_gift/image_dark")
+    cls.like    = transform:Get("prefab_gift/image_up")
+    cls:GetButtonComponent("prefab_gift/button_click"):AddButtonListener(
+        function()
+            self:onGiftClick(cls, cls.index)
+        end)
+
+    return cls
+end
+
+function GiftLayer:refreshCell(cls, data, index)
+    Fetter:SetGoodsUi(cls._giftObj, data.cfgid, data.count, data.islike)
+    cls.dark:SetVisible(data.count == 0)
+    cls.like:SetVisible(data.islike)
+    cls._checkObj:SetVisible(self._index == index)
+    cls.count = data.count
+    cls.index = index
+end
+
+function GiftLayer:onGiftClick(cls, index)
+    self:setCheckBg(self._index , index)
+    self._index = index
+    cls._checkObj:SetVisible(true)
+    self:setGift(index)
+end
+
+--选中效果
+function GiftLayer:setCheckBg(old)
+    local oldcell = self._tvController:GetCellAtRow(old-1)
+    if oldcell ~= nil then
+        oldcell.transform:Find("prefab_gift/image_check"):SetVisible(false)
+    end
+end
+
+--设置选中礼物信息
+function GiftLayer:setGift(index)
+    local item = self._gifts[index]
+    local cfg = Item:GetCfg(item.cfgid)
+    self._giftName.text = cfg.Name
+    local info = cfg.itemInfo
+    local exp = cfg.GiftExp
+    if item.islike then
+        exp = exp * 1.5
+    end
+    self._curGiveGiftNum = 0;
+    self._giftInfo.text = info..string.format(LanguageMgr:GetTextByID(31005), math.floor(exp))
+    self._giftNum.text = item.count
+end
+
+function GiftLayer:initTabelViewController()
+    self._tvController:Init(#self._gifts, false,
+        function(cell, row, play)
+            self:refreshItems(cell, row+1)
+        end, 0.3, 0.1)
+end
+
+function GiftLayer:refreshItems(cell, row)
+    local _cellObj = self._cellObj[cell.name]
+    if _cellObj == nil then
+        _cellObj = self:ctorCell(cell.transform)
+        self._cellObj[cell.name] = _cellObj
+    end
+    self:refreshCell(_cellObj, self._gifts[row], row)
+end
+
+local BUTTON_TYPE = {
+    Favour          = "SliderPanel/button_favour",           -- 好感
+    BtnAward        = "btn_award";
+}
+
+function GiftLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_GiftLayer",
+        trans = parent,
+        obj = true
+    }
+    self._cellObj   = {}
+    self._timer     = {}
+    self._tbl = {} --发送的道具
+    self._isCutHero = true;
+    self._curSendTime = 0;
+    self._curGetAwardTime = 0;
+    self._curTxtShowTime = 0;
+    self._curGiveGiftNum = 0;
+    self._curTxtChangeTime = 0;
+    self._curExpendNum = 1;
+    self._pressTime = 0;
+    self._isLvUpDo = false;
+    self:onEnter()
+end
+
+function GiftLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addUpdateDayListener()
+    self._controller = Fetter:GetLibraryLayer()
+    self._tvController = UIController:CtorTableView(self.layer:Get("ListPanel/TableViewController"))
+    self._gifts = {}
+    self._index = 1 --当前赠送的礼物
+    self._preSlider = self.layer:GetSliderComponent("SliderPanel/sliderPre")
+    self._per = self.layer:GetTextComponent("SliderPanel/text_per")
+    self._level = self.layer:GetTextComponent("SliderPanel/image_favour/text_level")
+    self._txtState = self.layer:GetTextComponent("SliderPanel/txt_state")
+    self._update = false
+    self._dt = 0
+    self._dt2 = 0
+    self._upTime = 10
+    self._giftName =  self.layer:GetTextComponent("ListPanel/info/text_name")
+    self._giftNum  =  self.layer:GetTextComponent("ListPanel/info/remain/text_remain")
+    self._giftInfo =  self.layer:GetTextComponent("ListPanel/info/text_info")
+    --特效相关
+    self._click_ef =  self.layer:Get("ui_effects/UI42_dianji")
+    self._click_ef_pc =  self.layer:GetParticleComponent("ui_effects/UI42_dianji/p_dianji/Particle_G3")
+    --经验条特效
+    self._heart_ef_pc =  self.layer:GetParticleComponent("SliderPanel/UI43_xin/p_tiao/Particle_G3")
+    self._heartup_ef_pc =  self.layer:GetParticleComponent("SliderPanel/UI43_xin_01/p_tiao/Particle_G3")
+    self._bg_ef_pc =  self.layer:GetParticleComponent("ui_effects/UI43_bj/p_bj/Particle_G3")
+    self._transAward = self.layer:Get("btn_award");
+    self._txtAwardNum = self.layer:GetTextComponent("btn_award/img_red_point/txt_award_num");
+    self._coherentGive = {};
+    self._coherentGive.transform = self.layer:Get("trans_coherent_give");
+    self._coherentGive.imgIcon = self.layer:GetImageComponent("trans_coherent_give/img_icon");
+    self._coherentGive.txtNum = self.layer:GetTextComponent("trans_coherent_give/txt_num");
+    self._coherentGive.txtAddExp = self.layer:GetTextComponent("trans_coherent_give/trans_add_exp_bg/txt_add_exp_num");
+    self._coherentGive.transform:SetVisible(false);
+    self._transMask = self.layer:Get("trans_mask");
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.GIVE_GIFT,
+            function (data)
+                self:UpdateAdventure();
+                self._transMask:SetVisible(false);
+                if((self._curAwardGetNum < self._dayMaxNum))then
+                end
+                if(Hero:GetShowGiftLvUpTips())then
+                    self:refreshData(data)
+                end
+            end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.GET_ADVENTURE_REP,
+            function (data)
+                core.require("xlua/lua_UI/LibraryScene/AdventureTipsLayer.txt"):new():show(self._hero,data)
+                self:UpdateAdventure();
+            end)
+
+    self._txtobj  = self.layer:Get("image_text")
+    self._txtCom  = self.layer:GetTextComponent("image_text/text")
+    self:AddBtnlistener()
+    self._isLvUp = false
+    self._txtVoice = self.layer:Get("image_text")
+    --
+    --延迟发送
+    self._isDelayUpdate = false
+    self._delayTime = 0.4
+    self._dtDelay = 0
+    self._curAwardGetNum = Hero:GetAdventuresData().da_num;
+    local data = Player:GetSublimation();
+    self._defTouchNum = data.adventureProbability[1];--默认触发概率
+    self._addTouchNum = data.adventureProbability[2];--递增触发概率
+    self._curTouchNum = data.adventureProbability[1] + self._addTouchNum * Hero:GetSendGiftNum();--当前触发概率
+    self._dayMaxNum = data.adventureMaxNum;
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("SliderPanel"))
+end
+
+function GiftLayer:onExit()
+    for id, v in pairs(self._timer) do
+        Timer:RemoveTimerCall(id)
+    end
+    self._timer = nil
+
+
+    self._gifts = nil
+    self._preSlider = nil
+    self._per = nil
+    self._level = nil
+    self._txtState = nil
+    
+    self._giftName = nil
+    self._giftNum  = nil
+    self._giftInfo = nil
+    --特效相关
+    self._click_ef      = nil
+    self._click_ef_pc   = nil
+    --经验条特效
+    self._heart_ef_pc   = nil
+    self._heartup_ef_pc = nil
+    self._bg_ef_pc      = nil
+    self._transAward    = nil
+    self._txtAwardNum   = nil
+
+    self._coherentGive.transform = nil
+    self._coherentGive.imgIcon = nil
+    self._coherentGive.txtNum = nil
+    self._coherentGive.txtAddExp = nil
+    self._coherentGive = nil
+    
+    self._transMask = nil
+    self._txtobj    = nil
+    self._txtCom    = nil
+    self._txtVoice  = nil
+
+    if self._cellObj ~= nil then
+        for i, v in pairs(self._cellObj) do
+            v._giftObj:clear()
+            v:clear()
+        end
+        self._cellObj = nil
+    end
+
+    Fetter:ClearGiftLayer()
+    CBaseLayer.onExit(self)
+end
+
+function GiftLayer:show()
+    self._fading =false
+    self:showLayer()
+
+end
+
+function GiftLayer:SetSelectHero(heroid)
+    self._hero = Hero:GetHero(heroid)
+    self._group = self._hero.Intimacy[1]
+    self._subType = self._hero.Intimacy[2]
+    self._curLevel = self._hero.intimacy_data.level
+    self._curExp = self._hero.intimacy_data.exp;
+    self._lastSendLv = self._curLevel;--赠送前等级,用来判断是否升级
+    self._maxlevel = tonumber(Fetter:GetFavourLevelMax(self._group))
+    self._index = 1 --当前赠送的礼物
+    self._isCutHero = true;
+    self:initData()
+    self:initGifts()
+    self:initTabelViewController()
+    self:showMaxEffect()
+end
+--初始化礼物类型排序
+function GiftLayer:initGifts()
+    local gifts = Item:GetItemsByItemType(Item.TYPE_GIFT)
+    local giftcfg = Item:GetCfgByType(Item.TYPE_GIFT)
+    self._gifts = {}
+    local item
+    local tbl
+    for k,v in pairs(giftcfg) do
+        item = Item:GetCfg(v)
+        tbl = {}
+        tbl.cfgid = v
+        tbl.sortid =  tonumber(5 - item.Quality) * tonumber(item.id)
+        if tonumber(item.subType) == tonumber(self._subType) then
+            tbl.sortid =  tbl.sortid * 100
+            tbl.islike = true
+        else
+            tbl.islike = false
+        end
+        if gifts[v] ~= nil and gifts[v].count > 0 then
+            tbl.count = gifts[v].count
+            --根据待发送集合 减少数量
+            if self._tbl[v] ~= nil then
+                --不减成负数
+                tbl.count =  math.max(0,tbl.count -  self._tbl[v])
+            end
+            if tbl.count > 0 then
+                tbl.sortid = tbl.sortid * 10000
+            end
+        else
+            tbl.count = 0
+        end
+        table.insert(self._gifts , tbl)
+    end
+    table.sort(self._gifts,function (a,b)
+        return a.sortid > b.sortid
+    end)
+    --  self:refreshGifts()
+end
+
+function GiftLayer:initData()
+    self:setExpSlider()
+    --好感
+    self._level.text = self._curLevel;
+    local isShow = Hero:GetAwardBtnShowStateByHeroId(self._hero.id);
+    self._transAward:SetVisible(isShow);
+    if(isShow)then
+        self:UpdateAdventure();
+    end
+    self._press = false;
+    local fetterdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+    self._txtState.text = fetterdata.relation
+    self._isCutHero = false;
+end
+
+function GiftLayer:refreshData(data)
+    if(data == nil)then
+        data = {};
+        data.level = self._hero.intimacy_data.level;
+        data.exp = self._hero.intimacy_data.exp;
+    end
+    self._press = false;
+    self._tbl = {}
+    --设置经验条
+    self._curLevel = data.level
+    self._curExp = data.exp
+    --设置经验条长度随百分比变化
+    self:setEffectScale()
+    --升级
+    if data.level > self._lastSendLv then
+        local oldlv = self._lastSendLv
+        self._lastSendLv = data.level;
+        self._isLvUp = true
+        self._press = false
+        self._heartup_ef_pc:Play()
+        self._bg_ef_pc:Play()
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+        Groble_SoundMgr:PlayEffectByEvent("event:/GameEffect/UIEffect/GiftLayerLua-refreshData");
+        local id = Timer:AddTimerCall(1.33,
+        function(rst)
+               self._timer[rst] = nil
+               self._txtobj:SetVisible(true)
+               self._update = true
+               self._dt = 0
+               local fetterdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+               local award = {}
+               local faward
+               for i= oldlv, data.level-1 do
+                    faward = Fetter:GetIntimacyByGroupAndLevel(self._group, i).award
+                    table.insert(award, lua_parse_cfg(faward,true))
+                end
+               award = Bag:CfgDrop2Arr(award)
+               award = Bag:TableDrops2Array(award)
+               --好感对话
+               local void = math.floor(tonumber(fetterdata.voice))
+               local dialogue = Hero:GetDiaCfgByID(void)
+               self._txtCom.text = dialogue.dialogue
+               self._curTxtShowTime = TxtShowCD;
+               CS.Logger.Log("vo is "..  void);
+               if void ~= nil then
+                    self._inst =  Groble_SoundMgr:PlayByDiaID(void);
+                end
+               self._fading = true
+               --播放特效 再显示领取物品弹窗
+               Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.GIFT_REWARD,function ()
+                    self._isLvUp = false
+                    self._fading = false
+                    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
+                    SingletonMgr:ShowGetTipsLayer(award);
+                    --刷新好感相关数据
+                    Guide:ContinueGuideEvent(self.__cname)
+                end)
+               self:reload()
+           end)
+        self._timer[id] = 1
+    else
+        --播放特效
+        self._heart_ef_pc:Play()
+    end
+    self:setExpSlider()
+    local fetterdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+    self._txtState.text = fetterdata.relation
+    self:SetPreSlider()
+    local cell = self._tvController:GetCellAtRow(self._index - 1)
+    if cell ~= nil then
+        cell.transform:Find("prefab_gift/txt_num"):GetComponent("Text").text =  self._gifts[self._index].count
+    end
+    self._giftNum.text = self._gifts[self._index].count
+    --刷新排序
+    if self._gifts[self._index].count == 0 then
+        self:initGifts()
+        if(self._gifts[self._index + 1] ~= nil)then
+            if(self._gifts[self._index + 1].count <= 0)then
+                self._index = 1
+            end
+        end
+        self:setGift(self._index)
+        self._tvController:Reload(#self._gifts)
+    end
+    self:showMaxEffect()
+end
+
+function GiftLayer:getPercent(cur,max)
+    return  string.format("%d",math.floor((cur / max) *100))
+end
+
+function GiftLayer:onButtonClick(itype)
+    if  itype == BUTTON_TYPE.Favour then
+        core.require("xlua/lua_UI/LibraryScene/FavourLevelLayer.txt"):new():show(self._hero.id,self._group)
+    elseif(itype == BUTTON_TYPE.BtnAward)then
+        Hero:ReturnGiftReq(self._hero.id);
+    end
+end
+
+function GiftLayer:DelayReFresh()
+    if(self._curLevel >= self._maxlevel)then
+        return;
+    end
+    if(self._gifts[self._index].count < self._curExpendNum)then
+        self._curExpendNum = self._gifts[self._index].count;
+    end
+    self:GiftIsMax();
+    self._curExp = self._curExp + self:CalCurExp() * self._curExpendNum
+    self._gifts[self._index].count = self._gifts[self._index].count - self._curExpendNum;
+    self._tbl[self._gifts[self._index].cfgid] = (self._tbl[self._gifts[self._index].cfgid] or 0) + self._curExpendNum
+    local isLvUp = self:SetLevelData();;
+    --刷新排序
+    if self._gifts[self._index].count == 0 then
+        self._curGiveGiftNum = 0;
+        self._pressTime = 0;
+        self._curExpendNum = 1;
+        self:initGifts()
+        if(self._gifts[self._index + 1] ~= nil)then
+            if(self._gifts[self._index + 1].count <= 0)then
+                self._index = 1
+            end
+        end
+        self:setGift(self._index)
+        self._tvController:Reload(#self._gifts)
+        if(self._index == 1)then
+            self._tvController:ScrollToRow(self._index - 1)
+        end
+    end
+    --设置经验条长度随百分比变化
+    self:setEffectScale()
+
+    self._heart_ef_pc:Play()
+    self:setExpSlider(isLvUp)
+    if(self._curTxtChangeTime <= 0)then
+        self._txtobj:SetVisible(true);
+        local des = "";
+        if(self._gifts[self._index].islike)then
+            local ids = lua_str_split(self._hero.config.PreferencesDialogue01,"&",true);
+            local index = math.random(1,#ids);
+            des = Language:GetTxtBuyId(ids[index]);
+        else
+            des = Language:GetTxtBuyId(self._hero.config.PreferencesDialogue02);
+        end
+        self._txtCom.text = des;
+        self._curTxtChangeTime = TxtShowCD;
+    end
+    --刷新input框数量
+    self:SetPreSlider()
+    local cell = self._tvController:GetCellAtRow(self._index - 1)
+    if cell ~= nil then
+        cell.transform:Find("prefab_gift/txt_num"):GetComponent("Text").text =  self._gifts[self._index].count
+    end
+    self._giftNum.text = self._gifts[self._index].count
+    self._curGiveGiftNum = self._curGiveGiftNum + self._curExpendNum;
+    self:SetCoherentGiveUI(true);
+    self:showMaxEffect()
+end
+
+function GiftLayer:SetLevelData()
+    local isLvUp = false;
+    local expdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+    if expdata ~= nil and tonumber(expdata.exp) > 0 and self._curExp >= tonumber(expdata.exp) then
+        self._curLevel = math.min(self._curLevel + 1, self._maxlevel)
+        self._curExp = self._curExp - tonumber(expdata.exp);
+        self:SetLevelData();
+        isLvUp = true;
+    end
+    return isLvUp;
+end
+
+function GiftLayer:levelUp()
+    local data = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+    self._update = true
+    self._dt = 0
+    self._txtVoice:SetVisible(true)
+    --播放特效 再显示领取物品弹窗
+    Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.GIFT_REWARD,function ()
+        SingletonMgr:ShowGetTipsLayer(lua_parse_cfg(data.award))
+    end)
+end
+
+function GiftLayer:onPerSecondUpdate()
+    if(self._curTxtChangeTime > 0)then
+        self._curTxtChangeTime = self._curTxtChangeTime - 1;
+    end
+    if(self._curTxtShowTime >= 0)then
+        self._curTxtShowTime = self._curTxtShowTime - 1;
+        if(self._curTxtShowTime == 0 and not self._press)then
+            self._txtobj:SetVisible(false);
+            self:SetCoherentGiveUI(false);
+        end
+    end
+    if  self._update then
+        self._dt = self._dt + 1
+        if self._dt >= self._upTime then
+            self._update = false
+            self._dt = 0
+            self._txtVoice:SetVisible(false)
+        end
+    end
+end
+
+function GiftLayer:setEffectScale()
+    if(self._curLevel >= self._maxlevel)then
+        return;
+    end
+    local expdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+    local per = self:getPercent(self._curExp , expdata.exp)
+    if self._curLevel < self._hero.intimacy_data.level then
+        per = 100
+    end
+end
+--设置满级特效
+function GiftLayer:showMaxEffect()
+    if self._curLevel == self._maxlevel then
+        self._controller:showMaxEffect(true)
+    else
+        self._controller:showMaxEffect(false)
+    end
+end
+--设置经验条
+function GiftLayer:setExpSlider(isLvUp)
+    --满级经验条填满
+    if self._curLevel >= self._maxlevel then
+        self._preSlider.value = 1
+        self._preSlider.maxValue = 1
+        self._per.text = "MAX"
+        self._level.text = self._curLevel;
+    else
+        local expdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+        if(isLvUp)then
+            self._isLvUpDo = true;
+            self._preSlider:DOValue(self._preSlider.maxValue,0.2):OnComplete(function()
+                self._preSlider.maxValue = expdata.exp
+                self._preSlider.value = 0
+                self._isLvUpDo = false;
+                self._preSlider:DOValue(self._curExp,0.2):OnComplete(function()
+                    self._level.text = self._curLevel;
+                end );
+            end)
+        elseif(self._isCutHero)then
+            self._preSlider.maxValue = expdata.exp
+            self._preSlider.value = self._curExp;
+        else
+            if(not self._isLvUpDo)then
+                self._preSlider.maxValue = expdata.exp
+                self._preSlider:DOValue(self._curExp,0.2);
+            end
+        end
+        self._per.text = string.format("%s/%s",math.ceil(self._curExp), math.ceil(expdata.exp));
+    end
+end
+
+function GiftLayer:reload()
+    if self._gifts[self._index].count > 0 then
+        return
+    end
+    local cid = self._gifts[self._index].cfgid
+    local cindex = 1
+    self:initGifts()
+    self._tvController:Reload(#self._gifts)
+    for k,v in pairs(self._gifts) do
+        if v.cfgid == cid then
+            cindex = k
+        end
+    end
+    local cell = self._tvController:GetCellAtRow(cindex -1)
+    if cell ~= nil then
+        self:onGiftClick(self._cellObj[cell.name], cindex )
+    end
+end
+
+function GiftLayer:onUpdate(dt)
+    if self._isLvUp then
+        return;
+    end
+    if self._press then
+        if(self._gifts[self._index].count < 1)then
+            return;
+        end
+        self._isDelayUpdate = true;
+        self._pressTime = self._pressTime + dt
+        if  self._pressTime > 1 and self._pressTime < 2 then
+            self._curExpendNum = 2
+        elseif self._pressTime >= 2 and self._pressTime < 3 then
+            self._curExpendNum = 5
+        elseif self._pressTime > 3 and self._pressTime < 4 then
+            self._curExpendNum = 7
+        elseif self._pressTime >= 4 then
+            self._curExpendNum = 10
+        end
+        if((self._curAwardGetNum < self._dayMaxNum))then
+            if(self._curGetAwardTime >= GetAwardTimeCD)then
+                --奖励次数小于固定值,检测是否触发奖励,触发立即发送数据
+                self:GetAwardIsTouch()
+                self._curGetAwardTime = 0;
+            else
+                self._curGetAwardTime = self._curGetAwardTime + dt;
+            end
+        else
+            if(self._curGetAwardTime >= GetAwardTimeCD)then
+                if(self._pressTime >= 0.3)then
+                    self:GetAwardIsTouch()
+                    self._curGetAwardTime = 0;
+                end
+            else
+                self._curGetAwardTime = self._curGetAwardTime + dt;
+            end
+        end
+    else
+        self._pressTime = 0
+        self._curExpendNum = 1
+        if(self._isDelayUpdate)then
+            if(self._curSendTime >= self._delayTime)then
+                self._curSendTime = 0;
+                if(lua_table_len(self._tbl) <= 0)then
+                    if(not Hero:GetShowGiftLvUpTips())then
+                        self:refreshData();
+                    end
+                else
+                    self:DelayReq();
+                end
+            else
+                self._curSendTime = self._curSendTime + dt;
+            end
+        end
+    end
+end
+
+function GiftLayer:AddBtnlistener()
+
+    local listener = CS.EventTriggerListener.Get(self.layer:Get("ListPanel/info/button_gift").gameObject)
+    listener.onDown = function()
+        self._press = true
+        self._curGetAwardTime = 0;
+    end
+    listener.onUp = function()
+        self._curExpendNum = 1;
+        self._press = false;
+        if self._isLvUp == true then
+            return
+        end
+        --满级
+        if self._maxlevel == self._curLevel then
+            Groble_UIMgr:ShowGameWordTipsLayer(31222)
+            return
+        end
+        local item = self._gifts[self._index]
+        if item.count < 1 then
+            Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,item.cfgid);
+            return
+        end
+        self._click_ef_pc:Play()
+        self._curTxtShowTime = TxtShowCD;
+        if(lua_table_len(self._tbl) > 0)then
+            self._transMask:SetVisible(true);
+        end
+        if(self:GetAwardIsTouch())then
+            --不升级 则延迟合批发送
+            self._isDelayUpdate = true
+            self._dtDelay = 0
+            self._curSendTime = 0;
+        end
+    end
+
+end
+
+function GiftLayer:SetPreSlider()
+    if self._curLevel == self._maxlevel then
+        return
+    end
+    local exp = self:CalCurExp() * self._curExpendNum
+    local preLv = Fetter:GetCurExpLv(self._group, self._curLevel , self._curExp, exp * 1,self._maxlevel)
+    if preLv > self._curLevel then
+        --self._level.text = preLv
+        local fetterdata = Fetter:GetIntimacyByGroupAndLevel(self._group, preLv)
+        self._txtState.text = fetterdata.relation
+        self._heart_ef_pc:Play()
+    else
+        --self._level.text = self._curLevel
+        local fetterdata = Fetter:GetIntimacyByGroupAndLevel(self._group, self._curLevel)
+        self._txtState.text = fetterdata.relation
+    end
+end
+
+--赠送礼物到魔女好感最大级时判断
+function GiftLayer:GiftIsMax()
+    local curExp = Fetter:GetCurLvExp(self._group, self._curLevel , self._curExp)
+    local maxExp = Fetter:GetCurLvExp(self._group, self._maxlevel , 0)
+    local addExp = self:CalCurExp() * self._curExpendNum
+    if curExp + addExp < maxExp then
+        return false
+    else
+        local num = math.floor((maxExp - curExp)/self:CalCurExp())
+        if(num > 0)then
+            self._curExpendNum = self._curExpendNum - num;
+        end
+        Groble_UIMgr:ShowGameWordTipsLayer(31223)
+        return true
+    end
+end
+-- 判断当次是否升级
+function GiftLayer:CanLvUp()
+    local curExp = Fetter:GetCurLvExp(self._group, self._curLevel , self._curExp)
+    local nexExp = Fetter:GetCurLvExp(self._group, self._curLevel +1 , 0)
+    local addExp = self:CalCurExp() * 1
+    if addExp >= (nexExp - curExp) then
+        return true
+    else
+        return false
+    end
+end
+
+
+--计算当前选中礼物能提供的经验
+function GiftLayer:CalCurExp()
+    local item = self._gifts[self._index]
+    local cfg = Item:GetCfg(item.cfgid)
+    local exp = tonumber(cfg.GiftExp)
+    if item.islike then
+        exp = math.floor(exp * 1.5)
+    end
+    return exp
+end
+
+function GiftLayer:HideAnim()
+    self._press = false;
+    if self._isDelayUpdate then
+        --关闭界面直接发送请求
+        self:DelayReq()
+    end
+    self:playAni("GiftLayerFadeOut")
+    self:initData()
+    self._txtobj:SetVisible(false)
+    self:SetCoherentGiveUI(false);
+end
+
+function GiftLayer:ShowAnim()
+    self:playAni("GiftLayerFadeIn")
+    self._index = 1
+    self:setGift(self._index)
+    self._tvController:Reload(#self._gifts)
+    self._tvController:ScrollToRow(self._index - 1)
+end
+
+function GiftLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+--延迟请求
+function GiftLayer:DelayReq(touchAward)
+    if(lua_table_len(self._tbl) <= 0)then
+        return;
+    end
+    self._isDelayUpdate = false
+    self._dtDelay = 0
+    Hero:GiftReq(self._hero.id, self._tbl,touchAward)
+    self._tbl = {}
+end
+
+function GiftLayer:GetAwardIsTouch()
+    self:DelayReFresh()
+    local isMax = true;
+    if(self._curAwardGetNum < self._dayMaxNum)then--奖励触发在范围内,判断触发
+        local temp = math.random(1,100);
+        if(temp <= self._curTouchNum)then--触发奖励,奖励次数累计,当前触发概率调整为默认值
+            isMax = false;
+       		self._curTouchNum = self._defTouchNum;
+            self:DelayReq(true);
+        else
+            --递增触发概率
+            self._curTouchNum = self._curTouchNum + self._addTouchNum;
+        end
+        -- print("self._curTouchNum = "..self._curTouchNum)
+    end
+    return isMax;
+end
+
+function GiftLayer:UpdateAdventure()
+    local isShow,num = Hero:GetAwardBtnShowStateByHeroId(self._hero.id);
+    self._transAward:SetVisible(isShow);
+    if(isShow)then
+        self._txtAwardNum:SetText(num);
+        self._curAwardGetNum = Hero:GetAdventuresData().da_num;
+    end
+end
+
+function GiftLayer:SetCoherentGiveUI(isShow)
+    self._coherentGive.transform:SetVisible(isShow);
+    if(isShow)then
+        local item = Item:GetCfg(self._gifts[self._index].cfgid);
+        self._coherentGive.imgIcon:LoadSprite("source_icon/item/"..item.itemPath);
+        self._coherentGive.txtNum:SetText("x"..self._curGiveGiftNum);
+        self._coherentGive.txtAddExp:SetText(string.format(LanguageMgr:GetTextByID(31034),self:CalCurExp()));
+    end
+end
+
+function GiftLayer:onUpdateDay()
+    self._curAwardGetNum = 0;
+    self:UpdateAdventure();
+end
+
+return GiftLayer
+

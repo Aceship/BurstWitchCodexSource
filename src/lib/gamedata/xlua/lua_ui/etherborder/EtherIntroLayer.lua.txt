@@ -1,0 +1,200 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-22 16:16:13
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherIntroLayer = class("EtherIntroLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBack = "trans_container/btn_back",
+	--@ButtonEnd
+}
+--构造函数
+function EtherIntroLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherIntroLayer",
+    }
+    self._fading = false;
+    self._uitype = 2;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherIntroLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherIntroLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBack)then 
+	   self:OnBtnBackClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+    --RemoveEnd
+end
+
+--退出按钮事件
+function EtherIntroLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function EtherIntroLayer:Init()
+    self._curAffixType = Ether:GetCurAffixType();
+    self._curAffixs = Ether:GetCurAffixDataByType(self._curAffixType);
+    self:InitUI();
+end
+
+--初始化UI
+function EtherIntroLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtTopTitle = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title");
+	self._txtTopTitleE = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title_E");
+	--@TextEnd
+
+	self._transAffixTableView = self.layer:Get("trans_container/trans_affix_table_view");
+	self._transTogContent = self.layer:Get("trans_container/trans_tog_bg/view_port/trans_tog_content");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objTogItem = self.layer:Get("trans_container/item_hide/obj_tog_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._txtTopTitle:SetTextById(7030280 + self._curAffixType);
+    self._txtTopTitleE:SetTextById(7030510 + self._curAffixType);
+    self:SetTog();
+    self._togs[1].tog.isOn = true;
+end
+
+--显示UI
+function EtherIntroLayer:show()
+    self:showLayer();
+end
+
+--释放
+function EtherIntroLayer:onExit()
+
+    self._txtTopTitle = nil;
+	self._txtTopTitleE = nil;
+	self._transAffixTableView = nil;
+    if(self._affixTBCtrl ~= nil)then
+        self._affixTBCtrl:Clear()
+        self._affixTBCtrl = nil
+    end
+	self._transTogContent = nil;
+	self._objTogItem = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherIntroLayer:OnBtnBackClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherIntroLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherIntroLayer:SetTog()
+    self._togs = {};
+    for i, v in ipairs(self._curAffixs) do
+        self._togs[i] = self:SetTogCell(CS.UnityEngine.GameObject.Instantiate(self._objTogItem,self._transTogContent),v.id);
+    end
+end
+
+function EtherIntroLayer:SetTogCell(trans,id)
+    local cfg = Ether:GetAffixCfgById(id);
+    local cls = clsbase:new(trans);
+    cls.data = cfg;
+    cls.select = {
+    txtTitle = cls:GetTextComponent("select/txt_title"),
+    txtTitleE = cls:GetTextComponent("select/txt_title_E"),
+    };
+    cls.unSelect = {
+    txtTitle = cls:GetTextComponent("unselect/txt_title"),
+    txtTitleE = cls:GetTextComponent("unselect/txt_title_E"),
+    };
+    cls.tog = cls.transform:GetComponent("MToggle");
+    cls.tog.onValueChanged:AddListener(function (isOn)
+        if(isOn)then
+            self:SetAffixTableView(cls.data);
+        end
+    end);
+    cls.select.txtTitle.text = cfg.name;
+    cls.select.txtTitleE.text = cfg.name_E;
+    cls.unSelect.txtTitle.text = cfg.name;
+    cls.unSelect.txtTitleE.text = cfg.name_E;
+    return cls;
+end
+
+
+function EtherIntroLayer:SetAffixTableView(affix)
+    local num = #affix.affixLvs;
+    self._selectAffix = affix;
+    if(self._affixTBCtrl == nil)then
+        self._addixCell = {};
+        self._affixTBCtrl = UIController:CtorTableView(self._transAffixTableView)
+        self._affixTBCtrl:Init(num, true,
+                function(cell, row)
+                    self:SetAffixCell(cell,row + 1)
+                end, 0.1, 0.03)
+    else
+        self._affixTBCtrl:Reload(num,true)
+        self._affixTBCtrl:ScrollToTop()
+    end
+end
+
+function EtherIntroLayer:SetAffixCell(cell,row)
+    local cls = self._addixCell[cell];
+    if(cls == nil)then
+        cls = clsbase:new(cell);
+        cls.txtName = cls:GetTextComponent("txt_name");
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.txtIndex = cls:GetTextComponent("txt_index");
+        cls.txtDes = cls:GetTextComponent("txt_des");
+        cls.txtLv = cls:GetTextComponent("txt_lv");
+        self._addixCell[cell] = cls;
+    end
+    local lv = self._selectAffix.affixLvs[row];
+    cls.txtName.text = self._selectAffix.name;
+    Ether:SetAffixImage(cls.imgIcon,self._selectAffix.icon);
+    cls.txtIndex.text = row;
+    -- 临时修改后续待优化 2021/1/27 by sunhao
+    if self._selectAffix.attrType == 18 or self._selectAffix.attrType == 23 or self._selectAffix.attrType == 24 then
+        cls.txtDes.text = self._selectAffix.des
+    else
+        local str = string.format("<color=#E1503CFF>%s%%</color>",self._selectAffix.affixValues[row]);
+        cls.txtDes.text = string.format(self._selectAffix.des,str);
+    end
+    if(self._curAffixType == Ether.Affix_Support)then
+        cls.txtLv.text = LanguageMgr:GetTextByID(703054)..lv;
+    else
+        cls.txtLv.text = LanguageMgr:GetTextByID(703052)..lv;
+    end
+end
+
+return EtherIntroLayer;

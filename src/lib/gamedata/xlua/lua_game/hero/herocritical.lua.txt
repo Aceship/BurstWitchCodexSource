@@ -1,0 +1,42 @@
+Hero = Hero or {}
+
+function Hero:InitCriticalParam()
+    local critCfg = CfgLoader:LoadCfgTable("CriticalParam")["1"]
+
+    for k, v in pairs(critCfg) do
+        critCfg[k] = tonumber(v)
+    end
+
+    self._critCfg = critCfg
+end
+
+function Hero:CalcHitValue(hero)
+    local cfg = self._critCfg
+    local critValue = hero.attrs[CAttr.TYPE_HIT]
+    local critRate = hero.attrs[CAttr.TYPE_HIT_RATE]
+
+    local param = critValue / (critValue + cfg.hit_param)
+    local value = math.min(cfg.hit_max, cfg.hit_base + param * cfg.hit_multi + critRate)
+
+    return value
+end
+
+function Hero:CalcDmgValue(hero)
+    local cfg = self._critCfg
+    local dmgValue = hero.attrs[CAttr.TYPE_DMG]
+    local dmgRate = hero.attrs[CAttr.TYPE_DMG_RATE]
+
+    local param = dmgValue / (dmgValue + cfg.dmg_param)
+    local value = math.min(cfg.dmg_max, cfg.dmg_base + param * cfg.dmg_multi + dmgRate)
+
+    return value
+end
+--获取最大暴击上限
+function Hero:GetCritvalue()
+    return self._critCfg.hit_max
+end
+--获取最大暴击倍率上限
+function Hero:GetCritrate()
+    return self._critCfg.dmg_max
+end
+

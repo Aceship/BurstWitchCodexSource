@@ -1,0 +1,426 @@
+--
+-- author: haosun
+-- date  : 2019-10-25 10:49:05
+-- brief : 全局服IP、PORT、COUNT
+-- 
+
+Network = Network or {}
+
+local _instance = CS.Network.NetworkBehaviour.Instance
+local _timerids = {}
+
+function Network:InitLuaTable()
+    _instance:InitLuaTable(self)
+    self._loginReq = false
+    self._accUnActivity = false;
+
+    self._isNotHandleNotify = false
+end
+
+function Network:ResetSyncNotify()
+    self._isNotHandleNotify = false
+end
+
+function Network:SetSyncNotifyTrue()
+    self._isNotHandleNotify = true
+end
+
+function Network:IsNotHandleNotify()
+    return self._isNotHandleNotify
+end
+
+function Network:LoginAccountHttpNew(account, token, zoneid, platform, action)
+    if self._loginReq then
+        return
+    end
+    Network:CloseHttpId();
+    self._loginReq = true
+    local ip, port = Login:GetLoginIpPort(zoneid)
+    local sendData =
+    {
+        zone = zoneid,
+        platform = platform,
+        account = account,
+        password = token,
+    }
+    AppMgr:LogInfo(string.format("================登录服链接请求================\n %s %d", ip, port))
+    local sendByte = ProtoMgr:Encode(ProtoMgr.LoginReq, sendData);
+    self:HttpSend(ip, port, Http.LOGIN_REQ, sendByte, action)
+end
+
+function Network:ActivityAccount(ip,port,msg,bytes,action)
+    if self._loginReq then
+        return
+    end
+    self._loginReq = true
+    AppMgr:LogInfo(string.format("================激活码验证请求================\n %s %d", ip, port))
+    self:HttpSend(ip,port, Http.LOGIN_ACTIVATE_REQ, bytes,action);
+end
+
+function Network:GameLogin(zoneid, action)
+    self._c2s   = {}
+    local ip, port = Login:GetGameIpPort(zoneid)
+    _instance:GameLogin(ip, port, action, self._token.accid, self._token.accname, zoneid, 
+        self._token.platform, self._token.expirytime, self._token.signature,self._token.state)
+    ThinkingMgr:SendTrack("login_account",{
+        login_account = Login:GetUserUid()
+    })
+end
+
+function Network:ChatServerLogin(zoneid)
+    local chatIp, chatPort = Login:GetChatIpPort(zoneid)
+    _instance:SetChatInfo(chatIp, chatPort)
+end
+
+function Network:LineUp()
+    _instance:LineUp()
+end
+
+function Network:LogoutAccount()
+    self._c2s   = {}
+    _instance:LogoutAccount()
+end
+
+function Network:CallServerScript(param, loading)
+    if self._c2s[param[1]] ~= nil then
+        if os.time() - self._c2s[param[1]] < 5 then
+            AppMgr:LogWarning("-----------------------------------------unprocessed msg id:" .. param[1])
+            return
+        end
+    end
+    AppMgr:LogInfo("-----------------------------------------send msg id:" .. param[1])
+    if param[1] > 10 then
+        self:ShowMask()
+    end
+    self._c2s[param[1]] = os.time()
+    _instance:CallServerScript(g_msgpack.encode(param))
+end
+
+function Network:TryReConnect()
+    _instance:TryReConnect()
+end
+
+function Network:SendHttp(ip, port, messageId, bytes, action, catchError, timeout, method, contentType)
+    local token = Network:GetLoginToken();
+    local sendData = {
+        token = {
+            signature = token.signature,
+            accid = token.accid,
+            zone = token.zone,
+            platform = token.platform,
+            expirytime = token.expirytime,
+            accname = token.accname,
+            state = token.state,
+        },
+        buff = bytes,
+    }
+    AppMgr:LogInfo(string.format("------------------- IP = %s     Port = %s--------------",ip,port));
+    local sendByte = ProtoMgr:Encode(ProtoMgr.HttpMsgHead,sendData)
+    self:HttpSend(ip, port, messageId, sendByte, action, catchError, timeout, method, contentType)
+end
+
+--CloseHttpId
+--清空Http缓存Id集合
+function Network:CloseHttpId()
+    _instance:CloseHttpSendIdDic();
+end
+
+--------------------------- CSharp Call ---------------------------
+
+function Network:NoInternetNtf()
+    self:ClearWait()
+    Groble_UIMgr:ShowMsgBy2CallLayer(LanguageMgr:GetTextByID(10038),
+        function()
+            uimgr:onLoginScene()
+        end,
+        function()
+            self:TryReConnect()
+        end)
+end
+
+-- 
+-- brief: 链接失败通知
+-- ntype ：
+    -- 1 ->登录服链接失败
+    -- 2 ->游戏服链接失败
+    -- 3 ->重连Token验证失败
+-- 
+function Network:ConnectFailed(ntype)
+    if uimgr:GetSceneId() == uimgr.LOGIN_SCENE_ID then
+        -- 玩家还在登录场景，不用额外做处理
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(10031),
+            function()
+            end, false, true)
+    else
+        if 1 == ntype then
+        elseif 2 == ntype then
+        elseif 3 == ntype then
+        end
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(10031),
+            function()
+                uimgr:onLoginScene()
+            end, false, true)
+    end
+end
+
+function Network:ReConnectNtf(state, rst)
+    if state == 0 then
+        self:ShowWait()
+    else
+        self:ClearWait()
+        if not rst then
+            self:ConnectLosedNtf()
+        end
+    end
+end
+
+function Network:ConnectLosedNtf()
+    Groble_UIMgr:ShowMsgBy2CallLayer(LanguageMgr:GetTextByID(880041),
+        function()
+            uimgr:onLoginScene()
+        end,
+        function()
+            self:TryReConnect()
+        end)
+end
+
+function Network:ConnectClosed()
+    Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(880039),
+        function()
+            uimgr:onLoginScene()
+        end, false, true)
+end
+
+function Network:CreateRoleSucc()
+    Player:SetNewPlayer()
+end
+
+function Network:PlayerBaseInfoSync(roleinfo)
+    Player:SyncBaseInfo(roleinfo)
+    if Player:IsNewPlayer() then
+        Chapter:ClearLocalTeamCache()
+    end
+end
+
+function Network:PlayerValuesSync(data)
+    Player:SyncValues(data.values)
+end
+
+function Network:ServerTimeSync(longtime)
+    CTime:SetServerTime(longtime)
+end
+
+function Network:ScriptCall(buff)
+    --- 反序列化
+    local data = g_msgpack.decode(buff)
+    if data == nil then
+        for k, v in pairs(self._c2s) do
+            self._c2s[k] = nil
+        end
+        self:ClearWait()
+    else
+        local repcode = data[1]
+        for k, v in pairs(self._c2s) do
+            if k == repcode-1 then
+                self._c2s[k] = nil
+                self:ClearWait()
+            end
+        end
+        c2s.OnCallCmd(data)
+    end
+end
+
+function Network:LogoutNtf(reason)
+    NetworkGame:LogoutNtf(reason)
+end
+
+function Network:LineUpCall(loginserial, selfserial, waitnum)
+    NetLinkingLayer:HideLinking()
+    if uimgr:GetSceneId() == uimgr.LOGIN_SCENE_ID then
+        -- 登录场景排队
+        Login:LineUpRep(loginserial or 0, selfserial or 1, waitnum or 1)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LINE_UP_REP)
+    else
+        -- 非登录场景排队，直接重新登录
+        Network:GameLogin(Login:GetLoginServerId(), nil)
+    end
+end
+
+function Network:ShowMask()
+    NetLinkingLayer:ShowLinkingMask()
+    local timerid = Timer:AddTimerCall(1,
+    function(rst)
+        _timerids[rst] = nil
+        self:ShowWait()
+    end)
+    _timerids[timerid] = 1
+end
+
+function Network:ShowWait()
+    local timerid = Timer:AddTimerCall(5,
+        function(rst)
+            _timerids[rst] = nil
+            self:ClearWait()
+        end)
+    _timerids[timerid] = 1
+    NetLinkingLayer:ShowLinkingWait()
+end
+
+function Network:ClearWait()
+    for id, v in pairs(_timerids) do
+        Timer:RemoveTimerCall(id)
+    end
+    _timerids = {}
+    NetLinkingLayer:HideLinking()
+end
+
+---------------------------------------------HttpErr-------------------------------------------------
+function Network:HttpErrCall(data)
+    self:ClearWait();
+    local errData = ProtoMgr:Decode(ProtoMgr.ErrorMsg, data);
+    AppMgr:LogInfo("http error Call lua~~~~~~~~~~~")
+    if  errData.err >= Http.Error.SERVER_BUSY and errData.err <= Http.Error.SDK_LIST_NOTFOUND then
+        --系统错误
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(890000 +  errData.err),
+        function()
+        end, false, true)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+        self._loginReq = false
+    elseif errData.err >= Http.Error.ACCOUNT_UNLAWFUL and errData.err <= Http.Error.LOGIN_ACTIVECODE_USED then
+        --登陆失败错误
+        self:HttpLoginErr(errData.err)
+    elseif(errData.err >= Http.Error.ERROR_COMMENT_USERCMT_REACH_MAX and errData.err <= Http.Error.ERROR_COMMENT_END) then
+        self:HttpCommentErr(errData.err);
+    elseif(errData.err >= Http.Error.SUCCESS)then
+        --HTTP协议成功,无需如何操作
+    else
+        Groble_UIMgr:ShowMsgLayer("id "..errData.err.." 参数 "..errData.param1,
+        function()
+        end, false, true)
+        --  Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(888001)..","..errData.err)
+    end
+end
+
+
+function Network:CacheMsgClear()
+    self._c2s   = {}
+end
+
+function Network:GetLoginToken()
+    return self._token
+end
+
+function Network:SetLoginToken(token)
+    self._token = token
+end
+
+function Network:HttpLoginErr(errcode)
+    if errcode == Http.Error.PASSWD_SDK_VERIFY_FAILED then
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(880040),
+        function()
+            Login:SdkTokenError(true)
+            GameSdkMgr:Login()
+        end, false, true)
+    elseif(errcode == Http.Error.ACCOUNT_UNACTIVE)then
+        Login:SetAccUnActivityState(true);
+    else
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(890000 + errcode),
+        function()
+        end, false, true)
+
+    end
+    self._loginReq = false
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+end
+
+function Network:HttpCommentErr(err)
+    Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(err),
+    function()
+    end, false, true)
+
+end
+
+
+function Network:HttpStatusCall(code)
+    self:ClearWait();
+    Groble_UIMgr:ShowMsgLayer(string.format(LanguageMgr:GetTextByID(10039),code),
+    function()
+    end, false, true)
+
+    if(self._loginReq) then
+        self._loginReq = false
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+    end
+end
+--系统错误
+function Network:HttpErrorCall(msgid)
+    self:ClearWait();
+    if(msgid == Http.QUERY_CMT_COUNT_REQ)then
+        Comment:GetModeCommentNumErrRep(msgid);
+        return;
+    end
+    if(msgid == Http.UPLOAD_VIDEO_REQ)then
+        UpLoadVideo:UpLoadDataError();
+        return;
+    end
+    Groble_UIMgr:ShowMsgLayer(string.format(LanguageMgr:GetTextByID(10039), msgid),
+    function()
+    end, false, true)
+    if(self._loginReq) then
+        self._loginReq = false
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+    end
+end
+
+
+
+function Network:SetLoginState(state)
+    self._loginReq = state
+end
+
+function Network:HttpSend(ip, port, messageId, sendByte, action, catchError, timeout, method, contentType)
+    local tempAction = function (id, retData)
+        if(catchError)then
+            self:ClearWait();
+        end
+        if(action ~= nil)then
+            action(id, retData);
+        end
+    end
+    if(catchError)then
+        self:ShowMask();
+    end
+    if catchError == nil then catchError = true end
+    if timeout == nil then timeout = 6000 end
+    _instance:SendHttp(ip, port, messageId, sendByte, tempAction , catchError, timeout, method, contentType)
+end
+
+
+-------------------------------------------------------------------聊天相关---------------------------------------------
+function Network:ChatMsgNotify(bytes)
+    local data = ProtoMgr:Decode(Talk.ChatMsgNotify,bytes);
+    Talk:SetChatMsgNotify(data);
+end
+
+--发送数据
+function Network:SendChatMsg(chatType, line, playerId, frameId, iconId, name, content, sendTime)
+    _instance:SendChatMsg(chatType, line, playerId, frameId, iconId, name, content, sendTime);
+end
+
+--切换线路
+function Network:SwitchChatLine(line)
+    if(line == Talk:GetCurTalkLine())then
+        return;
+    end
+    _instance:SwitchChatLine(line);
+end
+
+--获取当前线路
+function Network:GetCurChatLine()
+    return _instance:GetCurChatLine();
+end
+
+function Network:OnSwitchLine(bytes)
+    local data = ProtoMgr:Decode(Talk.ChatLoginRep,bytes);
+    Talk:SetLineData(data);
+end

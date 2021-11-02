@@ -1,0 +1,59 @@
+--
+-- author: haosun
+-- date  : 2019-07-27 13:34:03
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CSellLayer = class("CSellLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    no      = "container/button_no",
+    ok      = "container/button_ok",
+}
+
+function CSellLayer:ctor(super, params)
+    CBaseLayer.ctor(self)
+    self._destory = true
+    self._prefab = {
+        path = "prefab_comframeWork/UI_SellLayer",
+    }
+    self._uitype = 2
+    self._params = params
+    self._dropItems = {}
+    self:onEnter()
+end
+
+function CSellLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:show()
+end
+
+function CSellLayer:onExit()
+    self._params = nil
+    CBaseLayer.onExit(self)
+end
+
+function CSellLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.ok then
+        self._params.callback()
+        self:onPopLayer()
+    elseif itype == BUTTON_TYPE.no then
+        self:onPopLayer()
+    end
+end
+
+function CSellLayer:show()
+    local scrollview = self.layer.transform:Find("container/scrollview")
+
+    self._dropItems = Bag:SetScrollGoods( self._dropItems ,scrollview, self._params.items, 3, 624, 170, 0.62)
+    scrollview:GetComponent("ScrollRect").horizontal = false
+    self._aniPanelFadeInEndCallback = function()
+        scrollview:GetComponent("ScrollRect").horizontal = true
+    end
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+return CSellLayer
+

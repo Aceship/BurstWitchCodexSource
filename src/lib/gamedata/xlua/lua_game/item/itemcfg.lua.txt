@@ -1,0 +1,59 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 12:19:20
+-- brief : 
+--
+Item = Item or {}
+
+function Item:_LoadCfg()
+    self._cfgs = {}
+    local cfgs = CfgLoader:LoadCfg("item")
+    for _, v in pairs(cfgs) do
+        v.Name = Language:GetTxtBuyId(v.Name)
+        v.itemInfo = Language:GetTxtBuyId(v.itemInfo)
+        v.itemForm = lua_parse_cfg(v.itemForm)
+        for k, form in pairs(v.itemForm) do
+            form[3] = Language:GetTxtBuyId(form[3]);
+        end
+        v.itemType = tonumber(v.itemType)
+        self._cfgs[tonumber(v.id)] = v
+    end    
+    self._typecfg = {}
+    self._subtypecfg = {}
+end
+
+function Item:GetCfg(cfgid)
+    cfgid = tonumber(cfgid)
+    if self._cfgs[cfgid] == nil then
+        CS.Logger.LogError("can't find item cfg id: {0}", cfgid)
+    end
+    return self._cfgs[cfgid]
+end
+
+function Item:GetCfgByType(itype)
+    if self._typecfg[itype] == nil then
+        self._typecfg[itype] = {}
+        for _, v in pairs(self._cfgs) do
+            if tonumber(v.itemType) == itype then
+                table.insert(self._typecfg[itype], tonumber(v.id))
+            end
+        end
+    end
+    return self._typecfg[itype]
+end
+
+function Item:GetCfgBySubType(subtype)
+    if self._subtypecfg[subtype] == nil then
+        self._subtypecfg[subtype] = {}
+        for _, v in pairs(self._cfgs) do
+            if tonumber(v.subType) == subtype then
+                table.insert(self._subtypecfg[subtype], tonumber(v.id))
+            end
+        end
+        table.sort(self._subtypecfg[subtype], 
+            function(a, b)
+                return a < b
+            end)
+    end
+    return self._subtypecfg[subtype]
+end

@@ -1,0 +1,414 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-23 14:44:51
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChessBoardLayer = class("ChessBoardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnStart = "container/btn_start",
+	BtnTurnsAward = "container/btn_turns_award",
+	BtnTips = "container/btn_tips",
+	BtnStopRepetition = "container/btn_stop_repetition",
+	--@ButtonEnd
+}
+
+--构造函数
+function ChessBoardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ChessBoardLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.ACTIVITY_CHESS_BOARD
+    }
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function ChessBoardLayer:onEnter()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.THROWING_DICE,function (repData)
+        Groble_UIMgr:SetBackBtnState(BackBtnState.StopAndShowTips);--设置返回按钮无法点击
+        AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_uishaizi/M2_uishaizi_"..repData[1],
+        function(obj)
+                    if obj ~= nil then
+                        self._objDice = Groble_ResMgr:Instantiate(obj);
+                        self._animDice = self._objDice.transform:Find("M2_uishaizi"):GetComponent("Animator");
+                        self._animDice = UIController:CtorBaseAnimator(self._animDice.transform);
+                        self._animDice._KeyFrameCall = function()
+                            self._objDice:Release();
+                            self:UpdateData();
+                            self:SetUI();
+                            self:SetCurPosUI(false,repData[2]);
+                        end
+                    else
+                        -- load error
+                    end
+                end)
+    end);
+
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+            function()
+                self._sendIds = {};
+                self:SetUI();
+            end)
+    self:createPnl();
+    -- 刘海适配
+    CS.UnityHelper.NotchfitY(self.layer:Get("container"), 0, true)
+
+    self._KeyFrameCall = function(index)
+        if(#self._sendIds > 0)then
+            Task:GetRewardReq(self._sendIds);
+        end
+    end
+    self:registerButtonEvent(BTNS);
+    self:Init();    
+end
+
+--按钮事件
+function ChessBoardLayer:onButtonClick(itype)
+    if(self._isMove)then
+        if(itype == BTNS.BtnStopRepetition)then
+            self:OnBtnStopRepetitionClick();
+        end
+        return;
+    end
+    if(itype == BTNS.BtnStart)then
+	   self:OnBtnStartClick();
+    elseif(itype == BTNS.BtnTurnsAward)then
+	   self:OnBtnTurnsAwardClick();
+    elseif(itype == BTNS.BtnTips)then
+	   self:OnBtnTipsClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function ChessBoardLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function ChessBoardLayer:Init()
+    self._chessData = Activity:GetAllChessCfg();
+    self._gridItemHeight = 368;
+    self._gridBgHeight = 1082;
+    self._curPosHeight = 184;
+    self._v3Zero = CS.UnityEngine.Vector3.zero;
+    self._leftScale = CS.UnityEngine.Vector3(0.8,0.8,0.8);
+    self._rightScale = CS.UnityEngine.Vector3(-0.8,0.8,0.8);
+
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化UI
+function ChessBoardLayer:InitUI()
+
+    self._skeletonAni = self.layer:Get("container/grid_bg/grid_content/trans_cur_pos/spine"):GetComponent("SkeletonGraphic");
+
+    self._imgRed = self.layer:GetImageComponent("container/btn_turns_award/img_red");
+    self._imgBg = self.layer:GetImageComponent("container/grid_bg/grid_content/trans_cur_pos/img_bg");
+    --@ImageEnd
+
+    self._txtOverNum = self.layer:GetTextComponent("container/txt_over_num");
+    self._txtTimer = self.layer:GetTextComponent("container/txt_timer");
+    self._txtTaskItem1 = self.layer:GetTextComponent("container/def_task/txt_task_item1");
+    self._txtTaskItem2 = self.layer:GetTextComponent("container/def_task/txt_task_item2");
+    self._txtTaskItem3 = self.layer:GetTextComponent("container/def_task/txt_task_item3");
+    self._txtTaskItem4 = self.layer:GetTextComponent("container/def_task/txt_task_item4");
+    self._txtSurplusNum = self.layer:GetTextComponent("container/btn_start/txt_surplus_num");
+    --@TextEnd
+
+    self._transSpine = self.layer:Get("container/grid_bg/grid_content/trans_cur_pos/spine");
+    self._transCurPos = self.layer:Get("container/grid_bg/grid_content/trans_cur_pos");
+    --@TransformEnd
+
+    self._objItemPrefab = self.layer:Get("container/item_hide/obj_item_prefab").gameObject;
+    self._objStart = self.layer:Get("container/btn_start").gameObject;
+    self._objStopRepetition = self.layer:Get("container/btn_stop_repetition").gameObject;
+    --@GameObjectEnd
+
+    self._mTogRepetitionStart = self.layer:GetMToggleComponent("container/tog_repetition_start");
+    --@MToggleEnd
+
+    self._mTogRepetitionStart.onValueChanged:AddListener(function (isOn)
+        self:OnTogRepetitionStartClick(isOn);
+    end);
+    --@MToggleCallBackEnd
+
+    self._rectGridContent = self.layer:GetRectTransformComponent("container/grid_bg/grid_content");
+    self._scrGrid = self.layer:Get("container/grid_bg"):GetComponent("ScrollRect");
+
+    self:InitTaskItemUI();
+    self:OnTogRepetitionStartClick(false);
+end
+
+--显示UI
+function ChessBoardLayer:show()
+    self:SetUI();
+    self:SetGridItem();
+    self._curGridIndex = self._curMaxIndex or 1;
+    self:SetCurPosUI(true);
+    self:showLayer();
+end
+
+function ChessBoardLayer:showLayer()
+    self:playAni("ChessBoardLayerAnim");
+    CBaseLayer.showLayer(self);
+    set_com_enabled(self._imgRed,Activity:GetTurnsAwardRed());
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ChessBoardLayer:OnBtnStartClick()
+    if(self._mTogRepetitionStart.isOn)then
+        self._objStart:SetVisible(false);
+        self._objStopRepetition:SetVisible(true);
+    end
+    if(Item:GetCount(Player.ITEM_DICE) > 0)then
+        self._isMove = true;
+        set_com_enabled(self._scrGrid,false);
+        self._mTogRepetitionStart.interactable = false;
+        Activity:ThrowingDiceReq();
+    else
+        self._isMove = false;
+        self._mTogRepetitionStart.interactable = true;
+        self._mTogRepetitionStart.isOn = false;
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Normal);
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90140));
+    end
+end
+function ChessBoardLayer:OnBtnTurnsAwardClick()
+    core.require("xlua/lua_UI/Activity/TurnsAwardLayer.txt"):new():show();
+end
+function ChessBoardLayer:OnBtnTipsClick()
+    Groble_UIMgr:ShowRuleTipsLayer(tonumber(self._activityCfg.ruleid));
+end
+function ChessBoardLayer:OnBtnStopRepetitionClick()
+    if(self._mTogRepetitionStart.isOn)then
+        self._mTogRepetitionStart.isOn = false;
+        self._mTogRepetitionStart.interactable = true;
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function ChessBoardLayer:OnTogRepetitionStartClick(isOn)
+    if(isOn)then
+    else
+        self._objStart:SetVisible(true);
+        self._objStopRepetition:SetVisible(false);
+    end
+end
+--@MToggleFunctionEnd
+
+--释放
+function ChessBoardLayer:onExit()
+
+    Activity:SetCurSelectUid();
+    self._chessData = nil;
+    self._txtOverNum = nil;
+    self._txtTimer = nil;
+    self._txtTaskItem1 = nil;
+    self._txtTaskItem2 = nil;
+    self._txtTaskItem3 = nil;
+    self._txtTaskItem4 = nil;
+    self._txtSurplusNum = nil;
+    self._objItemPrefab = nil;
+    self._transCurPos = nil;
+    self._imgRed = nil;
+    self._mTogRepetitionStart = nil;
+    self._rectContent = nil;
+    self._imgBg = nil;
+    self._objStart = nil;
+    self._objStopRepetition = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ChessBoardLayer:UpdateData()
+    local serverData = Activity:GetChessServerData();
+    self._curMaxIndex = serverData.pos or 1;
+    self._allOverNum = serverData.allNum or 0;
+    self._tasks = Task:GetTasks(Task.TYPE_CHESS);
+    self._activityCfg = Activity:GetActivityByUId(Operation.ActivityID.ChessBoard).info;
+    table.sort(self._tasks,function (a,b)
+        return a < b;
+    end);
+end
+
+function ChessBoardLayer:SetUI()
+    self._txtOverNum.text = self._allOverNum;
+    self._txtSurplusNum.text = Item:GetCount(Player.ITEM_DICE);
+    local cfg = CTime:GetCfg(tonumber(Activity:GetActivityByUId(Operation.ActivityID.ChessBoard).info.Time));
+    self._txtTimer.text = string.format(LanguageMgr:GetTextByID(90161),CTime:UTime2YDTStr(cfg.etime));;
+    self:SetTaskItemUI();
+end
+
+function ChessBoardLayer:SetGridItem()
+    if(self._gridItem == nil)then
+        self._gridItem = {};
+    end
+    for _, v in pairs(self._chessData) do
+        if(self._gridItem[v.pos] == nil)then
+            self._gridItem[v.pos] = self:NewGridItem(v);
+        end
+        self:SetGridItemData(self._gridItem[v.pos]);
+    end
+end
+
+function ChessBoardLayer:NewGridItem(data)
+    local cls;
+    cls = clsbase:new(self.layer:Get("container/grid_bg/grid_content/grid_"..data.pos));
+    cls.txtIndex = cls:GetTextComponent("txt_index");
+    cls.txtIndexE = cls:GetTextComponent("txt_index_E");
+    cls.data = data;
+    cls.rect = cls.transform:GetComponent("RectTransform");
+    cls.imgSpecialAwards = cls:GetImageComponent("img_special_awards");
+    cls.btnSpecialAwards = cls:GetButtonComponent("img_special_awards");
+    if(data.ruleid ~= "-1")then
+        cls.btnSpecialAwards.onClick:AddListener(function ()
+            core.require("xlua/lua_UI/Activity/BonusTipsLayer.txt"):new():show(cls.btnSpecialAwards.transform,data.ruleid)
+        end);
+    end
+    if(data.item ~= -1 and #data.item == 1)then
+        cls.item = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItemPrefab,cls:Find("item_bg")),function ()
+            if(self._isMove)then
+                return;
+            end
+            SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data.item[1][1], cls.data.item[1][2]);
+        end);
+        cls.item.transform.localPosition = CS.UnityEngine.Vector3.zero;
+    end
+    return cls;
+end
+
+function ChessBoardLayer:SetGridItemData(cls)
+    cls.txtIndex.text = cls.data.pos;
+    cls.txtIndexE.text = uistr.com_stepstr[cls.data.pos];
+    set_com_enabled(cls.imgSpecialAwards,cls.data.item ~= -1 and #cls.data.item > 1);
+    if(cls.data.item ~= -1)then
+        if(#cls.data.item == 1)then
+            Bag:SetComSimpleGoodsUi(cls.item,cls.data.item[1][1],cls.data.item[1][2],cls.data.item[1][3],true);
+        end
+    end
+end
+
+function ChessBoardLayer:SetCurPosUI(isInit,drop)
+    if(self._curGridIndex == 0)then
+        self._curGridIndex = 1;
+    end
+    if(isInit)then
+        self._transCurPos.position = self._gridItem[self._curGridIndex].transform.position;
+        self:SetGridContentPos(0);
+    else
+        self._curGridIndex = (self._curGridIndex + 1) % #self._gridItem;
+        if(self._curGridIndex == 0)then
+            self._curGridIndex = #self._gridItem;
+        end
+        if(self._curGridIndex == 1)then
+            self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+            Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.ChessBoard,function ()
+                self._transCurPos:SetParent(self._gridItem[self._curGridIndex].transform);
+                self._transCurPos.localPosition = self._v3Zero;
+                self:SetGridContentPos(0.2,function ()
+                    if(self._curGridIndex < self._curMaxIndex)then
+                        self:SetCurPosUI(false,drop);
+                    else
+                        if(self._mTogRepetitionStart.isOn)then
+                            self:OnBtnStartClick();
+                        else
+                            self._isMove = false;
+                            self._mTogRepetitionStart.interactable = true;
+                        end
+                    end
+                end);
+                self._transSpine.localScale = self._rightScale;
+
+            end)
+            return;
+        end
+        self._transCurPos:SetParent(self._gridItem[self._curGridIndex].transform);
+        local dt = self._transCurPos:DOLocalMove(self._v3Zero,0.3);
+        self._skeletonAni.AnimationState:SetAnimation(0,"run",true);
+        if(self._curGridIndex == 1)then--一圈完成
+            self._transSpine.localScale = self._rightScale;
+        else
+            if(self._transCurPos.localPosition.x > 0)then
+                self._transSpine.localScale = self._leftScale;
+            else
+                self._transSpine.localScale = self._rightScale;
+            end
+        end
+        self:SetGridContentPos(0.2);
+        dt.onComplete = function()
+            if(self._curGridIndex == self._curMaxIndex)then
+                set_com_enabled(self._scrGrid,true);
+                if(not self._mTogRepetitionStart.isOn)then
+                    self._isMove = false;
+                    Groble_UIMgr:SetBackBtnState(BackBtnState.Normal);
+                end
+                if(drop ~= nil and next(drop))then
+                    local closeTimer = -1;
+                    if(self._mTogRepetitionStart.isOn)then
+                        closeTimer = 1;
+                    end
+                    Bag:ShowDrops(drop,function ()
+                        if(self._mTogRepetitionStart.isOn)then
+                            self:OnBtnStartClick();
+                        else
+                            self._mTogRepetitionStart.interactable = true;
+                        end
+                    end,closeTimer);
+                else
+                    if(self._mTogRepetitionStart.isOn)then
+                        self:OnBtnStartClick();
+                    else
+                        self._mTogRepetitionStart.interactable = true;
+                    end
+                end
+                self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+            else
+                self:SetCurPosUI(false,drop);
+            end
+        end
+    end
+end
+
+function ChessBoardLayer:SetGridContentPos(AnimTimer,callback)
+    if(AnimTimer == nil)then
+        AnimTimer = 0;
+    end
+    local posDifValue = self._gridItem[self._curGridIndex].rect.anchoredPosition.y + self._rectGridContent.anchoredPosition.y + self._gridBgHeight - self._curPosHeight * 0.5;
+    local moveValue = self._rectGridContent.anchoredPosition.y;
+    if(posDifValue < 0)then
+        moveValue = self._rectGridContent.anchoredPosition.y - posDifValue + self._gridItemHeight * 0.5;
+        if(moveValue > self._rectGridContent.rect.height - self._gridBgHeight)then
+            moveValue = self._rectGridContent.rect.height - self._gridBgHeight;
+        end
+    elseif(posDifValue > self._gridBgHeight)then
+        moveValue = self._gridBgHeight - posDifValue + self._rectGridContent.anchoredPosition.y - self._curPosHeight;
+        if(moveValue < 0)then
+            moveValue = 0;
+        end
+    end
+    local dt = self._rectGridContent:DOAnchorPosY(moveValue,AnimTimer);
+    if(callback ~= nil)then
+        dt.onComplete = function();
+            callback();
+        end
+    end
+end
+
+return ChessBoardLayer;

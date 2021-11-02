@@ -1,0 +1,57 @@
+--
+-- author: haosun
+-- date  : 2019-09-19 19:36:48
+-- brief : 
+--
+local RankLvUi = class("RankLvUi")
+
+local localPos = {
+    [1] = {{x = 0,   y = -160}},
+    [2] = {{x = -42, y = -160}, {x = 40,  y = -160}},
+    [3] = {{x = -68, y = -130}, {x = 0,   y = -160}, {x = 80, y = -130}},
+    [4] = {{x = -106,y = -114}, {x = -42, y = -160}, {x = 40, y = -160}, {x = 122, y = -114}},
+    [5] = {{x = -135,y = -75},  {x = -68, y = -130}, {x = 0,  y = -160}, {x = 80, y = -130}, {x = 150, y = -75}},
+}
+
+function RankLvUi:ctor(super, obj)
+    self._iconObj = obj.transform:Find("img_level")
+    self._starObj = {}
+    for i = 1, 5 do
+        self._starObj[i] = self._iconObj.transform:Find("img_star_" .. i)
+    end
+    self._lvObj     = obj.transform:Find("text_level")
+    if self._lvObj ~= nil then
+        self._lvTxtObj  = self._lvObj:GetComponent("Text")
+    end
+end
+
+function RankLvUi:clear()
+    self._starObj = nil
+    self._lvTxtObj = nil
+    self._iconObj = nil
+end
+
+function RankLvUi:SetRankLvUi(cfg)
+    self:SetLvName(cfg)
+    local _filepath = "source_icon/syrank/" .. cfg.icon
+    self._iconObj:GetComponent("Image").sprite = AssetLoader:LoadSprite(_filepath)
+    for i, obj in ipairs(self._starObj) do
+        set_obj_active(obj, i <= cfg.star)
+    end
+    for i = 1, cfg.star do
+        u3d_set_localPos(self._starObj[i], localPos[cfg.star][i].x, localPos[cfg.star][i].y)
+    end
+end
+
+function RankLvUi:SetLvName(cfg)
+    if self._lvTxtObj ~= nil then
+        self._lvTxtObj.text = cfg.name
+    end
+end
+
+function RankLvUi:SetVisible(value)
+    set_obj_active(self._iconObj, value)
+    set_obj_active(self._lvObj, value)
+end
+
+return RankLvUi

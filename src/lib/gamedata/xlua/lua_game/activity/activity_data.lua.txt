@@ -1,0 +1,107 @@
+Activity = Activity or {}
+
+function Activity:InitData()
+    self._curSelectUid = nil;
+    self._isClick = true;
+    self._mainLayer = nil;
+    self._curMainType = nil;
+    self._activityId = -1;
+    Activity:InitActivityLevelData();
+end
+
+--获取当前签到的奖励周期
+function Activity:GetCurSignInCycNum()
+    return self._curSignInCycNum;
+end
+
+function Activity:GetCurSixthSealDay()--第六封印获取当前天数
+    return (Player:GetOffsetDay() - Activity:GetSixthSealStartDay() + 1);
+end
+
+function Activity:GetActivityId()
+    return self._activityId
+end
+
+function Activity:SetActivityId(activityId)
+    self._activityId = activityId
+end
+
+function Activity:GetCurSelectUid()
+    return Operation:GetCurSelectUID();
+end
+
+function Activity:SetCurSelectUid(uid)
+    Operation:SetCurSelectUID(uid);
+end
+
+function Activity:SetDialItemIndex(index)
+    self._dialItemIndex = index or 1;
+end
+
+function Activity:GetDialItemIndex()
+    return self._dialItemIndex or 1;
+end
+
+function Activity:SetMainLayerTogClickState(isClick)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,not isClick);
+    self._isClick = isClick;
+end
+
+function Activity:GetMainLayerTogClickState()
+    return self._isClick;
+end
+
+--------------------------------活动主类型
+function Activity:SetCurMainType(mainType)
+    self._curMainType = mainType;
+end
+
+function Activity:GetCurMainType()
+    return self._curMainType;
+end
+
+------------------------------巡查显示界面类型
+function Activity:GetCurChessBoardLayerType()
+    return self._curChessBoardLayerType or Activity.ChessBoardLayerType.Main;
+end
+
+function Activity:SetCurChessBoardLayerType(layerType)
+    self._curChessBoardLayerType = layerType;
+end
+
+function Activity:SetChessAutoBuyState(isAutoBuy)
+    self._chessAutoBuyState = isAutoBuy;
+end
+
+function Activity:GetChessAutoBuyState()
+    return self._chessAutoBuyState;
+end
+
+function Activity:AddChessEventData(addPos,diceType)
+    self._chessData.lastPos = (self._chessData.lastPos + addPos) % #self._chessSortCfg;
+    if(self._chessData.lastPos == 0)then
+        self._chessData.lastPos = #self._chessSortCfg;
+    end
+    local cfg = self._chessSortCfg[self._chessData.lastPos];
+    local isDouble = false;
+    if(#self._chessEventData > 0)then
+        if(self._chessEventData[1].eventType == Activity.ChessBoardGridType.Double)then
+            isDouble = true;
+        end
+    end
+    local data = {
+        diceType = diceType,
+        addNum = addPos,
+        eventType = cfg.awardType,
+        isDouble = isDouble,
+        item = cfg.item,
+    }
+    table.insert(self._chessEventData,1,data);
+    if(cfg.awardType == Activity.ChessBoardGridType.Next)then--下一层
+        self._chessData.lastPos = 1;
+    end
+end
+
+function Activity:GetChessEventData()
+    return self._chessEventData or {};
+end

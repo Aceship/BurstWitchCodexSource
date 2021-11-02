@@ -1,0 +1,348 @@
+--
+-- author: haosun
+-- date  : 2018-10-16 17:30:56
+-- brief :
+--
+local baseanimation = core.require("xlua/lua_UI/BaseAnimation.txt")
+local uibaselayer = class("uibaselayer", baseanimation)
+
+function uibaselayer:ctor(params)
+    baseanimation.ctor(self)
+    self.layer = nil
+    self._fading = true
+    self._uitype = 1
+    self._destory = true
+    self._addStack = false;
+    self._hideOtherLayer = false;
+    self._topData = nil;
+    self._bgData = nil;
+    self._objects = {}
+    if params ~= nil then
+        self._prefab = params.prefab
+    else
+        self._prefab = {}
+    end
+    self._loadAsync     = false
+    self._loadComplete  = false
+    self._isPushLayer   = true
+    self._listener      = {}
+end
+
+function uibaselayer:loadAsync()
+    if self._loadAsync then
+        self:_onLoadPrefab()
+    end
+end
+
+function uibaselayer:createPnl()
+    if not self._loadAsync then
+        self:_onLoadPrefab()
+    end
+end
+
+function uibaselayer:_onLoadPrefab()
+    if self._prefab.obj then
+        self._isPushLayer = false
+    end
+    if self._uitype == 2 then
+        self._prefab.trans = CanvasMgr:GetComCanvas()
+        self._prefab.obj = self._prefab.trans ~= nil
+    else
+        if self._prefab.trans == nil then
+            self._prefab.trans = CanvasMgr:GetCanvas()
+            if self._prefab.trans == nil then
+                self._prefab.trans = CS.UnityEngine.GameObject.Find("Canvas")
+            end
+            self._prefab.obj = true
+        else
+            if not self._prefab.obj then
+                self._prefab.trans = CS.UnityEngine.GameObject.Find(self._prefab.trans)
+                self._prefab.obj = true
+            end
+        end
+    end
+
+    if self._loadAsync then
+        AssetAsyncLoader:LoadResourceAsync(self._prefab.path,
+            function(obj)
+                self.layer = self._prefab.trans:AddChild(obj)
+                self:_loadAsyncComplete()
+            end)
+    else
+        self.layer = self._prefab.trans:CreateChild(self._prefab.path)
+        self:_loadAsyncComplete()
+    end
+end
+
+function uibaselayer:loadComplete()
+    return self._loadComplete
+end
+
+local _test = {}
+
+function uibaselayer:_loadAsyncComplete()
+    self._loadComplete  = true
+    self.layer.name     = self.__cname
+
+    self:addLuaLayerBehaviour()
+    self:addBaseAnimationBehaviour(self.layer)    
+    self:addBackEventListener()
+
+    self._objects["self"] = self
+
+    if self._loadAsync then
+        self:onEnter()
+        if self._showCalled then
+            self:showReally()
+        else
+            self:show()
+        end
+    end
+    if self._isPushLayer then
+        uimgr:pushLayer(self)
+    end
+
+    _test[self.__cname] = 1
+end
+
+function uibaselayer:addLuaLayerBehaviour()
+    self._clslayer = self.layer.gameObject:AddComponent(typeof(CS.LuaLayerBehaviour))
+    self._clslayer:InitHitActor(self)
+end
+
+function uibaselayer:addBackEventListener()
+    local back = self._clslayer:GetButtonComponent("button_back")
+    if back ~= nil then
+        back.onClick:AddListener(
+            function()
+                self:onProgessBackClick()
+            end)
+    end
+    back = self._clslayer:GetButtonComponent("container/button_back")
+    if back ~= nil then
+        back.onClick:AddListener(
+            function()
+                self:onProgessBackClick()
+            end)
+    end
+end
+
+function uibaselayer:onProgessBackClick()
+    if self._fading then
+        AppMgr:LogWarning("fading !!!!!!!!!!!!!!!!can't click " .. self.__cname)
+        return
+    end
+    self:onBackClick()
+end
+
+function uibaselayer:onBackClick()
+    self:onPopLayer()
+end
+
+function uibaselayer:onPopLayer()
+    if(self._addStack)then
+        Groble_UIMgr:CutCurShowLayer();
+    end
+    self:onExit()
+end
+
+function uibaselayer:onEnter()
+end
+
+function uibaselayer:onExit()
+    if self._tvController ~= nil then
+        self._tvController:Clear()
+        self._tvController = nil
+    end
+    self:unregisterButtonEvent()
+    AssetAsyncLoader:ReduceSpineAssetCiteNum(self.__cname);
+    self._backCall = nil
+    _test[self.__cname] = nil
+    if self._isPushLayer then
+        uimgr:popLayer(self.__cname)
+    end
+    self:destory()
+end
+
+function uibaselayer.Test()
+    for name, v in pairs(_test) do
+        AppMgr:LogError("-------------------未销毁的Layer = " .. name)
+    end
+end
+
+function uibaselayer:registerButtonEvent(BUTTON_TYPE)
+    for _, v in pairs(BUTTON_TYPE) do
+        self.layer:GetButtonComponent(v):AddButtonListener(
+            function()
+                if not self._fading then
+                    self:onButtonClick(v)
+                end
+            end)
+    end
+    self._tempbuttons = BUTTON_TYPE
+end
+
+function uibaselayer:unregisterButtonEvent()
+    for _, v in pairs(self._tempbuttons or {}) do
+        self.layer:GetButtonComponent(v):RemoveButtonAllListener()
+    end
+    self._tempbuttons = nil
+end
+
+function uibaselayer:_onUpdateCurrency()
+    if self.onUpdateCurrency ~= nil then
+        self:onUpdateCurrency()
+    end
+end
+
+function uibaselayer:addRedTipsListener()
+    self:addEventListener(EVENT_TYPE.UPDATE_TIPS, self.__cname, function(itype)
+            self:onUpdateRedTips(itype)
+        end)
+end
+
+function uibaselayer:addSweepListener()
+    self:addEventListener(EVENT_TYPE.SWEEP_SUCC, self.__cname, function()
+            self:onSweepSucc()
+        end)
+end
+
+function uibaselayer:addUpdateFuncListener()
+    self:addEventListener(EVENT_TYPE.OPEN_FUNC, self.__cname, function()
+            self:onUpdateFunc()
+        end)
+end
+
+function uibaselayer:addUpdateDayListener()
+    self:addEventListener(EVENT_TYPE.UTIME_UPDATEDAY, self.__cname, function(info)
+            self:onUpdateDay(info)
+        end)
+end
+
+function uibaselayer:closeListener()
+    for _, v in pairs(self._listener) do
+        GEvent:closeEventListener(v[1], v[2])
+    end
+end
+
+function uibaselayer:openListener()
+    for _, v in pairs(self._listener) do
+        GEvent:openEventListener(v[1], v[2])
+    end
+end
+
+function uibaselayer:clearListener()
+    if(self._listener == nil)then
+        return;
+    end
+    for _, v in pairs(self._listener) do
+        GEvent:removeEventListenerByEvt(v[1], v[2])
+    end
+    self._listener = nil
+end
+
+function uibaselayer:addEventListener(evttype, evtname, listener)
+    table.insert(self._listener, {evttype, evtname})
+    GEvent:addEventListener(evttype, evtname, listener)
+end
+
+function uibaselayer:playAni(aniname)
+    self._clslayer:PlayAnimation(aniname)
+end
+
+function uibaselayer:hide()
+    if(self._addStack)then
+        Groble_UIMgr:CutCurShowLayer();
+    end
+    self:hideLayer()
+end
+
+function uibaselayer:hideLayer()
+    self:closeListener()
+    self._clslayer:HideLayer(-10000)
+end
+
+function uibaselayer:show()
+end
+
+function uibaselayer:activateLayer()
+    if self.layer == nil then
+        AppMgr:LogError("activateLayer layer is nil")
+    end
+    self:openListener()
+    self:_onUpdateCurrency()
+    self._clslayer:ShowLayer()
+    if(self._topData ~= nil)then
+        Groble_UIMgr:SetTopData(self._topData);
+    end
+    if(self._bgData ~= nil)then
+        Groble_UIMgr:SetBgData(self._bgData);
+    end
+end
+
+function uibaselayer:showLayer()
+    if self.layer == nil then
+        AppMgr:LogError("showLayer layer is nil")
+    end
+    self:openListener()
+    self:_onUpdateCurrency()
+    self._clslayer:ShowLayer()
+    if(self._addStack)then
+        Groble_UIMgr:PushLayer(self, self._hideOtherLayer)
+        Groble_UIMgr:ShowBackLayer();
+        if(self._topData == nil)then
+            CS.Logger:LogError("self._topData is nil!!!  "..self.__cname);
+        end
+    end
+    if(self._topData ~= nil)then
+        Groble_UIMgr:SetTopData(self._topData);
+    end
+    if(self._bgData ~= nil)then
+        Groble_UIMgr:SetBgData(self._bgData);
+    end
+end
+
+function uibaselayer:hideObj(all)
+    for key, obj in pairs(self._objects) do
+        if all == true then
+            obj:hide()
+        else
+            if key ~= "self" then
+                obj:hide()
+            end
+        end
+    end
+end
+
+function uibaselayer:destory()
+    self:clear()
+    self:clearListener()
+
+    if self._objects ~= nil then
+        for key, obj in pairs(self._objects) do
+            if key ~= "self" then
+                obj:onExit()
+            end
+        end
+        self._objects["self"] = nil
+    end
+    self._objects = nil
+    self._prefab    = nil
+    if self.layer ~= nil then
+        self.layer:Release()
+        self.layer      = nil
+    end
+    self._clslayer  = nil
+    self._callback  = nil
+    self._topData   = nil
+    self._bgData    = nil
+    self = nil
+end
+
+
+function uibaselayer:CreateNode(nodeGo, clsTable, ...)
+    return clsTable:new(nodeGo, self, ...)
+end
+
+return uibaselayer
+

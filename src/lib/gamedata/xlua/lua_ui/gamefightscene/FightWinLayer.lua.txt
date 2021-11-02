@@ -1,0 +1,689 @@
+--
+-- author: haosun
+-- date  : 2018-12-15 03:15:37
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightWinLayer = class("FightWinLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Next    = "button_next",
+    Replay  = "button_replay",
+}
+
+function FightWinLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_FightWinLayer",
+    }
+    self._tmpdata       = GTemp:GetFightTmpData()
+    self._usingtime     = 0
+    self._level_score   = 0
+    self._all_score     = 0
+    self._bullet_score  = 0
+    self._timeScore     = 0
+    self._updatetime    = false
+    self._todoList      = {}
+    self:onEnter()
+end
+
+function FightWinLayer:initObj()
+    self._backObj       = self.layer:Get("button_back")
+    self._replayObj     = self.layer:Get("button_replay")
+    self._nextObj       = self.layer:Get("button_next")
+    self._usingtimeCom  = self.layer:GetTextComponent("pnl_time/text_value")
+    self._lvScroeCom    = self.layer:GetTextComponent("pnl_level/text_value")
+    self.txtBulletValue = self.layer:GetTextComponent("pnl_bullet/text_value")
+    self.txtAllValue    = self.layer:GetTextComponent("pnl_all/text_value")
+    self.txtTimeScore   = self.layer:GetTextComponent("pnl_timeScore/text_value")
+    self.sliderExp      = self.layer:GetSliderComponent("info_exp/slider_expBg")
+    self.txtExpLevel    = self.layer:GetTextComponent("info_exp/text_level")
+    self.heroObj        = self.layer:Get("hero_info")
+    self.timeObj        = self.layer:Get("pnl_timeScore")
+    self.levelIcon      = self.layer:GetImageComponent("pnl_daily/levelIcon")
+    self.levelDesc      = self.layer:GetTextComponent("pnl_daily/text_desc")
+end
+
+function FightWinLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            self:onLevelBeginRep(levelid)
+            end)
+    self:onFixedMeshRenderOrder()
+end
+
+function FightWinLayer:onExit()
+    self._data = nil
+    self._backObj       = nil
+    self._nextObj       = nil
+    self._replayObj     = nil
+    self._usingtimeCom  = nil
+    self._lvScroeCom    = nil
+    self.txtBulletValue = nil
+    self.txtAllValue    = nil
+    self.txtTimeScore   = nil
+    self.sliderExp      = nil
+    self.txtExpLevel    = nil
+    self.levelIcon = nil
+    self.levelDesc = nil
+    Guide:ClearGuideLayer()
+    CBaseLayer.onExit(self)
+end
+
+function FightWinLayer:onUpdate(dt)
+    if self._update then
+        self._old_per = self._old_per + self._dis
+        local target = math.abs(self._old_per - self._new_per);
+        if target < 0.01 then
+            self._old_per = self._new_per
+            self._update = false
+            if self._isUpLevel then
+                self.sliderExp.value = Player:GetLevelExpPer()
+                self.txtExpLevel.text = "Lv." .. Player:GetLevel()
+                self:onFadingEnd()
+				self._showlevelup = true;
+            end
+        else
+            self.sliderExp.value = self._old_per
+        end
+    end
+	
+    if self._showscore then
+        if self._tmpdata.usingtime < 30 then
+            self._usingtime = self._usingtime + 1
+        else
+            self._usingtime = self._usingtime + math.random(1, math.ceil(self._tmpdata.usingtime/30))
+        end
+        self:setUsingTime()
+        
+        if self._tmpdata.level_score > 0 then
+            self._level_score = self._level_score + math.random(1, math.ceil(self._tmpdata.level_score/30))
+            self:setLevelScore()
+		else
+			self._stop_level = true;
+        end
+
+        if self._tmpdata.timeScore > 0 then
+            self._timeScore = self._timeScore + math.random(1, math.ceil(self._tmpdata.timeScore/30))
+            self:setTimeScore()
+        else
+            self._stop_time = true
+        end
+
+        if self._tmpdata.all_score > 0 then
+            self._all_score = self._all_score + math.random(1, math.ceil(self._tmpdata.all_score/30))
+            self:setAllScore()
+		else
+			self._stop_all = true;
+        end
+        if self._tmpdata.wipeScore > 0 then
+            self._bullet_score = self._bullet_score + math.random(1, math.ceil(self._tmpdata.wipeScore/20))
+            self:setBulletScore()
+		else
+			self._stop_bullet = true;
+        end
+    end
+
+	if self._showlevelup and not self._update and self._stop_level and self._stop_all and self._stop_bullet then        
+        self._showlevelup = false
+        self:onFadingEnd()
+        self:showLevelUpLayer()
+    end
+end
+
+
+function FightWinLayer:show(data)
+    self._data = data
+
+    self:setLevelIconObj()
+    local mvpId = HeroController:GetMvpHeroId()
+    self.mvpIndex = HeroController:GetNormalMvpIndex()
+
+    Hero:LoadSpineAsync(self.__cname,self.layer.transform:Find("spine_bg"), mvpId, Hero.SPINE_UI_TYPE_EVERYDAY, nil)
+    self._isplot = Chapter:LevelIsPlot(self._data.levelid)
+    self._hasStar = self._isplot or Chapter:LevelIsActivity(self._data.levelid)
+
+    local names = {
+        "pnl_all",
+        "pnl_time",
+        "pnl_bullet",
+        "pnl_level",
+        "pnl_timeScore",
+        "win_bg_new",
+        "hero_info",
+    }
+    local offsetx = 200
+    if self._data.exp == 0 then
+        offsetx = offsetx + 80
+    end
+    if not self._hasStar then
+        local tempRect,anchoredPosition;
+        for _, v in pairs(names) do
+            tempRect = self.layer.transform:Find(v):GetComponent("RectTransform")
+            anchoredPosition = tempRect.anchoredPosition
+            anchoredPosition.y = anchoredPosition.y + offsetx
+            tempRect.anchoredPosition = anchoredPosition
+        end
+    end
+
+    local chapter = Chapter:GetChapterByLevelId(self._data.levelid)
+    local level = Chapter:GetLevel(self._data.levelid)
+    self:starTarget()
+    self.layer:Get("info_exp"):SetVisible(self._data.exp > 0)
+    if self._data.exp > 0 then
+        self:setTmpLevel()
+    end
+    -- 只有剧情关卡有下一关操作
+    self._next_levelid = self._isplot and Chapter:GetNextLevel(self._data.levelid) or 0
+    self._nextObj:SetVisible(self._next_levelid ~= 0)
+    local _is_replay = true
+    if Chapter:LevelIsTower(self._data.levelid) or Chapter:LevelIsMemory(self._data.levelid) then
+        -- 爬塔、回忆本无法重打
+        _is_replay = false
+    end
+    if Chapter:IsPlotHero() then
+        _is_replay = false
+        self._replayObj:SetVisible(false)
+    else
+        self._replayObj:SetVisible(_is_replay and not Chapter._feelWallId)
+    end
+    if self._isplot then
+        if self._next_levelid == 0 then
+            local posx = self._backObj:GetPositionX(true)
+            self._backObj:SetPositionX(25, true)
+            local posx = self._replayObj:GetPositionX(true)
+            self._replayObj:SetPositionX(410, true)
+        end
+    else
+        if _is_replay then
+            local posx = self._backObj:GetPositionX(true)
+            self._backObj:SetPositionX(-29, true)
+            local posx = self._replayObj:GetPositionX(true)
+            self._replayObj:SetPositionX(470, true)
+        else
+            self._backObj:SetPositionX(212, true)
+        end
+    end
+    local ids = HeroController:GetHeroIds()
+    self:SetHeroItems(ids)
+    -- 设置开启的功能
+    Player:SetUnlockSys(Player.UnlockType.fight ,self._data.levelid)
+    self._isExistUnlock = Player:IsExistUnlock()
+    -- 设置非强引导
+    self._isExistGuide = Guide:SetGuideByPassLevel(self._data.levelid)
+    -- 触发非强制引导后 清除最近战斗关卡
+    if self._isExistGuide then
+        Chapter:ResetLastLvId(chapter.gid, chapter.sub_type)
+    end
+
+    if self._isExistUnlock or self._isExistGuide then
+        Chapter:StopAutoFight(Chapter.AUTO_STOP_GUIDE, true)
+    end
+
+    if self._data.exp == 0 then
+        local rect = self.layer:Get("pnl_daily"):GetComponent("RectTransform")
+        local pos = rect.anchoredPosition
+        rect.anchoredPosition = CS.UnityEngine.Vector2(pos.x,pos.y + 80);
+    end
+
+    Guide:OnGuideLayer()
+    self:showLayer()
+    self:playAni("FightWinAni")
+    if TutorialController:IsTutorialEnd() then
+        Guide:CheckLastTutorial()
+    end
+    if Chapter._feelWallId then
+        Chapter:ClearJumpChapterLevel()
+    end
+end
+
+function FightWinLayer:GetHeroList(heroIds)
+    local heroList = {}
+    for i = 1, #heroIds do
+        if heroIds[i] ~= 0 then
+            local hero = Hero:GetHero(heroIds[i])
+            heroList[i] = hero
+        end
+    end
+    return heroList
+end
+
+
+function FightWinLayer:GetAllFight(list)
+    local all = 0
+    for i = 1, #list do
+        all = all + list[i]
+    end
+    return all
+end
+
+
+function FightWinLayer:SetBorder(cls,hero)
+    cls.spine_border = cls:Find("img_border/spine_border")
+    cls.spine_border_ur =  cls:Find("img_border/spine_border_ur")
+    cls.spine_border_sr =  cls:Find("img_border/spine_border_sr")
+    set_com_enabled(cls.imgBorder, hero.qlty <  Bag.QLTY_SR)
+    local index = hero.qlty - 1
+    cls.imgBorder.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res","Common_Btn_WuPing_n_".. index);
+    if hero.qlty ==  Bag.QLTY_SSR then
+        if cls.spine_border == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border", cls.objBorder)
+            spineborder.name = "spine_border"
+            spineborder.transform:SetSiblingIndex(5)
+            cls.spine_border = spineborder
+            cls.spine_border:SetScale(0.5, 0.5, 1)
+
+        end
+    elseif hero.qlty ==  Bag.QLTY_UTR then
+        if cls.spine_border_ur == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_ur", cls.objBorder)
+            spineborder.name = "spine_border_ur"
+            spineborder.transform:SetSiblingIndex(6)
+            cls.spine_border_ur = spineborder
+            cls.spine_border_ur:SetScale(0.5, 0.5, 1)
+
+        end
+    elseif hero.qlty == Bag.QLTY_SR then
+        if cls.spine_border_sr == nil then
+            local spineborder = Groble_ResMgr:Instantiate("prefab_item_spine/spine_item_border_sr", cls.objBorder)
+            spineborder.name = "spine_border_sr"
+            spineborder.transform:SetSiblingIndex(4)
+            cls.spine_border_sr = spineborder
+            cls.spine_border_sr:SetScale(0.5, 0.5, 1)
+        end
+    end
+
+    if cls.spine_border ~= nil then
+        set_obj_active(cls.spine_border, hero.qlty == Bag.QLTY_SSR)
+    end
+    if cls.spine_border_ur ~= nil then
+        set_obj_active(cls.spine_border_ur, hero.qlty == Bag.QLTY_UTR)
+    end
+    if cls.spine_border_sr ~= nil then
+        set_obj_active(cls.spine_border_sr, hero.qlty == Bag.QLTY_SR)
+    end
+end
+--设置出战英雄战力信息
+local stepUpItemNum = 3
+
+function FightWinLayer:SetHeroItems(heroIds)
+    local heroList = self:GetHeroList(heroIds)
+    local fightList = Hero:GetHeroFight()
+    local allFight = self:GetAllFight(fightList)
+    --
+    if allFight <= 0 then
+        allFight = 1
+    end
+
+    local level = Chapter:GetLevel(self._data.levelid)
+    local sub_type = Chapter:GetChapter(level.chapterid).sub_type
+
+    set_obj_active(self.heroObj,sub_type ~= Chapter.MODE_DRUG)
+
+    if(self._stepUpItems == nil)then
+        self._stepUpItems = {};
+        for i = 1, stepUpItemNum do
+            local cls = clsbase:new(self.layer:Get("hero_info/cost_bg/item_cost_"..i));
+            cls.btn = cls.transform:GetComponent("Button");
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+            cls.txtNum = cls:GetTextComponent("txt_num");
+            --set_com_enabled(cls.txtNum,sub_type ~= Chapter.MODE_DRUG)
+            cls.mvpObj = cls:GetImageComponent("img_mvp")
+            cls.imgBorder = cls:GetImageComponent("img_border")
+            cls.objBorder = cls.imgBorder.transform:GetComponent("Transform")
+            cls.btn:AddButtonListener(function ()
+                --Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item, cls.data[1], Bag.TYPE_ITEM, cls.costCnt)
+                --print("点击英雄头像")
+            end);
+            cls.costCnt = 1
+            self._stepUpItems[i] = cls;
+        end
+    end
+
+    local fight = 0;
+    local endIndex = #heroList
+    for i, cls in ipairs(self._stepUpItems) do
+        cls.transform:SetVisible(heroList[i] ~= nil);
+        if heroList[i] ~= nil then
+            cls.data = heroList[i];
+            Hero:SetHeroHeadSprite(cls.imgIcon, heroList[i].id, false, false, false)
+            cls.mvpObj:SetVisible(self.mvpIndex == i)
+            local percent = math.ceil(fightList[i]/allFight*100) -- 向上取整
+            cls.txtNum.text = string.format("%s(%s%s)",fightList[i],percent,"%")
+            self:SetBorder(cls,heroList[i])
+            if i < endIndex then
+                fight = fight + percent
+                if fight > 100 then
+                    fight = 100
+                    cls.txtNum.text = string.format("%s(%s%s)",fightList[i],100 - math.ceil(fightList[i - 1]/allFight*100),"%")
+                end
+            end
+        end
+    end
+
+    local maxCls = self._stepUpItems[endIndex]
+    maxCls.txtNum.text = string.format("%s(%s%s)",fightList[endIndex],100 - fight,"%")
+end
+
+--[[
+function FightWinLayer:GetPercentColor(percent)
+    local result = ""
+    if percent >= 80 then
+        result = "#B061FFFF"
+    elseif percent >= 50 and percent < 80 then
+        result = "#54A0FFFF"
+    else
+        result = "#FFFFFFFF"
+    end
+end]]--
+
+function FightWinLayer:onBackClick()
+    if Chapter:IsAutoFight() then return end
+    
+    self:onPopLayer()
+    uimgr:onMainScene()
+end
+
+function FightWinLayer:onButtonClick(itype)
+    if Chapter:IsAutoFight() then return end
+    if itype == BUTTON_TYPE.Next then
+        Chapter:SetJumpChapterLevel(nil, self._next_levelid)
+        self:onBackClick()
+    elseif itype == BUTTON_TYPE.Replay then
+        -- 战斗重打
+        Chapter:ChapterLevelBeginReq(self._data.levelid)
+    else
+        --TODO:
+    end
+end
+
+function FightWinLayer:setUsingTime()
+    if not self._updatetime then
+        return
+    end
+    if self._usingtime > self._tmpdata.usingtime then
+        self._usingtime = self._tmpdata.usingtime
+        self._updatetime = false
+    end
+    self._usingtimeCom.text = lua_str2time(self._usingtime)
+end
+
+function FightWinLayer:setLevelScore()
+    if self._level_score > self._tmpdata.level_score then
+        self._level_score = self._tmpdata.level_score
+        if self._stop_level then
+            return
+        else
+            self._stop_level = true
+        end
+    end
+    self._lvScroeCom.text = self._level_score
+end
+
+function FightWinLayer:setTimeScore()
+    if self._timeScore > self._tmpdata.timeScore then
+        self._timeScore = self._tmpdata.timeScore
+        if self._stop_time then
+            return
+        else
+            self._stop_time = true
+        end
+    end
+    self.txtTimeScore.text = self._tmpdata.timeScore
+end
+
+
+function FightWinLayer:setBulletScore()
+    if self._bullet_score > self._tmpdata.wipeScore then
+        self._bullet_score = self._tmpdata.wipeScore
+        if self._stop_bullet then
+            return
+        else
+            self._stop_bullet = true
+        end
+    end
+    self.txtBulletValue.text = self._bullet_score
+end
+
+function FightWinLayer:SetNoTimeScorePos(has)
+    local names = {
+        "win_bg_new/win_line1_new",
+        "hero_info",
+    }
+    if not has then  --沒有用時得分
+        local tempRect,anchoredPosition;
+        for _, v in pairs(names) do
+            tempRect = self.layer.transform:Find(v):GetComponent("RectTransform")
+            anchoredPosition = tempRect.anchoredPosition
+            anchoredPosition.y = anchoredPosition.y + 68
+            tempRect.anchoredPosition = anchoredPosition
+        end
+    end
+end
+
+function FightWinLayer:setLevelIconObj()
+    local level = Chapter:GetLevel(self._data.levelid)
+    local has = false
+    if level.rewards ~= nil then
+        has = Chapter:HasAllScoreDrop(level.rewards[2])
+    end
+    local chapter = Chapter:GetChapter(level.chapterid)
+    set_obj_active(self.timeObj,has and chapter.sub_type == Chapter.MODE_HEART)
+    if chapter.main_type == Chapter.SHOW_TYPE_PLOT or chapter.main_type == Chapter.SHOW_TYPE_DAILY then
+        self:setLevelIcon()
+        self.levelIcon:SetVisible(has)
+        self:SetNoTimeScorePos(has)
+        self.layer:Get("pnl_daily"):SetVisible(has)
+
+    else
+        self.levelIcon:SetVisible(false)
+    end
+end
+
+function FightWinLayer:setAllScore()
+    if self._all_score > self._tmpdata.all_score then
+        self._all_score = self._tmpdata.all_score
+        if self._stop_all then
+            return
+        else
+            self._stop_all = true
+        end
+    end
+    self.txtAllValue.text = self._all_score
+
+    --林時處理，动画效果
+    --self:setLevelIcon()
+    --self:setTimeScore()
+end
+
+function FightWinLayer:setLevelIcon()
+    local level = Chapter:GetLevel(self._data.levelid)
+    local allScore = self._all_score --+ self._tmpdata.timeScore
+    local has = Chapter:HasAllScoreDrop(level.rewards[2])
+    if not has then
+        return
+    end
+    --local levelIndex,preNum,nextNum = Chapter:GetScoreLevel(level.rewards[2],allScore)
+    local levelList = Chapter:GetAllScoreDrop(level.rewards[2])
+    local type = levelList[1].type
+    local levelIndex,preNum,nextNum
+    if(type == 1) then
+        levelIndex,preNum,nextNum = Chapter:GetScoreLevel(level.rewards[2],allScore)
+    elseif(type == 2) then
+        levelIndex,preNum,nextNum = Chapter:GetScoreLevel(level.rewards[2],EventController:GetKillCount())
+    elseif(type == 3) then
+        levelIndex,preNum,nextNum = Chapter:GetScoreLevel(level.rewards[2],FightController:GetBattleData().fightTime)
+    elseif(type == 4) then
+        levelIndex,preNum,nextNum = Chapter:GetScoreLevel(level.rewards[2],FightController:GetBattleData().fightTime)
+    end
+
+    if levelIndex > 0 then
+        local path = Chapter.levelIconJ[levelIndex]
+        self.levelIcon:LoadAtlasSprite("source_atlas/atlas_rank_task_layer", path);
+        self.levelDesc.text = Language:GetTxtBuyId(levelList[levelIndex].desc2)
+    end
+    self.txtAllValue.text = allScore
+end
+
+function FightWinLayer:starTarget()
+    if self._hasStar then
+        local desc = Chapter:LevelStarTarget(self._data.levelid)
+        for i = 1, Chapter.LEVEL_STAR_NUM do
+            local item = self.layer:Get("star_item_".. i)
+            item:GetTextComponent("text_desc").text = desc[i]
+            local achieve = LuaScriptController:GetBattleDataAchieve()
+            local complete_star = achieve[i]
+            if not complete_star then
+                item:GetTextComponent("text_desc").color = COLOR_TYPE.Gray
+                item:GetImageComponent("image_star"):LoadSprite(FILE_PATH.STAR_DARK)
+            end
+        end
+    else
+        for i = 1, Chapter.LEVEL_STAR_NUM do
+            self.layer:Get("star_item_".. i):SetVisible(false)
+        end
+    end
+end
+
+function FightWinLayer:setTmpLevel()
+    local data = Player:GetOldLvExp()
+    self.layer:Get("info_exp/text_exp"):SetVisible(false)
+    
+    self._old_per = data.exp / data.next_exp
+    self.layer:GetSliderComponent("info_exp/slider_expBg").value = self._old_per
+    self.layer:GetTextComponent("info_exp/text_level").text = "Lv." .. data.level
+    if Player:IsMaxLevel() then
+        self.layer:GetTextComponent("info_exp/text_exp"):SetTextById(8880008)
+    else
+        self.layer:GetTextComponent("info_exp/text_exp").text = "+"..self._data.exp
+    end
+end
+
+function FightWinLayer:setLevel()
+    self.layer:Get("info_exp/text_exp"):SetVisible(self._data.exp > 0)
+    if self._data.exp == 0 then
+        self:showUnlockLayer()
+        return
+    end
+    self._new_per = Player:GetLevelExpPer()
+    self._isUpLevel = Player:IsLevelUp()
+    if self._isUpLevel then
+        self._fading = true;
+        self._new_per = 1
+    else
+        -- 调用解锁的功能
+        self:showUnlockLayer()
+    end
+    if Player:IsMaxLevel() then
+        self._dis = 0
+        self._update = false
+    else
+        self._dis = (self._new_per - self._old_per)/20
+        self._update = true
+    end
+end
+
+function FightWinLayer:onLevelBeginRep(levelid)
+    self:onPopLayer()
+    FightController:GoOnceLevel(levelid)
+end
+
+function FightWinLayer:onFixedMeshRenderOrder()
+    local render = self.layer:Get("UI16_Sl01/M_cb/Plane005"):GetComponent("SkinnedMeshRenderer")
+    render.sortingOrder = 2001
+end
+
+function FightWinLayer:onFadingEnd()
+    if Chapter:IsAutoFight() then
+        self._fading = true
+    else
+        self._fading = false
+    end
+end
+
+function FightWinLayer:showLevelUpLayer()
+    if Chapter:IsAutoFight() then
+        Player:ShowLevelUpLayer(
+            function()
+                self:onLevelUpBackCall()
+            end)
+    else
+        Player:ShowLevelUpLayer(
+            function()
+                self:showUnlockLayer()
+            end)
+    end
+end
+
+function FightWinLayer:autoFightEnd()
+    self._fading = false
+    Chapter:ShowAutoResultLayer()
+end
+
+function FightWinLayer:onLevelUpBackCall()
+    if Chapter:IsAutoFight() then
+        if Chapter:IsAutoStopped() then
+            self:autoFightEnd()
+        else
+            if Chapter:CheckHasAmpleMat() then
+                self:autoFightEnd()
+            else
+                -- 次数是否足够
+                if Chapter:CheckAutoGoFightCount() then
+                    if not Chapter:AutoFightContinue() then
+                        self:autoFightEnd()
+                    end
+                else
+                    self:autoFightEnd()
+                end
+            end
+        end
+    else
+        self:ShowTriggerLayer();
+    end
+end
+
+function FightWinLayer:showUnlockLayer()
+    Player:ShowUnlockLayer(function ()
+        self:ShowTriggerLayer();
+    end);
+    self._fading = false
+end
+
+--触发关卡
+function FightWinLayer:ShowTriggerLayer()
+    if self._data.trigger == nil then return end
+
+    Chapter:SetTriggerLevelId(self._data.trigger)
+    GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+    Chapter:ClearJumpChapterLevel()
+    Chapter:SetLastInFightType(Chapter.SHOW_TYPE_PLOT)
+    self:onPopLayer()
+    uimgr:onMainScene()
+end
+
+-- 战斗胜利动画回调监听
+function FightWinLayer:KeyFrameCall(keyTag)
+    if 0 == keyTag then
+        self._showscore     = true
+        self._updatetime    = true
+        self:setLevel()        
+    end
+end
+
+function FightWinLayer:onLayerFadeInEndCall()
+    self:onFadingEnd()
+    if (not self._isUpLevel) and (not self._isExistUnlock) then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+
+    if Chapter:IsAutoFight() then
+        self:onLevelUpBackCall()
+    end
+end
+
+return FightWinLayer
+

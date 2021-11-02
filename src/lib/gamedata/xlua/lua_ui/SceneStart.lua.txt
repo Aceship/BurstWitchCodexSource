@@ -1,0 +1,36 @@
+--
+-- author: haosun
+-- date  : 2019-09-04 20:22:17
+-- brief :
+--
+
+function start(sceneid)    
+    Groble_SceneMgr:setScreenSleep(-2)
+    Groble_SceneMgr:SetGameTimeScale(1)
+    local canvas = Groble_ResMgr:Instantiate("prefab_comframeWork/prefab_canvas")
+    CanvasMgr:SetCanvas(canvas)
+    Groble_SceneMgr:SetMultiTouchEnabled(false)
+    if sceneid == uimgr.MAIN_SCENE_ID then
+        CameraController:InitCameraController()
+        core.require("xlua/lua_UI/HomeScene/MainLayer.txt"):new():show()
+
+        --临时解决进入抽卡界面卡顿问题
+
+        AssetLoader:LoadAsset("prefab_uiEffect/M2_lotteryScene/Lottery_1")
+        AssetLoader:LoadAsset("prefab_uiEffect/M2_lotteryScene/lottery_star")
+        AssetLoader:LoadAsset("prefab_uiEffect/M2_lotteryScene/Lottery_enter")
+        AssetLoader:LoadAsset("prefab_uiEffect/M2_lotteryScene/ThatCardInterface")
+    end    
+    
+    Talk:SetIsLoadSceneOver(true);
+    Talk:UpDataSystemNotice(true);
+    AppMgr:LogInfo("Scene Start... " .. sceneid)
+end
+
+--游戏释放
+function destroy(sceneid)
+    CanvasMgr:ClearCanvas()
+    Talk:SetIsLoadSceneOver(false);
+    AssetLoader:UnloadAsset()
+    AppMgr:LogInfo("Scene Destroy... " .. sceneid)
+end

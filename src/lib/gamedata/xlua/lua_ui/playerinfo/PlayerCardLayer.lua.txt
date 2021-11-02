@@ -1,0 +1,314 @@
+--
+-- author: haosun
+-- date  : 2019-08-29 20:56:25
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PlayerCardLayer = class("PlayerCardLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    add         = "container/button_add",
+    del         = "container/button_del",
+    addblack    = "container/button_addblack",
+    delblack    = "container/button_delblack",
+    talk        = "container/button_talk",
+    edit        = "container/button_edit",
+    BtnReport   = "container/btn_report",
+}
+
+function PlayerCardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_playerinfo/UI_PlayerCardLayer",
+    }
+    self._uitype = 2
+    self:onEnter()
+end
+
+function PlayerCardLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self._clsplayer = Player:CtorPlayerIconBorder(self.layer:Get("container/prefab_player"))
+    self._inputField = self.layer:GetInputFieldComponent("container/InputField")
+    self._inputField.onEndEdit:AddListener(
+        function()
+            self:onEndEdit()
+        end)
+    for i = 1, 3, 1 do
+        self.layer:GetButtonComponent("container/info_hero_" .. i):AddButtonListener(
+            function()
+                self:onButtonClick(i)
+            end)
+    end
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_SIGN,
+        function()
+            Groble_UIMgr:ShowGameWordTipsLayer(1800069)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_SHOWTEAM,
+        function()
+            self:onModifyTeamRep()
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_PLAYERINFOFRIEND,
+        function()
+            self:refreshButtonUi()
+        end)
+end
+
+function PlayerCardLayer:onExit()
+    if self._clsplayer ~= nil then
+        self._clsplayer:clear()
+        self._clsplayer = nil
+    end
+    if self._heroCObj ~= nil then
+        for i, v in pairs(self._heroCObj) do
+            v:clear()
+        end
+        self._heroCObj = nil
+    end
+    self._inputField = nil
+    self._pdata = nil
+    CBaseLayer.onExit(self)
+end
+
+function PlayerCardLayer:onBackClick()
+    self:onPopLayer()
+    Player:ExitPlayerCardLayer()
+end
+
+function PlayerCardLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.add then
+        if(self._isRobot)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(120064));
+            return;
+        end
+        Friend:FriendRequestReq(self._pdata.id)
+    elseif buttontype == BUTTON_TYPE.del then
+        if(self._isRobot)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(120065));
+            return;
+        end
+        Friend:FriendDelReq(self._pdata.id)
+    elseif buttontype == BUTTON_TYPE.addblack then
+        if(self._isRobot)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(120064));
+            return;
+        end
+        Friend:AddUnFriendReq(self._pdata.id)
+    elseif buttontype == BUTTON_TYPE.delblack then
+        if(self._isRobot)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(120065));
+            return;
+        end
+        Friend:DelUnFriendReq(self._pdata.id)
+    elseif buttontype == BUTTON_TYPE.talk then
+        local data = {
+            id      = self._pdata.id,
+            name    = self._pdata.name,
+            iconid  = self._pdata.iconid,
+            frameid = self._pdata.frameid,
+            level   = self._pdata.level,
+        }
+        Talk:OpenSelfTalkUi(data)
+        self:onExit()
+    elseif buttontype == BUTTON_TYPE.edit then
+        self._inputField:ActivateInputField()
+    elseif buttontype == BUTTON_TYPE.BtnReport then
+        Player:ShowPlayerReportLayer();
+    else
+        self:onHeroClick(buttontype)
+    end
+end
+
+function PlayerCardLayer:show()
+    play_effect_show()
+    self._pdata, self._isRank = Player:GetPlayerCardData()
+    self._isRobot = Robot:IsRobot(self._pdata.id);
+    if self._isRank then
+        self.layer:GetTextComponent("container/label_team"):SetTextById(121041);
+        self.layer:GetTextComponent("container/label_team_en"):SetTextById(121042);
+    else
+        self.layer:GetTextComponent("container/label_team"):SetTextById(1800034);
+        self.layer:GetTextComponent("container/label_team_en"):SetTextById(1800035);
+    end
+    self._isSelf = self._pdata.id == Player:GetId()
+
+    self:onFixedLayer()
+    self:initLayer()
+    self:showLayer()
+    self._fading = true
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function PlayerCardLayer:onFixedLayer()
+    if self._isSelf then
+        self.layer:Get("container/button_talk"):SetVisible(false)
+        self.layer:Get("container/button_add"):SetVisible(false)
+        self.layer:Get("container/button_del"):SetVisible(false)
+        self.layer:Get("container/button_addblack"):SetVisible(false)
+        self.layer:Get("container/button_delblack"):SetVisible(false)
+       -- u3d_set_size(self.layer.transform:Find("container/image_bg"), nil, 1300)
+      --  u3d_set_localPos(self.layer.transform:Find("container"), nil, -100)
+    end
+    self.layer:Get("container/button_edit"):SetVisible(self._isSelf)
+end
+
+function PlayerCardLayer:initLayer()
+    -- player 
+    self.layer:GetTextComponent("container/text_name").text = self._pdata.name
+    Player:SetPlayerIconBorderObj(self._clsplayer, self._pdata.iconid, self._pdata.frameid)
+    self._clsplayer.transform:GetTextComponent("text_level").text = "Lv." .. self._pdata.level
+    local isShowReport = Player:GetPlayerCardType() == Player.CardType_Talk or Player:GetPlayerCardType() == Player.CardType_Rank;
+    self.layer:Get(BUTTON_TYPE.BtnReport):SetVisible(not self._isSelf and isShowReport);
+    if self._isSelf then
+        self._inputField.text = self._pdata.autograph
+    else
+        if lua_str_empty(self._pdata.autograph) then
+            self._inputField.text = " "
+        else
+            self._inputField.text = self._pdata.autograph
+        end
+    end
+    self._inputField.interactable = self._isSelf
+
+ --   self.layer:GetTextComponent("container/text_rank").text = rankStr
+ --   self.layer:GetTextComponent("container/text_coin").text = self._pdata.sy_coin
+     local danCfg = MidNight:GetDanGradingCfgById(MidNight:GetDanIdByTrophyNum(self._pdata.trophy));
+    if(danCfg ~= nil)then
+        MidNight:SetRankIcon(self.layer:GetImageComponent("container/img_dan_grading"),danCfg.iconPath);
+        self.layer:GetTextComponent("container/txt_dan_name"):SetText(danCfg.name);
+        if self._isSelf then
+            self.layer:GetTextComponent("container/text_rank_score").text = MidNight:GetHistoryScore()
+        else
+            self.layer:GetTextComponent("container/text_rank_score").text = self._pdata.sy_score
+        end        
+        self.layer:Get("container/trans_glory_trophy"):SetVisible(self._pdata.glory > 0)
+        if(self._pdata.glory > 0)then
+            self.layer:GetTextComponent("container/trans_glory_trophy/txt_glory_trophy_num"):SetText(self._pdata.glory)
+        end
+    end
+  --  self.layer:GetTextComponent("container/text_myster_score").text = self._pdata.sy_mystery
+    self._heroCObj = {}
+    for i = 1, 3, 1 do
+        local prefab        = Hero:AddPrefabHalf(self.layer.transform:Find("container/info_hero_" .. i), 0, -10, 1.05, "prefab")
+        self._heroCObj[i]   = Hero:HalfItemClassNew(prefab, function() self:onButtonClick(i) end)
+    end
+    self:refreshHeroes()
+    self:refreshButtonUi()
+end
+
+function PlayerCardLayer:refreshHeroes()
+    for i, cls in ipairs(self._heroCObj) do
+        cls:Visible(self._pdata.heroes[i] ~= 0)
+        if self._pdata.heroes[i] ~= 0 then
+            Hero:SetHalfItemClassData(cls, self._pdata.heroes[i].id, self._pdata.heroes[i], true, false)
+        end
+    end
+end
+
+function PlayerCardLayer:onHeroClick(i)
+    if self._isSelf then
+        if self._pdata.heroes[i] ~= 0 then
+            self:onModifyTeamReq(i, 0)
+        else
+            local params = {
+                useids = {},
+                intype = WITCHES_IN_TYPE.SHOW,
+            }
+            for _, v in ipairs(self._pdata.heroes) do
+                if v ~= 0 then
+                    table.insert(params.useids, v.id)
+                end
+            end
+            self:hideLayer()
+            Hero:OpenWitchesLayer(params,
+                function(heroid)
+                    self:showLayer()
+                    if(type(heroid) == "table")then
+                        local isSend = false;
+                        for _, id in pairs(heroid) do
+                            if(id > 0)then
+                                isSend = true;
+                            end
+                        end
+                        if isSend then
+                            self:onModifyTeamReq(i, heroid)
+                        end
+                    else
+                        if heroid ~= nil then
+                            self:onModifyTeamReq(i, heroid)
+                        end
+                    end
+                end)
+        end
+    else
+        if self._pdata.heroes[i] ~= 0 then
+            self:hideLayer()
+            Hero:LookHeroInfo(self._pdata.heroes[i], 
+                function()
+                    self:showLayer()
+                end)
+        end
+    end
+end
+
+function PlayerCardLayer:onModifyTeamReq(slot, heroid)
+    local heroids = Player:GetPlayerShowTeam()
+    if heroid ~= 0 then
+        for i, v in ipairs(heroids) do
+            if v == heroid and i ~= slot then
+                heroids[i] = 0
+            end
+        end
+    end
+    heroids[slot] = heroid
+    Player:ModifyTeamReq(heroids)
+end
+
+function PlayerCardLayer:onModifyTeamRep()
+    local heroids = Player:GetPlayerShowTeam()
+    for i, heroid in ipairs(heroids) do
+        if heroid == 0 then
+            self._pdata.heroes[i] = 0
+        else
+            self._pdata.heroes[i] = Hero:GetHero(heroid)
+        end
+    end
+    self:refreshHeroes()
+end
+
+function PlayerCardLayer:onEndEdit()
+    local inputstr = self._inputField.text
+    if self._pdata.autograph ~= inputstr then
+        if inputstr ~= "" then
+            if not SensitiveWordUtil:CheckIsLegal(inputstr) then
+                Groble_UIMgr:ShowGameWordTipsLayer(71008)
+                return
+            end
+            if lua_str_utf8len(inputstr) > Player.MAX_SIGN then
+                Groble_UIMgr:ShowGameWordTipsLayer(1800070)
+                return
+            end
+        end
+        Player:ModifySignReq(inputstr)
+    end
+end
+
+function PlayerCardLayer:refreshButtonUi()
+    if self._isSelf then
+        return
+    end
+    local bfriend = Friend:IsFriend(self._pdata.id)
+    local blacklist = Friend:IsBlackList(self._pdata.id)
+    -- talk 
+    self.layer:Get("container/button_talk"):SetVisible(not blacklist)
+    -- add black
+    self.layer:Get("container/button_addblack"):SetVisible(not blacklist and not bfriend)
+    -- remove black
+    self.layer:Get("container/button_delblack"):SetVisible(blacklist)
+    -- add friend
+    self.layer:Get("container/button_add"):SetVisible(not bfriend and not blacklist)
+    -- del friend
+    self.layer:Get("container/button_del"):SetVisible(bfriend)
+end
+
+return PlayerCardLayer

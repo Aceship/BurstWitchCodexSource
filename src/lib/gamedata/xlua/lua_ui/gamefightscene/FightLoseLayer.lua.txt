@@ -1,0 +1,230 @@
+--
+-- author: haosun
+-- date  : 2018-12-15 02:39:13
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FightLoseLayer = class("FightLoseLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Again   = "button_replay",
+    Level   = "button_level",
+    Equip   = "button_equip",
+}
+
+function FightLoseLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_FightLoseLayer",
+    }
+    
+    self._tmpdata       = GTemp:GetFightTmpData()
+    self._usingtime     = 0
+    self._updatetime    = false
+    self._level_score   = 0
+    self._all_score     = 0
+    self._bullet_score  = 0
+    self:onEnter()
+end
+
+function FightLoseLayer:initObj()
+    self._backObj       = self.layer:Get("button_back")
+    self._replayObj     = self.layer:Get("button_replay")
+    self.txtTimeValue   = self.layer:GetTextComponent("pnl_time/text_value")
+    self.txtLevelValue  = self.layer:GetTextComponent("pnl_level/text_value")
+    self.txtBulletValue = self.layer:GetTextComponent("pnl_bullet/text_value")
+    self.txtAllValue    = self.layer:GetTextComponent("pnl_all/text_value")
+end
+
+function FightLoseLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+        function(levelid)
+            self:onLevelBeginRep(levelid)
+        end)
+
+    self._KeyFrameCall = function()
+        self._showscore  = true
+        self._updatetime = true
+    end
+end
+
+function FightLoseLayer:onExit()
+    self._backObj       = nil
+    self._replayObj     = nil
+    self.txtTimeValue   = nil
+    self.txtLevelValue  = nil
+    self.txtBulletValue = nil
+    self.txtAllValue    = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function FightLoseLayer:onUpdate(dt)
+    if self._showscore then
+        if self._tmpdata.usingtime < 30 then
+            self._usingtime = self._usingtime + 1
+        else
+            self._usingtime = self._usingtime + math.random(1, math.ceil(self._tmpdata.usingtime/30))
+        end
+        self:setUsingTime()
+        
+        if self._tmpdata.level_score > 0 then
+            self._level_score = self._level_score + math.random(1, math.ceil(self._tmpdata.level_score/30))
+            self:setLevelScore()
+        end
+
+        if self._tmpdata.all_score > 0 then
+            self._all_score = self._all_score + math.random(1, math.ceil(self._tmpdata.all_score/30))
+            self:setAllScore()
+        end
+        if self._tmpdata.wipeScore > 0 then
+            self._bullet_score = self._bullet_score + math.random(1, math.ceil(self._tmpdata.wipeScore/20))            
+			self:setBulletScore()
+        end
+    end
+end
+
+function FightLoseLayer:show(data)
+    self._levelid = data.levelid
+    local heroId = HeroController:GetShowHeroId()
+    Hero:LoadSpineAsync(self.__cname,self.layer:Get("spine_bg"), heroId, Hero.SPINE_UI_TYPE_EVERYDAY, nil)
+    if Chapter:LevelIsTower(data.levelid) then
+        -- u3d_set_localPos(self._backObj, 0)
+        self._replayObj:SetVisible(false)
+    end
+    if Chapter._feelWallId then
+        Chapter:ClearJumpChapterLevel()
+    end
+    self:showLayer()
+    self:playAni("FightLoseAni")
+end
+
+function FightLoseLayer:onBackClick()
+    local function oncall()
+        if Chapter:LevelIsActivity(Chapter:GetCurFightLevelId()) then
+            GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_HOME);
+            Chapter:ClearJumpChapterLevel();
+        end
+        self:onPopLayer()
+    end
+    uimgr:onMainScene(oncall)
+end
+
+function FightLoseLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.Again then
+        self:doReplay()
+    elseif buttontype == BUTTON_TYPE.Level then
+        self:doJump(1)
+    elseif buttontype == BUTTON_TYPE.Equip then
+        self:doJump(2)
+    end
+end
+
+function FightLoseLayer:doReplay()
+    Chapter:ChapterLevelBeginReq(self._levelid,nil,nil,nil,Chapter._feelWallId)
+end
+
+function FightLoseLayer:setUsingTime()
+    if not self._updatetime then
+        return
+    end
+    if self._usingtime > self._tmpdata.usingtime then
+        self._usingtime = self._tmpdata.usingtime
+        self._updatetime = false
+    end
+    self.txtTimeValue.text = lua_str2time(self._usingtime)
+end
+
+function FightLoseLayer:setLevelScore()
+    if self._level_score > self._tmpdata.level_score then
+        self._level_score = self._tmpdata.level_score
+        if self._stop_level then
+            return
+        else
+            self._stop_level = true
+        end
+    end
+    self.txtLevelValue.text = self._level_score
+end
+
+function FightLoseLayer:setBulletScore()
+    if self._bullet_score > self._tmpdata.wipeScore then
+        self._bullet_score = self._tmpdata.wipeScore
+        if self._stop_bullet then
+            return
+        else
+            self._stop_bullet = true
+        end
+    end
+    self.txtBulletValue.text = self._bullet_score
+end
+
+function FightLoseLayer:setAllScore()
+    if self._all_score > self._tmpdata.all_score then
+        self._all_score = self._tmpdata.all_score
+        if self._stop_all then
+            return
+        else
+            self._stop_all = true
+        end
+    end
+    self.txtAllValue.text = self._all_score
+end
+
+function FightLoseLayer:autoFightEnd()
+    self._fading = false
+    Chapter:ShowAutoResultLayer()
+end
+
+function FightLoseLayer:onLayerFadeInEndCall()
+    if Chapter:IsAutoFight() then
+        if Chapter:IsAutoStopped() then
+            self:autoFightEnd()
+        else
+            if Chapter:IsAutoFailOn() then
+                if Chapter:CheckAutoGoFightCount()then
+                    if not Chapter:AutoFightContinue() then
+                        self:autoFightEnd()
+                    end
+                else
+                    -- 次数不足，停止托管
+                    self:autoFightEnd()
+                end
+            else
+                -- 玩家未选择失败继续
+                Chapter:StopAutoFight(Chapter.AUTO_STOP_FAIL)
+                self:autoFightEnd()
+            end
+        end
+    else
+        self._fading = false
+    end
+end
+
+function FightLoseLayer:onLevelBeginRep(levelid)
+    self:onPopLayer()
+    FightController:GoOnceLevel(levelid)
+end
+
+function FightLoseLayer:doJump(jumptype)
+    self._fading = true
+    GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_WITCH)
+    Chapter:ClearJumpChapterLevel()
+    local heroids = Chapter:GetFightHeroIds(self._levelid)
+    local hid = 0
+    for i, v in ipairs(heroids) do
+        if v ~= 0 then
+            hid = v
+            break
+        end
+    end
+    Guide:SetGuideJumpHid(hid)
+    self:onPopLayer()
+    uimgr:onMainScene()
+end
+
+return FightLoseLayer
+

@@ -1,0 +1,326 @@
+--
+-- author: haosun
+-- date  : 2019-06-28 14:24:58
+-- brief :
+--         basedata = {"id", "name", "level", "iconid", "onlinetime", "offlinetime", "frameid"}
+--
+
+Friend = Friend or {}
+
+function Friend:Ctor()
+    self.blacklist = {} --黑名单列表
+
+    self._frienddata = {
+        number = 0,
+        recv_coin = {},
+        send_coin = {},
+        player_ids = {},
+        list = {},
+        isGet = false,
+    }
+
+    self._recommenddata = {
+        utctime = 0,
+        list = {}
+    }
+
+    self._applydata = {
+        number   = 0,
+        ids      = {},
+        datas    = {},
+    }
+
+    self._lookdata = {
+        lookdatas = {},
+        utctime   = 0,
+    }
+
+    self._blacklist = {
+        number = 0,
+        ids    = {},
+        datas  = {},
+    }
+    -- 已申请列表
+    self._applyed = {}
+
+    self._sendCoinNumber = 0
+    self._recvCoinNumber = 0
+
+    self._maxcfg = Player:GetFriendCfg()
+end
+
+function Friend:Clear()
+    self:Ctor()
+end
+
+function Friend:GetCfg()
+    return self._maxcfg
+end
+
+function Friend:GetFriends()
+    return self._frienddata.list
+end
+
+function Friend:GetFriendById(playerid)
+    for _, v in ipairs(self._frienddata.list) do
+        if v.id == playerid then
+            return v
+        end
+    end
+    return nil
+end
+
+function Friend:AddFriend(data, sort)
+    for _, v in pairs(self._frienddata.list) do
+        if v.id == data.id then
+            v.name      = data.name
+            v.iconid    = data.iconid
+            v.frameid   = data.frameid
+            v.level     = data.level
+            v.coin      = data.coin
+            return
+        end
+    end
+
+    self._frienddata.number = self._frienddata.number + 1
+    if self._frienddata.send_coin[data.id] == nil then
+        self._frienddata.send_coin[data.id] = Friend.COIN_STATE_NULL
+    end
+    data.send_state = self._frienddata.send_coin[data.id]
+
+    if self._frienddata.recv_coin[data.id] == nil then
+        self._frienddata.recv_coin[data.id] = Friend.COIN_STATE_NULL
+    end
+    data.recv_state = self._frienddata.recv_coin[data.id]
+    self._frienddata.player_ids[data.id] = true
+    table.insert(self._frienddata.list, data)
+    if sort then
+        self:OnListSort()
+    end
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_FRIEND_NUM)
+end
+
+function Friend:OnListSort()
+    table.sort(self._frienddata.list, function(a, b)
+        return a.offlinetime > b.offlinetime
+    end)
+end
+
+function Friend:UpdateFriend(pid, state)
+    local pdata = self:GetFriendById(pid)
+    if pdata ~= nil then
+        pdata.onlinestate = state
+        if state == Friend.STATE_ONLINE then
+            pdata.onlinetime = CTime:GetServerTime()
+        else
+            pdata.offlinetime = CTime:GetServerTime()
+        end
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND, pid)
+    end
+end
+
+function Friend:RemoveFriend(playerid)
+    self._applyed[playerid] = nil
+    if next(self._frienddata.list) == nil then
+        self._frienddata.player_ids[playerid] = false
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_PLAYERINFOFRIEND)
+        return
+    end
+    for i, v in ipairs(self._frienddata.list) do
+        if v.id == playerid then
+            table.remove(self._frienddata.list, i)
+            self._frienddata.player_ids[playerid] = false
+            self._frienddata.number = self._frienddata.number - 1
+            self._frienddata.recv_coin[playerid] = Friend.COIN_STATE_NULL
+            Stats:UpdateStatsCount(Stats.STATS_TYPE_FRIEND_NUM)
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND)
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_PLAYERINFOFRIEND)
+            break
+        end
+    end
+end
+
+function Friend:IsFriend(playerid)
+    return true == self._frienddata.player_ids[playerid]
+end
+
+function Friend:GetFriendNumber()
+    return self._frienddata.number
+end
+
+function Friend:SetApplyNumber(ids)
+    self._applydata.number = 0
+    for _, v in pairs(ids) do
+        self._applydata.number = self._applydata.number + 1
+        self._applydata.ids[v] = true
+    end
+    Player:RefreshHomeLayerData(HomeLayerMsgType.FriendApply, self._applydata.number)
+end
+
+function Friend:SetApplydata(datas)
+    self._applydata.number = #datas
+    self._applydata.datas  = datas
+end
+
+function Friend:AddApplydata(data)
+    if self._applydata.ids[data.id] == nil then
+        table.insert(self._applydata.datas, data)
+        self._applydata.number = self._applydata.number + 1
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_APPLY_LIST)
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    end
+    Player:RefreshHomeLayerData(HomeLayerMsgType.FriendApply, self._applydata.number)
+end
+
+function Friend:GetApplyList()
+    return self._applydata.datas
+end
+
+function Friend:GetApplyNum()
+    return self._applydata.number or 0
+end
+
+function Friend:_OnProgressApply(playerid, add)
+    for i, v in ipairs(self._applydata.datas) do
+        if v.id == playerid then
+            if add then
+                self:AddFriend(v, true)
+            end
+            table.remove(self._applydata.datas, i)
+            self._applydata.number = self._applydata.number - 1
+            GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_APPLY_LIST)
+            Player:RefreshHomeLayerData(HomeLayerMsgType.FriendApply, self._applydata.number)
+            break
+        end
+    end
+end
+
+function Friend:GetRecommedList()
+    return self._recommenddata.list
+end
+
+-- 获得切换推荐列表剩余时间
+function Friend:GetRecommendCountdown()
+    local interval = Friend.REQ_RECOMMED_INTERVAL - (os.time() - self._recommenddata.utctime)
+    return math.max(0, interval)
+end
+
+function Friend:ReqBlackList()
+    local tmp = self._reqstate[Friend.REQ_TYPE_BLACK_LIST]
+    if tmp.req and os.time() - tmp.stime < Friend.REQ_INTERVAL then
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_UNFRIEND)
+    else
+        tmp.req = false
+        tmp.stime = 0
+        self:GetFriendInfoReq(Friend.REQ_TYPE_BLACK_LIST)
+    end
+end
+
+function Friend:AddBlackList(id, data)
+    self._blacklist.ids[id] = true
+    self._blacklist.number = self._blacklist.number + 1
+    if data ~= nil then
+        table.insert(self._blacklist.datas, data)
+    end
+end
+
+function Friend:RemoveBlacklist(id)
+    if true == self._blacklist.ids[id] then
+        self._blacklist.ids[id] = nil
+        self._blacklist.number = self._blacklist.number - 1
+        for i, v in ipairs(self._blacklist.datas) do
+            if v.id == id then
+                table.remove(self._blacklist.datas, i)
+                break
+            end
+        end
+    end
+end
+
+function Friend:GetBlacklist()
+    return self._blacklist.datas
+end
+
+function Friend:IsBlackList(playerid)
+    return true == self._blacklist.ids[playerid]
+end
+
+function Friend:GetBlacklistNumber()
+    return self._blacklist.number
+end
+
+function Friend:IsExistRecvGifts()
+    local number = 0
+    if #self._frienddata.list > 0 then
+        for _, v in pairs(self._frienddata.list) do
+            if v.recv_state == Friend.COIN_STATE_RECV then
+                number = number + 1
+            end
+        end
+    else
+        for _, v in pairs(self._frienddata.recv_coin) do
+            if v == Friend.COIN_STATE_RECV then
+                number = number + 1
+            end
+        end
+    end
+    return number > 0
+end
+
+function Friend:IsExistApplyIds()
+    return self._applydata.number > 0
+end
+
+function Friend:ExistBatterOper()
+    if not  Player:IsSysFuncOpen(Player.SYS_FUNC.sys_friend) then
+        return false
+    end
+    return self:IsExistApplyIds() or self:IsExistRecvGifts()
+end
+
+function Friend:OnUpdateDay()
+    self._recvCoinNumber = 0
+    self._sendCoinNumber = 0
+    self._frienddata.send_coin = {}
+    for _, v in pairs(self._frienddata.list) do
+        v.send_state = Friend.COIN_STATE_NULL
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND)
+end
+
+function Friend:OrderFriends()
+
+    table.sort(self._frienddata.list, function(a, b)
+        if a.onlinestate > b.onlinestate then
+            return a.onlinestate > b.onlinestate
+        end
+        if a.onlinestate == b.onlinestate then
+            if a.onlinestate == Friend.STATE_ONLINE then
+                return a.level > b.level
+            end
+            if a.onlinestate == Friend.STATE_OFFLINE then
+                return a.offlinetime > b.offlinetime
+            end
+        end
+    end)
+end
+
+function Friend:GetReqState()
+    return self._isReqing
+end
+--去掉推荐列表中的无用信息
+function Friend:RemoveUnUseInfo(recommend_data)
+    local list = {}
+    for   id, v in pairs(recommend_data) do
+        if id ~= Player:GetId() and (not self:IsBlackList(id)) and  (not self:IsFriend(id)) then
+            table.insert(list, v)
+        end
+    end
+    return list
+end
+
+function Friend:GetFriendDataLoadState()
+   return self._frienddata.isGet or false;
+end

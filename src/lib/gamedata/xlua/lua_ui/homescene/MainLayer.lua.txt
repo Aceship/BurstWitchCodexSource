@@ -1,0 +1,102 @@
+--
+-- author: haosun
+-- date  : 2018-10-16 16:41:17
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MainLayer = class("MainLayer", CBaseLayer)
+
+function MainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_MainLayer",
+    }
+
+    self:onEnter()
+end
+
+function MainLayer:onEnter()
+    self:createPnl()
+    local _canvas =  CanvasMgr:GetCanvas()
+    if _canvas ~= nil then
+        _canvas:GetImageComponent("shield_bg/left").raycastTarget = true
+        _canvas:GetImageComponent("shield_bg/left_2").raycastTarget = true
+        _canvas:GetImageComponent("shield_bg/right").raycastTarget = true
+        _canvas:GetImageComponent("shield_bg/right_2").raycastTarget = true
+    end
+
+    Guide:OnGuideLayer()
+
+    -- 添加键盘监听
+    if AppMgr:IsEditor() then
+        local _keyboard = self.layer.gameObject:AddComponent(typeof(CS.KeyboardBehaviour))
+        _keyboard:InitMonoBehaviour(self)
+    end
+    Groble_SoundMgr:PlayBgm(301002)
+    
+    Groble_UIMgr:ShowBackLayer()
+
+    Operation:CheckValidTriggerPackage()
+
+    uimgr:InitTodoList()
+end
+
+function MainLayer:KeyboardEvent()
+    core.require("xlua/lua_UI/HomeScene/GmLayer.txt").GetInstance():show()
+end
+
+function MainLayer:show()
+    self.layer:DelayInvoke(0.55, function()
+            self:onLayerFadeInEndCall()
+        end)
+    self.layer:DelayInvoke(0.2, function() self:doCheckPopRule() end)
+    self:doCheckLevel14()
+    self:showLayer()
+
+    uimgr:showLastLayer()
+end
+
+function MainLayer:doCheckLevel14()
+    local level = Chapter:GetLevel(100104)
+    if not level.open then return end
+
+    local hero = Hero:GetHero(1003)
+    if hero.level > 1 then
+        self:doCheckLevel18()
+    else
+        -- Guide:OpenGuideEvent(Guide.FIRST_HERO_LEVELUP, false, true, 2)
+    end
+end
+
+function MainLayer:doCheckLevel18()
+    local level = Chapter:GetLevel(100108)
+    if not level.open then return end
+
+    if Lottery:GetFirstFinish() then return end
+    
+    Lottery:SetNewLottery(true)
+    if Guide:IsExistGuide(Guide.FIRST_LOTTERY_TASK) then
+        Guide:OpenGuideEvent(Guide.FIRST_LOTTERY_10, false, true)
+    else
+        Guide:OpenGuideEvent(Guide.FIRST_LOTTERY_TASK)
+    end
+end
+
+function MainLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function MainLayer:doCheckPopRule()
+    -- 检测是否存在引导
+    if Guide:IsGuiding() then return end
+
+    uimgr:AddTodoList(function() Activity:OpenNewbieUpLayer() end)
+    uimgr:AddTodoList(function() Activity:AutoOpenSevenSignLayer() end)
+    uimgr:AddTodoList(function() Operation:AutoOpenTriggerPackageLayer() end)
+    uimgr:AddTodoList(function() Activity:DaySignInLayer() end)
+    uimgr:AddTodoList(function() Operation:AutoOpenFirstPayLayer() end)
+   
+end
+
+return MainLayer
+

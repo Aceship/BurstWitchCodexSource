@@ -1,0 +1,161 @@
+--
+-- author: haosun
+-- date  : 2018-11-26 10:28:10
+-- brief : 
+--
+
+CAttr = CAttr or {}
+
+function CAttr:NewAttrObjArr(obj, c)
+    local arr = {}
+    for i = 1, c, 1 do
+        arr[i] = self:CtorAttrCObj(obj.transform:Find("attr_" .. i))
+    end
+    return arr
+end
+
+function CAttr:CtorAttrCObj(obj)
+    local cls = clsbase:new(obj)
+    cls.iconCom = cls:GetImageComponent("img_icon")
+    cls.valueCom = cls:GetTextComponent("text_value")
+    cls.addCom = cls:GetTextComponent("text_add")
+    cls.nameCom = cls:GetTextComponent("text_str")
+    cls.imgLock = cls:Find("img_lock")
+    cls.txtLock = cls:GetTextComponent("text_unlock")
+    cls.txtUnknown = cls:GetTextComponent("text_unknown")
+    cls.txtNew = cls:GetTextComponent("text_new")
+    cls.imgNew = cls:Find("img_new")
+    -- cls.listener    = CS.EventTriggerListener.Get(obj:GetComponent("Button").gameObject)
+    cls.click = obj:GetComponent("Button")
+    if cls.click ~= nil then
+        cls.click.onClick:AddListener(
+                function()
+                    if cls.attrtype ~= -1 then
+                        --SingletonMgr:ShowAttrTipsLayer(cls.obj, cls.attrtype, cls.attrvalue, cls.convert)
+                    end
+                end)
+    end
+
+    cls.convert = false
+    cls.attrtype = -1
+    cls.attrvalue = 0
+    cls.effect = cls:GetComponent("ui_kuang", "ParticleBehaviour")
+
+    return cls
+end
+
+function CAttr:InitAttrCObj(cls, attrtype)
+    if cls.attrtype ~= attrtype then
+        if cls.nameCom ~= nil then
+            cls.nameCom.text = self:GetCfg(attrtype).name
+        end
+        if cls.iconCom ~= nil then
+            cls.iconCom:LoadAtlasSprite(AtlasMgr.ICON_ATTR, CAttr.Icon_Path[attrtype])
+        end
+        cls.attrtype = attrtype
+    end
+end
+--isString :value值为string
+function CAttr:SetAttrCObj(cls, attrtype, value, convert, isString)
+    if cls.attrtype ~= attrtype then
+        self:InitAttrCObj(cls, attrtype)
+    end
+    cls.show_type = self:GetCfg(attrtype).show_type
+    cls.convert = convert
+    if value == nil  then
+        cls.valueCom.text = ""
+    else
+        if isString then
+            cls.valueCom.text = value
+        else
+            value = tonumber(value)
+            if value == 0 then
+                cls.valueCom.text = value
+            else
+                if cls.show_type == CAttr.SHOW_TYPE_VALUE then
+                    cls.valueCom.text = math.floor(value + 0.5)
+                elseif  cls.show_type == CAttr.SHOW_TYPE_PER then
+                    cls.valueCom.text = string.format("%.1f", value /10 ) .."%"
+                end
+            end
+        end
+    end
+    cls.attrvalue = value
+    if cls.iconCom ~= nil then
+        set_obj_active(cls.iconCom, true)
+    end
+    if cls.imgLock ~= nil then
+        set_obj_active(cls.imgLock, false)
+    end
+    if cls.txtLock ~= nil then
+        set_obj_active(cls.txtLock, false)
+    end
+    if cls.txtUnknown ~= nil then
+        set_obj_active(cls.txtUnknown, false)
+    end
+    if cls.iconCom ~= nil then
+        cls.iconCom.color = COLOR_TYPE.White
+    end
+    if cls.nameCom ~= nil then
+        cls.nameCom.gameObject:SetVisible(true)
+    end
+    if cls.valueCom ~= nil then
+        cls.valueCom.gameObject:SetVisible(true)
+    end
+end
+
+function CAttr:SetAddAttrCObj(cls, addvalue, isPermil)
+    if addvalue == nil or addvalue == 0 then
+        cls.addCom.text = ""
+    else
+        if(not isPermil) then
+            cls.addCom.text = "+" .. addvalue
+        else
+            cls.addCom.text = string.format("+%0.1f%%", addvalue / 10)
+        end
+    end
+end
+
+function CAttr:SetUnlockAttrObj(cls, equip, index)
+
+    local curCount = lua_table_len(equip.ex_attrs) + 1
+    local nextlv = equip.level + Equip.FS_ATTR_UP_LV * (index - curCount - 1)
+    nextlv = self:GetNextEquipLv(nextlv)
+    local locked = index > curCount
+
+    if locked then
+        set_obj_active(cls.iconCom, false)
+    end
+    if cls.imgLock ~= nil then
+        set_obj_active(cls.imgLock, locked)
+    end
+    if cls.txtUnknown ~= nil then
+        set_obj_active(cls.txtUnknown, locked)
+    end
+    if cls.txtLock ~= nil then
+        set_obj_active(cls.txtLock, locked)
+        cls.txtLock.text = string.format(LanguageMgr:GetTextByID(70090), nextlv)
+    end
+    if cls.addCom ~= nil then
+        cls.addCom.text = ""
+    end
+    if cls.iconCom ~= nil and locked then
+        cls.iconCom.color = COLOR_TYPE.Gray
+    end
+    if cls.nameCom ~= nil and locked then
+        cls.nameCom.gameObject:SetVisible(false)
+    end
+    if cls.valueCom ~= nil and locked then
+        cls.valueCom.gameObject:SetVisible(false)
+    end
+
+end
+
+function CAttr:GetNextEquipLv(level)
+    for i, lv in ipairs(Player.FS_UP_GROUPS) do
+        if level < lv then
+            return lv
+        end
+    end
+    return level
+end

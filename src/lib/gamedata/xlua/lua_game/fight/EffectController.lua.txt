@@ -1,0 +1,258 @@
+--
+-- author: haosun
+-- date  : 2020-08-03 11:13:30
+-- brief : 
+--
+
+EffectController = EffectController or {}
+
+local _clear_effect = "prefab_fightEffect/clear_effect"
+
+function EffectController:InitEffectController()
+    self._effectmgr = CS.FightEffectMgr.FightEffectMgrCreator(self)
+    self._transform = self._effectmgr.transform
+
+    -- self._enemy_die_effects     = {}        -- 怪物死亡特效
+    -- self._enemy_hurt_effects    = {}        -- 怪物受击特效
+    -- self._bullet_enemy_effects  = {}        -- 子弹怪消失特效
+    -- self._explosion_effects     = {}        -- 爆炸特效
+    -- self._bullet_effects        = {}        -- 子弹消失特效
+    -- self._enemy_kill_effects    = {}
+    -- self._some_effects          = {}
+    -- self._clear_effects         = {}        -- 清弹特效
+
+    self._showpos = CS.UnityEngine.Vector3(0, 0, 0)
+end
+
+function EffectController:UnInitEffectController()
+    if self._effectmgr ~= nil then
+        self._effectmgr:Release()
+    end
+    self:LuaOnDestroyFightEffect()
+end
+
+function EffectController:LuaOnDestroyFightEffect()
+    self._effects   = nil
+    self._transform = nil
+    self._enemy_die_effects     = nil
+    self._enemy_hurt_effects    = nil
+    self._bullet_enemy_effects  = nil
+    self._explosion_effects     = nil
+    self._some_effects = nil
+    self._bullet_effects        = nil
+    self._enemy_kill_effects    = nil
+    self._random_effects        = nil
+    self._random_hit_effects    = nil
+    self._clear_effects         = nil
+    self._effectmgr = nil
+end
+
+function EffectController:CreateEffectByPath(resPath)
+    return self._transform:CreateChild(resPath)
+end
+
+function EffectController:_effectCreator(effectpath)
+    local effect = {}
+    effect.play = false
+    effect.prefab = Groble_ResMgr:Instantiate(effectpath, self._transform)
+    effect.particle = effect.prefab:GetComponent("ParticleSystem")
+    effect.particle:Stop()
+    return effect
+end
+
+function EffectController:_tryGetEffect(effects, number, effectpath)
+    for _, effect in pairs(effects) do
+        if effect.play == false then
+            return effect
+        end
+    end
+    if #effects > number then return nil end
+    local effect = self:_effectCreator(effectpath)
+    table.insert(effects, effect)
+    return effect
+end
+
+function EffectController:_doEffectPlay(effect, showpos, delays)
+    if effect == nil then return end
+    if effect.play == false then
+        effect.particle:Play()
+        effect.play = true
+        effect.prefab.transform.position = showpos
+        effect.prefab.gameObject:DelayInvoke(delays, 
+            function() 
+                effect.play = false
+                effect.prefab.transform:SetPosition(1000, 1000, 1000)
+            end)
+    end
+end
+
+--怪物死亡特效-------------------------------------------------------------------------------------
+function EffectController:ShowEnemyDieEffect(bodytype, lposx, lposz)
+    if self._enemy_die_effects[bodytype] == nil then
+        self._enemy_die_effects[bodytype] = {}
+    end
+    local effects = self._enemy_die_effects[bodytype]
+    local effect = self:_tryGetEffect(effects, 20, FightModule.Body_Effect[bodytype])
+    self._showpos.x = lposx
+    self._showpos.z = lposz
+    self:_doEffectPlay(effect, self._showpos, FightModule.Body_CloseTime[bodytype])
+end
+
+--怪物受击特效-------------------------------------------------------------------------------------
+function EffectController:ShowEnemyHurtEffect(effectid, showpos, prefabPath, duration)
+    if self._enemy_hurt_effects == nil then return end
+    if self._enemy_hurt_effects[effectid] == nil then
+        self._enemy_hurt_effects[effectid] = {}
+    end
+    local effects = self._enemy_hurt_effects[effectid]
+    local effect = self:_tryGetEffect(effects, 10, prefabPath)
+    self:_doEffectPlay(effect, showpos, duration or 0.1)
+end
+
+--怪物自杀特效-------------------------------------------------------------------------------------
+function EffectController:ShowEnemyAutoKillEffect(effectPath, lposx, lposz)
+    if self._enemy_kill_effects[effectPath] == nil then
+        self._enemy_kill_effects[effectPath] = {}
+    end
+    local effects = self._enemy_kill_effects[effectPath]
+    local effect = self:_tryGetEffect(effects, 18, effectPath)
+    self._showpos.x = lposx
+    self._showpos.z = lposz
+    self:_doEffectPlay(effect, self._showpos, 1.2)
+end
+
+--子弹怪消失特效-----------------------------------------------------------------------------------
+function EffectController:ShowBulletEnemyEffect(effectPath, showpos)
+    if self._bullet_enemy_effects[effectPath] == nil then
+        self._bullet_enemy_effects[effectPath] = {}
+    end
+    local effects = self._bullet_enemy_effects[effectPath]    
+    local effect = self:_tryGetEffect(effects, 8, effectPath)
+    self:_doEffectPlay(effect, showpos, 1)
+end
+
+--子弹消失特效-----------------------------------------------------------------------------------
+function EffectController:ShowBulletEffect(effectPath, showpos)
+    if self._bullet_effects[effectPath] == nil then
+        self._bullet_effects[effectPath] = {}
+    end
+    local effects = self._bullet_effects[effectPath]
+    local effect = self:_tryGetEffect(effects, 20, effectPath)
+    self:_doEffectPlay(effect, showpos, 2)
+end
+
+--爆炸特效-----------------------------------------------------------------------------------------
+function EffectController:ShowExplosionEffect(showpos, prefabPath, scale, delay)
+    if(self._explosion_effects == nil) then return end
+
+    if(prefabPath == nil
+        or prefabPath == "") then
+        prefabPath = "prefab_barrage/playerBarrage_1009/barrage_100901_hit"
+    end
+    
+    self._explosion_effects[prefabPath] = self._explosion_effects[prefabPath] or {}
+    local effects = self._explosion_effects[prefabPath]
+    local effect = self:_tryGetEffect(effects, 80, prefabPath)
+    if(effect ~= nil) then
+        effect.prefab.transform:SetScale(scale, scale, scale)
+    end
+    self:_doEffectPlay(effect, showpos, delay)
+ end
+
+--清弹特效-----------------------------------------------------------------------------------------
+function EffectController:ClearEffectPlay(posx, posz)
+    local effect = self:_tryGetEffect(self._clear_effects, 5, _clear_effect)
+    if effect == nil then return end
+
+    effect.play = true
+    effect.particle:Play()
+    effect.prefab:SetPosition(posx, 0, posz)
+    effect.prefab:SetVisible(true)
+    effect.prefab.gameObject:DelayInvoke(1.2, 
+        function() 
+            effect.play = false
+            effect.particle:Stop()
+            effect.prefab:SetPosition(1000, 1000, 1000)    
+            effect.prefab:SetVisible(false)
+        end)
+end
+
+--某些特效-----------------------------------------------------------------------------------------
+EffectController.tblSomeEffect = {
+    throwHowitzer = { defaultPrefabPath = "prefab_barrage/playerBarrage_1042/barrage_104201_xl", limit = 12 }, 
+}
+
+function EffectController:ShowSomeEffect(effectType, showpos, delay, prefabPath, scale)
+    local tblConfig = self.tblSomeEffect[effectType]
+    if(prefabPath == nil
+        or prefabPath == "") then
+        prefabPath = tblConfig.defaultPrefabPath
+    end
+
+    self._some_effects = self._some_effects or {}
+    local tbl = self._some_effects
+    local tblname = "_" .. effectType .. "_effects"
+    if(tbl[tblname] == nil) then
+        tbl[tblname] = { [prefabPath] = {} }
+    else
+        tbl[tblname][prefabPath] = tbl[tblname][prefabPath] or {}
+    end
+
+    local effects = tbl[tblname][prefabPath]
+    local effect = self:_tryGetEffect(effects, tblConfig.limit, prefabPath)
+    if(effect ~= nil
+        and scale ~= nil) then
+        effect.prefab.transform:SetScale(scale, scale, scale)
+    end
+    self:_doEffectPlay(effect, showpos, delay or 0)
+end
+
+--日常副本轮盘-----------------------------------------------------------------------------------------
+-- BOSS受伤特效
+local _random_hurt_effect = "prefab_fightEffect/daily_03/trailer_attack"
+function EffectController:ShowRandomHurtEttect(showpos)
+    if self._random_effects == nil then
+        self._random_effects = {}
+    end    
+    local effects = self._random_effects[_random_hurt_effect]
+    local effect = self:_tryGetEffect(self._random_effects, 6, _random_hurt_effect)
+    self:_doEffectPlay(effect, showpos, 2)
+end
+
+function EffectController:GetRandomHurtEffectPath()
+    return _random_hurt_effect
+end
+
+-- BOSS被子弹击中特效
+local _random_hit_effect = "prefab_fightEffect/daily_03/M2_Huodong_hudunhurt"
+function EffectController:ShowRandomHitEttect(showpos)
+    if self._random_hit_effects == nil then
+        self._random_hit_effects = {}
+    end    
+    local effects = self._random_hit_effects[_random_hit_effect]
+    local effect = self:_tryGetEffect(self._random_hit_effects, 6, _random_hit_effect)
+    self:_doEffectPlay(effect, showpos, 1)
+end
+
+function EffectController:GetRandomHitEffectPath()
+    return _random_hit_effect
+end
+-- 
+local _moshai_attack_effect    = "prefab_fightEffect/daily_03/moshai_trailer"
+function EffectController:GetRandomAttackEffect()
+    return self:CreateEffectByPath(_moshai_attack_effect)
+end
+
+function EffectController:GetRandomAttackEffectPath()
+    return _moshai_attack_effect
+end
+
+local _random_blast_effect  = "prefab_fightEffect/daily_03/effect_moshai_blast"
+function EffectController:GetRandomBlastEffectPath()
+    return _random_blast_effect
+end
+
+local _random_fly_effect    = "prefab_fightEffect/daily_03/effect_moshai_fly"
+function EffectController:GetRandomFlyEffectPath()
+    return _random_fly_effect
+end

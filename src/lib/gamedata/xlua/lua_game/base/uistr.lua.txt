@@ -1,0 +1,38 @@
+--
+-- author: haosun
+-- date  : 2019-07-05 15:06:53
+-- brief : 
+--
+uistr = uistr or {}
+
+uistr.com_orderstr  = {"一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二", "十三", "十四", "十五","十六","十七","十八","十九","二十","二十一","二十二","二十三","二十四","二十五","二十六","二十七","二十八","二十九","三十"}
+uistr.com_stepstr   = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX","XXI","XXII","XXIII","XXIV","XXV","XXVI","XXVII","XXVIII","XXIX","XXX"}
+uistr.com_chapterstr   = {"","I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX","XXI","XXII","XXIII","XXIV","XXV","XXVI","XXVII","XXVIII","XXIX","XXX"}
+uistr.com_qltystr   = {"N", "R", "SR", "SSR","UR"}
+uistr.txtColorRed   = "<color=#FF6652FF>%d</color>"
+
+uistr.com_rmb   = "¥ "
+
+local CostStrColor  = "<color=#FF6652FF>%s</color>"
+
+function uistr:CostStr(itemType, _hasCnt, _costCnt)
+    local str, amply = "", true
+    if itemType == Item.TYPE_CURRENCY then
+        if _hasCnt >= _costCnt then
+            str = math.wTally(_costCnt)
+        else
+            amply = false
+            str = string.format(CostStrColor, math.wTally(_costCnt))
+        end
+    else
+        if _hasCnt >= _costCnt then
+            str = string.format("%s/%d", math.wTally(_hasCnt), _costCnt)
+        else
+            amply = false
+            str = string.format(CostStrColor, math.wTally(_hasCnt)).."/".._costCnt
+        end
+    end
+
+    return str, amply
+end
+

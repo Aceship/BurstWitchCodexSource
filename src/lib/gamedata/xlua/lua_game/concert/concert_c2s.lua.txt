@@ -1,0 +1,254 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+Concert = Concert or {}
+
+local testHall =
+{
+    [1] = 4101,
+    [2] = {
+        ["halls"] = {
+            [1] = {
+                ["stime"] = 1629169477,
+                ["book_id"] = 6001001,
+                ["hero_ids"] = {
+                    [1] = 1009,
+                    [2] = 1022,
+                    [3] = 1003,
+                    [4] = 1004,
+                    [5] = 1005,
+                    [6] = 1006,
+                },
+                ["hero_gifts"] = {
+                    [1009] = 1624102258,
+                    [1022] = 1624102198,
+                },
+                ["hall_id"] = 1,
+                ["item_id"] = 6900002
+            },
+            [2] = {
+                ["stime"] = 1629169477,
+                ["book_id"] = 6001002,
+                ["hero_ids"] = {
+                    [1] = 1001,
+                    [2] = 1002,
+                    [3] = 1010,
+                    [4] = 1011,
+                    [5] = 1012,
+                    [6] = 0,
+                },
+                ["hero_gifts"] = {
+
+                },
+                ["hall_id"] = 2,
+                ["item_id"] = 0
+            }
+        },
+        ["m_books"] = {
+            [6001001] = {["id"] = 6001001,["score"] = 49},
+            [6001002] = {["id"] = 6001002,["score"] = 320},
+            [6001003] = {["id"] = 6001003,["score"] = 0},
+        },
+        ["hm_exps"] = {
+            [1009] = 4,
+            [1003] = 2,
+            [1004] = 1,
+            [1005] = 1,
+            [1022] = 1
+        }
+    }
+}
+
+local testEndShow = {
+    [1] = 4106,
+    [2] = 104,
+    [3] = {
+        [1009] = {[1] = 9,[2] = 8},
+        [1003] = {[1] = 9,[2] = 8},
+        [1004] = {[1] = 9,[2] = 8},
+        [1005] = {[1] = 9,[2] = 8},
+        [1022] = {[1] = 9,[2] = 8}
+    },
+    [4] = 1
+}
+function Concert:SyncConcertHall(data)
+    if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步音乐厅数据----------")
+
+    for i,v in pairs(data.halls) do
+        self:SetConcertServerData(v)
+    end
+
+    for i, v in pairs(data.m_books) do
+        self:SetConcertBookServerData(v)
+    end
+
+    local hero
+    for i, v in pairs(data.hm_exps) do
+        hero = Hero:GetHero(i);
+        hero.Proficiency = tonumber(v)
+    end
+end
+
+--习得新的乐谱(激活)
+--p1: bookid
+function Concert:OnGetConcertBook(bookid)
+    print("激活新的乐谱")
+    local book = {
+        id = bookid,
+        score = 0
+    }
+    self:SetConcertBookServerData(book)
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_COMPOS_BOOK_SUCCESS,bookid);
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+--开始演奏乐曲
+--p1:演奏厅数据结构
+function Concert:OnStartConcertShow(hallData)
+    self:SetConcertServerData(hallData)
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_REQ_PLAY_SUCCESS)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+
+
+    -- 音乐厅打点 音乐厅点击开始后
+    local heroList = {};
+    if hallData.hero_ids ~= nil then
+        local heroCount = lua_table_len(hallData.hero_ids);
+        local tmpHeroId = 0;
+        for i = 1, heroCount do
+            tmpHeroId = hallData.hero_ids[i];
+            if(tmpHeroId>0)then
+                table.insert(heroList,tmpHeroId);
+            end
+        end
+    end
+    ThinkingMgr:SendTrack("musical_hall_begin", {
+        musical_id = hallData.book_id,
+        is_cost_addition = hallData.item_id>0,
+        succuba_id_list = heroList,
+    });
+end
+
+--结束演奏乐曲
+--p1:增加魔女经验 p2:魔女等级相关改动 p3:是否全时间挂机 1是0否
+function Concert:OnEndConcertShow(hallId,addExp,heros,isAutos,items,curScore)
+    --[[print("結束演奏  ： ")
+    local hallId = hallId
+    local addExp = addExp--data[2];
+    local heros = heros--data[3]; --英雄经验
+    local isAuto = isAutos--data[4]; --是否全额挂机
+    local items = items--data[5]; --掉落的道具
+    local curScore = curScore--data[6]; --结算分数
+    ]]--
+    local hero
+    for i, v in pairs(heros) do
+        hero = Hero:GetHero(i);
+        hero.level = v[1];
+        hero.exp = v[2];
+        Hero:OnCalcAttr(hero) --升级属性
+    end
+
+    local hall = Concert:GetConcertById(hallId)
+    local book = Concert:GetConcertBookById(hall.curBookId)
+    if curScore > book.score then
+        local param = {id = hall.curBookId,score = curScore}
+        self:SetConcertBookServerData(param)
+    end
+
+    --结算
+    local params = {}
+    local tbl = Bag:TableDrops2Array(items)
+    params.items = tbl
+    params.hallId = hallId
+    params.heros = self:CopyHeros(heros)
+    params.curScore = curScore
+
+    if lua_table_len(tbl) > 0 then
+        Concert:ShowConcertWinLayer(params)
+    end
+
+    --重置大厅数据
+    Concert:ResetHallById(hallId)
+
+    GEvent:fireEvent(EVENT_TYPE.CONCERT_ENDPLAY_SUCCESS,hallId);
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+
+
+    --音乐厅打点 音乐厅结束后
+    local heros = self:CopyHeros(heros)
+    local accuracy = Concert:GetAverageRate(heros,book);
+    accuracy = accuracy * 0.01;
+    ThinkingMgr:SendTrack("musical_hall_end", {
+        is_cost_stock = self._isCostDimond,
+        musical_accuracy = accuracy,
+    });
+end
+
+--领取魔女奖励
+--p1:演奏厅id p2:魔女id p3:服务器计入最后时间戳
+function Concert:OnGetHeroReward(hallId,heroId,time)
+
+end
+
+--合成乐谱
+function Concert:OnComposeBook()
+    print("合成乐谱成功")
+end
+
+--------------------------------private--------------------------------
+function Concert:CopyHeros(heros)
+    local result = {}
+    for i, v in pairs(heros) do
+        table.insert(result,{heroId = i})
+    end
+    return result
+end
+--------------------------------请求----------------------------------
+--开始演奏
+
+function Concert:ConcertShowStart_Req(concertId,bookId,heroListIds,addItemId)
+    if heroListIds == nil then
+        return
+    end
+    concertId = tonumber(concertId)
+    bookId = tonumber(bookId)
+    addItemId = tonumber(addItemId)
+
+    Network:CallServerScript({c2s.MUSICSHOW_START_REQ, concertId,bookId,heroListIds,addItemId})
+end
+
+--停止演奏  1是0否
+function Concert:ConcertShowStop_Req(concertId,isCostDimond)
+    self._isCostDimond = isCostDimond == 1;
+    concertId = tonumber(concertId)
+    isCostDimond = tonumber(isCostDimond)
+
+    Network:CallServerScript({c2s.MUSICSHOW_STOP_REQ, concertId,isCostDimond})
+end
+
+--领取魔女奖励
+function Concert:ConcertGetReward_Req(heroId)
+    heroId = tonumber(heroId)
+    Network:CallServerScript({c2s.MUSICSHOW_GET_HERO_GIFTS_REQ, heroId})
+end
+
+--合成乐谱
+function Concert:ConcertComposBook_Req(bookid)
+    bookid = tonumber(bookid)
+
+    Network:CallServerScript({c2s.MUSICSHOW_COMPOSE_BOOK_REQ, bookid})
+end
+----------------------------------------------------------------------------------
+function Concert:_AddConcertHall(data)
+
+end
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.MUSICSHOW_DATA_SYNC]                = {Concert, Concert.SyncConcertHall}
+c2s[c2s.MUSICSHOW_ACQUIRE_BOOK_NTF]         = {Concert, Concert.OnGetConcertBook}
+c2s[c2s.MUSICSHOW_START_RES]                = {Concert, Concert.OnStartConcertShow}
+c2s[c2s.MUSICSHOW_STOP_RES]                 = {Concert, Concert.OnEndConcertShow}
+c2s[c2s.MUSICSHOW_GET_HERO_GIFTS_RES]       = {Concert, Concert.OnGetHeroReward}
+c2s[c2s.MUSICSHOW_COMPOSE_BOOK_RES]         = {Concert, Concert.OnComposeBook}

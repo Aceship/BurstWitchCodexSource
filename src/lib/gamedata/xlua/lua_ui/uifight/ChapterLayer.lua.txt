@@ -1,0 +1,450 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-29 20:30:27
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChapterLayer = class("ChapterLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnCommon = "trans_container/trans_level_bg/btn_common",
+    BtnHard = "trans_container/trans_level_bg/btn_hard",
+    BtnAward = "trans_container/btn_award",
+    BtnGet = "trans_container/btn_get",
+    --@ButtonEnd
+}
+--构造函数
+function ChapterLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_ChapterLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo         = Player.CURRENCY_MAIN,--货币类型
+    };
+    self._addStack = true
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self._updateTime = 0;
+    self._objLevels    = {}
+    self._contentHeight = 0
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ChapterLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    self._clslayer:HideLayer(-5000)
+end
+
+--按钮事件
+function ChapterLayer:onButtonClick(itype)
+    if(self._updateTime - self._curTime <= 0.5)then
+        return;
+    end
+    if(itype == BTNS.BtnCommon)then 
+       self:OnBtnCommonClick();
+    elseif(itype == BTNS.BtnHard)then 
+       self:OnBtnHardClick();
+    elseif(itype == BTNS.BtnAward)then 
+       self:OnBtnAwardClick();
+    elseif(itype == BTNS.BtnGet)then 
+       self:OnBtnGetClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+--退出按钮事件
+function ChapterLayer:onBackClick()
+    Chapter:CloseCurSelectChapterId();
+    self:onPopLayer();
+end
+
+--初始化
+function ChapterLayer:Init()
+    self._modeData = Chapter:GetCurChapterMode();
+
+    self._chapterIds = lua_str_split(self._modeData.cfg.Chapter_ids, "|", true);
+    self._curChapterId = Chapter:GetCurSelectChapterId();
+
+    --判定是否属于当前章节
+    if not lua_value_in_tbl(self._curChapterId, self._chapterIds) then
+        self._curChapterId = 0
+    end
+    if(self._curChapterId <= 0)then
+        for _, v in ipairs(self._chapterIds) do
+            if(self:IsUnLockChapter(v))then
+                self._curChapterId = v;
+            end
+        end
+        Chapter:SetCurSelectChapterId(self._curChapterId);
+    end
+    self._chapter = Chapter:GetChapter(self._curChapterId);
+    self._isInit = true;
+    self._curTime = 0;
+    self._updateTime = 0;
+    self:InitUI();
+    Chapter:ClickLevelCall(function (levelId)
+        self:OnBtnLevelClick(levelId);
+    end);
+end
+
+--初始化UI
+function ChapterLayer:InitUI()
+    self._compScroll    = self.layer:GetScrollRectComponent("trans_container/scrollview")
+    self._contentTrans  = self.layer:Get("trans_container/scrollview/viewport/content")
+    self._objTemplete   = self.layer:Get("trans_container/prefab_cell").gameObject
+    self._objTemplete:Get("item_reward/spine_recv"):CreateChild("prefab_item_spine/spine_item_recv")
+    self._objTemplete:SetVisible(false)
+
+    self._imgLine = self.layer:GetImageComponent("trans_container/img_line");
+    self._imgChapterTitle = self.layer:GetImageComponent("trans_container/trans_title/img_chapter_title");
+    self._imgRed = self.layer:GetImageComponent("trans_container/btn_award/img_red");
+    self._imgCommon = self.layer:GetImageComponent("trans_container/trans_level_bg/btn_common");
+    self._imgHard = self.layer:GetImageComponent("trans_container/trans_level_bg/btn_hard");
+    self._transCommonRed = self.layer:Get("trans_container/trans_level_bg/img_common_red");
+    self._transHardRed = self.layer:Get("trans_container/trans_level_bg/img_hard_red")
+    self._imgAllRed = self.layer:GetImageComponent("trans_container/btn_get/img_all_red");
+    --@ImageEnd
+
+    self._txtChapterTitleE = self.layer:GetTextComponent("trans_container/trans_title/txt_chapter_title_E");
+    self._txtChapterNum = self.layer:GetTextComponent("trans_container/trans_title/txt_chapter_num");
+    self._txtChapterDes = self.layer:GetTextComponent("trans_container/trans_title/txt_chapter_des");
+    self._txtProgress = self.layer:GetTextComponent("trans_container/btn_award/txt_progress");
+    --@TextEnd
+
+    self._transEffect = self.layer:Get("info_effect");
+    self._objCommonUiEffect = self.layer:Get("trans_container/trans_level_bg/btn_common/obj_common_ui_effect");
+    self._objHardUiEffect = self.layer:Get("trans_container/trans_level_bg/btn_hard/obj_hard_ui_effect");
+    self._objTitleCommon = self.layer:Get("trans_container/trans_level_bg/btn_common/image_title_common");
+    self._objTitleHard = self.layer:Get("trans_container/trans_level_bg/btn_hard/image_title_hard");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objLevelDegreePoint = self.layer:Get("trans_container/trans_level_bg/obj_level_degree_point").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._btnGetAll = self.layer:GetButtonComponent("trans_container/btn_get");
+    local btnImgs = {self._imgCommon,self._imgHard};
+    local btnTitleImgs = {self._objTitleCommon,self._objTitleHard};
+    for i, v in ipairs(btnTitleImgs) do
+        v.parent:SetVisible(self._chapterIds[i] ~= nil);
+        if(self._chapterIds[i] ~= nil)then
+            if(self:IsUnLockChapter(self._chapterIds[i]))then
+                btnImgs[i].material = nil;
+                v:SetVisible(true);
+            else
+                btnImgs[i].material = AssetLoader:LoadGrayMaterial();
+                v:SetVisible(false);
+            end
+        end
+    end
+    self:SetStarProgress();
+    self:SetRedState();
+    self:SetTitleUI();
+end
+
+--显示UI
+function ChapterLayer:show()
+    self:SetTableView();
+    self:CutLevelDegree(self._curChapterId);
+    self:SetBgEffect();
+    self:LoadSpine();
+    self:playAni("ChapterLayerAni");
+    self:showLayer();
+    if(Chapter:GetJumpdata() ~= nil)then
+        if(Chapter:GetJumpdata().levelid ~= nil)then
+            self:OnBtnLevelClick(Chapter:GetJumpdata().levelid);
+        end
+    end
+    Chapter:ClearJumpChapterLevel()
+end
+
+--释放
+function ChapterLayer:onExit()
+    Chapter:InitCurChapterMode();
+
+    self._imgChapterTitle = nil;
+    self._txtChapterTitleE = nil;
+    self._txtChapterNum = nil;
+    self._txtChapterDes = nil;
+    self._objCommonUiEffect = nil;
+    self._objHardUiEffect = nil;
+    self._objLevelDegreePoint = nil;
+    self._imgRed = nil;
+    self._objTitleCommon = nil;
+    self._objTitleHard = nil;
+    self._imgCommon = nil;
+    self._imgHard = nil;
+    self._transCommonRed = nil;
+    self._transHardRed = nil
+    self._imgAllRed = nil;
+    self._transEffect = nil;
+    self._txtProgress = nil;
+    self._objLevels = nil
+    
+    self._chapterIds    = nil
+    
+    self._bgEffect  = nil
+
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ChapterLayer:OnBtnCommonClick()
+    self:CutLevelDegree(self._chapterIds[1]);
+ end
+function ChapterLayer:OnBtnHardClick()
+    if(self._chapterIds[2] ~= nil)then
+        self:CutLevelDegree(self._chapterIds[2]);
+    end
+ end
+function ChapterLayer:OnBtnAwardClick()
+    core.require("xlua/lua_UI/HomeScene/ChapterRewardLayer.txt"):new():show(self._chapter)
+ end
+function ChapterLayer:OnBtnGetClick()
+    local tbl = self:CheckCanRecv();
+    if #tbl > 0 then
+        Chapter:LevelThreeStarRewardReq(tbl)
+    else
+        Groble_UIMgr:ShowGameWordTipsLayer(60011)
+    end
+ end
+
+function ChapterLayer:OnBtnLevelClick(levelId)
+    if self._fading then return end
+    if self._chapter.timeid ~= 0 then
+        -- 时间检测
+        if not CTime:IsOpen(self._chapter.timeid) then
+            Groble_UIMgr:ShowGameWordTipsLayer(881015)
+            return false
+        end
+    end
+    local unlock, lockstr = Chapter:LevelIsUnlock(levelId)
+    if unlock or self._chapter.levelid == levelId then
+        if self._chapter.fight_count == 0 or self._chapter.fight_count - self._chapter.pass_count > 0 then
+            Chapter:ShowLevelLayer(levelId, 76000051)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(lockstr)
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ChapterLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LEVEL_REWARD_RECVED,
+        function(levelids)
+            self:refreshTableView();
+            self:SetRedState();
+        end)
+    self:addEventListener(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_CHAPTER_REWARD,
+        function()
+            self:SetRedState();
+        end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ChapterLayer:SetTitleUI()
+    self._txtChapterDes.text = self._chapter.desc;
+    self._txtChapterNum.text = self._modeData.cfg.Name;
+    self._txtChapterTitleE.text = self._modeData.cfg.NameE;
+    self._imgChapterTitle:LoadSprite(self._chapter.imgbg);
+end
+
+function ChapterLayer:SetTableView()
+    local cnt = #self._chapter.levelids
+    if self._contentHeight == 0 then
+        self._contentHeight = (self._objTemplete:GetSizeDeltaY() + 10) * cnt
+        self._contentTrans:SetSizeY(self._contentHeight)
+    end
+    for i = 1, cnt, 1 do
+        if self._objLevels[i] == nil then
+             local trans = self._contentTrans:AddChild(self._objTemplete)
+            self._objLevels[i] = Chapter:CtorLevelCObj(trans)
+            self._objLevels[i].transform:SetVisible(true)
+            self._objLevels[i].transform:SetPosition(0, 0 - (i-1) *200 - 100, 0, true)
+            self._objLevels[i].transform.name = "cell_" .. i
+        end
+        self._objLevels[i].transform:DOKill()
+        self._objLevels[i].transform:SetScaleY(0)
+        self._objLevels[i].transform:DOScaleY(1, 0.1):SetDelay(0.1*i)
+        Chapter:SetLevelCObj(self._objLevels[i], self._chapter.levelids[i], i, self._chapter.levelids[i] == self._chapter.levelid)
+    end
+    if 0 == self._chapter.levelid then
+        self._compScroll.verticalNormalizedPosition = 1
+    else
+        for i = 1, cnt, 1 do
+            if self._chapter.levelid == self._chapter.levelids[i] then
+                if i > 4 then
+                    self._compScroll.verticalNormalizedPosition = 1 - i / cnt
+                end
+                break
+            end
+        end
+    end
+end
+
+function ChapterLayer:refreshTableView()
+    for i = 1, #self._chapter.levelids, 1 do
+        Chapter:SetLevelCObj(self._objLevels[i], self._chapter.levelids[i], i, self._chapter.levelids[i] == self._chapter.levelid)
+    end
+end
+
+function ChapterLayer:CutLevelDegree(chapterId)
+    self._objCommonUiEffect:SetVisible(chapterId == self._chapterIds[1]);
+    self._objHardUiEffect:SetVisible(chapterId == self._chapterIds[2]);
+    if(self._curChapterId == chapterId)then
+        self:CutLevelDegreeAnim(chapterId);
+        return;
+    end
+    if(not self:IsUnLockChapter(chapterId,true))then
+        self:CutLevelDegreeAnim(self._curChapterId);
+        return;
+    end
+    self._curTime = self._updateTime;
+    self:CutLevelDegreeAnim(chapterId);
+    self._curChapterId = chapterId;
+    Chapter:SetCurSelectChapterId(self._curChapterId);
+    if(chapterId == self._chapterIds[1])then
+        self._imgLine:DOColor(CS.UnityEngine.Color(1,1,1,63/255),0.3);
+    elseif(chapterId == self._chapterIds[2])then
+        self._imgLine:DOColor(CS.UnityEngine.Color(216/255,0,0,63/255),0.3);
+    end
+    self._chapter = Chapter:GetChapter(self._curChapterId);
+    self:SetRedState()
+    self:SetBgEffect();
+    self:SetTableView();
+    self:SetStarProgress();
+ 
+end
+
+function ChapterLayer:SetBgEffect()
+    if self._bgEffect ~= nil  then
+        CS.UnityEngine.GameObject.Destroy(self._bgEffect)
+        self._bgEffect = nil
+    end
+    local index = 1;
+    if(self._curChapterId == self._chapterIds[2])then
+        index = 2;
+    end
+    self._bgEffect = self._transEffect:CreateChild(Chapter.EFFECT_FILES[index])
+end
+
+function ChapterLayer:CutLevelDegreeAnim(chapterId)
+    local aniname = "PointButtonAni1"
+    if(self._curChapterId == chapterId or self._isInit)then
+        if(chapterId == self._chapterIds[1])then
+            aniname = "PointButtonAni1";
+        elseif(chapterId == self._chapterIds[2])then
+            aniname = "PointButtonAni2";
+        end
+        self._isInit = false;
+    else
+        if(chapterId == self._chapterIds[1])then
+            aniname = "PointButtonAni21";
+        elseif(chapterId == self._chapterIds[2])then
+            aniname = "PointButtonAni12";
+        end
+    end
+    self._objLevelDegreePoint:AnimationPlay(aniname);
+end
+
+function ChapterLayer:SetStarProgress()
+    self._txtProgress:SetText(
+        string.format(LanguageMgr:GetTextByID(99000045), self._chapter.has_star, self._chapter.all_star))
+end
+
+function ChapterLayer:SetRedState()
+    self._imgRed:SetEnabled(Chapter:ChallengRedTip(self._chapter))
+    self._imgAllRed:SetEnabled(Chapter:OneButtonRedTip(self._chapter))
+    set_obj_interactable(self._btnGetAll, Chapter:OneButtonRedTip(self._chapter))
+    self._transCommonRed:SetVisible(Chapter:ChapterRedTip(self._chapterIds[1]) or 
+        Chapter:IsExistOperLevel(self._chapterIds[1], true));
+
+    if(self._chapterIds[2] ~= nil)then
+        self._transHardRed:SetVisible(
+            Chapter:ChapterRedTip(self._chapterIds[2]) or 
+            Chapter:IsExistOperLevel(self._chapterIds[2], true) )
+    else
+        self._transHardRed:SetVisible(false)
+    end
+end
+
+function ChapterLayer:LoadSpine()
+    if self._chapter.spine ~= nil or self._chapter.spine ~= -1 then
+        Hero:LoadSpineAsync(self.__cname, self.layer:Get("hero_spine"), self._chapter.spine, Hero.SPINE_UI_TYPE_FIGHT, function(obj) end)
+    end
+end
+
+function ChapterLayer:onUpdate(dt)
+    self._updateTime = self._updateTime + dt;
+end
+
+function ChapterLayer:CheckCanRecv()
+    local tbl = {}
+    for _,levelid in pairs(self._chapter.levelids) do
+        local level = Chapter:GetLevel(levelid)
+        if level.receive == Chapter.REWARD_STATE_CAN then
+            table.insert(tbl, tonumber(levelid))
+        end
+    end
+    return tbl
+end
+
+--判断是否开启难度
+function ChapterLayer:IsUnLockChapter(chapter,showtip)
+    local chapter = Chapter:GetChapter(chapter);
+    if Player:GetLevel() < chapter.open_level then
+        if showtip then
+            local str = string.format(LanguageMgr:GetTextByID(20030), chapter.open_level)
+            Groble_UIMgr:ShowTipsLayer(str);
+        end
+        return false
+    end
+    if chapter.open == false then
+        if showtip then
+            local name_temp = "";
+            for _, val in pairs(chapter.prev_ids) do
+                local cfg = Chapter:GetChapter(val[1])
+                if not cfg.pass then
+                    name_temp = name_temp .. cfg.name_simple .." " ;
+                end
+
+            end
+            local str = string.format(LanguageMgr:GetTextByID(20025), name_temp)
+            Groble_UIMgr:ShowTipsLayer(str)
+        end
+        return false
+    end
+    return true
+end
+
+-- 激活引导 2020/12/23 ---
+function ChapterLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return ChapterLayer;

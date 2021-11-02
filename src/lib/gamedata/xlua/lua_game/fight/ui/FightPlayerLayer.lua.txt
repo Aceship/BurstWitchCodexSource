@@ -1,0 +1,208 @@
+--
+-- author: haosun
+-- date  : 2021-04-12 15:34:05
+-- brief : 
+--
+UI_FightPlayerLayer = UI_FightPlayerLayer or {}
+
+function UI_FightPlayerLayer:FightPlayerLayerCreator()
+    self.upCadanScore   = 0
+    self._isVisible     = false
+    self._attrpath      = nil
+    self.cache_curhp    = -1
+    self.cache_maxhp    = -1
+    self._cache_shield  = -1
+    self._hasDestroyed  = false
+    self.BuffListInfo   = {}
+    self._isEnterHide   = false --
+    
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_PlayerFightInfo")
+    self.prefab:SetVisible(false)
+
+    self.HpNum      = self.prefab:GetTextComponent("HpNum")
+
+    self._uihp = core.require("xlua/lua_UI/GameFightScene/uihp.txt"):new()
+    self._uihp:InitHp(self.prefab:GetImageComponent("HpBar"), self.prefab:GetImageComponent("HpBarCan"), self.prefab:GetImageComponent("ShieldBar"))
+
+    self._uibuff = core.require("xlua/lua_UI/GameFightScene/uibuff.txt"):new()
+    self._uibuff:Init(self.prefab:Get("BossBuffInfo"))
+
+    self._uienergy = core.require("xlua/lua_UI/GameFightScene/uienergy.txt"):new()
+    self._uienergy:InitEnergy(self.prefab:Get("EnergyNormal"), self.prefab:Get("EnergyLow"), self.prefab:Get("EnergySleep"))
+
+    self._img_attr = self.prefab:GetImageComponent("img_attrib")
+
+    self._xuli_bar = self.prefab:GetImageComponent("XuliBar")
+    self._xuli_bar_bg = self.prefab:GetImageComponent("XuliBk")
+end
+
+function UI_FightPlayerLayer:FightPlayerLayerDestructor()
+    if self._hasDestroyed then return end
+
+    self._hasDestroyed  = true
+    self.upCadanScore   = 0
+    self._isVisible     = false
+
+    self._cadanScore    = nil
+    self.BuffListInfo   = nil
+    self.HpNum          = nil    
+    self._posx          = nil
+    self._posy          = nil
+
+    self._uihp:UnInit()
+    self._uihp = nil
+
+    self._uibuff:UnInit()
+    self._uibuff = nil
+
+    self._uienergy:UnInit()
+    self._uienergy = nil
+
+    self.prefab:Release()
+    self.prefab = nil
+
+    self._img_attr  = nil
+    self._attrpath  = nil
+
+    self._xuli_bar = nil
+    self._xuli_bar_bg = nil
+end
+
+function UI_FightPlayerLayer:refreshImgAttri(attri)
+    if self._attrpath ~= attri then
+        self._attrpath = attri
+        self._img_attr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[attri])
+    end
+end
+
+--public interface --------------------------------------------------------------------------------------------------
+function UI_FightPlayerLayer:EnterFightPlayerLayer()
+    if self._isVisible then return end
+
+    self._isVisible = true
+    local x, y = LuaScriptController:GetHeroPos()
+    self:UpdateFightPlayerLayerPos(x, y)
+    self.prefab:SetVisible(true)
+    self.prefab:SetScale(0, 0, 0)
+    if not self._isEnterHide then
+        self.prefab.transform:DOScale(1, 0.4)
+    end
+
+    local isAvoid = FightController:IsOnlyAvoidLevel()
+    self._xuli_bar:SetVisible(not isAvoid)
+    self._xuli_bar_bg:SetVisible(not isAvoid)
+    self._uienergy:ClearState()
+end
+
+function UI_FightPlayerLayer:ExitFightPlayerLayer()
+    self._isVisible = false
+    self.prefab:SetVisible(false)
+end
+
+function UI_FightPlayerLayer:EnterFightPlayerByTutorial()
+    self._isEnterHide = false
+    self.prefab.transform:DOScale(1, 0.4)
+end
+
+function UI_FightPlayerLayer:UpdateFightPlayerLayerPos(posx, posy)
+    if not self._isVisible then return end
+    self.prefab:SetPosition(posx, posy, 0, true)
+end
+
+function UI_FightPlayerLayer:GetFightPlayerLayerPos(posx, posy)
+    return self.prefab:GetPositionX(true), self.prefab:GetPositionY(true)
+end
+
+function UI_FightPlayerLayer:UpdateFightPlayerLayerData(uiAttr, curFrame)
+    if not self._isVisible then return end
+
+    local UIAttrIndex = FightArrController.UIAttrIndex
+    -- hp 
+    --local uiAttr = FightArrController:GetUIAttr(battleData.bwIndex)
+    local curhp, maxHp = math.floor(uiAttr[UIAttrIndex.fCurValue]), math.floor(uiAttr[UIAttrIndex.fMaxValue])
+    if self.cache_curhp ~= curhp or self.cache_maxhp ~= maxHp then
+        self.cache_curhp = curhp
+        self.HpNum.text = string.format("%d/%d", curhp, maxHp)
+    end
+    self._uihp:UpdateHp(0.016, curhp / maxHp)
+    local shieldValue = uiAttr[UIAttrIndex.fShieldValue]
+    if self._cache_shield ~= shieldValue then
+        self:_calcShieldScale(curhp, maxHp, shieldValue) 
+    end
+
+    self._uienergy:UpdateEnergy(0.016, uiAttr[UIAttrIndex.fMaxEnergy], uiAttr[UIAttrIndex.fCurEnergy], uiAttr[UIAttrIndex.fAwakeEnergy], uiAttr[UIAttrIndex.fEnergySleepTime], uiAttr[UIAttrIndex.fEnergySleepMaxTime])
+    UI_ChangePlayerLayer:ShowEnergyWarning(uiAttr[UIAttrIndex.fCurEnergy] <= 0)
+    -- buff
+    self._uibuff:UpdateBuff(uiAttr, UIAttrIndex.iRenderBuffsCount, UIAttrIndex.aRenderBuffsStart, curFrame)
+    -- 
+    self:refreshImgAttri(uiAttr[UIAttrIndex.iAttriType])
+
+    self._xuli_bar.fillAmount = uiAttr[UIAttrIndex.fXuliCdPer]
+end
+
+
+function UI_FightPlayerLayer:UpdateDps()
+    local AllDpsIndex = FightArrController.UIAttrIndex.fAllDps
+    local dps1 = FightArrController:GetUIAttr(0)[AllDpsIndex]
+    local dps2 = FightArrController:GetUIAttr(1)[AllDpsIndex]
+    local dps3 = FightArrController:GetUIAttr(2)[AllDpsIndex]
+
+    if self._heroDps then
+        self._heroDps[1] = tonumber(math.floor(dps1))
+        self._heroDps[2] = tonumber(math.floor(dps2))
+        self._heroDps[3] = tonumber(math.floor(dps3))
+    else
+        self._heroDps = {
+            tonumber(math.floor(dps1)),
+            tonumber(math.floor(dps2)),
+            tonumber(math.floor(dps3)),
+        }
+    end
+end
+
+function UI_FightPlayerLayer:_calcShieldScale(curHp, maxHp, shieldValue)
+    local hpScale = 1               -- hp部分缩放
+    local shieldRate = 0            -- 盾部分占血条比例
+    local shieldStart = 0           -- 盾部分在血条开始的比例
+
+    local hpMax = maxHp
+    local hpCur = curHp
+
+    local full = maxHp
+
+    local total = curHp + shieldValue
+
+    if total > maxHp then
+        hpScale = maxHp / total
+        full = total
+    end
+
+    shieldRate = shieldValue / full
+    shieldStart = curHp / full
+
+    self._uihp:OnChangeShield(hpScale, shieldRate, curHp/maxHp)
+end
+
+function UI_FightPlayerLayer:ShowHitPointArr(delayTime)
+    -- self._objArr = self.prefab:CreateChild("tutorial_dir/tutorial_arr")
+    -- self._objArr:Get("img_right_arr"):DOLocalMoveX(60, 0.5):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+    -- self._objArr:Get("img_left_arr"):DOLocalMoveX(-60, 0.5):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+
+    -- self.prefab:DelayCall(delayTime, function()
+    --         self._objArr:Release()
+    --         self._objArr = nil
+    --     end)
+end
+
+function UI_FightPlayerLayer:ShowWipeCircle()
+    self._tutorialScore = self.prefab:CreateChild("tutorial_dir/tutorial_score")
+    self._tutorialScore:SetPosition(0, 0, 0, true)
+    self._tutorialScore:GetComponent("Image"):DOFade(0.3, 0.5):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+end
+
+function UI_FightPlayerLayer:DestoryWipeCircle()
+    if self._tutorialScore ~= nil then
+        self._tutorialScore:Release()
+    end
+    self._tutorialScore = nil
+end

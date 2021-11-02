@@ -1,0 +1,129 @@
+--
+-- author: haosun
+-- date  : 2021-09-01 17:42:58
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightSettleLayer = class("MidNightSettleLayer", CBaseLayer)
+
+function MidNightSettleLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uimidnight/ui_midnightsettlelayer",
+    }
+    
+    local _tmpdata = GTemp:GetFightTmpData()
+    self._allScore      = _tmpdata.all_score
+    self._bulletScore   = _tmpdata.bullet_score
+    self._enemyScore    = _tmpdata.enemyScore
+    self._timeScore     = _tmpdata.timeScore
+    self._wipeScore     = _tmpdata.wipeScore
+    self._coinScore     = _tmpdata.coinScore
+
+    self._uitype        = 2
+    self:onEnter()
+end
+
+function MidNightSettleLayer:onEnter()
+    self:createPnl()
+    self.layer:GetTextComponent("container/txt_allscore"):SetText("0")
+    self.layer:GetTextComponent("container/score_hurt/txt_value"):SetText("0")
+    self.layer:GetTextComponent("container/score_enemy/txt_value"):SetText("0")
+    self.layer:GetTextComponent("container/score_time/txt_value"):SetText("0")
+    self.layer:GetTextComponent("container/score_wipe/txt_value"):SetText("0")
+    self.layer:GetTextComponent("container/score_coin/txt_value"):SetText("0")
+end
+
+function MidNightSettleLayer:onExit()
+    self._data = nil
+    DoArrayClassClear(self._cls)
+    CBaseLayer.onExit(self)
+end
+
+function MidNightSettleLayer:show(data)
+    self._data = data
+    -- mvp hero 
+    local mvpId = HeroController:GetMvpHeroId()
+    Hero:LoadSpineAsync(self.__cname, self.layer:Get("spine"), mvpId, Hero.SPINE_UI_TYPE_SETTLE, nil, true)
+    -- hurt info 
+    HeroController:InitHeroHurt(self.layer:Get("container/heroInfo"), 82, 180)    
+    -- 奖励
+    self:setRewardInfo()
+    -- 段位ICON
+    MidNight:SetMidNightIconName(self.layer:Get("container"))
+    -- 排名
+    self.layer:GetTextComponent("container/txt_ranking"):SetText(MidNight:GetMidNightRanking())
+    -- 是否是新纪录
+    self.layer:Get("container/img_ranking"):SetVisible(MidNight:IsNewMaxScore())
+    self:showLayer()
+
+    self._fading = false
+    UpLoadVideo:SetUpLoadState(false);
+    Rank:ResetBuffIdArr()
+end
+
+function MidNightSettleLayer:onBackClick()
+    self:onPopLayer()
+    if MidNight:MidNightIsRankUp() then
+        MidNight:ShowMidNightRankupLayer()
+    else
+        uimgr:onMainScene()
+    end
+end
+
+function MidNightSettleLayer:dropAdd(bagtype, id, num)
+    for i, v in ipairs(self._data.clock_drops) do
+        if v[1] == bagtype and v[2] == id then
+            v[3] = v[3] + num
+            return
+        end
+    end
+    table.insert(self._data.clock_drops, {bagtype, id, num, 0})
+end
+
+function MidNightSettleLayer:setRewardInfo()
+    for bagtype, data in pairs(self._data.boss_drops or {}) do
+        for id, num in pairs(data) do
+            self:dropAdd(bagtype, id, num)
+        end
+    end
+    for bagtype, data in pairs(self._data.drops or {}) do
+        for id, num in pairs(data) do
+            self:dropAdd(bagtype, id, num)
+        end
+    end
+    local _number = #self._data.clock_drops
+    if _number == 0 then
+        self.layer:Get("container/scrollview"):SetVisible(false)        
+    else
+        self._cls = {}
+        local content = self.layer:Get("container/scrollview/viewport/content")
+        content:SetSizeY(math.max(300, math.ceil(_number / 3) * 160))
+        local clone = content:CreateChild("prefab_comframeWork/prefab_item")
+        clone:SetScale(0.55, 0.55, 0.55)
+
+        for i, data in pairs(self._data.clock_drops) do
+            local obj = content:AddChild(clone)
+            obj:SetPosition(80 + ((i-1)%3) * 160, -8 - math.floor((i-1)/3) * 160, 0, true)
+            local cls = Item:CtorSimpleItemPrefab(obj, true)
+            Item:SetSimpleItemPrefab(cls, data[2], data[3])
+            self._cls[i] = cls
+        end
+        clone:Release()
+    end
+end
+
+function MidNightSettleLayer:KeyFrameCall(intkey)
+    if intkey == 1 then
+        self.layer:Get("container/txt_allscore"):GetComponent("UITextNumberJump"):DoJump(0, self._allScore, 2)
+        self.layer:Get("container/score_hurt/txt_value"):GetComponent("UITextNumberJump"):DoJump(0, self._bulletScore, 2)
+        self.layer:Get("container/score_enemy/txt_value"):GetComponent("UITextNumberJump"):DoJump(0, self._enemyScore, 2)
+        self.layer:Get("container/score_time/txt_value"):GetComponent("UITextNumberJump"):DoJump(0, self._timeScore, 2)
+        self.layer:Get("container/score_wipe/txt_value"):GetComponent("UITextNumberJump"):DoJump(0, self._wipeScore, 2)
+        self.layer:Get("container/score_coin/txt_value"):GetComponent("UITextNumberJump"):DoJump(0, self._coinScore, 2)
+    elseif intkey == 99 then
+        self._fading = false
+    end
+end
+
+return MidNightSettleLayer

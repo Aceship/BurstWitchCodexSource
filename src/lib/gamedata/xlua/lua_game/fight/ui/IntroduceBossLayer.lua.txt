@@ -1,0 +1,47 @@
+--
+-- author: haosun
+-- date  : 2020-09-16 19:26:59
+-- brief : 
+--
+
+UI_IntroduceBossLayer = UI_IntroduceBossLayer or {}
+
+function UI_IntroduceBossLayer:IntroduceBossLayerCreator(super)
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/IntroduceBossLayer")
+    self.prefab:SetPositionX(5000, true)
+    self.prefab:SetVisible(false)
+
+    self._txtName1  = self.prefab:GetTextComponent("text_name_shadow")
+    self._txtName2  = self.prefab:GetTextComponent("text_name")
+    self._txtNameE  = self.prefab:GetTextComponent("text_nameE")
+end
+
+function UI_IntroduceBossLayer:IntroduceBossLayerDestructor()
+    self._txtName1  = nil
+    self._txtName2  = nil
+    self._txtNameE  = nil
+    if self.prefab ~= nil then
+        self.prefab:Release()
+    end
+    self.prefab = nil
+end
+
+function UI_IntroduceBossLayer:EnterIntroduceBossLayer(enemyId)
+    local cfg = FightModule:GetElementCfg(enemyId)
+    self._txtName1:SetText(cfg.Name)
+    self._txtName2:SetText(cfg.Name)
+    self._txtNameE:SetText(cfg.EnglishName)
+    self.prefab:SetPositionX(-1200, true)
+    self.prefab:SetVisible(true)
+    self.prefab.transform:DOLocalMoveX(0, 0.33)
+end
+
+function UI_IntroduceBossLayer:ExitIntroduceBossLayer()
+    self.prefab.transform:DOLocalMoveX(-1200, 0.16):OnComplete(
+        function()
+            self.prefab:SetPositionX(5000, true)
+            self.prefab:SetVisible(false)
+            UIController:ShowByTalk()
+            UI_ChangePlayerLayer:TutorialTriggerAfterEnter()
+        end)
+end

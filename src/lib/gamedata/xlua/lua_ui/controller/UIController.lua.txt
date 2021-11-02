@@ -1,0 +1,60 @@
+--
+-- author: haosun
+-- date  : 2019-09-10 18:55:54
+-- brief : 
+--
+UIController = UIController or {}
+
+function UIController:Ctor()
+    self._topplayers = {}
+end
+
+function UIController:Clear()
+    self._topplayers = {}
+end
+
+function UIController:CtorTopPlayer(obj)
+    return core.require("xlua/lua_UI/Controller/TopPlayer.txt"):new(obj)
+end
+
+function UIController:AddTopPlayer(controller)
+    self._topplayers[controller] = 1
+end
+
+function UIController:RemoveTopPlayer(controller)
+    self._topplayers[controller] = nil
+end
+
+function UIController:OnProgressTopPlayer(infotype)
+    for controller, v in pairs(self._topplayers) do
+        controller:UpdateByInfoType(infotype)
+    end
+end
+
+function UIController:CtorComTitle(obj)
+    return core.require("xlua/lua_UI/Controller/ComTitle.txt"):new(obj)
+end
+
+function UIController:CtorRankLvUi(obj)
+    return core.require("xlua/lua_UI/Controller/RankLvUi.txt"):new(obj, callback)
+end
+
+function UIController:CtorRankCell(obj, celltype)
+    return core.require("xlua/lua_UI/Controller/RankCell.txt"):new(obj, celltype)
+end
+
+function UIController:CtorTableView(obj)
+    return core.require("xlua/lua_UI/Controller/TableViewController.txt"):new(obj)
+end
+
+function UIController:CtorBaseAnimator(obj)
+    local cls = core.require("xlua/lua_UI/BaseAnimation.txt"):new()
+    cls:addBaseAnimationBehaviour(obj)
+    return cls
+end
+
+function UIController:CtorSortController(obj)
+    return core.require("xlua/lua_UI/Controller/SortController.txt"):new(obj)
+end
+
+UIController:Ctor()

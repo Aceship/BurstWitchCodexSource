@@ -1,0 +1,71 @@
+--
+-- author: haosun
+-- date  : 2021-04-20 21:50:10
+-- brief : 必杀技能插图
+--
+
+UI_MustSkillLayer = UI_MustSkillLayer or {}
+
+function UI_MustSkillLayer:MustSkillLayerCreator()
+    self.prefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightTalk/prefab/ui_must_talk")
+    self.prefab:AddAnimationBehaviour(self)
+    self.prefab:SetPositionX(5000, true)
+    self.prefab:SetVisible(false)
+
+    self._uiHeroPos = self.prefab:Get("mask/heroContent/hero")
+    self._txt_name  = self.prefab:GetTextComponent("bkg3/mustName")
+    self._img_hero  = self.prefab:GetImageComponent("mask/heroContent/hero")
+    self._effect    = self.prefab:GetParticleComponent("UI60_must_talk/Particle_G3")
+end
+
+function UI_MustSkillLayer:MustSkillLayerDestructor()
+    self._txt_name  = nil
+    self._img_hero  = nil
+    self._uiHeroPos = nil
+    self._effect    = nil
+    if self.prefab ~= nil then
+        self.prefab:Release()
+    end
+    self.prefab = nil
+end
+
+function UI_MustSkillLayer:EnterMustSkillLayer(heroId, skillName)
+    self._txt_name:SetText(Language.LanguageTxt[skillName])
+    local hero = HeroController:GetHeroById(heroId)
+    local cHero = Hero:GetHero(heroId)
+
+    local skinedHeroId
+    if hero.skinid == cHero.skinids[1] then
+        skinedHeroId = heroId
+    else
+        skinedHeroId = hero.skinid
+    end
+
+    self._img_hero:LoadSprite("source_avatar/hero/body_" .. skinedHeroId)
+
+    local info = Hero.SPINE_INFO[skinedHeroId][Hero.SPINE_UI_FIGHT_MUST_TALK]
+    if info ~= nil then
+        if info.localPos ~= nil then
+            self._uiHeroPos.transform.localPosition = info.localPos
+        end
+        if info.localScale ~= nil then
+            self._uiHeroPos.transform.localScale = info.localScale
+        end
+    end
+    self.prefab:SetPositionX(0, true)
+    self.prefab:SetVisible(true)
+    self._effect:Play()
+    self.prefab:AnimatorPlay("enter")
+end
+
+-- animation interface-----------------------------------------------------------------------------------------------------
+function UI_MustSkillLayer:onAnimationDestroy()
+    self:MustSkillLayerDestructor()
+end
+
+function UI_MustSkillLayer:onAnimationEvent(anitype, keyTag)
+    if anitype == 1 then
+        self.prefab:SetVisible(false)
+        LuaScriptController:PlayMustSkillCall(true)
+    end
+end

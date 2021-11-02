@@ -1,0 +1,759 @@
+--
+-- author: haosun
+-- date  : 2018-11-08 10:32:12
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PlotLayer = class("PlotLayer", CBaseLayer)
+
+function PlotLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_PlotLayer",
+    }
+
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_MAIN,
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_PLOT,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+function PlotLayer:ctorItemCObj(obj)
+    local transform  = obj.transform
+    local cls       = clsbase:new(obj)
+    cls.objRtCom    = obj:GetComponent("RectTransform")
+    cls.bgCom       = cls:GetImageComponent("img_bg")
+
+    cls.bottomObj   = transform:Get("img_descBg")
+    cls.descObj     = transform:Get("img_descBg/txt_desc")
+    cls.tipsObj     = transform:Get("img_lockTips")
+    cls.descCom     = transform:GetTextComponent("img_descBg/txt_desc")
+    cls.lockTips    = transform:GetTextComponent("img_lockTips/txt_desc")
+
+    cls.descTitleCom = transform:GetTextComponent("img_descBg/txt_time")
+    cls.iconObj     = transform:Get("img_descBg/img_icon")
+    cls.countObj    = transform:Get("img_descBg/txt_count")
+    cls.countCom    = transform:GetTextComponent("img_descBg/txt_count")
+    cls.arrowObj    = transform:Get("arrow")
+    cls.rankObj     = transform:Get("info_rank")
+    cls.uibuttonsfx = cls.obj:GetComponent("UIButtonSFX");
+    cls.redTip      = transform:Get("image_red_tips")
+    cls.icons       = transform:Get("icons")
+    cls.objNewTips  = transform:Get("obj_new")
+
+    --剧情进度
+    cls.transPlot = cls:Find("trans_plot_plan");
+    cls.txtCommentPlan = cls.transPlot:GetTextComponent("txt_comment_plan");
+    cls.txtDifficultyPlan = cls.transPlot:GetTextComponent("txt_difficulty_plan");
+    cls.imgDifficultyLock = cls.transPlot:GetImageComponent("img_difficulty_lock");
+    cls.txtTitleH = cls.transPlot:GetTextComponent("txt_title_H");
+    cls.items = {}
+    for i = 1, 4 do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls:Find("icons/item" .. i))
+    end
+    cls.lock = false
+    cls.index = 0
+    transform:GetComponent("Button"):AddButtonListener(
+        function()
+            self:onModeClick(cls)
+        end)
+
+    return cls
+end
+
+function PlotLayer:CtorToggleObj()
+    self._showTypesObj = {}
+    for itype ,v in pairs(self._modeInfos) do
+        local cls = {}
+        cls.toggle      = self.layer:GetMToggleComponent("obj_tog_bg/show_type_" .. itype)
+        cls.redCom      = self.layer:Get("obj_tog_bg/show_type_" .. itype.."/img_red_tips")
+        cls.hide = Player:GetSysFunc(v.sysid).cfg.hide
+        cls.sysid = v.sysid
+        cls.toggle.onValueChanged:AddListener(function (isOn)
+            if isOn then
+                self:selectFightType(itype);
+            end
+            if(itype == Chapter.SHOW_TYPE_PLOT)then
+                if(isOn)then
+                    self._specialNode:SetVisible(#Chapter._triggerLevels ~= 0)
+                    self._txtChapterLevelNum:SetTextColor(79/255,104/255,180/255,255/255);
+                else
+                    self._specialNode:SetVisible(false)
+                    self._txtChapterLevelNum:SetTextColor(10/255,14/255,20/255,255);
+                end
+
+            end
+        end)
+        self._showTypesObj[itype] = cls
+    end
+end
+
+function PlotLayer:initObj()
+    self._itemsObj      = {}
+    self._tvController = UIController:CtorTableView(self.layer:Get("TableViewController"))
+    self._typeTitle = self.layer:GetTextComponent("info_title/txt_title")
+    self._typeTitleEn = self.layer:GetTextComponent("info_title/txt_title_E")
+    self._transMask = self.layer:Get("trans_mask");
+    self._txtChapterLevelNum = self.layer:GetTextComponent("obj_tog_bg/show_type_1/txt_level_num");
+    self._specialNode = self.layer:Get("specialNode")
+    self.layer:GetButtonComponent("specialNode/Button"):AddButtonListener(
+        function()
+            Chapter:EnterFightFeelWallLayer(-1, true)
+        end)
+    self._specoalNum = self.layer:GetTextComponent("specialNode/Button/txt_num")
+    self:SetChapterLevelUI();
+end
+
+function PlotLayer:initChapter()
+    self._timers = {}
+    if not self._init then
+        self._tvController:Init(#self._modes, true,
+            function(cell, row, play)
+                self:refreshScrollView(cell, row+1)
+            end, 0.3, 0.1)
+        self._init = true
+    else
+        self._tvController:ScrollToTop()
+        self._tvController:Reload(#self._modes, true)
+    end
+end
+
+function PlotLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("info_title"))
+    self:initFightTypeTitle()
+    self:initObj()
+    self:CtorToggleObj()
+    self:addUpdateDayListener()
+    self:addEventListener(EVENT_NAME.PLOT_RANK,self.__cname,
+            function()
+                self:selectFightType(3)
+        end)
+    self:addEventListener(EVENT_TYPE.MID_NIGHT_SETTLE,self.__cname,--深夜结算
+            function()
+                --结算时刷新列表
+                self:initChapter();
+        end)
+    self._clslayer:HideLayer(-5000)
+end
+
+function PlotLayer:onExit()
+    if self._itemsObj ~= nil then
+        for i, cls in pairs(self._itemsObj) do
+            cls:clear()
+        end
+    end
+    self._itemsObj      = nil
+    self._typeTitle     = nil
+    self._typeTitleEn   = nil
+    self._transMask     = nil
+    self._txtChapterLevelNum = nil
+    self._specialNode   = nil
+    self._specoalNum    = nil
+
+    self._modes = nil
+
+    if self._timers ~= nil then
+        for i, v in pairs(self._timers) do
+            v[1] = nil
+            v[2] = nil
+            self._timers[i] = nil
+        end
+    end
+    self._timers = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function PlotLayer:show()
+    self._type = -1
+
+    local jumpdata = Chapter:GetJumpdata()
+    if next(jumpdata) ~= nil then
+        for itype,v in pairs(self._modeInfos) do
+            if itype == jumpdata.showtype then
+                self._showTypesObj[itype].toggle.isOn = true
+            end
+        end
+        self:selectFightType(jumpdata.showtype)
+
+        local bfind = false
+        local chapterid = jumpdata.chapterid
+        local chapter = Chapter:GetChapter(jumpdata.chapterid)
+        if chapter.sub_type == Chapter.MODE_EQUIP then
+            chapterid = Chapter:GetEquipChapter()
+        end
+        local index = 1
+        for _, v in pairs(self._modes) do
+            for i, id in pairs(v.ids) do
+                if tonumber(id) == chapterid then
+                    bfind = true
+                    index = _
+                end
+            end
+        end
+        if jumpdata.levelid ~= nil then
+            local level = Chapter:GetLevel(jumpdata.levelid)
+            if level ~= nil then
+                if not CTime:IsOpen(level.timeid) then
+                    Chapter:ClearJumpChapterLevel()
+                    bfind = false
+                end
+            end
+        end
+        if bfind then
+            Groble_UIMgr:PushLayer(self,self._hideOtherLayer);
+            self:onGoChapter(self._modes[index])
+            return
+        else
+            Chapter:ClearJumpChapterLevel()
+        end
+    else
+        self:jumpFightType()
+    end
+    self:showLayer()
+    local levelId = Chapter:GetTriggerLevelId()
+    if levelId ~= 0 then
+        self:hideLayer()
+        Chapter:EnterFightFeelWallLayer(levelId, false)
+        return
+    end
+    self:playAni("PlotLayerAni")
+
+    if self._showTypesObj[Chapter.SHOW_TYPE_PLOT].toggle.isOn == true then
+        self._specialNode:SetVisible(#Chapter._triggerLevels ~= 0)
+        self._specoalNum.text = #Chapter._triggerLevels
+    else
+        self._specialNode:SetVisible(false)
+    end
+end
+function PlotLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    self._transMask:SetVisible(false);
+    self:refreshToggleState()
+    self:initChapter()
+end
+
+function PlotLayer:onPerSecondUpdate()
+    self:refreshTime()
+end
+
+function PlotLayer:jumpFightType()
+    local lasttype = Chapter:GetLastInFightType()
+    if lasttype == -1 then
+        lasttype = Chapter.SHOW_TYPE_PLOT
+    end
+    self._showTypesObj[lasttype].toggle.isOn = true    
+    self:selectFightType(lasttype)
+end
+
+function PlotLayer:refreshToggleState()
+    for itype , cls in pairs(self._showTypesObj) do
+        local open = Player:IsSysFuncOpen(cls.sysid)
+        cls.toggle.isResponse = open
+        --未开启时隐藏按钮
+        if cls.hide then
+            cls.toggle.gameObject:SetVisible(open)
+        else
+            cls.toggle.gameObject:SetVisible(true)
+        end
+        self:refreshModeTips(itype)
+    end
+end
+
+function PlotLayer:initFightTypeTitle()
+    self._modeInfos = {
+        [Chapter.SHOW_TYPE_PLOT] = {
+            sysid = Player.SYS_FUNC.fight_plot,
+        },
+        [Chapter.SHOW_TYPE_DAILY] = {
+            sysid = Player.SYS_FUNC.fight_daily,
+        },
+        [Chapter.SHOW_TYPE_ACTIVITY] = {
+            sysid = Player.SYS_FUNC.fight_activity,
+        }
+    }
+end
+
+function PlotLayer:SetTypeTitle(itype)
+    if itype == Chapter.SHOW_TYPE_PLOT then
+        self._typeTitle:SetTextById(20039)
+        self._typeTitleEn:SetTextById(20003)
+    elseif itype == Chapter.SHOW_TYPE_DAILY then
+        self._typeTitle:SetTextById(20040)
+        self._typeTitleEn:SetTextById(20007)
+    elseif itype == Chapter.SHOW_TYPE_ACTIVITY then
+        self._typeTitle:SetTextById(20041)
+        self._typeTitleEn:SetTextById(20005)
+    end    
+end
+
+function PlotLayer:selectFightType(itype)
+    itype = itype or 1
+
+    if itype == 1 then
+        self._specialNode:SetVisible(#Chapter._triggerLevels ~= 0)
+        self._specoalNum.text = #Chapter._triggerLevels
+    else
+        self._specialNode:SetVisible(false)
+    end
+
+    if not Groble_UIMgr:ShowUnlockTipsLayer(self._modeInfos[itype].sysid) then
+        self._showTypesObj[self._type].toggle.isOn = true
+        return
+    end
+
+    self._modes = Chapter:GetChapterMode(itype)
+    
+    if self._modes == nil or #self._modes == 0 then
+        CS.Logger.LogError(" Config Error..."..itype)
+        return
+    end
+
+    if self._type == itype then return end
+
+    -- 深夜排行请求
+    if itype == Chapter.SHOW_TYPE_ACTIVITY then
+        local ranking = MidNight:GetMidNightRanking()
+        if ranking == -1 then
+            return
+        end
+    end
+
+    self._type = itype
+    self:SetTypeTitle(itype)
+    Chapter:SetLastInFightType(self._type)
+    
+    for i = Chapter.SHOW_TYPE_BEGIN, Chapter.SHOW_TYPE_END do
+        self:refreshModeTips(i)
+    end
+    self:initChapter()
+end
+
+function PlotLayer:refreshScrollView(item, row)
+    local data = self._modes[row]
+    local cls  = self._itemsObj[item.name]
+
+    if cls == nil then
+        cls = self:ctorItemCObj(item)
+        self._itemsObj[item.name] = cls
+    end
+    local sfx = {};
+    sfx.Condition = "";
+    sfx.EventPath = self._modes[row].cfg.ImageFmodPath;
+    cls.uibuttonsfx.SFXList:Clear();
+    cls.uibuttonsfx.SFXList:Add(sfx);
+    cls.index  = row
+    cls.data = data;
+    cls.bgCom:LoadSprite(self._modes[row].cfg.Image)
+    cls.bgCom:SetNativeSize()
+    if self._type == Chapter.SHOW_TYPE_ACTIVITY then
+        self._tvController:UpdateCellHeight(row -1,360)
+    else
+        self._tvController:UpdateCellHeight(row -1,260)
+    end
+    self:setModeInfo(cls, self._modes[row])
+    self:refreshTime()
+end
+--新增：未解锁最优先显示
+function PlotLayer:setModeInfo(cls, mode)
+    cls.iconObj:SetVisible(false)
+    cls.countObj:SetVisible(false)
+    cls.bottomObj:SetVisible(true)
+    cls.redTip:SetVisible(false)
+    local lock = true
+    local chapter = Chapter:GetChapter(mode.ids[1])
+    local sub_type = chapter.sub_type
+    local descstr = ""
+    local desc_posx = -10
+    cls.open = false
+    cls.icons:SetVisible(false)
+    cls.descObj:SetPosition(-30, -4, 0, true)
+    cls.descCom:SetTextColor(1, 1, 1, 1)
+    cls.descTitleCom:SetVisible(false)
+    local timeType = CTime.SHOW_TYPE_DAY
+    -- 开放描述 or 倒计时 or 开启时间
+    local timeid = chapter.timeid
+    local showtime = timeid ~= 0 and CTime:IsOpen(timeid)
+    cls.tipsObj:SetVisible(false)
+    local tips = ""
+    local isExistNewLevel = false
+    if self._type == Chapter.SHOW_TYPE_PLOT then
+        -- 剧情关卡显示当前的进度
+        descstr = LanguageMgr:GetTextByID(20027)
+        local open = chapter.open 
+        if open then
+            if Player:GetLevel() >= chapter.open_level then
+                cls.open = true
+                descstr = ""
+                lock = false
+                if chapter.pass == true then
+                    cls.arrowObj:SetVisible(false)
+                else
+                    cls.arrowObj:SetVisible(true)
+                end
+                cls.bottomObj:SetVisible(false)
+
+                --设置进度信息
+                cls.txtCommentPlan:SetText(string.format("%s%%",math.floor(chapter.has_star / chapter.all_star * 100)));
+                --困难关卡
+                cls.txtTitleH:SetVisible(mode.ids[2] ~= nil and mode.ids[2] > 0);
+                if(mode.ids[2] ~= nil and mode.ids[2] > 0)then
+                    local chapter2 = Chapter:GetChapter(mode.ids[2]);
+                    cls.imgDifficultyLock:SetEnabled(not chapter2.open or Player:GetLevel() < chapter2.open_level);
+                    cls.txtDifficultyPlan:SetEnabled(chapter2.open and Player:GetLevel() >= chapter2.open_level);
+                    if(chapter2.open and Player:GetLevel() >= chapter2.open_level)then--困难关卡已解锁
+                        cls.txtDifficultyPlan:SetText(string.format("%s%%",math.floor(chapter2.has_star / chapter2.all_star * 100)));
+                    end
+                else
+                    cls.imgDifficultyLock:SetEnabled(false);
+                    cls.txtDifficultyPlan:SetEnabled(false);
+                end
+                isExistNewLevel = Chapter:IsExistOperLevel(chapter.id, true)
+                if (not isExistNewLevel) and chapter.open_id ~= 0 then
+                    isExistNewLevel = Chapter:IsExistOperLevel(chapter.open_id, true)
+                end
+                if not isExistNewLevel then
+                    cls.redTip:SetVisible(Chapter:ChapterModeRedTip(mode.ids))
+                end
+            else --前置解锁，但等级不够
+                lock = true
+                descstr = ""
+                tips = string.format(LanguageMgr:GetTextByID(20031), chapter.open_level)
+                cls.lockTips.text = tips
+                cls.bottomObj:SetVisible(true)
+                cls.tipsObj:SetVisible(true)
+            end
+        else    --前置未解锁
+            local tmpchapter = Chapter:GetChapter(chapter.prev_ids[1][1])
+            local tipstr = ""--string.format()
+            if tmpchapter.sub_type == 101 then
+                tipstr = string.format(COLOR_STR.LightBlue,LanguageMgr:GetTextByID(8880028))
+            elseif tmpchapter.sub_type == 102 then
+                tipstr = string.format(COLOR_STR.LightRed,LanguageMgr:GetTextByID(8880029))
+            end
+            tips = string.format(LanguageMgr:GetTextByID(76000046), tipstr..tmpchapter.name_simple)
+            cls.lockTips.text = tips
+            descstr = ""
+            cls.bottomObj:SetVisible(true)
+            cls.arrowObj:SetVisible(false)
+            cls.tipsObj:SetVisible(true)
+            lock = true
+        end
+    else
+        cls.descCom.text = ""
+        cls.open, descstr = Chapter:chapterOrLevelIsOpen(chapter)
+        if cls.open then
+            if chapter.count ~= 0 then
+                -- 显示剩余奖励次数
+                local remain = math.max(0, chapter.count - chapter.pass_count)
+                descstr = LanguageMgr:GetTextByID(3002003) .. (remain .. "/" .. chapter.count)
+            elseif chapter.itemid ~= 0 then
+                cls.iconObj:SetVisible(true)
+                cls.countObj:SetVisible(true)
+               
+                -- 道具挑战次数
+                Item:SetItemIcon(cls.iconObj, chapter.itemid)
+                local itemcfg = Item:GetCfg(chapter.itemid)
+                cls.countCom.text = Item:GetCount(chapter.itemid) .. "/" .. itemcfg.countOwnMax
+                descstr = LanguageMgr:GetTextByID(3002001)
+                -- refresh pos
+                local posx = cls.countObj:GetComponent("RectTransform").localPosition.x - cls.countCom.preferredWidth - 4
+                u3d_set_localPos(cls.iconObj, posx)
+                desc_posx = posx - 50
+            else
+                cls.bottomObj:SetVisible(false)
+            end
+            lock = not (chapter.timeid == 0 or CTime:IsOpen(chapter.timeid))
+            if Chapter.FIGHT_TYPE_DAILY == chapter.main_type then
+                -- 日常副本：额外奖励、挑战次数
+                if chapter.count > 0 then
+                    local remain = math.max(chapter.count - chapter.pass_count, 0)
+                    descstr = LanguageMgr:GetTextByID(3002003) .. (remain .. "/" .. chapter.count);
+                    cls.bottomObj:SetVisible(false)
+                end
+                if mode.cfg.Show_icon ~= "-1" then
+                    cls.icons:SetVisible(true)
+                    for i = 1, 4 do
+                        if mode.icons[i] ~= nil then
+                            cls.items[i].obj:SetVisible(true)
+                            Bag:SetComSimpleGoodsUi(cls.items[i], Bag.TYPE_ITEM, mode.icons[i],0,true)
+                        else
+                            cls.items[i].obj:SetVisible(false)
+                        end
+                    end
+                end
+                if mode.cfg.buildtype ~= "-1" then
+                    chapter.atkTypes = mode.atkTypes
+                end
+                if mode.cfg.Show_time ~= "-1" then
+                    chapter.modeTimeid = tonumber(mode.cfg.Show_time)
+                    local _time_cfg_id = tonumber(mode.cfg.Show_time)
+                    if _time_cfg_id ~= 0 and CTime:IsOpen(_time_cfg_id) then
+                        local remain = CTime:GetRemainTime(_time_cfg_id)
+                        descstr = CTime:Time2Str(remain)
+                        cls.bottomObj:SetVisible(true)
+                        local getRemain = function ()
+                            local reamainTime = CTime:GetRemainTime(_time_cfg_id)
+                            return  CTime:Time2Str(reamainTime),reamainTime
+                        end
+                        table.insert(self._timers,{cls.descCom, getRemain})
+                    end
+                    cls.descTitleCom:SetTextById(77000112)
+                end
+                self:setDescInfo(cls,mode)
+                isExistNewLevel = Chapter:IsExistOperLevel(chapter.id)
+            elseif Chapter.FIGHT_TYPE_NIGHT == chapter.main_type then
+                -- 深夜副本
+                cls.bottomObj:SetVisible(false)
+                cls.redTip:SetVisible(MidNight:GetNightRed())
+            elseif(Chapter.FIGHT_TYPE_ETHER == chapter.main_type)then
+                -- 以太边界
+                showtime = false
+                for _, chapid in pairs(mode.ids) do
+                    local chp = Chapter:GetChapter(chapid)
+                    if chp.timeid ~= 0 and CTime:IsOpen(chp.timeid) then
+                        descstr = CTime:Time2Str(CTime:GetRemainTime(chp.timeid))
+                        showtime = true
+                        timeType = nil
+                        timeid = chp.timeid
+                        break
+                    end
+                end
+                cls.redTip:SetVisible(Ether:GetTaskRed())
+            elseif chapter.main_type == Chapter.FIGHT_TYPE_WORLD_BOSS then
+                -- 世界BOSS
+                self:setDescInfo(cls,mode)
+                local levelid,tid = WorldBoss:GetOpenChapterId()
+                showtime = tid > 0
+                timeType = nil
+                timeid = tid
+                cls.descTitleCom:SetTextById(77000111)
+                cls.bottomObj:SetVisible(showtime)
+                lock = not showtime
+            end
+        end
+        cls.arrowObj:SetVisible(false)
+    end
+    
+    if showtime and cls.open then
+        descstr = CTime:Time2Str(CTime:GetRemainTime(timeid),timeType)
+        local getRemain = function ()
+            local reamainTime = CTime:GetRemainTime(timeid)
+            return  CTime:Time2Str(reamainTime,timeType),reamainTime
+        end
+        table.insert(self._timers,{cls.descCom, getRemain})
+        self:setDescInfo(cls,mode)
+    end
+    cls.descCom.text = descstr
+   -- u3d_set_localPos(cls.descObj, desc_posx)    
+
+    if lock then
+        cls.bgCom.material = AssetLoader:LoadGrayMaterial()
+    else
+        cls.bgCom.material = nil
+    end
+    cls.rankObj:SetVisible(false)
+    -- 深夜信息
+    if cls.open then
+        local isrank = Chapter.FIGHT_TYPE_NIGHT == chapter.main_type
+        cls.rankObj:SetVisible(isrank)
+        if isrank then
+            self:SetRankInfo(cls)
+        end
+        if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+            cls.descCom:SetTextById(77000067)
+        end
+    end
+
+    --显示剧情进度
+    cls.transPlot:SetVisible(self._type == Chapter.SHOW_TYPE_PLOT and cls.open);
+
+    -- 是否可以点击
+    cls.lock = lock
+
+    cls.objNewTips:SetVisible(isExistNewLevel)
+end
+
+function PlotLayer:refreshTime()
+    for _ , v in pairs(self._timers) do
+        local txt,remain = v[2]()
+        v[1].text = txt
+    end
+end
+
+function PlotLayer:SetRankInfo(cls)
+    if cls.rankCls == nil then
+        cls.rankCls = {
+            ranking  = cls:GetTextComponent("info_rank/txt_ranking"),
+            ranking2 = cls:GetTextComponent("info_rank/txt_ranking_2"),
+            empty    = cls:GetTextComponent("info_rank/txt_empty"),
+            tips     = cls:GetTextComponent("info_rank/txt_tips"),
+        }
+    end
+    --todo 设置名
+    local ranking = MidNight:GetMidNightRanking()
+    cls.rankCls.ranking2:SetVisible(false)
+    cls.rankCls.empty:SetVisible(ranking == 0)
+    cls.rankCls.tips:SetVisible(true)
+    cls.rankCls.ranking:SetVisible(ranking > 0);
+    if(ranking > 0)then
+        cls.rankCls.ranking.text = ranking
+    end
+    --[[if ranking > 0 and ranking <= 10 then
+    else
+        cls.rankCls.ranking2.text = Rank:GetRankTxt(ranking,LanguageMgr:GetTextByID(121000), true)
+    end]]--
+end
+
+function PlotLayer:onModeClick(cls)
+    local mode = self._modes[cls.index]
+    if #mode.ids > 0 then
+        local chapter = Chapter:GetChapter(mode.ids[1])
+        if self._type == Chapter.SHOW_TYPE_PLOT then  --剧情关卡
+            if chapter.open then  --关卡开启
+                if Player:GetLevel() < chapter.open_level then --等级不够
+                    Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(20087),chapter.open_level))
+                else
+                    self:onGoChapter(mode)
+                end
+            else                --关卡未开启
+                local str = cls.lockTips.text
+                Groble_UIMgr:ShowTipsLayer(str)
+            end
+        else     --日常,挑战?
+            if cls.lock then
+                local str = cls.descCom.text
+                Groble_UIMgr:ShowTipsLayer(str)
+            else
+                self:onGoChapter(mode)
+            end
+        end
+    else
+        -- TODO:配置出错
+        AppMgr:Logger("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~cfg error!!!")
+    end
+end
+
+function PlotLayer:onGoChapter(mode)
+    if mode == nil then return end
+    
+    local chapter = Chapter:GetChapter(mode.ids[1])
+    -- 关卡是否在开放时间
+    if not CTime:IsOpen(chapter.timeid) then return end
+
+    if chapter.main_type == Chapter.FIGHT_TYPE_ETHER then
+        -- 以太边界
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            Ether:EnterEtherLayer()
+        end)
+        
+    elseif chapter.main_type == Chapter.FIGHT_TYPE_WORLD_BOSS then
+        --世界Boss
+        WorldBoss:EnterWorldBossLayer()
+    else
+        -- 判断章节子类型
+        local sub_type = chapter.sub_type
+        --主线剧情
+        if sub_type == Chapter.MODE_PLOT_N or sub_type == Chapter.MODE_PLOT_D or sub_type == Chapter.MODE_PLOT_S then
+            Chapter:SetCurChapterMode(mode);
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                core.require("xlua/lua_UI/UIFight/ChapterLayer.txt"):new():show()
+            end)
+        elseif sub_type == Chapter.MODE_NIGHT then
+            -- 深夜模式
+            if Rank:GetClearingStart(Rank.TYPE_NIGHT) then
+                Groble_UIMgr:ShowGameWordTipsLayer(77000067)
+            else
+                MidNight:SetSelectLayerType(MidNight.LayerTypeMain);
+                MidNight:EnterRankLayer();
+            end
+        elseif sub_type == Chapter.MODE_TOWER then
+            -- 爬塔
+            Tower:ShowTowerLayer()
+        elseif sub_type == Chapter.MODE_MYSTERY then
+            -- 秘境
+            Mystery:ShowMysteryLayer()
+        else
+            -- 日常本
+            --未开放时间
+            if mode.cfg.Show_time ~= "-1" then
+                if  not CTime:GetRemainTime(tonumber(mode.cfg.Show_time)) then
+                    Groble_UIMgr:ShowGameWordTipsLayer(76000079)
+                    self:initChapter()
+                    return
+                end
+            end
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                Chapter:ShowDailyLayer(chapter.id, function ()
+                    self:onUpdateDay()
+                end)
+            end)           
+        end
+    end
+end
+
+function PlotLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function PlotLayer:onUpdateDay()
+    self._modes =  Chapter:GetChapterMode(self._type)
+    self:initChapter()
+end
+
+function PlotLayer:setDescInfo(cls,mode)
+    if lua_table_len(mode.cfg.desc_time) > 0 then
+        cls.descCom.fontSize = mode.cfg.desc_time[1][1]
+        cls.descCom:SetTextColor(mode.cfg.desc_time[2][1]/255,mode.cfg.desc_time[2][2]/255,mode.cfg.desc_time[2][3]/255,mode.cfg.desc_time[2][4]/255)
+        cls.descObj:SetPosition(mode.cfg.desc_time[3][1], mode.cfg.desc_time[3][2], 0, true)
+    end
+    if lua_table_len(mode.cfg.desc_title) > 0  then
+        cls.descTitleCom.fontSize = mode.cfg.desc_title[1][1]
+        cls.descTitleCom:SetTextColor(mode.cfg.desc_title[2][1]/255,mode.cfg.desc_title[2][2]/255,mode.cfg.desc_title[2][3]/255,mode.cfg.desc_title[2][4]/255)
+        cls.descTitleCom.transform:SetPosition(mode.cfg.desc_title[3][1],mode.cfg.desc_title[3][2], 0, true)
+        cls.descTitleCom:SetVisible(true)
+    end
+end
+
+function PlotLayer:SetChapterLevelUI()
+    local plotLevelData = Chapter:GetCurPlotLevelData()
+    if plotLevelData.chapterId == 0 then
+        self._txtChapterLevelNum:SetText("")
+    else
+        local chapter = Chapter:GetChapter(plotLevelData.chapterId)
+        local index = math.floor(chapter.id/1000)
+        local levelData = Chapter:GetLevel(plotLevelData.levelId)
+        if index >= 10 then
+            self._txtChapterLevelNum:SetText(string.sub(levelData.name_simple, -4))
+        else
+            self._txtChapterLevelNum:SetText(string.sub(levelData.name_simple, -3))
+        end
+    end
+end
+
+function PlotLayer:refreshModeTips(modetype)
+    if modetype == Chapter.SHOW_TYPE_PLOT then
+        self._showTypesObj[modetype].redCom:SetVisible(Chapter:GetPlotRedTip() or Chapter:IsExistNewPlotLevel())
+    elseif modetype == Chapter.SHOW_TYPE_DAILY then
+        self._showTypesObj[modetype].redCom:SetVisible(Chapter:IsExistNewDailyLevel())
+    elseif modetype == Chapter.SHOW_TYPE_ACTIVITY then
+        if Player:IsSysFuncOpen(self._showTypesObj[modetype].sysid) then
+            self._showTypesObj[modetype].redCom:SetVisible(MidNight:GetNightRed() or Mystery:IsMysterySettle())
+        else
+            self._showTypesObj[modetype].redCom:SetVisible(false)
+        end
+    end
+end
+
+return PlotLayer
+

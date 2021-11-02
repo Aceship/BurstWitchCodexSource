@@ -1,0 +1,5 @@
+id,活动配图,动画,活动表名
+id,icon,spine,Name
+number,string,string,string
+1,source_uiActivaty/ui_ActivatyFrameWork/xct1,-1,Activity_seven
+2,-1,prefab_uiPlayerModel/playerSpine/character_1021,Quest

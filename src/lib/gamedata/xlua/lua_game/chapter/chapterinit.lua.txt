@@ -1,0 +1,18 @@
+--
+-- author: haosun
+-- date  : 2018-11-08 14:24:34
+-- brief : 
+--
+
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapter.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapterdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapter_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapterconfig.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapterui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chapterauto.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chaptertest.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Chapter/chaptertips.txt")
+
+Chapter:CtorChapter()
+Chapter:_LoadConfig()

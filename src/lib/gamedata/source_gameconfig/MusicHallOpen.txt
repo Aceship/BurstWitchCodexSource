@@ -1,0 +1,7 @@
+上阵位ID,上阵位开启等级,魔女阵位开启数量,乐器标签数量,外貌标签数量,属性标签数量,种族标签数量,等级标签数量,星级标签数量及出现概率
+id,seat_level,seat_number,muiscal_number,appearance_number,attri_number,race_number,level_number,star_mumber
+number,number,number,number,number,number,number,number,array_&_|
+1001,1,1,1,0,0,0,0,-1
+1002,20,2,2,0,0,1,0,-1
+1003,40,3,3,0,1,1,0,-1
+1004,60,4,4,1,1,1,1,-1

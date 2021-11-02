@@ -1,0 +1,11 @@
+--
+-- author: haosun
+-- date  : 2019-08-20 10:58:32
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Buff/buff.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Buff/buff_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Buff/buffdef.txt")
+
+Buff:Ctor()

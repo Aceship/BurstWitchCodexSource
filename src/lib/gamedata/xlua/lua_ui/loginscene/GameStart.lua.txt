@@ -1,0 +1,32 @@
+--游戏开始
+function LoginSceneStart(reload)
+    math.randomseed(os.time())
+    math.random(1, os.time())
+    if reload then
+        -- CS.SdkMgr.Logout()
+        CS.AssetLoader.Instance:LoadLuaAsset("xlua/lua_Game/Base/AssetLoader.txt")
+        AssetLoader:PreLoad()
+        AssetLoader:LoadLuaAsset("xlua/luaCommon.txt");
+        CanvasMgr:SetCanvas()
+        UI_Loading:InitLoading(uimgr.LOGIN_SCENE_ID)
+        UI_Loading:SetLoadingModule(-1)
+        UI_Loading:EnterLoading()
+    else
+        CanvasMgr:SetCanvas()
+        core.require("xlua/lua_UI/LoginScene/LoginLayer.txt"):new():show()
+    end
+    ThinkingMgr:Init()
+    Groble_SceneMgr:SetFrameFps(60)
+end
+
+--游戏更新
+function LoginSceneUpdate(dt)
+    UI_Loading:UpdateLoading(dt)
+end
+
+--游戏释放
+function LoginSceneDestroy(dt)
+    AppMgr:LogInfo("GameStart Destroy...")
+    CanvasMgr:ClearCanvas()
+    AssetLoader:UnloadAsset()
+end

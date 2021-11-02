@@ -1,0 +1,132 @@
+--
+-- author: haosun
+-- date  : 2020-10-30 17:05:03
+-- brief : 
+--
+local uibuff = class("uibuff")
+
+function uibuff:Init(_container, small)
+    self._buffs     = {}
+    self._container = _container
+    self._small     = small or false
+    self.cache_visible = nil
+    self._index     = 0
+    self._count     = 0
+end
+
+function uibuff:UnInit()
+    DoArrayClassClear(self._buffs)
+    self._buffs     = nil
+    self._container = nil
+end
+
+function uibuff:SetVisible(visible)
+    if self.cache_visible ~= visible then
+        self.cache_visible = visible
+        self._container:SetVisible(visible)
+    end
+end
+
+function uibuff:_addbuff(data, startIndex)
+    if self._count >= 10 then return end
+
+    local RenderBuffIndex = FightArrController.RenderBuffIndex
+    local icon = data[startIndex + RenderBuffIndex.iIcon]
+
+    if icon == 0 or icon == -1 then 
+        return
+    end
+
+    local prefab 
+    if self._small then
+        prefab = self._container:CreateChild("prefab_uiFight/ui_FightInfo/prefab_buff_s")
+    else
+        prefab = self._container:CreateChild("prefab_uiFight/ui_FightInfo/prefab_buff")
+    end
+    prefab:SetVisible(true)
+    local respath = FightModule:GetBuffIconPath(icon)
+    local _index = self._count
+    self._buffs[_index] = clearbase:new()
+
+    self._buffs[_index].buff  = prefab
+    self._buffs[_index].iconbg= prefab:GetComponent("Image")
+    self._buffs[_index].iconbg:LoadSprite(respath)
+    self._buffs[_index].icon  = prefab:GetImageComponent("buff")
+    self._buffs[_index].icon:LoadSprite(respath)
+    self._buffs[_index].count = prefab:GetTextComponent("buffCount")
+
+    self._buffs[_index].count:SetVisible(false)
+    self._buffs[_index].countShow = false
+    self._buffs[_index].buffShow = false
+    self._buffs[_index].cache_count = nil
+    self._buffs[_index].cache_leftTimes = nil
+    self._buffs[_index].cache_orgTimes = nil
+    self._buffs[_index].tag = respath
+    
+    self._count = self._count + 1
+end
+
+
+-- 
+-- brief：
+--      buffs C# List<RenderBuff>
+--      struct RenderBuff {
+--          public int icon;        // 图标
+--          public int count;       // 层数
+--          public int durFrame;    // 持续帧
+--          public int endFrame;    // 结束帧
+--      }
+-- 
+function uibuff:UpdateBuff(data, countIndex, startIndex, curFrame)
+    local RenderBuffIndex = FightArrController.RenderBuffIndex
+    local count = data[countIndex]
+
+    for i = 0, count - 1, 1 do
+        local curStartIndex = startIndex + i * RenderBuffIndex.iMax
+        if self._buffs[i] == nil then
+            self:_addbuff(data, curStartIndex)
+        end
+    end
+    for i, v in pairs(self._buffs) do
+        if i <= count -1 then
+            v.buff:SetVisible(true)
+            local curStartIndex = startIndex + i * RenderBuffIndex.iMax
+            self:_refreshBuff(i, data, curStartIndex, curFrame)
+        else
+            v.buff:SetVisible(false)
+        end
+    end
+end
+
+function uibuff:_refreshBuff(index, data, startIndex, curFrame)
+    local RenderBuffIndex = FightArrController.RenderBuffIndex
+
+    local obj = self._buffs[index]
+    local buffCount = data[startIndex + RenderBuffIndex.iCount]
+    if buffCount > 0 then
+        obj.count.text = buffCount
+    end
+    obj.count:SetVisible(buffCount > 0)
+
+    local buffEndFrame = data[startIndex + RenderBuffIndex.iEndFrame]
+    local buffDurFrame = data[startIndex + RenderBuffIndex.iDurFrame]
+    local buffIcon = data[startIndex + RenderBuffIndex.iIcon]
+
+    if buffEndFrame > 0 then
+        local remain = (buffEndFrame - curFrame)
+        if remain > 0 then
+            obj.icon.fillAmount = remain/buffDurFrame
+        end
+    else
+        obj.icon.fillAmount = 1
+    end
+    local respath = FightModule:GetBuffIconPath(buffIcon)
+    if self._buffs[index].tag ~= respath then
+        self._buffs[index].iconbg:LoadSprite(respath)
+        self._buffs[index].icon:LoadSprite(respath)
+    end
+end
+
+
+return uibuff
+

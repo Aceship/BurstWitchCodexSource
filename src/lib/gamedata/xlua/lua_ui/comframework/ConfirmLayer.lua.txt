@@ -1,0 +1,206 @@
+--
+-- author: haosun
+-- date  : 2019-02-20 15:42:12
+-- brief : 购买确认、消耗确认、
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConfirmLayer = class("ConfirmLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    no      = "container/button_no",
+    ok      = "container/button_ok",
+}
+
+local LAYER_TYPE = {
+    Confirm     = 1,
+    Buy         = 2,
+    Tips        = 3,
+}
+
+local s_instance = nil
+function ConfirmLayer.GetInstance()
+    if s_instance == nil then
+        s_instance = ConfirmLayer:new()
+    end
+    return s_instance
+end
+
+function ConfirmLayer.DestoryInstance()
+    if s_instance ~= nil then
+        s_instance:onExit()
+        s_instance = nil
+    end
+end
+
+function ConfirmLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_ConfirmLayer",
+    }
+    self:onEnter()
+end
+
+function ConfirmLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self.layer:GetToggleComponent("container/toggle_sel").isOn = false
+	local button = self.layer.transform:Find("container/toggle_sel")
+	local UIButtonSFX = button:GetComponent("UIButtonSFX")
+	if UIButtonSFX ~= nil then
+		button:GetComponent("Toggle").onValueChanged:AddListener(function(bcheck)
+				self:onValueChanged(bcheck)
+			end)
+	else
+		button:GetComponent("Toggle").onValueChanged:AddListener(function(bcheck)
+				self:onValueChanged(bcheck)
+			end)
+	end
+    self._isIgnoreFight = false
+end
+
+function ConfirmLayer:onBackClick()
+    if self._clickempty then
+        self:doExit(false)
+    end
+end
+
+function ConfirmLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.ok then
+        self:doExit(true)
+    elseif itype == BUTTON_TYPE.no then
+        if self._noCall ~= nil then
+            self._noCall()
+            self._noCall = nil
+            self:onPopLayer()
+        else
+            self:doExit(false)
+        end
+    end
+end
+
+function ConfirmLayer:doExit(ok)
+    if ok then
+        if self._layertype == LAYER_TYPE.Buy then
+            self:doBuy()
+        else
+            if self._callback ~= nil then
+                self._callback()
+                self._callback = nil
+            end
+        end
+    else
+        if self._layertype == LAYER_TYPE.Confirm then
+            self:onValueChanged(false)
+        end
+    end
+    self:onPopLayer()
+end
+
+function ConfirmLayer:onValueChanged(bcheck)
+    if self._showtype ~= nil then
+        GTemp:SetTempShowTipsTypeState(self._showtype, bcheck)
+    end
+
+    if(not self._isIgnoreFight) then
+        GTemp:SetGoFightTmpData(bcheck)
+    end
+end
+
+function ConfirmLayer:show(callback, showoper, isToggleOn)
+    play_effect_show()
+    self._fading = true
+    self._callback = callback
+
+    self.layer:Get("container/toggle_sel"):SetVisible(showoper)
+
+    if self._onlyok then
+        u3d_set_localPos(self.layer.transform:Find(BUTTON_TYPE.ok), 0)
+        self.layer:Get(BUTTON_TYPE.no):SetVisible(false)
+    end
+    self.layer:Get("txt_title4"):SetVisible(self._clickempty)
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+    self.layer:GetToggleComponent("container/toggle_sel").isOn = isToggleOn or false
+end
+
+function ConfirmLayer:showConfirm(params, callback)
+    if params.oper ~= nil then
+        self._showtype = params.oper
+    end
+    self._clickempty = false
+    self.layer:GetTextComponent("container/text_desc").text = params.desc
+
+    self._layertype = LAYER_TYPE.Confirm
+    self._onlyok = false
+    self:show(callback, params.oper ~= nil)
+end
+
+function ConfirmLayer:showBuy(params, callback)
+    local desc = string.gsub(LanguageMgr:GetTextByID(881006), '\\n', '\n')
+    local cfg = Item:GetCfg(params.cfgid)
+    local has = Item:GetCount(params.cfgid)
+    local num = params.count - has
+    local tbl = lua_str_split(cfg.price, "&")
+    self._clickempty = true
+
+    self._buyinfo =  {
+        cost_cfgid = tonumber(tbl[1]),
+        cost_num   = tonumber(tbl[2]) * num,
+        buy_cfgid  = params.cfgid,
+        buy_num    = num,
+        c_param    = params.c_param,
+        show       = params.show
+    }
+
+    local costcfg = Item:GetCfg(self._buyinfo.cost_cfgid)
+    desc = string.format(desc, cfg.Name, self._buyinfo.cost_num, costcfg.Name, num, cfg.Name)
+
+    self.layer:GetTextComponent("container/text_desc").text = desc
+    self._layertype = LAYER_TYPE.Buy
+    self._onlyok = false
+    self:show(callback, false)
+end
+
+function ConfirmLayer:doBuy()
+    if Item:GetCount(self._buyinfo.cost_cfgid) >= self._buyinfo.cost_num then
+        Shop:OnCommonBuyReq(self._buyinfo.buy_cfgid, self._buyinfo.buy_num, self._buyinfo.show, self._buyinfo.c_param)
+    else
+        Groble_UIMgr:ShowLackCurrencyTips(self._buyinfo.cost_cfgid)
+    end
+end
+
+function ConfirmLayer:showMsg(msg, callback, clickempty, onlyok)
+    self.layer:GetTextComponent("container/text_desc").text = msg
+    self._clickempty = clickempty
+    self._onlyok = onlyok
+    self:show(callback, false)
+end
+
+function ConfirmLayer:showMsgBy2Call(msg, nocall, okcall)
+    self.layer:GetTextComponent("container/text_desc").text = msg
+    self._clickempty = false
+    self._onlyok = false
+    self._noCall = nocall
+    self:show(okcall, false)
+end
+
+function ConfirmLayer:showMsgBy2CallPer(msg,nocall,okcall, isToggleOn)
+    self.layer:GetTextComponent("container/text_desc").text = msg
+    self._clickempty = false
+    self._onlyok = false
+    self._noCall = nocall
+    self:show(okcall, true, isToggleOn)
+end
+
+function ConfirmLayer:showMsgBy2CallPerWithShowType(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+    self._showtype = showType
+    self:showMsgBy2CallPer(msg,nocall,okcall, isToggleOn)
+    self._isIgnoreFight = isIgnoreFight
+end
+
+function ConfirmLayer:setIsIgnoreFight(isIgnoreFight)
+    self._isIgnoreFight = isIgnoreFight
+end
+
+return ConfirmLayer
+

@@ -1,0 +1,68 @@
+
+--
+-- author: haosun
+-- date  : 2019-01-07 11:49:30
+-- brief : 
+--
+Rank = Rank or {}
+
+-- 结算状态
+Rank.SETTLE_STATE_NONE              = 1   --无结算;  此状态下， 结算已经完成
+Rank.SETTLE_STATE_PREPARE           = 2   --准备状态；此状态下，关闭关卡入口；无法开新副本，已开副本可参与关卡结算
+Rank.SETTLE_STATE_ONGOING           = 3   --结算状态；此状态下，关闭关卡结算；开始整榜结算
+
+Rank.TYPE_WORLD_BOSS        = 4     --世界Boss(圣光)
+Rank.TYPE_NIGHT             = 3     -- 深夜永久榜
+Rank.TYPE_MYSTERY           = 2     -- 幽暗秘境榜
+Rank.TYPE_NIGHT_OLD         = 1     --深夜永久榜旧
+
+Rank.ATLAS_PATH             = "source_atlas/atlas_activity_layer"
+Rank.TASK_ATLAS_PATH        = "source_atlas/atlas_rank_task_layer"
+Rank.TASK_LABEL_PATH        = "source_atlas/atlas_common_label"
+
+Rank.REQ_INTERVIAL          = 600   --
+Rank.REQ_MINUTE             = 60
+Rank.REQ_PLAYER_INFO_TIME   = 600   -- 排行榜玩家队伍信息缓存时间
+Rank.FIGHT_REMAIN           = 1800  -- 结算前半小时无法战斗
+
+Rank.RANK_RULE_1            = 1     -- 深夜排行每日任务
+Rank.RANK_RULE_2            = 2     -- 深夜排行每日任务
+Rank.RANK_RULE_3            = 3     -- 深夜排行每日任务
+
+Rank.CELL_RULE              = 1     -- 规则中cell
+Rank.CELL_FRIEND            = 2     -- 好友排行中cell
+Rank.CELL_LAST_LIST         = 3     -- 上赛季排行中cell
+
+Rank.SHOW_LAST_LIST         = 1
+Rank.SHOW_FRIEND            = 2
+
+Rank.RANK_GROUP_MAX_NUM     = 50    -- 每组最大人数
+
+Rank.SY_RULE_CFG_ID         = 401   -- 深夜排行规则说明ID
+
+Rank.GROUP_TOP_NUM = 10
+Rank.NEW_GROUP_NUM = 7000 --新大组人数
+
+Rank.RANK_CHANED_TRUE = "1"
+Rank.RANK_CHANED_FALSE = "2"
+
+
+--测试用
+Rank.Ip = "192.168.21.215";
+Rank.Port = 31700;
+
+--正式用
+--Rank.Ip = "129.211.129.127";
+--Rank.Port = 31700;
+
+function Rank:SetRankIpPort(ip, port)
+    Rank.Ip = ip or Rank.Ip
+    Rank.Port = port or Rank.Port
+end
+Rank.LookRankCardReq = "LookRankCardReq";--查看排行榜名片请求
+Rank.LookRankCardRep = "LookRankCardRep";--查看排行榜名片请求返回
+
+Rank.RANK_NIGHT_UI_MAIN     = 1
+Rank.RANK_NIGHT_UI_TASK     = 2
+Rank.RANK_NIGHT_UI_FRIEND   = 3
+Rank.RANK_NIGHT_UI_WISH     = 4

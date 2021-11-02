@@ -1,0 +1,378 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-17 10:45:41
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchSelectLayer = class("WitchSelectLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnDotSelect = "trans_container/btn_dot_select",
+	BtnSend = "trans_container/btn_send",
+	BtnScreen = "trans_container/trans_screen",
+	--@ButtonEnd
+}
+
+local rowMaxNum = 3;
+local TalentNum = 4;
+--构造函数
+function WitchSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_WitchSelectLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+    };
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self._tvInit = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function WitchSelectLayer:onEnter()
+    self:createPnl();
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container"), 0, true)
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_TYPE.UPDATE_BUILD_HERO_IDS,self.__cname, function()
+        self._curHeroIds = nil;
+        Groble_UIMgr:ClickOnReturnBtn();
+    end)
+    self:Init();
+end
+
+--按钮事件
+function WitchSelectLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnDotSelect)then
+	   self:OnBtnDotSelectClick();
+    elseif(itype == BTNS.BtnSend)then 
+	   self:OnBtnSendClick();
+    elseif(itype == BTNS.BtnScreen)then 
+	   self:OnBtnScreenClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+
+end
+
+--退出按钮事件
+function WitchSelectLayer:onBackClick()
+    if(self._curHeroIds ~= nil)then
+        Build:RestoreCurBTypeHeroIds(self._curHeroIds);
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function WitchSelectLayer:Init()
+    self._selectHeroDatas = {};
+    self._atkType = Build:GetCurSelectAtkType();
+    self._attrAdds = Build:GetBuildAttrIds(self._atkType);
+    self._haveEffectIds = Build:GetAtkTypeHaveEffectIds(self._atkType);
+    self._cellItems = {};
+    self._curDotId = -2;
+    self._curHeroIds = {0,0,0};
+
+    self._selectHeroMaxNum = 0;
+    local buildLv = Build:GetBuildLvDataByAtkType(self._atkType).lv;
+    for i, v in ipairs(Build:GetBuildHeroUnlockLvByType(self._atkType)) do
+        if(buildLv >= v)then
+            self._selectHeroMaxNum = self._selectHeroMaxNum + 1;
+        end
+    end
+
+    for i, v in ipairs(Build:GetCurBTypeHeroIds()) do
+        if(v > 0)then
+            self._curHeroIds[i] = v;
+        end
+    end
+    self:InitUI();
+end
+
+--初始化UI
+function WitchSelectLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtSelectDotName = self.layer:GetTextComponent("trans_container/btn_dot_select/txt_select_dot_name");
+	self._txtAtkTypeTitle = self.layer:GetTextComponent("trans_container/trans_title/txt_atk_type_title");
+	--@TextEnd
+
+	self._transBg = self.layer:Get("trans_container/trans_screen/tog_bg");
+	self._transScreen = self.layer:Get("trans_container/trans_screen");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objEmpty = self.layer:Get("trans_container/obj_empty").gameObject;
+	self._objItem = self.layer:Get("trans_container/item_hide/tog_item").gameObject;
+	--@GameObjectEnd
+
+	self._mTogAll = self.layer:GetMToggleComponent("trans_container/trans_screen/tog_all");
+	self._mTogAttr = self.layer:GetMToggleComponent("trans_container/trans_screen/tog_Attr");
+	--@MToggleEnd
+
+	self._mTogAll.onValueChanged:AddListener(function (isOn)
+	   self:OnTogAllClick(isOn);
+   end);
+	self._mTogAttr.onValueChanged:AddListener(function (isOn)
+	   self:OnTogAttrClick(isOn);
+   end);
+	--@MToggleCallBackEnd 
+
+    self._txtAtkTypeTitle.text = string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + Build:GetCurSelectAtkType()));
+
+    self._tvController = UIController:CtorTableView(self.layer:Get("trans_container/TableViewController"));
+
+    self:InitDotTogItems();
+    self._mTogAll.isOn = true;
+end
+
+--显示UI
+function WitchSelectLayer:show()
+    self:showLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WitchSelectLayer:OnBtnDotSelectClick()
+    self._transScreen:DOScaleY(1, 0.1);
+ end
+
+function WitchSelectLayer:OnBtnSendClick()
+    if(not Build:SetBuildHeroReq(self._curHeroIds))then
+        self:onBackClick();
+    end
+ end
+function WitchSelectLayer:OnBtnScreenClick()
+    self._transScreen:DOScaleY(0, 0.1);
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function WitchSelectLayer:OnTogAllClick(isOn)
+    if(isOn)then
+        if(self._curDotId == -1)then
+            return;
+        end
+        self._curDotId = -1;
+        self:CutSelectDot();
+    end
+ end
+
+function WitchSelectLayer:OnDotTogClick(isOn,cls)
+    if(isOn)then
+        if(self._curDotId == cls.dotId)then
+            return;
+        end
+        self._curDotId = cls.dotId;
+        cls.txtName.color = COLOR_TYPE.Black;
+        self:CutSelectDot();
+    else
+        cls.txtName.color = COLOR_TYPE.White_Gray;
+    end
+end
+function WitchSelectLayer:OnTogAttrClick(isOn)
+    if(isOn)then
+        if(self._curDotId == 0)then
+            return;
+        end
+        self._curDotId = 0;
+        self:CutSelectDot();
+    end
+ end
+--@MToggleFunctionEnd
+
+--释放
+function WitchSelectLayer:Close()
+	self._objEmpty = nil;
+	self._objItem = nil;
+	self._txtSelectDotName = nil;
+	self._mTogAll = nil;
+	self._transBg = nil;
+	self._transScreen = nil;
+	self._txtAtkTypeTitle = nil;
+	self._mTogAttr = nil;
+	--@CloseEnd
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WitchSelectLayer:UpdateData()
+    --更新数据
+    self._selectHeroDatas = Build:GetHeroDataByDotId(self._curDotId);
+    self._objEmpty:SetVisible(#self._selectHeroDatas == 0);
+    --更新UI
+    local rows = math.ceil(#self._selectHeroDatas / rowMaxNum);
+    if(self._tvInit)then
+        self._tvInit = false;
+        self._tvController:Init(rows, true,
+                function(cell, row)
+                    self:UpdateTVData(cell, row)
+                end, 0.3, 0.1)
+    else
+        self._tvController:Reload(rows,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function WitchSelectLayer:UpdateTVData(cell, row)
+    local cellItem = self._cellItems[cell];
+    if(cellItem == nil)then
+        cellItem = self:InitHeroUI(cell);
+        self._cellItems[cell] = cellItem;
+    end
+    local index = 0
+    for i = 1, rowMaxNum do
+        index = row * rowMaxNum + i;
+        cellItem.items[i].obj:SetVisible(self._selectHeroDatas[index] ~= nil);
+        if(self._selectHeroDatas[index] ~= nil)then
+            self:SetHeroUI(cellItem.items[i],self._selectHeroDatas[index]);
+        end
+    end
+end
+
+function WitchSelectLayer:InitHeroUI(cell)
+    local cls = {};
+    cls.items = {};
+    cls.obj = cell.gameObject;
+    for i = 1, rowMaxNum do
+        cls.items[i] = clsbase:new(cell.transform:Find("hero_item_"..i));
+        cls.items[i].heroItem = Hero:HalfItemClassNew(cls.items[i]:Find("hero"), function ()
+            local heroData =  cls.items[i].heroData;
+            if(heroData.useState)then
+                if(heroData.curType == Build:GetCurSelectAtkType())then
+                    Build:RemoverCurBTypeHeroId(heroData.id);
+                    if(heroData.atkType == Build:GetCurSelectAtkType() or heroData.atkType == nil)then
+                        heroData.useState = false;
+                        heroData.curType = nil;
+                    else
+                        heroData.curType = heroData.atkType;
+                    end
+                else
+                    if(Build:GetCurBTypeHeroIdNum() >= self._selectHeroMaxNum)then
+                        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702125));
+                        return;
+                    end
+                    Groble_UIMgr:ShowMessageBox(true,true,string.format(LanguageMgr:GetTextByID(702039),LanguageMgr:GetTextByID(71200000 + heroData.curType)),
+                            function ()
+                                heroData.curType = Build:GetCurSelectAtkType();
+                                self:SetHeroUI(cls.items[i],cls.items[i].heroData);
+                                Build:AddCurBTypeHeroId(heroData.id);
+                            end);
+                    return;
+                end
+            else
+                if(Build:GetCurBTypeHeroIdNum() >= self._selectHeroMaxNum)then
+                    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(702125));
+                    return;
+                end
+                Build:AddCurBTypeHeroId(heroData.id);
+                heroData.useState = true;
+                heroData.curType = Build:GetCurSelectAtkType();
+            end
+            self:SetHeroUI(cls.items[i],cls.items[i].heroData);
+        end);
+        cls.items[i].objIsSelect = cls.items[i]:Find("img_is_select").gameObject;
+        cls.items[i].transIconBg = cls.items[i]:Find("img_is_select/img_icon_bg");
+        cls.items[i].imgIcon = cls.items[i]:GetImageComponent("img_is_select/img_icon_bg/img_icon");
+        cls.items[i].imgTalents = {};
+        cls.items[i].imgTalentBgs = {};
+        cls.items[i].imgTalentFrames = {};
+        for j = 1, TalentNum do
+            cls.items[i].imgTalents[j] = cls.items[i]:GetImageComponent(string.format("obj_talent_bg/obj_talent_%s/img_icon",j));
+            cls.items[i].imgTalentBgs[j] = cls.items[i]:GetImageComponent(string.format("obj_talent_bg/obj_talent_%s",j));
+            cls.items[i].imgTalentFrames[j] = cls.items[i]:GetImageComponent(string.format("obj_talent_bg/obj_talent_%s/img_frame",j));
+        end
+    end
+    return cls;
+end
+
+function WitchSelectLayer:SetHeroUI(cls,heroData)
+    cls.heroData = heroData;
+    local hero = Hero:GetHero(heroData.id);
+    cls.objIsSelect:SetVisible(heroData.useState);
+    if(heroData.useState)then
+        cls.transIconBg:SetVisible(heroData.curType == self._atkType);
+        Hero:SetHeroAtkType(cls.imgIcon,self._atkType);
+    end
+   Hero:SetHalfItemClassData(cls.heroItem,heroData.id,nil,true);
+    for i = 1, TalentNum do
+        local isSelectDot = false;
+        set_com_enabled( cls.imgTalents[i],hero.sortDots[i] ~= nil);
+        if(hero.sortDots[i] ~= nil)then
+            local cfg = Build:GetBuildAttrCfgByCfgId(hero.sortDots[i].id);
+            Build:SetBuildImage(cls.imgTalents[i],cfg.iconPath);
+            set_com_enabled( cls.imgTalents[i],hero.dots[cfg.id] > 0 and hero.star >= hero.sortDots[i].star);
+            if(self._haveEffectIds[hero.sortDots[i].id] ~= nil)then
+                cls.imgTalents[i]:DOColor(COLOR_TYPE.White,0);
+            else
+                cls.imgTalents[i]:DOColor(COLOR_TYPE.TaskDone,0);
+            end
+            if(hero.dots[cfg.id] > 0 and hero.star >= hero.sortDots[i].star)then
+                if(cfg.id == self._curDotId)then
+                    isSelectDot = true;
+                end
+                cls.imgTalentBgs[i]:DOColor(COLOR_TYPE.White,0);
+            else
+                cls.imgTalentBgs[i]:DOColor(COLOR_TYPE.White_a_50,0);
+            end
+        else
+            cls.imgTalentBgs[i]:DOColor(COLOR_TYPE.White_a_50,0);
+        end
+        cls.imgTalentFrames[i]:SetEnabled(isSelectDot)
+    end
+end
+
+function WitchSelectLayer:InitDotTogItems()
+    self._dotItems = {};
+    for i, v in ipairs(self._attrAdds) do
+        local cfg = Build:GetBuildDotCfgByEffectId(self._atkType ,v);
+        if(cfg ~= nil)then
+            local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transBg));
+            local attrCfg = Build:GetBuildAttrCfgByCfgId(v);
+            cls.txtName = cls:GetTextComponent("txt_name");
+            cls.tog = cls.transform:GetComponent("MToggle");
+            cls.imgMask = cls:GetImageComponent("img_mask");
+            cls.tog.onValueChanged:AddListener(function (isOn)
+                self:OnDotTogClick(isOn,cls);
+            end);
+            if(cfg ~= nil)then
+                cls.dotId = cfg.effectID;
+            end
+            cls.txtName.text = attrCfg.name;
+            self._dotItems[v] = cls;
+        end
+    end
+end
+
+function WitchSelectLayer:SetSelectDotName()
+    if(self._curDotId < 0)then
+        self._txtSelectDotName:SetTextById(702037);
+    elseif(self._curDotId == 0)then
+        self._txtSelectDotName:SetTextById(702124);
+    else
+        local cfg = Build:GetBuildAttrCfgByCfgId(self._curDotId);
+        self._txtSelectDotName.text = cfg.name;
+    end
+end
+
+function WitchSelectLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+function WitchSelectLayer:CutSelectDot()
+    self._transScreen:DOScaleY(0, 0.1);
+    self:SetSelectDotName();
+    self:UpdateData();
+end
+
+return WitchSelectLayer;

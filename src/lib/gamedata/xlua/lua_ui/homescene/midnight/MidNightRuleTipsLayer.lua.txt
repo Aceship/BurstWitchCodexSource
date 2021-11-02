@@ -1,0 +1,302 @@
+---
+--- @Author:2144
+--- @Create Time:2021-08-27 15:45:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightRuleTipsLayer = class("MidNightRuleTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function MidNightRuleTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightRuleTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function MidNightRuleTipsLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function MidNightRuleTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function MidNightRuleTipsLayer:Init()
+    self._danInit = true;
+    self._myGroup = true;
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function MidNightRuleTipsLayer:InitData()
+    self._awards = {};
+    self._serverData = MidNight:GetServerData();
+    self._groupCfg = MidNight:GetGroupCfgByDanId(MidNight:GetDanId());
+    self._allGroupCfg = MidNight:GetAllGroupCfgs();
+    self._selfPlayerId = Player:GetId();
+    self._danCfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId());
+    local startIndex = 0;
+    local startNum = math.ceil(#self._serverData.list * self._danCfg.addTrophyRate);
+    startIndex = math.ceil(self._danCfg.maxNum * self._danCfg.addTrophyRate - startNum + 1);
+    local awards = MidNight:GetAwardCfgsByDanGradingId(MidNight:GetDanId());
+    for i = startIndex, #awards do
+        table.insert(self._awards,awards[i]);
+    end
+end
+
+--初始化UI
+function MidNightRuleTipsLayer:InitUI()
+
+	self._imgDanGrading = self.layer:GetImageComponent("trans_container/trans_my_group/img_dan_grading");
+	--@ImageEnd
+
+	self._txtTitle = self.layer:GetTextComponent("trans_container/txt_title");
+	self._txtTitleE = self.layer:GetTextComponent("trans_container/txt_title_E");
+	self._txtRule = self.layer:GetTextComponent("trans_container/trans_rule/txt_rule");
+	self._txtDanName = self.layer:GetTextComponent("trans_container/trans_my_group/txt_dan_name");
+	self._txtTrophyNum = self.layer:GetTextComponent("trans_container/trans_my_group/txt_trophy_num");
+	--@TextEnd
+
+	self._transDanBg = self.layer:Get("trans_container/trans_dan_bg");
+	self._transLittleDan = self.layer:Get("trans_container/trans_dan_bg/rect_select_dan/trans_little_dan");
+	self._transMyGroup = self.layer:Get("trans_container/trans_my_group");
+	self._transTableViewCtl = self.layer:Get("trans_container/trans_my_group/trans_table_view_ctl");
+	--@TransformEnd
+
+	self._rectSelectDan = self.layer:GetRectTransformComponent("trans_container/trans_dan_bg/rect_select_dan");
+	self._rectLittleDanLight = self.layer:GetRectTransformComponent("trans_container/trans_dan_bg/rect_select_dan/trans_little_dan/rect_little_dan_light");
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	self._mTogRule = self.layer:GetMToggleComponent("trans_container/img_tog_bg/tog_rule");
+	self._mTogGroup = self.layer:GetMToggleComponent("trans_container/img_tog_bg/tog_group");
+	--@MToggleEnd
+
+	self._mTogRule.onValueChanged:AddListener(function (isOn)
+	   self:OnTogRuleClick(isOn);
+   end);
+	self._mTogGroup.onValueChanged:AddListener(function (isOn)
+	   self:OnTogGroupClick(isOn);
+   end);
+	--@MToggleCallBackEnd  
+end
+
+--显示UI
+function MidNightRuleTipsLayer:show()
+    self._mTogRule.isOn = true;
+    self:showLayer();
+end
+
+--退出按钮事件
+function MidNightRuleTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function MidNightRuleTipsLayer:onExit()
+    
+    self._mTogRule = nil;
+	self._mTogGroup = nil;
+	self._txtTitle = nil;
+	self._txtTitleE = nil;
+	self._txtRule = nil;
+	self._transDanBg = nil;
+	self._rectSelectDan = nil;
+	self._transLittleDan = nil;
+	self._rectLittleDanLight = nil;
+	self._transMyGroup = nil;
+	self._imgDanGrading = nil;
+	self._txtDanName = nil;
+	self._txtTrophyNum = nil;
+	self._transTableViewCtl = nil;
+    self._awards = nil;
+    self._serverData = nil;
+    self._groupCfg = nil;
+    self._danCfg = nil;
+    self._allGroupCfg = nil;
+	--@CloseEnd
+    if(self._rankCells ~= nil)then
+        for _, cell in pairs(self._rankCells) do
+            cell:clear();
+        end
+        self._rankCells = nil;
+    end
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightRuleTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function MidNightRuleTipsLayer:OnTogRuleClick(isOn)
+    self._transDanBg:SetVisible(isOn);
+    if(isOn)then
+        self._txtTitle:SetTextById(120040);
+        self._txtTitleE:SetTextById(120041);
+        self:SetDanUI();
+        self:SetRule(404);
+    end
+end
+function MidNightRuleTipsLayer:OnTogGroupClick(isOn)
+    self._transMyGroup:SetVisible(isOn);
+    if(isOn)then
+        self._txtTitle:SetTextById(120046);
+        self._txtTitleE:SetTextById(120047);
+        self:SetMyGroupUI();
+        self:SetRule(405);
+    end
+end
+--@MToggleFunctionEnd
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function MidNightRuleTipsLayer:SetRule(ruleId)
+    local cfg = CCfg:GetRuleCfg(ruleId);
+    if(cfg == nil)then
+        self._txtRule:SetText("Error rule config！！！");
+        return;
+    end
+    local str = string.gsub(cfg.desc, '\n', '\n');
+    self._txtRule:SetText(str);
+end
+
+function MidNightRuleTipsLayer:SetDanUI()
+    if(not self._danInit)then
+        return;
+    end
+    self._danInit = false;
+    for i, v in ipairs(self._allGroupCfg) do
+        local cls = clsbase:new(self._transDanBg:Get("item_"..i));
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.txtName = cls:GetTextComponent("txt_name");
+        cls.txtTrophy = cls:GetTextComponent("txt_trophy_num");
+
+        --设置UI
+        MidNight:SetRankIcon(cls.imgIcon,v.iconPath);
+        cls.txtName:SetText(v.name);
+        cls.txtTrophy:SetText(v.trophyNum);
+        if(i == self._groupCfg.id)then
+            self._rectSelectDan:SetAnchoredPosY(self._transDanBg:GetRectTransformComponent("img_line_"..i):GetAnchoredPositionY());
+            cls.txtName:SetTextColor(235/255,235/255,235/255,1);
+            cls.txtTrophy:SetTextColor(235/255,235/255,235/255,1);
+        end
+        cls:clear();
+    end
+    self._transLittleDan:SetVisible(#self._groupCfg.groups > 1);
+    if(#self._groupCfg.groups > 1)then
+        for i, v in ipairs(self._groupCfg.groups) do
+            local cls = clsbase:new(self._transLittleDan:Get("item_"..i));
+            cls.txtTrophy = cls:GetTextComponent("txt_trophy_num");
+            cls.txtLv = cls:GetTextComponent("txt_lv");
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+
+            MidNight:SetRankIcon(cls.imgIcon,v.iconPath);
+            cls.txtTrophy:SetText(v.trophySection[1]);
+            cls.txtLv:SetText(uistr.com_stepstr[i]);
+            if(v.id == self._serverData.danId)then
+                cls.rect = cls.transform:GetComponent("RectTransform");
+                self._rectLittleDanLight:SetAnchoredPosition(cls.rect:GetAnchoredPositionX(),cls.rect:GetAnchoredPositionY());
+            end
+        end
+    end
+end
+
+function MidNightRuleTipsLayer:SetMyGroupUI()
+    if(not self._myGroup)then
+        return;
+    end
+    self._myGroup = false;
+    self._txtDanName:SetText(self._danCfg.name);
+    MidNight:SetRankIcon(self._imgDanGrading,self._groupCfg.iconPath);
+    self._txtTrophyNum:SetText(tostring(Player:GetTrophyNum()));
+    local rows = # self._serverData.list;
+    if(self._myGroupTBViewCtrl == nil)then
+        self._myGroupTBViewCtrl = UIController:CtorTableView(self._transTableViewCtl);
+        self._rankCells = {};
+        self._myGroupTBViewCtrl:Init(rows, false,
+                function(cell, row)
+                    self:SetRankCell(cell,row);
+                end);
+    else
+        self._myGroupTBViewCtrl:Reload(rows,false);
+    end
+    local index = self._serverData.ranking - 2;
+    if(index < 0)then
+        index = 0;
+    end
+    --local time = index * 0.03 < 0.3 and index * 0.03 or 0.3;
+    self._myGroupTBViewCtrl:ScrollToRow(index);
+end
+
+function MidNightRuleTipsLayer:SetRankCell(cell,row)
+    local cls = self._rankCells[cell];
+    if(cls == nil)then
+        cls = self:NewRankCell(cell);
+        self._rankCells[cell] = cls;
+    end
+    self:SetRankCellData(cls,row);
+end
+
+function MidNightRuleTipsLayer:NewRankCell(cell)
+    local cls = clsbase:new(cell);
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.txtOrder = cls:GetTextComponent("txt_order");
+    cls.transSelf = cls:Find("img_self");
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.txtTrophyNum = cls:GetTextComponent("txt_trophy_num");
+    return cls;
+end
+
+function MidNightRuleTipsLayer:SetRankCellData(cls,row)
+    row = row + 1;
+    local data = self._serverData.list[row];
+    local award = self._awards[row];
+    if(row % 2 ~= 0)then
+        cls.imgBg:SetImageColor(1,1,1,1);
+    else
+        cls.imgBg:SetImageColor(0,0,0,1);
+    end
+    --排名
+    cls.txtOrder:SetText(data.rank);
+    if(award.weekAward >= 0)then
+        cls.txtTrophyNum:SetText(string.format("+ %s",award.weekAward));
+    else
+        cls.txtTrophyNum:SetText(string.format("- %s",math.abs(award.weekAward)));
+    end
+
+    cls.transSelf:SetVisible(self._selfPlayerId == data.id);
+    if(self._selfPlayerId == data.id)then
+        cls.txtOrder:SetTextColor(0,0,0,1);
+        cls.txtTrophyNum:SetTextColor(0,0,0,1);
+        cls.imgIcon:SetImageColor(0,0,0,1);
+    else
+        cls.txtOrder:SetTextColor(197/255,197/255,197/255,1);
+        cls.txtTrophyNum:SetTextColor(197/255,197/255,197/255,1);
+        cls.imgIcon:SetImageColor(1,1,1,1);
+    end
+end
+
+return MidNightRuleTipsLayer;

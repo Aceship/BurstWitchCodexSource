@@ -1,0 +1,361 @@
+--
+-- author: haosun
+-- date  : 2018-10-23 11:40:12
+-- brief : 魔女列表   uimgr:showMainWitchLayerWithHid(heroid)
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchesLayer = class("WitchesLayer", CBaseLayer)
+
+local ROW_CELL_NUM  = 3
+
+local BUTTON_TYPE = {
+    GoToBM        = "button_GoToBM",
+}
+
+function WitchesLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path  = "prefab_uiHome/ui_home/UI_WitchesLayer",
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._topData = {
+        showBtnBack = true,
+        showTopInfo = false,
+        showPlayerInfo  = false,
+    }
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }    
+    self.cellClass = {};
+    self:onEnter()
+end
+
+function WitchesLayer:onBackClick()
+    if self._intype == WITCHES_IN_TYPE.SHOW or self._intype == WITCHES_IN_TYPE.FIGHT then
+        local _callback = uimgr:GetWitchesLayerCallback()
+        if _callback ~= nil then
+           _callback(self._fightids)
+        end
+    end
+    self:onPopLayer()
+end
+
+function WitchesLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.GoToBM then
+        local useCur, heroid = Hero:GetMainWitchHero()
+        if heroid == nil then
+            heroid = 1001
+        end
+        for k,v in pairs(self._fightids) do
+            if v == 1 then
+                heroid = k
+            end
+        end
+        uimgr:showMainWitchLayerWithHid(heroid)
+    end
+end
+
+function WitchesLayer:initObj()
+    self._templateObj   = self.layer:Get("template").gameObject
+    self._cellObj       = self.layer:Get("TableViewController/prefab_cell")
+    self._templateObj:SetVisible(false)
+end
+
+function WitchesLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("txt_tips"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_top_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("TableViewController"), 0, true)
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self.layer:GetButtonComponent("button_ok"):AddButtonListener(function ()
+        local _callback = uimgr:GetWitchesLayerCallback()
+        if _callback ~= nil then
+            _callback(self._fightids)
+        end
+        self:onBackClick()
+    end);
+end
+
+function WitchesLayer:onExit()
+    self._showids   = nil
+    self._ids       = nil
+    self._useids    = nil
+    self.cellClass  = nil
+    
+    self._templateObj   = nil
+    self._cellObj       = nil
+
+    uimgr:RemoveWitchesLayerCallback()
+
+    CBaseLayer.onExit(self)
+end
+
+function WitchesLayer:show(params)
+    self._intype    = params.intype         -- 标记来源是哪个UI
+    self._ids       = params.ids            -- 所有的魔女，已排序
+    self._useids    = params.useids         -- 被占用的魔女，根据来源显示不同的提示文字
+    self._deadids   = params.deadids        --
+    self._mtype     = params.mtype          -- 乐器类型
+    self._plotids   = params.plotids or {}  -- 剧情魔女
+    self._fightids  = params.fightids or {} -- 出战的魔女
+    self._showUp    = params.showUp
+    self._showids   = {}
+    if self._intype == WITCHES_IN_TYPE.FIGHT_TOWER then
+        self._templateObj:SetSizeY(410)
+        self._cellObj:SetSizeY(410)
+        local obj = self._templateObj:Get("instrument_icon")
+        u3d_destory_obj(obj, true)
+    elseif self._intype == WITCHES_IN_TYPE.MUSIC then
+        self._templateObj:SetSizeY(450)
+        self._cellObj:SetSizeY(450)    
+    else
+        local obj = self._templateObj:Get("img_dead")
+        u3d_destory_obj(obj, true)
+        local obj = self._templateObj:Get("instrument_icon")
+        u3d_destory_obj(obj, true)
+    end
+    self._canJump = true
+    if self._intype == WITCHES_IN_TYPE.SHOW then
+        self._templateObj:GetTextComponent("txt_mask"):SetTextById(99000021)
+        self._templateObj:GetTextComponent("txt_mask_en"):SetTextById(99000022)
+
+        self._canJump = false
+        self.layer:Get("txt_tips"):SetVisible(false)
+        self.layer:Get("button_GoToBM"):SetVisible(false)
+    end
+
+    self.layer:Get("button_ok"):SetVisible(self._intype == WITCHES_IN_TYPE.FIGHT);
+    self:showLayer()
+    self:playAni("WitchesLayerAni")
+end
+
+function WitchesLayer:showLayer()
+    self:onClickCheckButton(Hero.ATTR_TYPE_ALL)
+    CBaseLayer.showLayer(self)
+end
+
+function WitchesLayer:onClickCheckButton(itype)
+    self._checkType = itype
+    self:dataGen()
+    self:SetTableView();
+end
+
+function WitchesLayer:dataGen()
+    self._showids = {}
+    for _, v in ipairs(self._ids) do
+        if self._checkType == Hero.ATTR_TYPE_ALL then
+            table.insert(self._showids, v)
+        else
+            local hero = Hero:GetHero(v)
+            if self._checkType == hero.attri_type then
+                table.insert(self._showids, v)
+            end
+        end
+    end
+end
+
+--设置TableView
+function WitchesLayer:SetTableView()
+    local row = math.ceil(#self._showids / ROW_CELL_NUM);
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self.layer.transform:Find("TableViewController"));
+        self._tvController:Init(row, true,
+            function(cell, row, play)
+                self:SetCellInfo(cell, row + 1);
+            end, 0.3, 0.1)
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(row, false);
+    end
+end
+
+--设置tableView   item信息
+function WitchesLayer:SetCellInfo(cell,row)
+    local clscell = self.cellClass[cell]
+    if clscell == nil then
+        clscell = {clsArr = {}}
+        self.cellClass[cell] = clscell
+        for i = 1, 3 do
+            local obj = cell.transform:AddChild(self._templateObj)
+            obj.name = "item" .. i
+            obj:SetPosition(-266 + 266 * (i-1), 0, 0, true)
+            local cls = clsbase:new(obj)
+            cls.clshero = Hero:HalfItemClassNew(obj, 
+                function (heroid)
+                    self:OnItemClassBtnClick(heroid,cls)
+                end,
+                function(heroid)
+                    self:doJump(heroid)
+                end, Hero.PRESS_DELAY )
+            cls.clshero.maskTxtRect = cls.clshero.maskTxtCom.transform:GetComponent("RectTransform");
+            cls.clshero.maskTxtEnRect = cls.clshero.maskTxtEnCom.transform:GetComponent("RectTransform");
+            cls.clshero.imgIndex = cls:GetComponent("img_index","Image");
+            cls.objUpCursor = obj:Get("trans_cursor")
+
+            if self._intype == WITCHES_IN_TYPE.FIGHT_TOWER then
+                cls.deadObj     = cls:Find("img_dead")
+                cls.deadTxtCom    = cls:GetComponent("img_dead/txt_dead", "Text")
+                cls.deadTxtEnCom  = cls:GetComponent("img_dead/txt_en", "Text")
+                cls.deadTxtCom:SetTextById(20015)
+                cls.deadTxtEnCom:SetTextById(20016)
+            end
+            if self._intype == WITCHES_IN_TYPE.MUSIC then
+                cls.ins = {}
+                cls.deadObj       = cls:Find("img_dead")
+                cls.deadTxtCom    = cls:GetComponent("img_dead/txt_dead", "Text")
+                cls.deadTxtEnCom  = cls:GetComponent("img_dead/txt_en", "Text")
+                cls.deadTxtCom:SetTextById(30403)
+                cls.deadTxtEnCom:SetTextById(30404)
+                for j= 1,2 do
+                    cls.ins[j] = {}
+                    cls.ins[j].iconObj   = cls:Find("instrument_icon/icon"..j)
+                    cls.ins[j].iconCom   = cls:GetComponent("instrument_icon/icon"..j.."/image_icon","Image")
+                    cls.ins[j].iconBg    = cls:GetComponent("instrument_icon/icon"..j.."/image_bg","Image")
+                end
+            else
+                cls.clshero.maskTxtCom:SetTextById(20013)
+                cls.clshero.maskTxtEnCom:SetTextById(20014)
+            end
+            clscell.clsArr[i] = cls
+        end
+    end
+    local index = -1
+    for i = 1, 3, 1 do
+        index = (row - 1) * ROW_CELL_NUM + i
+        if self._showids[index] ~= nil then
+            clscell.clsArr[i]:Visible(true)
+            Hero:SetHalfItemClassData(clscell.clsArr[i].clshero, self._showids[index], nil, true);--更新数据
+            self:refreshMask(clscell.clsArr[i], self._showids[index])
+            if self._showUp then
+                clscell.clsArr[i].objUpCursor:SetVisible(Activity:HeroIsInActivityUp(self._showids[index]))
+            else
+                clscell.clsArr[i].objUpCursor:SetVisible(false)
+            end            
+        else
+            clscell.clsArr[i]:Visible(false)
+        end
+    end
+end
+
+function WitchesLayer:refreshMask(cls, heroid)
+    set_com_enabled(cls.clshero.maskCom, self._useids[heroid])
+    set_com_enabled(cls.clshero.imgIndex, self._fightids[heroid] and (self._plotids[heroid] == nil))
+    set_com_enabled(cls.clshero.maskTxtCom, self._useids[heroid])
+    set_com_enabled(cls.clshero.maskTxtEnCom, self._useids[heroid])
+    if(self._intype == WITCHES_IN_TYPE.FIGHT)then
+        cls.clshero.maskTxtEnRect.anchoredPosition = CS.UnityEngine.Vector2(0,-334)
+        cls.clshero.maskTxtRect.anchoredPosition = CS.UnityEngine.Vector2(0,-275)
+        if(self._useids[heroid])then
+            cls.clshero.imgIndex.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_res", "Common_Img_ShuZi_"..self._fightids[heroid]);
+        end
+    elseif self._intype == WITCHES_IN_TYPE.FIGHT_TOWER then
+        set_obj_active(cls.deadObj, self._deadids[heroid])
+        local hphero, hppet = Tower:GetHeroPetHp(heroid)
+        cls.hpheroCom.value = hphero
+        cls.hppetCom.value  = hppet
+        if self._deadids[heroid] then
+            cls.hpBgCom.color = COLOR_TYPE.NorWar
+        else
+            cls.hpBgCom.color = COLOR_TYPE.Black
+        end
+    elseif self._intype == WITCHES_IN_TYPE.MUSIC then
+        set_obj_active(cls.deadObj, self._deadids[heroid])
+        local hero = Hero:GetHero(heroid)
+        local musics = hero.musics
+        local len = lua_table_len(musics)
+        for i = 1,2 do
+            if musics[i] ~= nil then
+                MusicShow:SetMusicType( cls.ins[i].iconCom , musics[i].mtype)
+                set_obj_active(cls.ins[i].iconObj,true)
+                set_obj_active(cls.ins[i].iconBg,self._mtype ~= musics[i].mtype )
+            else
+                set_obj_active(cls.ins[i].iconObj,false)
+            end
+            if len == 1 then
+                u3d_set_localPos(cls.ins[i].iconObj,0,0)
+            else
+                if i == 1 then
+                    u3d_set_localPos(cls.ins[i].iconObj,-40,0)
+                else
+                    u3d_set_localPos(cls.ins[i].iconObj,40,0)
+                end
+            end
+        end
+        if not hero.owner then
+            set_com_enabled(cls.clshero.maskCom, not hero.owner)
+            set_com_enabled(cls.clshero.maskTxtCom, not hero.owner)
+            set_com_enabled(cls.clshero.maskTxtEnCom, not hero.owner)
+            cls.clshero.clickCom.interactable = false
+            cls.clshero.maskTxtCom:SetTextById(30416)
+            cls.clshero.maskTxtEnCom:SetTextById(30417)
+        else
+            set_com_enabled(cls.clshero.maskCom, self._useids[heroid] )
+            set_com_enabled(cls.clshero.maskTxtCom, self._useids[heroid])
+            set_com_enabled(cls.clshero.maskTxtEnCom, self._useids[heroid])
+            cls.clshero.maskTxtCom:SetTextById(30413)
+            cls.clshero.maskTxtEnCom:SetTextById(30414)
+        end
+    elseif(self._intype == WITCHES_IN_TYPE.SHOW)then
+        cls.clshero.maskTxtCom:SetTextById(99000021)
+        cls.clshero.maskTxtEnCom:SetTextById(99000022)
+    end
+end
+
+--点击回调
+function WitchesLayer:OnItemClassBtnClick(id,cls)
+    if id == nil or id == 0 then
+        return
+    end
+    if self._plotids and self._plotids[id] then
+        Groble_UIMgr:ShowGameWordTipsLayer(20038)
+        return
+    end
+    if(self._intype == WITCHES_IN_TYPE.FIGHT)then
+        if(self._fightids[id] ~= nil)then
+            self._useids[id] = nil;
+            self._fightids[id] = nil;
+            self:refreshMask(cls,id);
+            return;
+        end
+        local indexArr = {0,0,0};
+        local addNum = 0;
+
+         for i, v in pairs(self._fightids) do
+            indexArr[v] = i;
+        end
+        for i, v in ipairs(indexArr) do
+            if(v == 0)then
+                addNum = i;
+                break;
+            end
+        end
+        if(addNum == 0)then
+            return;
+        end
+        self._useids[id] = true;
+        self._fightids[id] = addNum;
+        self:refreshMask(cls,id);
+        return;
+    end
+    local _callback = uimgr:GetWitchesLayerCallback()
+    if _callback ~= nil then
+       _callback(id)
+    end
+    self:onPopLayer()
+end
+
+function WitchesLayer:doJump(heroid)
+    if self._canJump then
+        uimgr:showMainWitchLayerWithHid(heroid)
+    end
+end
+
+function WitchesLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return WitchesLayer
+

@@ -1,0 +1,52 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 17:19:40
+-- brief : 
+--
+
+CfgLoader = {}
+
+function CfgLoader:LoadCfg(filename)
+    local csvLoad = CsvLoadFile:new(filename)
+    csvLoad:LoadCsv()
+    return csvLoad:GetListData()
+end
+
+function CfgLoader:LoadCfgTable(filename)
+    local csvLoad = CsvLoadFile:new(filename)
+    csvLoad:LoadCsv()
+    return csvLoad:GetDatas()
+end
+
+function CfgLoader:GenGroupConfig(configs, group_key, level_key)
+    local tb = {}
+    for _, row in pairs(configs) do
+        local gid = tonumber(row[group_key])
+        local rows = tb[gid]
+        if not rows then
+            rows = {MaxLevel = 0}
+            tb[gid] = rows
+        end
+        local level = tonumber(row[level_key])
+        rows[level] = row
+        if rows.MaxLevel < level then
+            rows.MaxLevel = level
+        end
+    end
+    return tb
+end
+
+function CfgLoader:GenGroupConfig2(configs, group_key, level_key)
+    local tb = {}
+    for _, row in pairs(configs) do
+        local gid = tonumber(row[group_key])
+        local rows = tb[gid]
+        if not rows then
+            rows = {}
+            tb[gid] = rows
+        end
+        local level = tonumber(row[level_key])
+        rows[level] = row
+    end
+    return tb
+end

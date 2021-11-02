@@ -1,0 +1,14 @@
+---
+--- @Author:xxg
+--- @Create Time:2021-08-13 15:53:29
+---
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Concert/concert.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Concert/concert_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Concert/concertcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Concert/concertdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Concert/concertui.txt")
+
+Concert:Ctor()
+Concert:_LoadCfg()
+
+

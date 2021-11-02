@@ -1,0 +1,114 @@
+--
+-- author: haosun
+-- date  : 2019-10-15 11:14:36
+-- brief : 
+--
+local SortController = class(SortController)
+
+local static_sortstr        = "sortdata"
+local static_cursortstr     = "cursortdata"
+
+local static_sort_hero      = "sorthero"
+
+function SortController:ctor(super, obj)
+    self._obj           = obj
+    self._sorts         = {}
+    self._clsButtonObjs = {}
+end
+
+function SortController:Clear()
+    self._obj           = nil
+    self._sorts         = nil
+    for i, cls in ipairs(self._clsButtonObjs) do
+        cls.obj = nil
+        cls.txtTitle = nil
+        cls.tog = nil
+    end
+    self._clsButtonObjs = nil
+end
+
+function SortController:Hide()
+    u3d_destory_obj(self._obj)
+end
+
+function SortController:Init(sortdata, call)
+    local pid           = Player:GetId()
+    self._heroSortKey   = pid .. static_sort_hero
+    self._call          = call
+    self._sorts = sortdata.sorts
+    --初始化收藏状态
+    Hero:InitCollectStates(self._heroSortKey)
+
+    for i = 1, 3 do
+        if(self._clsButtonObjs[i] == nil)then
+            self._clsButtonObjs[i] = self:_ctorButtonObj(self._obj:Find("tog_item_"..i));
+        end
+        --self._clsButtonObjs[i].obj:SetVisible(true);
+        if(self._sorts[i] ~= nil)then
+            self:_setButtonObj(self._clsButtonObjs[i], i);
+        end
+    end
+    self:SetButtonText()
+end
+
+
+function SortController:SaveToPrefs()
+    Hero:SaveToPrefs(self._heroSortKey)
+end
+
+function SortController:_ctorButtonObj(obj)
+    local cls       = {}
+    cls.obj = obj.gameObject;
+    cls.txtTitle    = obj:Find("txt_title"):GetComponent("Text");
+    cls.tog =     obj:GetComponent("MToggle");
+    cls.tog.onValueChanged:AddListener(
+        function(isOn)
+            self:onClickSort(isOn,cls)
+        end)
+    return cls
+end
+
+function SortController:_setButtonObj(cls, sorttype)
+    cls.sorttype    = sorttype
+    cls.txtTitle:SetTextById(701000 + sorttype);
+end
+
+
+function SortController:SetButtonText(sortType,subType)
+    local item = self._clsButtonObjs[sortType]
+    if item == nil then
+        return
+    end
+    local textStr = 0
+    if sortType == Hero.Select_TYPE_HERO.attri then
+        if subType > 0 then
+            textStr = LanguageMgr:GetTextByID(703039 + subType);
+        else
+            textStr = LanguageMgr:GetTextByID(700982);
+        end
+    elseif sortType == Hero.Select_TYPE_HERO.gunType then
+        if subType > 0 then
+            textStr = string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + subType))
+        else
+            textStr = LanguageMgr:GetTextByID(701002);
+        end
+    elseif sortType == Hero.Select_TYPE_HERO.sort then
+        textStr = LanguageMgr:GetTextByID(Hero.sortData[subType])
+    end
+    item.txtTitle.text = textStr
+end
+
+function SortController:onClickSort(isOn,cls)
+    if(isOn)then
+        local param = {}
+        param.sortType = cls.sorttype
+        if param.subType == nil or param.subType <= 1 then
+            param.subType = 1
+        end
+
+        core.require("xlua/lua_UI/Comframework/SortSelcetLayer.txt"):new():show(param, self._call)
+    end
+end
+
+return SortController
+

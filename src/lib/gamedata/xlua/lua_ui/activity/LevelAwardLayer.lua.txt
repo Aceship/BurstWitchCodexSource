@@ -1,0 +1,173 @@
+--
+-- author: liangxt
+-- date  : 2019年9月20日15:53:30
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LevelAwardLayer = class("LevelAwardLayer", CBaseLayer)
+
+Reward_State = {
+    Received    = 1,
+    CanRecv     = 2,
+    NotRecv     = 3,
+}
+
+function LevelAwardLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_LevelAwardLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = {}
+    }
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self._addStack = true;
+    self:onEnter()
+end
+
+function LevelAwardLayer:onEnter()
+    self:createPnl()
+    self.items = {};
+    self:addEventListener(EVENT_TYPE.ACTIVITY_GET_REP,self.__cname,
+    function(drops)
+        self:initInfo()
+        self:dataGen()
+        Bag:ShowDrops(drops)
+        GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+    end)
+
+    self._actInfo = Activity:GetActivityByUId(Activity:GetCurSelectUid());
+end
+
+--退出按钮事件
+function LevelAwardLayer:onBackClick()
+    self.m_tableViewCtrl:Clear();
+    Activity:SetCurSelectUid();
+    self:onPopLayer();
+end
+
+function LevelAwardLayer:show()
+    self:initInfo()
+    self:dataGen()
+    self:showLayer()
+    
+end
+
+function LevelAwardLayer:initInfo()
+    self._actvityList = {};
+    self._canAwardList = Activity:GetLevelAwardsList()
+    self._playerLevel = Player:GetValue(Player.VALUE_LEVEL)
+    local tempCount = 1;
+    for k,v in pairs(self._actInfo.formCfg) do
+        self._actvityList[tempCount] = v;
+        tempCount = tempCount + 1;
+    end
+    local function sortList(a,b)
+        local aLevel = 0
+        local bLevel = 0
+
+        if self._playerLevel >= tonumber(a.Count)  then
+            if self._canAwardList[tonumber(a.id)] ~= nil then
+                aLevel = aLevel + 10000;
+            else
+                aLevel = aLevel - 10000;
+            end
+        end
+        if self._playerLevel >= tonumber(b.Count)  then
+            if self._canAwardList[tonumber(b.id)] ~= nil then
+                bLevel = bLevel + 10000;
+            else
+                bLevel = bLevel - 10000;
+            end
+        end
+        if tonumber(a.Count) < tonumber(b.Count) then
+            aLevel = aLevel + 1000;
+        else
+            bLevel = bLevel + 1000;
+        end
+        return aLevel > bLevel;
+    end
+    table.sort(self._actvityList,sortList)
+
+end
+
+
+function LevelAwardLayer:dataGen()
+    self._shownum = #self._actvityList
+    if(self.m_tableViewCtrl == nil)then
+        self.m_tableViewCtrl = UIController:CtorTableView(self.layer.transform:Find("TableViewController"))
+        self.m_tableViewCtrl:Init(self._shownum,true,function (cell, row, play)
+            self:refreshItems(cell, row)
+        end,0.15,0.07);
+    else
+        self.m_tableViewCtrl:Reload(self._shownum, true);
+        self.m_tableViewCtrl:ScrollToTop();
+    end
+end
+
+function LevelAwardLayer:refreshItems(item,row)
+    local v = self._actvityList[row+1]
+    local reward = lua_parse_cfg(v.Items, true)
+    if(self.items[item] == nil)then
+        local tempItem = {};
+        tempItem.goodBg = item.transform:Find("scrollview/viewport/content");
+        tempItem.txtLabelTitle = item.transform:Find("label_title"):GetComponent("Text");
+        tempItem.btn = item.transform:Find("button_recv"):GetComponent("Button");
+        tempItem.recvBg = item.transform:Find("recv_bg");
+        tempItem.norBg = item.transform:Find("nor_bg");
+        tempItem.txtReceive = item.transform:Find("text_receive"):GetComponent("Text");
+        tempItem.imgDark = item.transform:Find("image_dark");
+        tempItem.imgFlag = item.transform:Find("image_flag"):GetComponent("Image");
+        tempItem.btn.onClick:AddListener(function ()
+            local actId = tonumber(Operation:GetActiveCfgByUID(Operation.ActivityID.GradeAward).id);
+            Activity:GetItemReq(actId,tonumber(tempItem.data.id));
+        end);
+        self.items[item] = tempItem;
+    end
+    local data = {id = tonumber(self._actvityList[row+1].id)};
+    self.items[item].data = data;
+    if self.items[item].dropItems == nil then
+        self.items[item].dropItems = {}
+    end
+    self.items[item].dropItems = Bag:SetShowGoods(self.items[item].dropItems,self.items[item].goodBg, reward, 70, 108, 0.45)
+    self.items[item].txtLabelTitle.text = string.format(LanguageMgr:GetTextByID(90067) , v.Count)
+    if self._playerLevel >= tonumber(v.Count) then
+        if self._canAwardList[tonumber(v.id)] ~= nil then
+            set_obj_active(self.items[item].btn.transform,true)
+            set_obj_active(self.items[item].recvBg,true)
+            set_obj_active(self.items[item].norBg,false)
+            set_obj_active(self.items[item].txtReceive.transform,true)
+            set_obj_active(self.items[item].imgDark,false)
+            self.items[item].txtLabelTitle.color = COLOR_TYPE.Black
+            self.items[item].imgFlag.color = COLOR_TYPE.Black
+            self.items[item].txtReceive:SetTextById(90068)
+        else
+            set_obj_active(self.items[item].btn.transform,false)
+            set_obj_active(self.items[item].recvBg,false)
+            set_obj_active(self.items[item].norBg,true)
+            set_obj_active(self.items[item].imgDark,true)
+            set_obj_active(self.items[item].txtReceive.transform,true)
+            self.items[item].txtLabelTitle.color = COLOR_TYPE.White
+            self.items[item].imgFlag.color = COLOR_TYPE.White
+            self.items[item].txtReceive:SetTextById(90069)
+        end
+    else
+        --不可领
+        set_obj_active(self.items[item].btn.transform,false)
+        self.items[item].txtLabelTitle.color = COLOR_TYPE.White
+        self.items[item].imgFlag.color = COLOR_TYPE.White
+        set_obj_active(self.items[item].recvBg,false)
+        set_obj_active(self.items[item].norBg,true)
+        set_obj_active(self.items[item].txtReceive.transform,false)
+        set_obj_active(self.items[item].imgDark,false)
+    end
+    
+end
+
+return LevelAwardLayer

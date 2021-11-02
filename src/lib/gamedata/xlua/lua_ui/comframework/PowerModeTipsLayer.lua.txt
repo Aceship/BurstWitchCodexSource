@@ -1,0 +1,48 @@
+--
+
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PowerModeTipsLayer = class("PowerModeTipsLayer", CBaseLayer)
+
+function PowerModeTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_PowerModeTipsLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function PowerModeTipsLayer:onEnter()
+    self:createPnl()
+end
+
+function PowerModeTipsLayer:show(trans)
+    self:refreshPos(trans)
+    play_effect_show()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function PowerModeTipsLayer:refreshPos(trans)
+    -- 计算位置
+    self.layer.transform:Find("container").position = trans.position;
+    local transRect = trans:GetComponent("RectTransform")
+    local rect = self.layer.transform:Find("container"):GetComponent("RectTransform")
+    local posX,posY;
+    posX = lua_math_in_range(rect.anchoredPosition.x,-rect.sizeDelta.x/2,rect.sizeDelta.x/2)
+    if(rect.anchoredPosition.y > 0)then
+        if(rect.anchoredPosition.y + rect.sizeDelta.y + transRect.sizeDelta.y > CS.UnityEngine.Screen.height/2)then
+            posY = rect.anchoredPosition.y - (rect.sizeDelta.y/2) - transRect.sizeDelta.y / 2;
+        else
+            posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y / 2;
+        end
+    else
+        posY = rect.anchoredPosition.y + (rect.sizeDelta.y/2) + transRect.sizeDelta.y / 2;
+    end
+    rect.anchoredPosition = CS.UnityEngine.Vector2(posX,posY);
+end
+
+return PowerModeTipsLayer
+

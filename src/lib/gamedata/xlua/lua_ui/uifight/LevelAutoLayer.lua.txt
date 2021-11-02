@@ -1,0 +1,486 @@
+--
+-- author: haosun
+-- date  : 2020-04-14 20:53:38
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LevelAutoLayer = class("LevelAutoLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    useAdd      = "container/info_use/alpha_group/button_add",
+    useSub      = "container/info_use/alpha_group/button_sub",
+    buyAdd      = "container/info_buy/alpha_group/button_add",
+    buySub      = "container/info_buy/alpha_group/button_sub",
+    countAdd    = "container/info_other/alpha_group/button_add",
+    countSub    = "container/info_other/alpha_group/button_sub",
+    Fight       = "container/button_fight",
+}
+
+function LevelAutoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_LevelAutoLayer",
+    }
+    self:onEnter()
+end
+
+function LevelAutoLayer:initObj()
+    self._useAddCom         = self.layer:GetButtonComponent("container/info_use/alpha_group/button_add")
+    self._useSubCom         = self.layer:GetButtonComponent("container/info_use/alpha_group/button_sub")
+    self._buyAddCom         = self.layer:GetButtonComponent("container/info_buy/alpha_group/button_add")
+    self._buySubCom         = self.layer:GetButtonComponent("container/info_buy/alpha_group/button_sub")
+    self._countAddCom       = self.layer:GetButtonComponent("container/info_other/alpha_group/button_add")
+    self._countSubCom       = self.layer:GetButtonComponent("container/info_other/alpha_group/button_sub")
+    self._useTxtCom         = self.layer:GetTextComponent("container/info_use/alpha_group/txt_num")
+    self._buyTxtCom         = self.layer:GetTextComponent("container/info_buy/alpha_group/txt_num")
+    self._autoObj           = self.layer:Get("container/info_other/info_auto")
+    self._countTxtCom       = self.layer:GetTextComponent("container/info_other/alpha_group/txt_num")
+    self._txtPower          = self.layer:GetTextComponent("container/info_other/txt_power")
+    self._useToggleCom      = self.layer:GetToggleComponent("container/info_use/toggle")
+    self._buyToggleCom      = self.layer:GetToggleComponent("container/info_buy/toggle")
+    self._countToggleCom    = self.layer:GetToggleComponent("container/info_other/toggle_count")
+    self._failToggleCom     = self.layer:GetToggleComponent("container/info_other/toggle_fail")
+    self._useAlpha          = self.layer:GetCanvasGroupComponent("container/info_use/alpha_group")
+    self._buyAlpha          = self.layer:GetCanvasGroupComponent("container/info_buy/alpha_group")
+    self._countAlpha        = self.layer:GetCanvasGroupComponent("container/info_other/alpha_group")
+    self._failToggleCom.isOn = true
+end
+
+function LevelAutoLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+
+    self._useToggleCom.onValueChanged:AddListener(
+        function(bcheck)
+            self:refreshUse(bcheck)
+            self:refreshCntPower()
+        end)
+    self._buyToggleCom.onValueChanged:AddListener(
+        function(bcheck)
+            self:refreshBuy(bcheck)
+            self:refreshCntPower()
+        end)
+    self._countToggleCom.onValueChanged:AddListener(
+        function(bcheck)
+            self:refreshCount(bcheck)
+            self:refreshCostPower()
+            self:refreshMutlipleCost()
+        end)
+end
+
+function LevelAutoLayer:onExit()
+    self._useToggleCom.onValueChanged:RemoveAllListeners()
+    self._buyToggleCom.onValueChanged:RemoveAllListeners()
+    self._countToggleCom.onValueChanged:RemoveAllListeners()
+
+    self._useAddCom         = nil
+    self._useSubCom         = nil
+    self._buyAddCom         = nil
+    self._buySubCom         = nil
+    self._countAddCom       = nil
+    self._countSubCom       = nil
+    self._useTxtCom         = nil
+    self._buyTxtCom         = nil
+    self._countTxtCom       = nil
+    self._useToggleCom      = nil
+    self._buyToggleCom      = nil
+    self._countToggleCom    = nil
+    self._failToggleCom     = nil
+    self._useAlpha          = nil
+    self._buyAlpha          = nil
+    self._countAlpha        = nil
+    self._txt_costitem      = nil
+
+    self._backCall  = nil
+    self._costPower = nil
+    self._useMax    = nil
+    self._buyMax    = nil
+    self._countMax  = nil
+    self._useNum    = nil
+    self._buyNum    = nil
+    self._countNum  = nil
+    self._multiples = nil
+
+    self.layer:GetToggleComponent("container/info_multiple/toggle_multiple1").onValueChanged:RemoveAllListeners()
+    self.layer:GetToggleComponent("container/info_multiple/toggle_multiple2").onValueChanged:RemoveAllListeners()
+
+    CBaseLayer.onExit(self)
+end
+
+function LevelAutoLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.useAdd then
+        self:refreshUseNumber(1)
+    elseif buttontype == BUTTON_TYPE.useSub then
+        self:refreshUseNumber(-1)
+    elseif buttontype == BUTTON_TYPE.buyAdd then
+        self:refreshBuyNumber(1)
+    elseif buttontype == BUTTON_TYPE.buySub then
+        self:refreshBuyNumber(-1)
+    elseif buttontype == BUTTON_TYPE.countAdd then
+        self:refreshCountNumber(1)
+        self:refreshCostPower()
+        self:refreshMutlipleCost()
+    elseif buttontype == BUTTON_TYPE.countSub then
+        self:refreshCountNumber(-1)
+        self:refreshCostPower()
+        self:refreshMutlipleCost()
+    elseif buttontype == BUTTON_TYPE.Fight then
+        self:onAutoFight()
+    end
+end
+
+function LevelAutoLayer:checkMat(levelid)
+    self._cfgid     = 0
+    self._costCount = 0
+    self._maybeDrop = false
+    self._recommendCnt  = 0         -- 推荐次数
+    local data = GTemp:GetSweepTmpData()
+    self.layer:Get("container/info_mat"):SetVisible(data ~= nil)
+    self._infiniteCnt = false
+    if data ~= nil then
+        local go = Item:CreateSimpleItemPrefab(self.layer:Get("container/info_mat"), -352, 184, 0.5)
+        Item:OnceSetSimpleItemPrefab(go, data.cfgid, "")
+        self.layer:GetTextComponent("container/info_mat/txt_name"):SetText(Item:GetCfg(data.cfgid).Name)
+        self.layer:GetTextComponent("container/info_mat/txt_count"):SetText(
+            string.format(LanguageMgr:GetTextByID(3009027), Item:GetCount(data.cfgid), data.costCnt))
+        self._txtDrop = self.layer:GetTextComponent("container/info_mat/txt_drop")
+
+        self._infiniteCnt = true
+        self._cfgid = tonumber(data.cfgid)
+        self._costCount = data.costCnt
+        local level = Chapter:GetLevel(levelid)
+        self._baseDropCnt, self._maybeDrop = Item:GetDropNumberById(level.rewards[2], self._cfgid)
+        if self._maybeDrop then
+            AppMgr:LogInfo("------------------概率掉落")
+            -- todo
+        else            
+            AppMgr:LogInfo("------------------必定掉落")
+            AppMgr:LogInfo("------------------每次至少掉落数量 = " .. self._baseDropCnt)
+            self._recommendCnt = math.ceil(data.lackCnt / self._baseDropCnt)
+            self._countNum = self._recommendCnt
+        end
+        AppMgr:LogInfo("--------------------推荐次数 = " .. self._recommendCnt)
+
+        self.layer:Get("container/info_power"):SetPositionY(528, true)
+        self.layer:Get("container/info_use"):SetPositionY(420, true)
+        self.layer:Get("container/info_buy"):SetPositionY(322, true)
+        self.layer:Get("container/info_other"):SetPositionY(-40, true)
+        if self._multiples == nil then
+            self.layer:Get("container/info_mat"):SetPositionY(-380, true)
+        else
+            self.layer:Get("container/info_multiple"):SetPositionY(-360, true)
+            self.layer:Get("container/button_fight"):SetPositionY(-644, true)
+        end
+    else
+        AppMgr:LogInfo("--------------------不存在目标材料")
+    end
+end
+
+function LevelAutoLayer:checkMultiple(levelid)
+    local level = Chapter:GetLevel(levelid)
+    if level.Collocation_Times == nil or next(level.Collocation_Times) == nil then
+        self._hasCollocation_Times = false
+        self.layer:Get("container/info_multiple"):SetVisible(false)
+    else
+        self._hasCollocation_Times = true
+        local objmultiple = self.layer:Get("container/info_multiple")
+        -- 加载托管道具ICON
+        objmultiple:GetImageComponent("img_icon"):LoadSprite(Item:GetItemIconPath(Item.AUTO_ITEM_ID))
+        -- 托管多倍
+        self._multiples = {
+            {
+                count = level.Collocation_Times[1],
+                isOn = false
+            },
+            {
+                count = level.Collocation_Times[2],
+                isOn = false
+            }
+        }
+        local str = string.format(LanguageMgr:GetTextByID(3009040), self._multiples[1].count)
+        objmultiple:GetTextComponent("toggle_multiple1/txt_multiple"):SetText(str)
+        str = string.format(LanguageMgr:GetTextByID(3009040), self._multiples[2].count)
+        objmultiple:GetTextComponent("toggle_multiple2/txt_multiple"):SetText(str)
+
+        objmultiple:GetToggleComponent("toggle_multiple1").onValueChanged:AddListener(
+            function(bcheck)
+                self:refreshMutlipleCheck(1, bcheck)
+            end)
+        objmultiple:GetToggleComponent("toggle_multiple2").onValueChanged:AddListener(
+            function(bcheck)
+                self:refreshMutlipleCheck(2, bcheck)
+            end)
+        self._costitems = 0
+        self._hasItemCnt = Item:GetCount(Item.AUTO_ITEM_ID)
+        self._txt_costitem = objmultiple:GetTextComponent("txt_costitem")
+        self:refreshMutlipleCost()
+    end
+end
+
+function LevelAutoLayer:show(remain, backCall, costPower, isPlot, levelid)
+    self._autoCount     = true
+    self._backCall      = backCall
+    self._costPower     = costPower
+    self._multipleValue = 1
+    self:checkMultiple(levelid)
+    self:checkMat(levelid)
+    self._useMax    = Item:GetCount(Item.ITEM_POWER_ID)
+    self._buyMax    = math.min(Player.MAX_POWER_BUY, Player.MAX_POWER_BUY - Player:GetBuyPowerTimes())
+    self._countMax  = remain == -1 and 999 or remain
+    self._maxPower  = Player:GetValue(Player.VALUE_POWER)
+    self:refreshMaxCnt()
+    self._useNum    = self._useMax
+    self._buyNum    = self._buyMax
+    if self._recommendCnt == 0 then
+        self._countNum  = self._countMax
+    else        
+        self._countNum  = self._recommendCnt
+    end
+
+    self:refreshUse(false)
+    self:refreshBuy(false)
+    if self._recommendCnt == 0 then
+        self:refreshCount(false)
+    else
+        self._autoCount = false
+        self._countToggleCom.isOn = true
+    end
+    self:refreshMatDrop()
+    self:refreshUseNumber(0)
+    self:refreshBuyNumber(0)
+    self:refreshCountNumber(0) 
+    self:refreshCostPower()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function LevelAutoLayer:refreshUse(bcheck)
+    self._useAddCom.interactable = bcheck
+    self._useSubCom.interactable = bcheck    
+    if bcheck then
+        self._useAlpha.alpha = 1
+    else
+        self._useAlpha.alpha = 0.3
+    end
+    self:refreshCostPower()
+end
+
+function LevelAutoLayer:refreshUseNumber(value)
+    self._useNum = lua_math_in_range(self._useNum + value, 0, self._useMax)
+    self._useTxtCom.text = string.format(LanguageMgr:GetTextByID(3009009), self._useNum)
+    self:refreshCntPower()
+end
+
+function LevelAutoLayer:refreshBuy(bcheck)
+    self._buyAddCom.interactable = bcheck
+    self._buySubCom.interactable = bcheck
+    if bcheck then
+        self._buyAlpha.alpha = 1
+    else
+        self._buyAlpha.alpha = 0.3
+    end
+    self:refreshCostPower()
+end
+
+function LevelAutoLayer:refreshBuyNumber(value)
+    self._buyNum = lua_math_in_range(self._buyNum + value, 0, self._buyMax)
+    self._buyTxtCom.text = string.format(LanguageMgr:GetTextByID(3009010), self._buyNum)
+    self:refreshCntPower()
+end
+
+function LevelAutoLayer:refreshCount(bcheck)
+    self._autoCount = not bcheck
+    self._countAddCom.interactable = bcheck
+    self._countSubCom.interactable = bcheck
+    if bcheck then
+        self._countAlpha.alpha = 1
+    else
+        self._countAlpha.alpha = 0.3
+        self:refreshMaxCnt()
+    end
+    if self._autoCount then
+        if self._maybeDrop then
+            self._txtDrop:SetVisible(true)
+            self._countTxtCom:SetVisible(false)
+            self._autoObj:SetVisible(true)
+        else
+            self._autoObj:SetVisible(false)
+            self._countTxtCom:SetVisible(true)
+        end
+    else
+        if self._recommendCnt > 0 then
+            self._countNum = self._recommendCnt
+        else
+            self._countNum = 1
+        end
+        self:refreshCountNumber(0)
+        self._autoObj:SetVisible(false)
+        self._countTxtCom:SetVisible(true)
+    end
+    self:refreshMatDrop()
+end
+
+function LevelAutoLayer:refreshCountNumber(value)
+    local maxTemp = math.floor(self._countMax / self._multipleValue)
+    self._countNum = lua_math_in_range(self._countNum + value, self._countMax <= 0 and 0 or 1, maxTemp)
+    if self._countNum > maxTemp then
+        self._countNum = maxTemp
+    end
+    self._countTxtCom.text = string.format(LanguageMgr:GetTextByID(3009010), self._countNum)
+    self:refreshMatDrop()
+end
+
+function LevelAutoLayer:refreshCostPower()
+    local curPower = Player:GetValue(Player.VALUE_POWER)
+    local addPower = 0
+    self._maxPower = curPower
+    if self._useToggleCom.isOn then
+        addPower = addPower + self._useNum * Item.ITEM_ADD_POWER
+    end
+    if self._buyToggleCom.isOn then
+        addPower = addPower + self._buyNum * Item.PURCHAS_VIT
+    end
+    local strPower = ""
+    if addPower > 0 then
+        strPower = string.format("（+%d）", addPower)
+    end
+    local showStr = ""
+    if self._infiniteCnt and self._autoCount then
+        showStr = string.format(LanguageMgr:GetTextByID(3009013), "--", curPower, strPower)
+    else
+        local costPower = self._countNum * self._multipleValue * self._costPower
+        if self._autoCount then
+            costPower = self._costPower * self._multipleValue
+        end
+        if costPower > self._maxPower + addPower then
+            costPower = string.format("<color=#FF6652FF>%d</color>", costPower)
+        else
+            costPower = tostring(costPower)
+        end
+        showStr = string.format(LanguageMgr:GetTextByID(3009013), costPower, curPower, strPower)
+    end
+    self._txtPower:SetText(showStr)
+    self._maxPower = self._maxPower + addPower
+end
+
+function LevelAutoLayer:refreshMaxCnt()
+    if self._autoCount then
+        self._countNum = self._countMax
+        self:refreshCountNumber(0)
+    end
+end
+
+function LevelAutoLayer:refreshMatDrop()
+    if self._infiniteCnt then
+        if self._maybeDrop then
+            if self._autoCount then
+                self._txtDrop:SetTextById(3009031)
+            else
+                self._txtDrop:SetText("")
+            end
+        else
+            local dropCnt = self._baseDropCnt * self._countNum * self._multipleValue
+            self._txtDrop:SetText(string.format(LanguageMgr:GetTextByID(3009028), dropCnt))
+        end
+    end
+end
+
+function LevelAutoLayer:refreshCntPower()
+    self:refreshMaxCnt()
+    self:refreshCostPower()
+end
+
+function LevelAutoLayer:refreshMutlipleCheck(index, bcheck)
+    if bcheck then
+        self._multiples[index].isOn = true
+    else
+        self._multiples[index].isOn = false
+    end
+    self:refreshMutlipleValue()
+    if self._infiniteCnt and self._recommendCnt > 0 then
+        self._countNum = math.ceil(self._recommendCnt / self._multipleValue)
+    end
+    self:refreshCountNumber(0)
+    self:refreshMutlipleCost()
+    self:refreshCntPower()
+end
+
+function LevelAutoLayer:refreshMutlipleValue()
+    self._multipleValue = 1
+    for i, v in ipairs(self._multiples) do
+        if v.isOn then
+            self._multipleValue = v.count
+            break
+        end
+    end
+end
+
+function LevelAutoLayer:refreshMutlipleCost()
+    if not self._hasCollocation_Times then return end
+
+    self._costitems = self._multipleValue - 1
+    local strId = 3009041
+    if not self._autoCount then
+        self._costitems = self._costitems * self._countNum
+        strId = 3009039
+    end
+    local strCostCnt = ""    
+    if self._costitems > self._hasItemCnt then
+        strCostCnt = string.format("<color=#FF6652FF>%d</color>", self._costitems)
+    else
+        strCostCnt = tostring(self._costitems)
+    end
+    self._txt_costitem:SetText(string.format(LanguageMgr:GetTextByID(strId), strCostCnt, self._hasItemCnt))
+end
+
+function LevelAutoLayer:onAutoFight()
+    if self._infiniteCnt and self._autoCount then
+        -- 不检测体力
+    else
+        if not self._autoCount then --多倍挑战时需要检测体力
+            if self._costPower * self._countNum * self._multipleValue > self._maxPower then
+                Groble_UIMgr:ShowGameWordTipsLayer(3009026)
+                return
+            end
+        end
+    end
+
+    if self._multipleValue > 1 then
+        if self._costitems > self._hasItemCnt then
+            Groble_UIMgr:ShowLackCurrencyTips(Item.AUTO_ITEM_ID)
+            return
+        end
+    end
+    if not self._autoCount then
+        if self._countNum * self._multipleValue > self._countMax then
+            Groble_UIMgr:ShowGameWordTipsLayer(3009042)
+        end
+    end
+    
+    if self._countMax <= 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(21005)
+        return
+    end
+
+    if self._countNum == 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(3009042)
+        return
+    end
+    
+    local _useNum = self._useNum
+    if not self._useToggleCom.isOn then
+        _useNum = 0
+    end
+
+    local _buyNum = self._buyNum
+    if not self._buyToggleCom.isOn then
+        _buyNum = 0
+    end
+
+    Chapter:AutoFightParam(true, _useNum, _buyNum, self._countNum, self._failToggleCom.isOn,
+        self._cfgid, self._costCount, self._autoCount, self._multipleValue)
+    self._backCall()
+end
+
+return LevelAutoLayer
+

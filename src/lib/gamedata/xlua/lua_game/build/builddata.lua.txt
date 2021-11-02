@@ -1,0 +1,210 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Build = Build or {}
+
+function Build:InitData()
+    self._curAtkType = Hero.BuildAtk[1];
+    self._selectHeroData = {};
+    self._lastHeroId = {0,0,0};
+    self._curSelectDotId = 0;
+end
+
+function Build:GetCurSelectDotId()
+    return self._curSelectDotId;
+end
+
+function Build:SetCurSelectDotId(dotId)
+    self._curSelectDotId = dotId or 0;
+end
+
+--设置当前选中的构筑类型
+function Build:SetCurSelectAtkType(btype)
+    self._curAtkType = btype;
+    GEvent:fireEvent(EVENT_TYPE.CUT_SELECT_BUILD_TYPE);
+end
+
+--获取当前选中的构筑类型
+function Build:GetCurSelectAtkType()
+    if(self._curAtkType == nil)then
+        CS.Logger.LogError("_curAtkType is null   _curAtkType = "..self._curAtkType);
+        return -1;
+    end
+    return self._curAtkType;
+end
+
+function Build:GetCurBTypeHeroIds()
+    if(self._buildServerData[self._curAtkType] == nil)then
+        CS.Logger.LogError(" _buildServerData is nil!! _curAtkType = "..self._curAtkType);
+        return nil;
+    end
+    return self._buildServerData[self._curAtkType].heroIds;
+end
+
+function Build:GetCurBTypeHeroIdNum()
+    local heroIds,retNum = self._buildServerData[self._curAtkType].heroIds, 0;
+    for _, id in ipairs(heroIds) do
+        if(id > 0)then
+            retNum = retNum + 1;
+        end
+    end
+    return retNum;
+end
+
+function Build:AddCurBTypeHeroId(heroId)
+    local heroIds = self._buildServerData[self._curAtkType].heroIds;
+    for i, id in ipairs(heroIds) do
+        if(id == 0)then
+            heroIds[i] = heroId;
+            break;
+        end
+    end
+end
+
+function Build:RemoverCurBTypeHeroId(heroId)
+    local heroIds = self._buildServerData[self._curAtkType].heroIds;
+    for i, id in ipairs(heroIds) do
+        if(id == heroId)then
+            heroIds[i] = 0;
+            break;
+        end
+    end
+end
+
+function Build:RestoreCurBTypeHeroIds(heroIds)
+    for i, id in ipairs(heroIds) do
+        self._buildServerData[self._curAtkType].heroIds[i] = id;
+    end
+end
+
+--获取与当前选中的构造点相关的角色数据
+--dotId < 0 星级排序
+--dotId == 0 属性(战力)排序
+function Build:GetHeroDataByDotId(dotId)
+    local retArr = {};
+    local heroIds = Hero:GetOwnerIds();
+    local AddHeroIds = {};
+        local buildDotIds = Build:GetBuildDotIdsByAtkType(self._curAtkType);
+    for i, dot in ipairs(buildDotIds) do
+        local dotCfg = Build:GetBuildDotCfgById(dot);
+        for _, heroId in ipairs(heroIds) do
+            local hero = Hero:GetHero(heroId);
+            if(hero.dots[dotCfg.effectID] ~= nil and hero.dots[dotCfg.effectID] > 0)then
+                if(AddHeroIds[heroId] == nil)then
+                    AddHeroIds[heroId] = 1;
+                    table.insert(retArr,heroId);
+                end
+            end
+        end
+    end
+
+    local sortid,tbl = 0,{};
+    local dotcfg;
+    if(dotId > 0)then
+        dotcfg = Build:GetBuildDotCfgById(dotId);
+    end
+    for _, id in ipairs(retArr) do
+        local v = Hero:GetHero(id)
+        local useState,atkType = Build:GetHeroUseState(id);
+        if(useState and atkType == Build:GetCurSelectAtkType())then--改魔女装备在当前系,优先级最高
+            sortid = 10000000000000;
+        elseif(useState)then--有构筑的魔女,优先级最低
+            sortid = 1000000000;
+        else--无
+            sortid = 100000000000;
+        end
+        if(dotId < 0)then
+            sortid = v.qlty * 10000000 + v.level * 10000 + tonumber(v.id) + sortid;
+        elseif(dotId == 0)then
+            sortid = v.fighting_capacity + sortid;
+        else
+            if(v.dots[dotcfg.effectID] ~= nil and v.dots[dotcfg.effectID] > 0)then
+                sortid = 1000000000000 + v.qlty * 10000000 + v.level * 10000 + tonumber(v.id) + sortid;
+            else
+                sortid = v.qlty * 10000000 + v.level * 10000 + tonumber(v.id) + sortid;
+            end
+        end
+        table.insert(tbl, {id = id, sortid = sortid,useState = useState,atkType = atkType,curType = atkType})
+    end
+    table.sort(tbl, function(a, b)
+        return a.sortid > b.sortid
+    end)
+
+    if self:IsBuildGuide() then
+        local data
+        for i, v in ipairs(tbl) do
+            if v.id == 1001 then
+                data = v
+                table.remove(tbl, i)
+                break
+            end
+        end
+        table.insert(tbl, 1, data)
+    end
+    return tbl;
+end
+
+
+function Build:GetBuildRedState()
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_bulid) or not Player:IsSysFuncOpen(Player.SYS_FUNC.build_lv_up) or not Player:IsSysFuncOpen(Player.SYS_FUNC.build_dot) then
+        return false
+    end
+    for i, v in pairs(Hero.BuildAtk) do
+        if(Build:GetBuildLvIsUp(v))then
+            local heroIds = Hero:GetIdsByAtkType(v,true);
+            if(#heroIds > 0)then
+                return true;
+            end
+        end
+    end
+    return false;
+end
+
+--获取变化的BuildDotId
+function Build:GetChangeBuildDotIds()
+    local retData = {};
+    if(self._changeBuildDotIds ~= nil)then
+        for dotId, value in pairs(self._changeBuildDotIds) do
+            if(value ~= 0)then
+                retData[dotId] = value > 0;
+            end
+        end
+    end
+    self._changeBuildDotIds = {};
+    return retData;
+end
+
+--添加变化的BuildDotId
+function Build:AddChangeBuildDotId(dotId,isAdd)
+    if(self._changeBuildDotIds == nil)then
+        self._changeBuildDotIds = {};
+    end
+    if(self._changeBuildDotIds[dotId] == nil)then
+        self._changeBuildDotIds[dotId] = 0;
+    end
+    if(isAdd)then
+        self._changeBuildDotIds[dotId] = self._changeBuildDotIds[dotId] + 1;
+    else
+        self._changeBuildDotIds[dotId] = self._changeBuildDotIds[dotId] - 1;
+    end
+end
+
+function Build:CloseChangeBuildDotIds()
+    self._changeBuildDotIds = {};
+end
+
+function Build:GetBuildDotLv(dotId)
+    local dotLvData = Build:GetDotAddLvById(dotId);
+    local curAllLv = dotLvData.heroAddLv + dotLvData.addLv;
+    local cfg = Build:GetBuildDotCfgById(dotId);
+    local lv = 0;
+    local curLv = 0;
+    for i, num in ipairs(cfg.levelGroup) do
+        curLv = curLv + num;
+        if(curAllLv >= curLv)then
+            lv = i;
+        end
+    end
+    return lv;
+end

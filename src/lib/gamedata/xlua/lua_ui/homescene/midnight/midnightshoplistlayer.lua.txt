@@ -1,0 +1,83 @@
+--
+-- author: haosun
+-- date  : 2021-08-31 17:25:45
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightShopListLayer = class("MidNightShopListLayer", CBaseLayer)
+
+function MidNightShopListLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uimidnight/UI_MidNightShopListLayer",
+    }
+    self._fading = false
+    self._loadAsync = true
+    self:loadAsync()
+end
+
+function MidNightShopListLayer:onEnter()
+    self:createPnl()
+end
+
+function MidNightShopListLayer:onExit()
+    if self._cls ~= nil then
+        for _, items in ipairs(self._cls) do
+            for i, cls in ipairs(items) do
+                cls:clear()
+            end
+        end
+        self._cls = nil
+    end
+
+    CBaseLayer.onExit(self)
+end
+
+function MidNightShopListLayer:show()
+    self:initLayer()
+    self:showLayer()
+end
+
+function MidNightShopListLayer:initLayer()
+    local cfg = MidNight:GetDanGradingCfgById(MidNight:GetDanId())
+    if not cfg.inited then
+        cfg.midnight_coin_list = lua_parse_cfg(cfg.midnight_coin_list, true)
+        cfg.midnight_list_chance = lua_str_split(cfg.midnight_list_chance, "&", true)
+        cfg.inited = true
+    end
+
+    self._cls = {}
+    local obj, items
+    for i = 1, 4, 1 do
+        obj = self.layer:Get("container/prefab_" .. i)
+        items = {}
+        for _, v in ipairs(cfg.midnight_coin_list) do
+            if v[1] == i then
+                table.insert(items, {v[2], v[3]})
+            end
+        end
+        self._cls[i] = {}
+        Bag:SetScrollGoods(self._cls[i], obj:Get("scrollview"), items, 3, 720, 160, 0.55, 88)
+        obj:GetTextComponent("text_probability"):SetText(
+            string.format(LanguageMgr:GetTextByID(77000097), math.floor(cfg.midnight_list_chance[i] * 100)))
+    end
+    local scroll1 = self.layer:GetScrollRectComponent("container/prefab_1/scrollview")
+    local scroll2 = self.layer:GetScrollRectComponent("container/prefab_2/scrollview")
+    local scroll3 = self.layer:GetScrollRectComponent("container/prefab_3/scrollview")
+    local scroll4 = self.layer:GetScrollRectComponent("container/prefab_4/scrollview")
+    scroll1.horizontal = false
+    scroll2.horizontal = false
+    scroll3.horizontal = false
+    scroll4.horizontal = false
+
+    self.layer:Get("container"):SetScale(0, 0, 0)
+    self.layer:Get("container"):DOScale(1, 0.15):OnComplete(
+        function()
+            scroll1.horizontal = true
+            scroll2.horizontal = true
+            scroll3.horizontal = true
+            scroll4.horizontal = true
+        end)
+end
+
+return MidNightShopListLayer

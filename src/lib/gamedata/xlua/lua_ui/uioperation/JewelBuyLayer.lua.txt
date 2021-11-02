@@ -1,0 +1,171 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-30 10:41:19
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local JewelBuyLayer = class("JewelBuyLayer", CBaseLayer)
+local ShopGiftLayer = core.require("xlua/lua_UI/HomeScene/ShopGiftLayer.txt")
+--按钮
+local BTNS = {
+--@ButtonEnd
+}
+--构造函数
+function JewelBuyLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_JewelBuyLayer",
+        trans = parent,
+        obj = true
+    }
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function JewelBuyLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function JewelBuyLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function JewelBuyLayer:Init()
+    self._cfgs = Recharge:GetAllDataByType(Recharge.ChargeType.Gold);
+    self:InitUI();
+end
+
+--初始化UI
+function JewelBuyLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function JewelBuyLayer:show()
+    self:showLayer();
+    self:SetTableView();
+end
+
+--退出按钮事件
+function JewelBuyLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function JewelBuyLayer:onExit()
+
+	self._transTableviewcontroller = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function JewelBuyLayer:OnItemBtnClick(cfg)
+    local layer = ShopGiftLayer:new(self.layer)
+    layer:show(cfg, function()
+        Operation:SendMessage(Operation.ActivityID.JewelBuy,{id = cfg.cfgid});
+    end)
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function JewelBuyLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:SetTableView();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+local RowNum = 2;
+function JewelBuyLayer:SetTableView()
+    local row = math.ceil(#self._cfgs / RowNum);
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self._transTableviewcontroller)
+        self._tvController:Init(row, true,
+                function(cell, row)
+                    self:SetCell(cell, row + 1)
+                end, 0.3, 0.1)
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(row,true);
+    end
+end
+
+function JewelBuyLayer:SetCell(cell,row)
+    if(self._cells == nil)then
+        self._cells = {};
+    end
+    if(self._cells[cell] == nil)then
+        self._cells[cell] = self:NewCell(cell);
+    end
+    self:SetCellData(self._cells[cell],row);
+end
+
+function JewelBuyLayer:NewCell(trans)
+    local cell = clsbase:new(trans);
+    cell.items = {};
+    for i = 1, RowNum do
+        local cls = clsbase:new(cell:Find("item_"..i));
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.txtName = cls:GetTextComponent("txt_name");
+        --cls.txtNum = cls:GetTextComponent("txt_num");
+        cls.txtPrice = cls:GetTextComponent("txt_price");
+        cls.imgDouble = cls:GetImageComponent("img_double");
+        cls.imgBuyIcon = cls:GetImageComponent("img_buy_icon");
+        cls.imgBuyIcon.sprite = Item:LoadSprite(Player.ITEM_VALUE_WITCH_COIN);
+        cls.btn = cls.transform:GetComponent("Button");
+        cls.btn.onClick:AddListener(function ()
+            self:OnItemBtnClick(cls.data);
+        end);
+        cell.items[i] = cls;
+    end
+    return cell;
+end
+
+function JewelBuyLayer:SetCellData(cell,row)
+    local index = 0;
+    for i, cls in ipairs(cell.items) do
+        index = i + RowNum * (row - 1);
+        if(self._cfgs[index] == nil)then
+            cls.obj:SetVisible(false);
+            return;
+        end
+        cls.obj:SetVisible(true);
+        cls.data = self._cfgs[index];
+        cls.imgIcon.sprite = AssetLoader:LoadSprite(cls.data.icon);
+        cls.txtName.text = cls.data.name
+        --cls.txtNum.text = 1;
+        cls.txtPrice.text = cls.data.price;
+        set_com_enabled(cls.imgDouble,cls.data.rate > 1 and Operation:GetGiftBagBoughtNum(cls.data.cfgid) <= 0);
+    end
+end
+
+return JewelBuyLayer;

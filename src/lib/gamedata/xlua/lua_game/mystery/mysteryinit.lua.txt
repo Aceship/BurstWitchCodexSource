@@ -1,0 +1,14 @@
+--
+-- author: haosun
+-- date  : 2020-02-18 22:04:54
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mystery/mystery.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mystery/mystery_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mystery/mysterycfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mystery/mysterydef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Mystery/mysteryui.txt")
+
+Mystery:Ctor()
+Mystery:_LoadCfg()

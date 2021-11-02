@@ -1,0 +1,123 @@
+--
+-- author: haosun
+-- date  : 2020-07-21 17:21:08
+-- brief : 
+--
+
+EventController = EventController or {}
+
+local Dungeon_GradeType = {
+    GradeType_Time          = 1,
+    GradeType_WuShang       = 2,
+    GradeType_Kill          = 3,
+    GradeType_Cadan         = 4,
+    GradeType_Skill         = 5,
+    GradeType_Teshu         = 6,
+    GradeType_Dps           = 7,
+    GradeType_ComplateLevel = 8,
+    GradeType_HP_ComplateLevel = 9,
+    GradeType_WitchID       = 10,
+    GradeType_WitchNumStar  = 11,
+    GradeType_NoSkill       = 12,
+    GradeType_WitchNum      = 13,
+    GradeType_WitchQuNum    = 14,
+    GradeType_WitchDie      = 15,
+}
+
+function EventController:InitEventController()
+    if not self._inited then
+        -- 被杀死的怪物
+        self._enemys = {}        
+        self._inited = true
+    end
+    -- 战斗相关统计
+    self._nohurt        = true      -- 没有收到伤害
+    self._killnumber    = 0         -- 击杀敌人数量
+    self._skillnumber   = 0         -- 大招释放次数
+    self._iswin         = false     -- 是否胜利
+    self._rubscore      = 0         -- 擦弹分数
+    self._rubnumber     = 0         -- 擦弹次数
+    self._hurtnumber    = 0         -- 
+    self._kill_boss_num = 0         -- 击杀BOSS数量
+    self._killCount      = 0
+end
+
+function EventController:UnInitEventController()
+    if self._enemys ~= nil then
+        for enemyid, v in pairs(self._enemys) do
+            self._enemys[enemyid] = nil
+        end
+    end
+    
+    self._kill_boss_num = 0         -- 击杀BOSS数量
+    AppMgr:LogInfo("==========EventController:UnInitEventController()==========")
+end
+
+function EventController:GetKillBossNumber()
+    return self._kill_boss_num
+end
+
+function EventController:AddKillEnemyEvent(enemyid, boss)
+    if self._enemys[enemyid] == nil then
+        self._enemys[enemyid] = 0
+    end
+    self._enemys[enemyid] = self._enemys[enemyid] + 1
+
+    self._killnumber = self._killnumber + 1
+    local _config = FightModule:GetElementCfg(enemyid)
+    if _config.Enemey_type == "1" then
+        self._kill_boss_num = self._kill_boss_num + 1
+    end
+
+    self._killCount = self._killCount + tonumber(_config.coin_score)
+end
+
+function EventController:GetKillNumber()
+    return self._killnumber
+end
+
+function EventController:GetKillEnemyEvent()
+    return self._enemys
+end
+
+function EventController:AddWinEvent()
+    self._iswin = true
+end
+
+function EventController:IsWin()
+    return self._iswin
+end
+
+function EventController:AddSkillPlayEvent()
+    self._skillnumber = self._skillnumber + 1
+end
+
+function EventController:SkillPlayNumber()
+    return self._skillnumber
+end
+
+function EventController:IsPlaySkill()
+    return self._skillnumber > 0
+end
+
+function EventController:AddHurtEvent()
+    self._nohurt = false
+end
+
+function EventController:IsNoHurt()
+    return self._nohurt
+end
+
+function EventController:AddRubEvent(score)
+    self._rubscore = self._rubscore + score
+    self._rubnumber = self._rubnumber + 1
+end
+
+function EventController:AddHurtNumber(number)
+    self._hurtnumber = self._hurtnumber + number
+end
+
+
+function EventController:GetKillCount()
+    return self._killCount
+end

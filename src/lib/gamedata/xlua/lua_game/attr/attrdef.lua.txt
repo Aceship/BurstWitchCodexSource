@@ -1,0 +1,120 @@
+--
+-- author: haosun
+-- date  : 2018-11-26 10:22:49
+-- brief : 
+--
+
+CAttr = CAttr or {}
+
+CAttr.CALC_TYPE_VALUE       = 1     -- 数值
+CAttr.CALC_TYPE_PER         = 2     --  
+
+CAttr.CALC_VALUE        = 1     -- 属性叠加
+CAttr.CALC_BASE         = 2     -- 基础属性
+CAttr.CALC_TOTAL        = 3     -- 总属性
+
+CAttr.SHOW_TYPE_VALUE       = 1     -- 显示数值
+CAttr.SHOW_TYPE_PER         = 2     -- 显示百分比
+CAttr.SHOW_TYPE_VALUE_S     = 3     -- 显示数值 xx/s
+
+CAttr.TYPE_BEGIN            = 1
+CAttr.TYPE_HP               = 1             -- 血量 1
+CAttr.TYPE_ATK              = 2             -- 攻击 1
+CAttr.TYPE_SPD              = 3             -- 攻速 1
+CAttr.TYPE_PRODUCT_DIS      = 4             -- 投放瞳距 2
+CAttr.TYPE_DEF              = 5             -- 防御 1
+CAttr.TYPE_SKILL_POINT      = 6             -- 神火恢复速度 1
+CAttr.TYPE_LIGHT_ATK        = 7             -- 光攻 1
+CAttr.TYPE_LIGHT_DEF        = 8             -- 光防 1
+CAttr.TYPE_DARK_ATK         = 9             -- 暗攻 1
+CAttr.TYPE_DARK_DEF         = 10            -- 暗防 1
+CAttr.TYPE_CHAOS_ATK        = 11            -- 混沌攻 1
+CAttr.TYPE_CHAOS_DEF        = 12            -- 混沌防 1
+CAttr.TYPE_CD_BUFF          = 15            -- 必杀冷却增幅 取决于投不投
+CAttr.TYPE_ENERGY           = 16            -- 能量恢复 2
+CAttr.TYPE_CD               = 18            -- 必杀冷却  取决于投不投
+CAttr.TYPE_HIT              = 20            -- 暴击 1
+CAttr.TYPE_DMG              = 21            -- 暴伤 1
+CAttr.TYPE_ENERGY           = 22            -- 精力 1
+
+CAttr.TYPE_SCORE            = 23            -- 擦弹得分增幅 1
+CAttr.TYPE_ADD_SCORE        = 24            -- 分数增幅 1
+
+CAttr.TYPE_HIT_RATE         = 25            -- 暴击率
+CAttr.TYPE_DMG_RATE         = 26            -- 暴伤率
+
+CAttr.TYPE_PER_HP        = 39              -- 血量百分比
+CAttr.TYPE_PER_ATK       = 40             -- 攻击百分比
+CAttr.TYPE_PER_DEF       = 41             -- 防御百分比
+CAttr.TYPE_PER_HIT       = 42             -- 暴击百分比
+CAttr.TYPE_PER_DMG       = 43             -- 爆伤百分比
+CAttr.TYPE_END           = 43
+
+
+CAttr.Icon_Path  = {
+    [CAttr.TYPE_HP]             = "Common_Icon_Attr_Hp",
+    [CAttr.TYPE_ATK]            = "Common_Icon_Attr_Atk",
+    [CAttr.TYPE_SPD]            = "Common_Icon_Attr_Spd",
+    [CAttr.TYPE_PRODUCT_DIS]    = "Common_Icon_Attr_Dis",
+    [CAttr.TYPE_DEF]            = "Common_Icon_Attr_Def",
+    [CAttr.TYPE_HIT]            = "Common_Icon_Attr_Cri",
+    [CAttr.TYPE_DMG]            = "Common_Icon_Attr_Sud",
+    [CAttr.TYPE_ENERGY]         = "Common_Icon_Attr_Blue",
+    [CAttr.TYPE_CD]             = "Common_Icon_Attr_Cd",
+    [CAttr.TYPE_HIT_RATE]            = "Common_Icon_Attr_Cri",
+    [CAttr.TYPE_DMG_RATE]            = "Common_Icon_Attr_Sud",
+
+    [CAttr.TYPE_PER_HP]             = "Common_Icon_Attr_Hp",
+    [CAttr.TYPE_PER_ATK]            = "Common_Icon_Attr_Atk",
+    [CAttr.TYPE_PER_DEF]            = "Common_Icon_Attr_Def",
+    [CAttr.TYPE_PER_HIT]            = "Common_Icon_Attr_Cri",
+    [CAttr.TYPE_PER_DMG]            = "Common_Icon_Attr_Sud",
+}
+
+CAttr.HERO_DETAILS = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+    CAttr.TYPE_DEF,
+    CAttr.TYPE_HIT,
+    CAttr.TYPE_DMG,
+    --CAttr.TYPE_ENERGY,
+    --CAttr.TYPE_CD
+}
+
+--公式投放类型
+CAttr.GS_TYPE1 = 1;
+CAttr.GS_TYPE2 = 2;
+CAttr.GS_TYPE3 = 3;
+
+CAttr.Attrs_Array = 
+{
+CAttr.TYPE_HP             ,            -- 血量 1
+CAttr.TYPE_ATK            ,            -- 攻击 1
+CAttr.TYPE_SPD            ,             -- 攻速 1
+CAttr.TYPE_PRODUCT_DIS    ,            -- 投放瞳距 2
+CAttr.TYPE_DEF            ,             -- 防御 1
+CAttr.TYPE_SKILL_POINT    ,           -- 神火恢复速度 1
+CAttr.TYPE_LIGHT_ATK      ,           -- 光攻 1
+CAttr.TYPE_LIGHT_DEF      ,           -- 光防 1
+CAttr.TYPE_DARK_ATK       ,            -- 暗攻 1
+CAttr.TYPE_DARK_DEF       ,           -- 暗防 1
+CAttr.TYPE_CHAOS_ATK      ,           -- 混沌攻 1
+CAttr.TYPE_CHAOS_DEF      ,        -- 混沌防 1
+CAttr.TYPE_CD_BUFF        ,          -- 必杀冷却增幅 取决于投不投
+CAttr.TYPE_ENERGY         ,          -- 能量恢复 2
+CAttr.TYPE_CD             ,          -- 必杀冷却  取决于投不投
+CAttr.TYPE_HIT            ,            -- 暴击 1
+CAttr.TYPE_DMG            ,          -- 暴伤 1
+CAttr.TYPE_SCORE          ,           -- 擦弹得分增幅 1
+CAttr.TYPE_ADD_SCORE      ,          -- 分数增幅 1
+CAttr.TYPE_HIT_RATE       ,
+CAttr.TYPE_DMG_RATE       ,
+
+CAttr.TYPE_PER_HP        ,             -- 血量百分比
+CAttr.TYPE_PER_ATK       ,            -- 攻击百分比
+CAttr.TYPE_PER_DEF       ,            -- 防御百分比
+CAttr.TYPE_PER_HIT       ,           -- 暴击百分比
+CAttr.TYPE_PER_DMG       ,           -- 爆伤百分比
+
+    
+}

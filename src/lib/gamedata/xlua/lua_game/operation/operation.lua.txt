@@ -1,0 +1,357 @@
+Operation = Operation or {}
+
+function Operation:Ctor()
+    self._operation = {}
+    self.isSetUpLvRed = false;
+    self._timeLimitRed = true;
+    self._lastBloodCycleLv = 0;
+    Operation:InitData();
+end
+
+function Operation:Clear()
+    Operation:CloseOperationMainLayer()
+    self:Ctor()
+end
+
+function Operation:SetTimeLimitRedState(redState)
+    self._timeLimitRed = redState or false;
+end
+
+function Operation:GetTimeLimitRedState()
+    return self._timeLimitRed;
+end
+
+--获取活动总类是否开启
+--当有一个子活动开启时,总类开启
+function Operation:GetActiveListIsOpenById(id)
+    if(id == nil)then
+        return false;
+    end
+    id = tonumber(id);
+    local isOpen = false;
+    local timeId = 0;
+    local timer = 0;
+    for _, v in ipairs(self._activeList[id].table) do
+
+        if(Operation:GetActiveIsOpenByUid(v.UID))then
+            if(v.Time ~= nil)then
+                if(tonumber(v.Time) <= 0)then--活动永久开启
+                    isOpen = true;
+                    break;
+                else
+                    local curTimer = CTime:GetRemainTime(tonumber(v.Time))--获取结束时间
+                    if(timer < curTimer)then--保存的结束时间小于当前的活动时间,重新赋值,便于下次比较
+                        timer = curTimer;
+                        timeId = tonumber(v.Time);
+                    end
+                end
+            elseif(v.openConditions ~= Operation.OpenConditionType.Null)then
+                for i, vv in pairs(v.openConditions) do
+                    if(vv[1] == Operation.OpenConditionType.Time)then
+                        local curTimer = CTime:GetRemainTime(tonumber(vv[2]))--获取结束时间
+                        if(timer < curTimer)then--保存的结束时间小于当前的活动时间,重新赋值,便于下次比较
+                            timer = curTimer;
+                            timeId = tonumber(vv[2]);
+                        end
+                    end
+                end
+            end
+            isOpen = true;
+        end
+    end
+    return isOpen,timeId;
+end
+
+function Operation:GetActiveIsOpenByUid(uid) --通过UID获取活动是否开启状态
+    local cfg = self:GetActiveCfgByUID(uid);
+    if cfg == nil then return end
+
+    local isOpen = false;
+    if(cfg.Time ~= nil)then
+        if(tonumber(cfg.Time) <= 0)then--活动永久开启
+            if(cfg.duration <= 0)then--活动有持续时间
+                isOpen = true;
+            else
+                local overTime = Operation:GetActiveOverTime(uid);
+                isOpen = overTime > 0;
+            end
+        else
+            --活动为限时活动,并且处于开启状态
+            isOpen = CTime:IsOpen(tonumber(cfg.Time))
+        end
+    else
+        if(cfg.openConditions == Operation.OpenConditionType.Null)then
+            isOpen = true;
+        else
+            isOpen = true;
+            for _, v in ipairs(cfg.openConditions) do
+                if(v[1] == Operation.OpenConditionType.Lv)then
+                    if(Player:GetLevel() < v[2])then
+                        isOpen = false;
+                        break;
+                    end
+                elseif(v[1] == Operation.OpenConditionType.Level)then
+                    local level = Chapter:GetLevel(v[2]);
+                    if(level == nil)then
+                        isOpen = false;
+                        break;
+                    else
+                        if(not level.open)then
+                            isOpen = false;
+                            break;
+                        end
+                    end
+                elseif(v[1] == Operation.OpenConditionType.Money)then
+                    if(Operation:GetMoney() < v[2])then
+                        isOpen = false;
+                        break;
+                    end
+                elseif(v[1] == Operation.OpenConditionType.Time)then
+                    if(not CTime:IsOpen(tonumber(v[2])))then
+                        isOpen = false;
+                        break;
+                    end
+                end
+            end
+        end
+    end
+    if cfg.charges == nil then return isOpen end
+
+    if cfg.Finished == "1" then
+        local _cnt, _chargecfg = 0, nil
+        local isSellOut = true
+        for _, chargeId in ipairs(cfg.charges) do
+            _cnt = Operation:GetGiftBagBoughtNum(chargeId)
+            _chargecfg = Recharge:GetData(chargeId)
+            if _chargecfg.buytype ~= Recharge.BuyType.Normal then
+                isSellOut = isSellOut and (_chargecfg.stock - _cnt <= 0)
+            else
+                if _chargecfg.stock <= 0 then
+                    isSellOut = false
+                else
+                    isSellOut = isSellOut and (_chargecfg.stock - _cnt <= 0)                    
+                end
+            end
+        end
+        if isSellOut then return false end
+    end
+    local charge;
+    local buyNum = 0;
+    local oneGetNum = 0;
+    -- 检测是否拥有礼包
+    for _, v in ipairs(cfg.charges) do
+        -- v 是Charge表cfgid
+        if(v ~= -1 and v ~= nil and v~= "-1")then
+            charge = Recharge:GetData(v);
+            buyNum = Operation:GetGiftBagBoughtNum(v) or 0;
+            if(charge.stock ~= 0 and charge.buytype == Recharge.BuyType.Normal and buyNum >= charge.stock)then -- 礼包为一次性购买,并且已经买过了
+                if(charge.itype ~= Recharge.ChargeType.Handbook and charge.itype ~= Recharge.ChargeType.Skin)then
+                    oneGetNum = oneGetNum + 1;
+                end
+            end
+        end
+    end
+    -- local tempCfg;
+    -- if cfg.pointName ~= "-1" then
+    --     tempCfg = self._pointCfg[cfg.pointName];
+    -- end
+    if oneGetNum >= #cfg.charges then        --无一次性礼包未购买
+        isOpen = false;
+    end
+
+    return isOpen;
+end
+
+--获取活动结束时间
+function Operation:GetActiveOverTime(uid)
+    local cfg = Operation:GetActiveCfgByUID(uid);
+    if(cfg.duration > 0)then
+        local day = Player:GetOffsetDay();
+		--计算公式 : (创建时间 + 配置持续时间 - 当前天偏移) * 天秒数 + 天偏移秒数 - 今天已经过去的时间 
+        return (Player:GetCreateDay() + cfg.duration - day) * CTime.DAY_SEC + CTime.OFFSET_SEC - Lib:GetDayPassTime(CTime:GetServerTime()) or 0;
+    end
+    return 0;
+end
+
+function Operation:GetCanReceiveWitchBookIds(id)
+    local handBook = Operation:GetHandBookById(id)
+    local tempData = Operation:GetWitchBookIdsById(id);
+    local lv,exp = Player:GetLevel(),Player:GetValue(Player.VALUE_HANDBOOK_EXP);
+    local tempExp = -1;
+    local bagId = Operation:GetGiftBagBoughtNum(Operation.ActivityID.BloodCycle);
+    local retUnBuyIds = {};
+    local retBuyIds = {};
+    for i, data in ipairs(tempData) do
+        if(tempExp < 0)then
+            if(data.condition == Operation.WitchBookLvUnLockType.Lv)then
+                tempExp = lv;
+            elseif(data.condition == Operation.WitchBookLvUnLockType.Exp)then
+                tempExp = exp;
+            end
+        end
+        if(tempExp >= data.exp)then
+            if(bagId ~= nil)then
+                if(data.buyAward ~= -1)then
+                    if(handBook.sids[data.id] == nil)then
+                        table.insert(retBuyIds, tonumber(data.id));
+                    end
+                end
+            end
+            if(data.freeAward ~= -1)then
+                if(handBook.nids[data.id] == nil)then
+                    table.insert(retUnBuyIds, tonumber(data.id));
+                end
+            end
+        end
+    end
+    return retUnBuyIds,retBuyIds;
+end
+
+function Operation:GetPriceById(id)
+    id = tonumber(id);
+    if(id <= 0 or id == nil)then
+        CS.Logger.LogError("chargeId is 0 or nil   Pos = Operation:GetPriceById");
+    else
+        local data = Recharge:GetData(id);
+        if(data == nil)then
+            CS.Logger.LogError("data is nil   Pos = Operation:GetPriceById");
+        end
+        return math.ceil(data.price * data.discount);
+    end
+    return 0;
+end
+
+function Operation:GetOpenBloodCycleId()
+    if(Operation:GetActiveIsOpenByUid(Operation.ActivityID.BloodCycle))then
+        return Operation.ActivityID.BloodCycle;
+    end
+    if(Operation:GetActiveIsOpenByUid(Operation.ActivityID.BloodCycle2))then
+        return Operation.ActivityID.BloodCycle2;
+    end
+    return -1;
+end
+
+function Operation:GetBloodCycleIsOpen()
+    local retBool = false;
+    if(Operation:GetActiveIsOpenByUid(Operation.ActivityID.BloodCycle))then
+        retBool = true;
+    end
+    if(not retBool)then
+        if(Operation:GetActiveIsOpenByUid(Operation.ActivityID.BloodCycle2))then
+            retBool = true;
+        end
+    end
+    return retBool;
+end
+
+
+function Operation:GetCurChargeIds()
+    return self:GetChargeIdsByUID(self:GetCurSelectUID());
+end
+
+function Operation:GetChargeIdsByUID(uid)
+    if(uid == nil)then
+        return;
+    end
+    uid = tonumber(uid);
+    local curCfg = Operation:GetActiveCfgByUID(uid);
+    local retIds = curCfg.charges;
+    local sortArr = {};
+    local sortId,charge,buyNum,isOpen;
+    for _, id in ipairs(retIds) do
+        sortId = 0;
+        isOpen = false;
+        charge = Recharge:GetData(id);
+        if(charge.timeId == nil or charge.timeId <= 0 or CTime:IsOpen(charge.timeId))then-- 时间开启
+            buyNum = Operation:GetGiftBagBoughtNum(id);
+            if(charge.stock > 0)then--礼包是否卖完
+                if(charge.stock - buyNum > 0)then
+                    isOpen = true;
+                end
+            else
+                isOpen = true;
+            end
+            if(isOpen)then
+                if(charge.lockData == Recharge.LockType.NotHave)then--锁定方式--无
+                elseif(charge.lockData[1] == Recharge.LockType.One)then--锁定方式--一个锁定
+                    isOpen = Item:GetCount(charge.lockData[2]) < 1;
+                elseif(charge.lockData[1] == Recharge.LockType.Double)then--锁定方式--指定个数锁定
+                    isOpen = Item:GetCount(charge.lockData[2]) < charge.lockData[3];
+                end
+            end
+            if(isOpen)then
+                if(charge.openData ~= -1)then
+                    isOpen = Recharge:GetChargeOpenStateById(id);
+                end
+                if(isOpen)then
+                    sortId = 1;
+                else
+                    sortId = 100;
+                end
+            else
+                sortId = 10000;
+            end
+            sortId = sortId * charge.index;
+            table.insert(sortArr,{id = id,sortId = sortId});
+        end
+    end
+    table.sort(sortArr,function (a,b)
+        return a.sortId < b.sortId;
+    end);
+    retIds = {};
+    for _, v in ipairs(sortArr) do
+        table.insert(retIds,v.id);
+    end
+    return retIds;
+end
+
+function Operation:GetValidUpgradePackageIndex()
+    local retIndex,playerLv = 1,Player:GetLevel();
+    local allData = Recharge:GetAllDataByType(Recharge.ChargeType.UpgradePackage);
+    local serverData = Operation:GetBoughtBags();
+    local hasNil = false
+    for i, v in ipairs(allData) do
+        if(v.openData ~= -1)then
+            -- if(playerLv >= v.openData[1][2])then
+                if(serverData[v.cfgid] == nil)then
+                    retIndex = i;
+                    hasNil = true
+                    break;
+                end
+            -- end
+        else
+            if(serverData[v.cfgid] == nil)then
+                retIndex = i;
+                hasNil = true
+                break;
+            end
+        end
+    end
+    if not hasNil then
+        retIndex = #allData
+    end
+    return retIndex;
+end
+
+function Operation:GetBloodCycleLv()
+    local id = Operation:GetOpenBloodCycleId();
+    if(id <= 0)then
+        return 0;
+    end
+    local cfgDatas = Operation:GetWitchBookIdsById(Operation:GetActiveCfgByUID(id).charges[1]);
+    if(cfgDatas == nil)then
+        return 0;
+    end
+    local tempExp = Player:GetValue(Player.VALUE_HANDBOOK_EXP);
+    local retLv = 0;
+    for _, v in ipairs(cfgDatas) do
+        if(tempExp >= v.exp)then--计算等级以及经验
+            retLv = retLv + 1;
+        end
+    end
+    return retLv
+end
+
+function Operation:InitLastBloodCycleLv()
+    self._lastBloodCycleLv = Operation:GetBloodCycleLv() or 0;
+end

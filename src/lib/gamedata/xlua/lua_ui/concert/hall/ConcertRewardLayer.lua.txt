@@ -1,0 +1,195 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-09-07 11:01:27
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertRewardLayer = class("ConcertRewardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    Cancel              = "uibtn_cancel",
+}
+
+local RewardType = {
+    Base = 1, --基础奖励（每30分钟）
+    Over = 2, --结束奖励
+}
+--构造函数
+function ConcertRewardLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertRewardLayer",
+    }
+    self._topData = {
+        showBtnBack     = false,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+
+    self.baseRewardItems = {}
+    self.overRewardItems = {}
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertRewardLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertRewardLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+    if (itype == BTNS.Cancel) then
+        self:onCancel();
+    else
+
+    end
+end
+
+--初始化
+function ConcertRewardLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertRewardLayer:InitUI()
+    local NODE_CLASS = {
+    };
+    self._uibtnCancel = self.layer:GetButtonComponent("uibtn_cancel");
+    self._objBaseContent = self.layer:GetRectTransformComponent("container/reward_base_scroll/reward_base_scroll/viewport/obj_base_content").gameObject;
+    self._objOverContent = self.layer:GetRectTransformComponent("container/reward_over_scroll/reward_over_scroll/viewport/obj_over_content").gameObject;
+    self._cellItem = self.layer:GetRectTransformComponent("container/cell_item").gameObject;
+
+end
+
+--显示UI
+function ConcertRewardLayer:show(bookId)
+    self:InitBaseDrops(bookId)
+    self:InitOverDrops(bookId)
+    self:showLayer();
+end
+
+--退出按钮事件
+function ConcertRewardLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function ConcertRewardLayer:onExit()
+    if self.baseRewardItems ~= nil then
+        for i, cls in pairs(self.baseRewardItems) do
+            cls:clear()
+        end
+    end
+    self.baseRewardItems = nil
+
+    if self.overRewardItems ~= nil then
+        for i, cls in pairs(self.overRewardItems) do
+            cls:clear()
+        end
+    end
+    self.overRewardItems = nil
+
+    self._uibtnCancel = nil;
+    self._objBaseContent = nil;
+    self._objOverContent = nil;
+    self._cellItem = nil;
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ConcertRewardLayer:onCancel()
+    self:onPopLayer();
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ConcertRewardLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ConcertRewardLayer:InitBaseDrops(bookId)
+    local book = Concert:GetConcertBookById(bookId)
+    local baseDrops = Item:GetDrops(book.baseDropId)
+
+    local dataNum = lua_table_len(baseDrops)
+    local itemNum = lua_table_len(self.baseRewardItems)
+    self._objBaseContent:SetVisible(dataNum > 0);
+    local itemData = {}
+    if(dataNum > 0)then
+        for _, v in ipairs(baseDrops) do
+            local cls = self.baseRewardItems[_]
+            if cls == nil then
+                cls = Concert:CtorItemCObj(self._objBaseContent:AddChild(self._cellItem))
+                self.baseRewardItems[_] = cls
+            end
+            cls.obj:SetVisible(true)
+
+            itemData.bagtype = v[1];
+            itemData.cfgid = v[2];
+            itemData.count = v[3];
+            itemData.dropType = v[4];
+            itemData.addItemId = 0
+            Concert:SetItemView(cls,itemData);
+        end
+    end
+    if dataNum < itemNum then
+        for i = dataNum + 1, itemNum do
+            local cls = self.baseRewardItems[i]
+            cls.obj:SetVisible(false)
+        end
+    end
+end
+
+function ConcertRewardLayer:InitOverDrops(bookId)
+    local overDrops = Concert:GetRewardItemsByBookId(bookId)
+
+    local dataNum = lua_table_len(overDrops)
+    local itemNum = lua_table_len(self.overRewardItems)
+    self._objOverContent:SetVisible(dataNum > 0);
+    local itemData = {}
+    if(dataNum > 0)then
+        for _, v in ipairs(overDrops) do
+            local cls = self.overRewardItems[_]
+            if cls == nil then
+                cls = Concert:CtorItemCObj(self._objOverContent:AddChild(self._cellItem))
+                self.overRewardItems[_] = cls
+            end
+            cls.obj:SetVisible(true)
+
+            itemData.bagtype = v[1];
+            itemData.cfgid = v[2];
+            itemData.count = v[3] or 0;
+            itemData.dropType = v[4];
+            itemData.addItemId = 0
+            Concert:SetItemView(cls,itemData);
+        end
+    end
+    if dataNum < itemNum then
+        for i = dataNum + 1, itemNum do
+            local cls = self.overRewardItems[i]
+            cls.obj:SetVisible(false)
+        end
+    end
+end
+
+
+return ConcertRewardLayer;

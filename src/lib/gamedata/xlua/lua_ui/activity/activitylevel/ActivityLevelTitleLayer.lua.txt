@@ -1,0 +1,286 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-24 15:33:06
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelTitleLayer = class("ActivityLevelTitleLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnRule = "btn_rule",
+	--@ButtonEnd
+}
+--构造函数
+function ActivityLevelTitleLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelTitleLayer",
+    }
+    --背景设置
+    --[[self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_MID_NIGHT_1,
+    };]]--
+    self._fading = false;
+    self._isInit = true;
+    self._countDown = 0;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActivityLevelTitleLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ActivityLevelTitleLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnRule)then
+        self:OnBtnRuleClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+--初始化
+function ActivityLevelTitleLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function ActivityLevelTitleLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId();
+    self._activityCfg = Operation:GetActiveCfgByUID(self._uid);
+    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
+    self._isActivity = Operation:GetActiveIsOpenByUid(self._typeCfg.uid);
+    if(self._isActivity)then
+        self._countDown = CTime:GetRemainTime(self._activityCfg.Time);
+    else
+        self._countDown = Activity:GetActivityLevelShopCountDown();
+    end
+end
+
+--初始化UI
+function ActivityLevelTitleLayer:InitUI()
+    self._isInit = false;
+    --@ImageEnd
+
+    self._txtCountDown = self.layer:GetTextComponent("txt_count_down");
+    self._txtDay = self.layer:GetTextComponent("txt_day");
+    self._txtChapterDes = self.layer:GetTextComponent("trans_des_top/txt_chapter_des");
+
+    --@TextEnd
+
+    self._transSpine = self.layer:Get("trans_spine");
+    self._transDesTop = self.layer:Get("trans_des_top");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    CS.UnityHelper.NotchfitY(self._txtCountDown.transform);
+    CS.UnityHelper.NotchfitY(self._txtDay.transform);
+    CS.UnityHelper.NotchfitY(self._transDesTop);
+    CS.UnityHelper.NotchfitY(self.layer:Get("txt_des"));
+    CS.UnityHelper.NotchfitY(self.layer:Get("btn_rule"));
+    CS.UnityHelper.NotchfitY(self.layer:Get("img_icon"));
+    CS.UnityHelper.NotchfitY(self.layer:Get("txt_title_E"));
+
+    self:SetUI();
+    CS.UnityHelper.NotchfitY(self.layer:Get("img_title"));
+end
+
+--显示UI
+function ActivityLevelTitleLayer:show()
+    self:showLayer();
+end
+
+--释放
+function ActivityLevelTitleLayer:onExit()
+
+    self._layerCfg = nil;
+    self._activityCfg = nil;
+	self._txtCountDown = nil;
+    self._txtDay = nil;
+    self._txtChapterDes = nil;
+    self._transDesTop = nil;
+    --@CloseEnd
+    if(self._curMoudle ~= nil)then
+        u3d_destory_obj(self._curMoudle);
+        self._curMoudle = nil;
+    end
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ActivityLevelTitleLayer:OnBtnRuleClick()
+    Groble_UIMgr:ShowRuleTipsLayer(self._layerCfg.ruleId);
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityLevelTitleLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addUpdateDayListener();
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ActivityLevelTitleLayer:UpdateShowType()
+    self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity:GetActivityLevelLayerType());
+    --顶部货币
+    local topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo = self._layerCfg.topInfo or {};--货币类型
+    };
+    Groble_UIMgr:SetTopData(topData);
+    --设置背景
+    local bgPath = BackBgPath.Null;
+    if(self._layerCfg.bgPath ~= "-1")then
+        bgPath = Activity:GetActivityLevelImgPath(self._layerCfg.bgPath);
+    end
+    local bgData = {
+        showEffect = false,
+        bgType = bgPath,
+    };
+    self._transDesTop:SetVisible(self._layerCfg.layerDes > 0);
+    if(self._layerCfg.layerDes > 0)then
+        self._txtChapterDes:SetText(LanguageMgr:GetTextByID(self._layerCfg.layerDes));
+    end
+    Groble_UIMgr:SetBgData(bgData);
+    self:UpdateUI();
+    self:playAni("ActivityLevelTitleLayerAnim")
+end
+
+function ActivityLevelTitleLayer:SetUI()
+    local imgTitle = self.layer:GetImageComponent("img_title");
+    local rectTitle = self.layer:GetRectTransformComponent("img_title");
+    local txtDes = self.layer:GetTextComponent("txt_des");
+    local txtTitleE = self.layer:GetTextComponent("txt_title_E");
+    if(self._activityCfg.ad_Image ~= nil)then--设置广告字
+        Activity:SetImgTitle(imgTitle,rectTitle,self._activityCfg);
+    end
+    txtTitleE:SetText(self._activityCfg.EnglishName);
+    if(self._activityCfg.des ~= nil)then
+        txtDes:SetText(self._activityCfg.des);
+    end
+    self:SetCountDownUI();
+end
+
+function ActivityLevelTitleLayer:UpdateUI()
+    local dayStr = "";
+    if(self._layerCfg.isShowDay > 0)then
+        local sTime = CTime:GetStartTime(self._activityCfg.Time);
+        local day = math.ceil((CTime:GetServerTime() - sTime) / CTime.DAY_SEC);
+        dayStr = tostring(day);
+        if(day < 10)then
+            dayStr = string.format("0%s",day);
+        end
+    end
+    self._txtDay:SetText(dayStr);
+
+    --spine
+    if(self._layerCfg.spinePos ~= nil)then
+        self:LoadSpine();
+    else
+        if(self._curMoudle ~= nil)then
+            self.currHeroId = nil;
+            u3d_destory_obj(self._curMoudle);
+            self._curMoudle = nil;
+        end
+    end
+end
+
+function ActivityLevelTitleLayer:LoadSpine()
+    local cfg = self._layerCfg.spinePos;
+    if(self.currHeroId ~= self._layerCfg.spinePos[1])then
+        self.currHeroId = self._layerCfg.spinePos[1];
+        Hero:LoadSpineAsync(self.__cname,self._transSpine, self._layerCfg.spinePos[1], nil,
+                function(obj)
+
+                    if obj == nil then
+                        self._curMoudle = nil;
+                    else
+                        self._curMoudle = obj;
+                    end
+                    if(self._layerCfg.spinePos ~= nil and self._curMoudle ~= nil)then
+                        self:fixedSpineOrder()
+                        self:SetSpinePos(cfg);
+                    else
+                        if(self._curMoudle ~= nil)then
+                            self.currHeroId = nil;
+                            u3d_destory_obj(self._curMoudle);
+                            self._curMoudle = nil;
+                        end
+                    end
+                end)
+    else
+        self:SetSpinePos(cfg);
+    end
+end
+
+function ActivityLevelTitleLayer:fixedSpineOrder()
+    if self._curMoudle == nil then return end
+
+    local localOrder = 2000
+    self._curMoudle:GetComponent("SkeletonAnimation"):GetComponent("MeshRenderer").sortingOrder = localOrder
+    for i = 1, self._curMoudle.transform.childCount do
+        local child = self._curMoudle.transform:GetChild(i - 1).gameObject
+        if string.find(child.name, "_under") ~= nil then
+            set_particle_order(child, localOrder - 1)
+        else
+            set_particle_order(child, localOrder + 1)
+        end
+    end
+end
+
+function ActivityLevelTitleLayer:SetSpinePos(cfg)
+    self._curMoudle:GetComponent("SkeletonAnimation"):GetComponent("MeshRenderer").sortingOrder = 2000;
+    self._curMoudle.transform:SetPosition(cfg[2],cfg[3],0, true);
+    self._curMoudle.transform:SetScale(cfg[4],cfg[5],cfg[0]);
+end
+
+function ActivityLevelTitleLayer:SetCountDownUI()
+    if(self._isActivity and self._countDown >= 0)then
+        self._txtCountDown:SetText(string.format(LanguageMgr:GetTextByID(90378),CTime:Time2Str_2(self._countDown)));
+    else
+        if(self._countDown < 0 and self._isActivity)then
+            self._isActivity = false;
+            self._countDown = Activity:GetActivityLevelShopCountDown();
+        end
+        if(self._countDown >= 0)then
+            self._txtCountDown:SetText(string.format(LanguageMgr:GetTextByID(90379),CTime:Time2Str_2(self._countDown)));
+        else
+            self._txtCountDown:SetText(LanguageMgr:GetTextByID(90380));
+        end
+    end
+end
+
+function ActivityLevelTitleLayer:onPerSecondUpdate()
+    if(self._countDown >= 0)then
+        self._countDown = self._countDown - 1;
+        self:SetCountDownUI();
+    end
+end
+
+function ActivityLevelTitleLayer:onUpdateDay()
+    self:UpdateUI();
+end
+
+return ActivityLevelTitleLayer;

@@ -1,0 +1,7 @@
+id,条件ID,关卡ID,支援点数
+id,CondID,DungeonID,SupPoint
+number,number,number,number
+101,10001,370001,1
+102,10002,370001,2
+103,10002,370002,1
+104,10001,370002,2

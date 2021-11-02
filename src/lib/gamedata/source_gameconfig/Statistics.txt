@@ -1,0 +1,12 @@
+id,适用参数,描述,首参数描述
+id,cond_used,desc,cond_desc
+number,array_&_|,string,string
+10001,1&100000|3&100000,抽奖(召唤)次数统计,Gashapon:Type
+10002,2&100000|3&300000|4&30000000,召唤魔女统计,CardCharacter:Quality
+10003,4&999999999,大章类型出战次数统计,DungeonMap:Level_main_type
+10004,4&8000000000000,大章类型总得分统计,DungeonMap:Level_main_type
+10005,4&12000000000,大章类型必杀技使用统计,DungeonMap:Level_main_type
+10006,4&30000000,大章类型擦弹分统计,DungeonMap:Level_main_type
+10007,1&300000000|2&100000000|3&600000000,击杀怪物统计,EnemeyCharacter:Enemey_type
+10008,1&50000000000,【深夜】击杀怪物统计,EnemeyCharacter:Enemey_type
+10009,1&40000|2&40000,解锁图鉴数量,1魔女 2装备

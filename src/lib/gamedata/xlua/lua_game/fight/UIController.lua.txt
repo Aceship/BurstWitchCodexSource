@@ -1,0 +1,316 @@
+--
+-- author: haosun
+-- date  : 2020-08-08 19:10:11
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/FightStaticLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/FightPlayerLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/ChangePlayerLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/FightSettingLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/ComboHurtLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/MustSkillLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/IntroduceBossLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/BossInfoLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/RandomLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/ComboWipeNumberLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/TimeTipsLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/TimeAddLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/AutoFightLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/AutoResultLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_UI/GameFightScene/FightFinishBox.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/PlaybackLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/CommonTipsLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/UI_EffectLayer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/TalkSkipLayer.txt")
+
+UIController = UIController or {}
+
+function UIController:InitUIController()
+    UI_FightSettingLayer:FightSettingLayerCreator()
+    UI_ChangePlayerLayer:ChangePlayerLayerCreator()
+    UI_ComboHurtLayer:ComboHurtLayerCreator()
+    UI_IntroduceBossLayer:IntroduceBossLayerCreator()
+    UI_BossInfoLayer:BossInfoLayerCreator()
+    UI_FightPlayerLayer:FightPlayerLayerCreator()
+    UI_FightStaticLayer:FightStaticLayerCreator()
+    UI_ComboWipeNumberLayer:ComboWipeNumberLayerCreator()
+    UI_TimeTipsLayer:TimeTipsLayerCreator()
+    if PrefsController:IsMustPicture() then
+        UI_MustSkillLayer:MustSkillLayerCreator()
+    end
+    PlaybackLayer:PlaybackLayerCreator()
+    UI_EffectLayer:Creator()
+    self._titlePrefab = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/TitlePrefab")
+    GEvent:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FLIP_OVER,
+        function()
+            self:showResult(self._param);
+        end)
+    
+    self._showBoss  = false
+    self._hasenter  = false
+    self._hasEnd    = false
+    self._hasDestroyed = false
+    AppMgr:LogInfo("==========UIController:InitUIController()==========")
+end
+
+function UIController:UnInitUIController()
+    self._todoList          = nil
+    self._data              = nil    
+    self:_onDestructor()
+    GEvent:removeEventListenerByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FLIP_OVER)
+    AppMgr:LogInfo("==========UIController:UnInitUIController()==========")
+end
+
+function UIController:_onDestructor()
+    if self._hasDestroyed then return end
+    self._hasDestroyed = true
+    UI_FightPlayerLayer:FightPlayerLayerDestructor()
+    UI_FightStaticLayer:FightStaticLayerDestructor()
+    UI_ChangePlayerLayer:ChangePlayerLayerDestructor()
+    UI_FightSettingLayer:FightSettingLayerDestructor()
+    UI_ComboHurtLayer:ComboHurtLayerDestructor()
+    UI_MustSkillLayer:MustSkillLayerDestructor()
+    UI_IntroduceBossLayer:IntroduceBossLayerDestructor()
+    UI_BossInfoLayer:BossInfoLayerDestructor()
+    UI_ComboWipeNumberLayer:ExitWipeNumberLayer()
+    UI_TimeTipsLayer:TimeTipsLayerDestructor()
+    UI_TimeAddLayer:TimeAddLayerDestructor()
+    UI_EffectLayer:Destructor()    
+end
+
+function UIController:_commonEnter()
+    UI_FightPlayerLayer:EnterFightPlayerLayer()
+    UI_FightStaticLayer:EnterFightStaticLayer()
+    UI_ChangePlayerLayer:EnterChangePlayerLayer()
+    UI_FightSettingLayer:EnterFightSettingLayer()
+end
+
+function UIController:_commonExit()
+    UI_FightPlayerLayer:ExitFightPlayerLayer()
+    UI_FightStaticLayer:ExitFightStaticLayer()
+    UI_ChangePlayerLayer:ExitChangePlayerLayer()
+    UI_FightSettingLayer:ExitFightSettingLayer()
+    UI_ComboHurtLayer:ExitComboHurtLayer()
+    UI_RandomLayer:ExitRandomLayer()
+    UI_BossInfoLayer:ExitBossInfoLayer()
+end
+
+function UIController:HandleFightResult(param)
+    if TutorialController:IsFirstTutorial() then
+        Guide:InitGuideGid()
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_HOME)
+        Chapter:ClearJumpChapterLevel()
+        TutorialController:InitTutorialController()
+        uimgr:onMainScene()
+    else
+        self._param = param
+        if Chapter:LevelIsActivity(param.levelid) then
+            GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_HOME);
+            Chapter:ClearJumpChapterLevel();
+
+          --  core.require("xlua/lua_UI/HomeScene/FlipLayer.txt"):new():show()
+        end
+        self:showResult(param)
+    end
+
+end
+
+function UIController:onShowResult(data)
+    if Chapter:CurFightModeIsShenYe() then
+        MidNight:CheckFightResultLayer(data)
+    else
+        if data.result == Chapter.LEVEL_END_SUCCESS then
+            if Chapter:CurFightModeIsMystery() then
+                Mystery:ShowFightWinLayer(data, self)
+            else
+                if(Chapter:LevelIsEther(data.levelid))then
+                    core.require("xlua/lua_UI/GameFightScene/EtherFightWinLayer.txt"):new():show()
+                else
+                    core.require("xlua/lua_UI/GameFightScene/FightWinLayer.txt"):new():show(data)
+                end
+            end
+        else
+            if(Chapter:LevelIsEther(data.levelid))then
+                core.require("xlua/lua_UI/GameFightScene/EtherFightLoseLayer.txt"):new():show(data.levelid)
+            else
+                core.require("xlua/lua_UI/GameFightScene/FightLoseLayer.txt"):new():show(data)
+            end
+        end
+
+    end
+end
+
+function UIController:showResult(data)  
+    self._data = data
+    self._todoList = {}    
+    -- 章节最后一关检测
+    self:checkIsOverLevel(data)
+
+    if data.hasdrops then
+        table.insert(self._todoList, function()
+            self:showReward(data)
+        end)
+    end
+    self:doList()
+end
+
+function UIController:checkIsOverLevel(data)
+    if data.result ~= Chapter.LEVEL_END_SUCCESS then return end
+    -- 非剧情关不处理    
+    if not Chapter:LevelIsPlot(data.levelid) then return end
+
+    local chapter = Chapter:GetChapterByLevelId(data.levelid)
+    if chapter.map_end_des == "0"  then return end
+    -- 非普通剧情关不处理
+    if chapter.sub_type ~= Chapter.MODE_PLOT_N then return end
+    
+    -- 判断是不是最后一关
+    local _next_levelid = Chapter:GetNextLevel(data.levelid) or 0
+    if _next_levelid ~= 0 then return end
+
+    local nextChapter = Chapter:GetChapter(chapter.next_id)
+    -- 判断是否有后续章节
+    if nextChapter == nil then return end
+
+    if nextChapter.has_star <= 0 then   -- 是否打过该章节
+        local isNew = Groble_SceneMgr:PrefsGetString("isNewOverChapter"..tostring(chapter.nindex)..Player:GetId())
+        if isNew == "" or nil then
+            table.insert(self._todoList, function()
+                core.require("xlua/lua_UI/UIFight/ChapterOverLayer.txt"):new():show(chapter.id, function()
+                    self:doList(true)
+                end)
+            end)
+        end
+    end
+end
+
+function UIController:doList(remove)
+    if remove then
+        table.remove(self._todoList, 1)
+    end
+    local func = self._todoList[1]
+    if func ~= nil then
+        func(self._data)
+    else
+        self:onShowResult(self._data)
+    end
+end
+
+function UIController:showReward(data)
+    FightFinishBox:FightFinishBoxCreator(data, 
+        function()
+            self:doList(true)
+        end)
+end
+
+function UIController:FightResultCall()
+    if self._hasEnd then return end
+
+    self._hasEnd = true
+    self:_onDestructor()
+
+    if PlaybackController:IsPlaybackFight() then
+        PlaybackController:ShowPlaybackEndLayer()
+        return 
+    end
+    local battleData = FightController:GetBattleData()
+    local success = Chapter.LEVEL_END_SUCCESS
+    if BattleState.Win == battleData.state then
+        success = Chapter.LEVEL_END_SUCCESS
+    elseif BattleState.Failed == battleData.state then
+        success = Chapter.LEVEL_END_FAIL
+    elseif BattleState.TimeOut == battleData.state then
+        success = Chapter.LEVEL_END_TIMEOUT
+    end
+    if FightController:IsRankLevel() then
+        success = Chapter.LEVEL_END_SUCCESS
+    end
+    local level = Chapter:GetLevel(Chapter:GetCurFightLevelId())
+    local star = {}
+    for i, v in ipairs(lua_str_split(level.GradeID, "|", true)) do
+        if v ~= -1 then
+            star[i] = battleData.star[i]
+        end
+    end
+    local data = {
+        all_score    = battleData.score,            -- 总分
+        bullet_score = battleData.hurtScore,        -- 伤害分数
+        coinScore    = battleData.coinScore,        -- 金币分数
+        enemyScore   = battleData.killBossScore + battleData.killEnemyScore,   -- 击杀
+        wipeScore    = battleData.cadanScore,       -- 擦弹分数
+        timeScore    = battleData.timeScore,        -- 时间分数
+        level_score  = 0,
+        usingtime    = math.ceil(battleData.fightTime),
+        success      = success,
+        star         = star,
+        enemys       = EventController:GetKillEnemyEvent(), -- {[id] = {num=xxx,}, ...}
+        skill_num    = battleData.playMustNumber,
+        maxSecDps    = battleData.maxSecDps,
+        settleTime   = os.time(),
+        settleState  = false,
+    }
+    
+    -----敌人信息数据
+    data.level_score = data.all_score - data.wipeScore - data.timeScore
+    GTemp:SetFightTmpData(data)
+    Chapter:ChapterLevelEndReq(success, data)
+    self._timerId = Timer:AddRepeatTimerCall(5, function() self:doRepeatSettlt() end, 5)
+end
+
+function UIController:RemoveTimerId()
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+        self._timerId = nil
+    end
+end
+
+function UIController:doRepeatSettlt()
+    local tmpdata = GTemp:GetFightTmpData()
+    if tmpdata.settleState then
+        self:RemoveTimerId()
+    else
+        Chapter:ChapterLevelEndReq(tmpdata.success, tmpdata)
+    end
+end
+
+function UIController:ShowByTalk()
+    AppMgr:LogInfo("=================UIController:ShowByTalk=================")
+    self:_commonEnter()
+    self._hasenter = true
+end
+
+function UIController:HideByTalk()
+    self._hasenter = false
+    self:_commonExit()
+end
+
+function UIController:LayerFadeOut()
+    if self._hasenter then
+        self:_commonExit()
+    end
+end
+
+---------------------------------------------------------------------------
+function UIController:KeyboardPauseGame()
+    -- 已暂停
+    if Groble_UIMgr:IsPause() then return end
+    -- 非战斗中
+    if not FightController:IsBattleFighting() then return end
+    
+    if self.UISettingInfo == nil then return end
+    self.UISettingInfo:onPause()
+end
+
+function UIController:OpenAutoSetting()
+    -- 已暂停
+    if Groble_UIMgr:IsPause() then return end
+    -- 非战斗中
+    if not FightController:IsBattleFighting() then return end
+    
+    UI_FightSettingLayer:onPause(2)
+end
+
+function UIController:ShowTitlePrefab(show)
+    self._titlePrefab:SetVisible(show)
+end
+

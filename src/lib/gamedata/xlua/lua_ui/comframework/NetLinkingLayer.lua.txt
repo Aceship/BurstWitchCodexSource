@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2020-04-16 16:41:50
+-- brief : 
+--
+NetLinkingLayer = NetLinkingLayer or {}
+
+function NetLinkingLayer:_hideLayer()
+    if self.layer ~= nil then
+        self._linking:SetVisible(false)
+        self._animator.enabled  = false
+        self.layer:SetPositionX(-5000)
+    end
+end
+
+function NetLinkingLayer:_showWait()
+    if self.layer ~= nil then
+        self._animator.enabled  = true
+        self._linking:SetVisible(true)
+        self.layer:SetPositionX(0)
+    end
+end
+
+function NetLinkingLayer:_showMask()
+    if self.layer ~= nil then
+        self._animator.enabled  = false
+        self._linking:SetVisible(false)
+        self.layer:SetPositionX(0)
+    end
+end
+
+function NetLinkingLayer:_initNetLinkingLayer()
+    self.layer      = CanvasMgr:CreateCanvasChild("prefab_comframeWork/UI_LinkPanel")
+    self._linking   = self.layer:Get("bk")
+    self._animator  = self.layer:GetAnimatorComponent("bk/Link")
+    self._inited    = true
+    self:_hideLayer()
+end
+
+-- public api ---------------------------------------------------------------------
+
+function NetLinkingLayer:NetLinkingLayerCreator()
+    self:_initNetLinkingLayer()
+end
+
+function NetLinkingLayer:NetLinkingLayerDestructor()
+    if self.layer ~= nil then
+        self._linking   = nil
+        self._animator  = nil
+        self.layer:Release()
+        self.layer = nil
+    end
+    self._inited = false
+end
+
+function NetLinkingLayer:ShowLinkingMask()
+    if not self._inited then
+        self:_initNetLinkingLayer()
+    end
+    self:_showMask()
+end
+
+function NetLinkingLayer:ShowLinkingWait()
+    if not self._inited then
+        self:_initNetLinkingLayer()
+    end
+    self:_showWait()
+end
+
+function NetLinkingLayer:HideLinking()
+    self:_hideLayer()
+end
+

@@ -1,0 +1,46 @@
+--
+-- author: haosun
+-- date  : 2019-11-07 11:35:25
+-- brief : 
+--
+
+TpsHelper = TpsHelper or {}
+
+local _ins = CS.Tp2sHelper.Instance
+
+function TpsHelper:Init()
+    _ins:InitLuaScript(self);
+end
+--result 为外挂拦截后的信息，需要传到服务器
+--id=value|key=value|key=value|...
+--id = 1 二选一功能
+--id = 2 安全列表权限检测
+--id = 3 修改器检测
+--id = 4 反调试安全检测
+--id = 5 可疑虚拟机检测
+--id = 6 虚拟机3层检测
+--id = 7 变速器检测
+
+--id = 8 模拟器检测
+
+--id = 9 测试用广播 id=9|info=foo
+
+--id = 10 信息收集 id=10|cert_md5=25ff46def8e50acecf00b98116cbc730|apk_hash_1=0xc6d5ed6a|apk_hash_2=0xc6d5ed6a|txt_seg_crc=0x311db396
+--id = 11 so文件被替换
+--id = 12 可疑的安装应用
+--id = 13  lua特征数据上报
+
+
+function TpsHelper:onTpResult(result)
+	--除了9 和 10 其他的都可以报给服务器
+	--print("tp2 result:"..result)
+    -- Network:CallServerScript({c2s.POLICEMAN_GET_REPORT, tonumber(result)})
+end
+
+--pram1 与运营平台相关的帐号类型 非企鹅渠道填99
+--pram2 用户游戏角色的大区信息
+--pram3 与登录平台相关的帐号id
+--pram4 区分用户创建的不同角色的标识
+function TpsHelper:OnTp2UserLogin(world_id, open_id, role_id)
+    _ins:OnTp2UserLogin(99, world_id, open_id, role_id)
+end

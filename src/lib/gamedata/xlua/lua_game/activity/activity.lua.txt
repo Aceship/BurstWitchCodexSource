@@ -1,0 +1,466 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:33
+-- brief : 
+--
+Activity = Activity or {}
+
+function Activity:Ctor()
+    self:LoadCodeNum()
+	self._chessAutoBuyState = false;
+	self._isFirstOpen = true;
+    self._curGetActID = 0;
+	self._chessSortCfg = nil;
+	self._chessEventData = {};
+	self._signInData = {};
+	self._getItems = {};
+	self._dialData = {};
+	Activity:CloseActivityLevelTitleLayer();
+
+	self._daySignDisplayed = {}
+end
+
+function Activity:Clear()
+    self:Ctor()
+end
+
+--检测是否未参加任何活动
+function Activity:CheckIsNewActivity()
+	local getItemsNum = 0;
+	for k,v in pairs(self._getItems) do
+		getItemsNum = getItemsNum + 1;
+	end
+	if getItemsNum <= 0 then
+		return true;
+	end
+	return false;
+end
+--------------------------------------------------------------
+
+--获取当前月份的天数
+function Activity:GetCurMonthDayNum()
+	return self._curMonthDayNum;
+end
+
+--判断是否可签到状态
+function Activity:IsSignIn()
+	return self._signInData[self._curDay] <= 0;
+end
+
+--获取签到状态
+function Activity:GetSignInStateById(id)
+	local cfg = self._daySignInCfg[id];
+	if(cfg == nil)then
+		CS.Logger.LogError("SignInCfg is nil  id = "..id);
+	end
+	if(self._signInData[cfg.days] == nil or self._signInData[cfg.days] <= 0)then
+		return true;
+	end
+	return false;
+end
+--------------------------------------------------------------
+--获取可领取得等级礼包ID
+function Activity:GetLevelAwardsList()
+    local _cfg1 = Operation:GetActiveCfgByUID(Operation.ActivityID.GradeAward)
+    if _cfg1 == nil then return nil end
+
+	local _cfg2 = self:GetActivityConfigByUID(tonumber(cfg.id))
+    if _cfg2 == nil then return nil end
+
+    local canAwardList = {};
+    local playerLevel = Player:GetLevel()
+    local id
+	for _, vvv in pairs(_cfg2.formCfg) do
+		id = tonumber(vvv.id)
+		if playerLevel >= tonumber(vvv.Count) and self._getItems[id] == nil then
+			--等级满足条件并且没有领过
+			canAwardList[id] = id;
+		end
+	end
+	return canAwardList;
+end
+
+function Activity:GetLvAwardRedState()
+    return next(self:GetLevelAwardsList()) ~= nil
+end
+--------------------------------------------------------------
+--获得萌新福利可领取列表
+function Activity:GetNewPlayerAwardsList()
+	local canAwardList = {};
+	local logindays = Player:GetLoginDays();
+	for kkk,vvv in pairs(Activity:GetActivity()[tonumber(Operation:GetActiveCfgByUID(Operation.ActivityID.NewWelfare).id)].formCfg) do
+		if logindays >= tonumber(vvv.Count) and self._getItems[tonumber(vvv.id)] == nil  then
+			--等级满足条件并且没有领过
+			canAwardList[tonumber(vvv.id)] = tonumber(vvv.id);
+		end
+	end
+	return canAwardList;
+end
+
+function Activity:GetNewWelfareRedState()
+	local list = Activity:GetNewPlayerAwardsList()
+	for k,j in pairs(list) do
+		return true;
+	end
+	return false;
+end
+
+--7日签到是否结束
+function Activity:GetNewWelfareIsOver()
+	if(Player:GetLoginDays() >= Activity.NewWelfareMaxDay)then
+		local list = Activity:GetNewPlayerAwardsList();
+		if(list == nil or lua_table_len(list) == 0)then
+			return true;
+		end
+	end
+	return false;
+end
+
+--------------------------------------------------------------
+--转盘活动
+
+function Activity:GetDialRedState()
+	local cfg = Activity:GetActivityByUId(Operation.ActivityID.Dial).info;
+	if(Item:GetCount(Player.ITEM_TURNTABLE) > 0 and Activity:GetDialStartNum() < tonumber(cfg.minor_cyc_num))then
+		return true;
+	end
+	for i, data in pairs(Activity:GetCurDialFrequencyCfgs()) do
+		if(Activity:GetDialStartNum() > data.fre)then
+			if(not Activity:DialNumAwardIsGet(data.id))then
+				return true;
+			end
+		end
+	end
+	return false;
+end
+
+-------------------------------------------------------------
+
+function Activity:GetRedState()
+	if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_active) then
+		return false
+	end
+
+    if self:IsBatterActivityOper() then return true end
+
+    if self:IsBatterGatherOper() then return true end
+
+	return false;
+end
+
+-- 
+-- brief: 超值特惠
+-- 
+function Activity:IsBatterActivityOper()
+    local cfg = Operation:GetActiveListCfgById(Activity.MainType.Activity)
+    for _, cfg in ipairs(cfg.table) do
+        if self:GetRedStateByActivityId(cfg.UID) then
+            return true
+        end
+    end
+    return false
+end
+
+-- 
+-- brief: 夜莺祭典
+-- 
+function Activity:IsBatterGatherOper()
+    for _, v in pairs(self:GetAllActiveGatherCfg()) do
+        for i, cfg in pairs(v) do
+            if self:GetRedStateByGatherId(cfg.id) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--今日是否弹出扑脸广告
+function Activity:IsPushActivityAD()
+	--GTemp:SetPushActivityState(false)
+
+	local isPush = GTemp:GetPushActivityState() --今日是否不弹
+	local lastTime = GTemp:GetLastLoginTime()
+	local curTime = Login:GetLoginTime()
+	if lastTime == nil or lastTime <= 0 then --第一次记录
+		lastTime = Login:GetLoginTime()
+	end
+
+	local isSameLogin = CTime:IsSameLogin(lastTime,curTime)
+	local isSameDay = CTime:IsSameDayByDay()
+
+	local curDay = Player:GetOffsetDay()
+
+	--print("今日是否弹  : "..tostring(isPush).."  : 是否同一次登录  ： "..tostring(isSameLogin).." : 是否同一天 ： "..tostring(isSameDay))
+	local isPushToday = false
+	if isSameDay then --同一天
+		if isPush == "" or isPush == "false" then
+			if isSameLogin then --同一次登录,不弹
+				isPushToday = false
+			else				--不同次，必弹
+				isPushToday = true
+			end
+		else 					--选中今日不弹
+			isPushToday = false
+		end
+	else 						--跨天必弹
+		isPushToday = true
+		GTemp:SetPushActivityState(false)
+	end
+	--print("今日是否不弹 ： "..tostring(isPush).."  : 是否同一次登录 ： "..tostring(isSameLogin).."  : 是否同一天 ： "..tostring(isSameDay))
+	GTemp:SetLastLoginTime(curTime)
+	PrefsController:SetPushActivityDay(curDay)
+	return isPushToday
+end
+
+function Activity:GetRedStateByGatherId(id)
+	local cfg = self:GetActiveGatherCfgById(id)
+	if cfg.itype == Activity.JobType.JobActivity then
+        -- 跳转活动
+		return self:GetRedStateByActivityId(cfg.uid)
+	elseif cfg.itype == Activity.JobType.JobOperation then
+        -- 跳转商城
+		return self:GetRedStateByActivityId(cfg.uid)
+	elseif cfg.itype == Activity.JobType.JobNewerTask then
+        -- 跳转暮光礼赞
+		return Task:GetNewerTaskRedTips()
+	elseif cfg.itype == Activity.JobType.JobChapter then
+        -- 跳转关卡
+        return false
+    else
+        return false
+    end
+end
+
+function Activity:GetRedStateByActivityId(itype)
+	-- if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_look) then
+	-- 	return false
+	-- end
+	if(not Operation:GetActiveIsOpenByUid(itype))then
+		return false;
+	end
+
+	itype = tonumber(itype);
+	if(itype == Operation.ActivityID.DailyCheckIn)then--签到
+		if(Activity:IsSignIn())then
+			AppMgr:LogInfo("-------------------签到红点-------------------")
+            return true;
+        end
+    elseif(itype == Operation.ActivityID.Dial)then--转盘
+        if(Activity:GetDialRedState())then
+            AppMgr:LogInfo("-------------------转盘红点-------------------")
+            return true;
+        end
+    elseif(itype == Operation.ActivityID.NewWelfare)then--萌新
+        if(Activity:GetNewWelfareRedState())then
+            AppMgr:LogInfo("-------------------萌新礼包红点-------------------")
+            return true;
+        end
+    elseif(itype == Operation.ActivityID.GradeAward)then--等级
+        if(Activity:GetLvAwardRedState())then
+            AppMgr:LogInfo("-------------------等级礼包红点-------------------")
+            return true;
+        end
+    elseif(itype == Operation.ActivityID.ChessBoard)then--棋盘
+        if(Activity:GetChessBoardRed())then
+            AppMgr:LogInfo("-------------------棋盘红点-------------------")
+            return true;
+        end
+    elseif(itype == Operation.ActivityID.WitchBook)then
+        -- 魔女手册
+        return self:IsExistWitchBookOper()
+    elseif(itype == Operation.ActivityID.BloodCycle)then--雪之轮回(战令)
+        if(Operation:GetBloodCycleRed(Operation:GetOpenBloodCycleId()))then
+            AppMgr:LogInfo("-------------------战令红点-------------------")
+			return true;
+		end
+	elseif itype == Operation.ActivityID.UpgradePackage then
+		-- 等级礼包
+		return self:IsUpgradePackageTips()
+	elseif itype == Operation.ActivityID.ValueSummon then
+		-- 超值召唤
+		return false
+	end
+	return false;
+end
+
+--获得棋盘活动结束时间
+function Activity:GetChessBoardOverTime()
+	if(self._chessOverTime == nil)then
+		self._chessOverTime = Operation:GetActiveOverTime(Operation.ActivityID.ChessBoard);
+	end
+	return self._chessOverTime;
+end
+
+function Activity:GetChessWelfareRed()
+    local pointNum = 0
+
+	local tasks = Task:GetSubTasks(Task.ChessTask_Welfare);
+	for _, taskId in pairs(tasks) do
+		local task = Task:GetTask(taskId);
+		if(task.state == Task.STATE_HAS_DONE)then
+            local _number = Task:GetTaskCanRecvCount(taskId)
+			if _number >= 1 then
+                pointNum = pointNum + _number * task.ActivePiece_point
+            end
+        end
+    end
+    local getTask = Task:GetTask(Task:GetSubTasks(Task.ChessTask_GetDice)[1]);
+    if getTask.state == Task.STATE_HAS_DONE then
+        local _number = Task:GetTaskCanRecvCount(getTask.cfgid)
+        if _number >= 1 then
+            pointNum = pointNum + _number * getTask.ActivePiece_point
+		end
+	end
+	return pointNum >= 100;
+end
+
+function Activity:GetTurnsAwardRed()
+	local cfgs = Activity:GetAllChessNumCfg();
+	for i, cfg in ipairs(cfgs) do
+		if(cfg.pos < Activity:GetCurTurnsNum())then
+			if(not Activity:CoilsNumAwardIsGet(cfg.id))then
+				return true;
+			end
+		end
+	end
+	return false;
+end
+
+--------------------------------------------------------------
+function Activity:GetItems(actID)
+	return self._getItems[actID];
+end
+
+function Activity:GetDialStartNum()
+	return self._dialData.startNum or 0;
+end
+
+function Activity:DialNumAwardIsGet(id)
+	return self._dialData.gifts[id] ~= nil;
+end
+
+function Activity:GetChessServerData()
+	return self._chessData;
+end
+
+function Activity:GetChessCurPos()
+	return self._chessData.pos or 1;
+end
+
+function Activity:CoilsNumAwardIsGet(id)
+	return self._chessData.getItems[tonumber(id)] ~= nil;
+end
+
+function Activity:GetCurTurnsNum()
+	return self._chessData.curTurns;
+end
+
+function Activity:GetChessTurnsIsMax()
+	return self._chessData._isMax;
+end
+
+function Activity:GetDialUpdateTime()
+	local cfg = CTime:GetCfg(tonumber(Activity:GetActivityByUId(Operation.ActivityID.Dial).info.Time));
+	local cycleTimer = cfg.interval + cfg.keep;
+	local retTimer = cfg.stime + cycleTimer * self._dialData.curCycle - CTime:GetServerTime();
+	return retTimer;
+end
+
+----兑换码接口------------------------
+
+
+function Activity:LoadCodeNum()
+    Activity.CodeNum = {}
+    for k, code in ipairs(Activity.Code) do
+        Activity.CodeNum[code] = k - 1;
+    end
+end
+
+function Activity:GetElapseHour()
+    return math.floor((os.time() - Activity.StartTime) / 3600)
+end
+
+function Activity:GetMaxNum(len)
+    local sum = 0
+    local n = 0
+    for l = 1, len do
+        if l == 1 then
+            n = Activity.BitSize - 1
+        else
+            n = n * Activity.BitSize
+        end
+        sum = sum + n
+    end
+    return sum
+end
+
+function Activity:GetCodeByNum(num)
+    local code = ""
+    for l = 1, 20 do
+        local x = num % Activity.BitSize
+        code = Activity.Code[x + 1] .. code
+        num = math.floor(num / Activity.BitSize)
+        if num == 0 then
+            break
+        end
+    end
+	return code
+end
+
+function Activity:Code2Num(code)
+	local num = 0
+    local multi = 1
+    for l = 1, string.len(code) do
+        local s = string.sub(code, -l, -l)
+        num = num + multi * Activity.CodeNum[s]
+        multi = multi * Activity.BitSize
+    end
+    return num
+end
+
+function Activity:IsLegalCode(code)
+    for l = 1, string.len(code) do
+        local s = string.sub(code, -l, -l)
+        if not Activity.CodeNum[s] then
+            return false;
+        end
+    end
+    return true;
+end
+
+function Activity:GenTimeCode()
+    local num = math.floor((os.time() - Activity.StartTime) / 60)
+    local time_code = Activity.GetCodeByNum(num)
+    if time_code ~= Activity.TimeCode then
+        Activity.TimeCode = time_code
+        Activity.CodePool = {}
+    end
+    return time_code
+end
+
+
+
+
+function Activity:SetAtlasSprite(img,path)
+	if(img == nil)then
+		img = img:GetComponent("Image");
+	end
+	img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
+end
+
+-----------------获取每日免费骰子红点状态
+function Activity:GetDayFreeDiceRedState()
+	local commonFreeDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.CommonFree);
+	local buyNum = Operation:GetGiftBagBoughtNum(commonFreeDiceCfg[2]);
+	return buyNum <= 0;
+end
+
+function Activity:GetActivityIdByUid(uid)
+	local cfg = Operation:GetActiveCfgByUID(uid);
+	if(cfg ~= nil)then
+		return cfg.id;
+	end
+	AppMgr:LogError("cfg is null !!! **Path = Activity:GetActivityIdByUid(uid)** uid = "..uid);
+	return 0;
+end

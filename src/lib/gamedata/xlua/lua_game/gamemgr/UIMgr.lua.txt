@@ -1,0 +1,459 @@
+UIMgr = class("UIMgr")
+
+function UIMgr:ctor()
+    self.curUIScene = nil;
+    self.isPause    = false;
+    self.curMessageBox = nil;
+    self.curShowShotInfo = nil;
+end
+
+function UIMgr:GamePause(isPause)
+
+    if isPause then
+        --CS.Logger.LogInfo("游 戏 暂 停")
+        fmod:PauseABus("bus:/SFX/Battle/Skill",true)
+        Groble_SceneMgr:GamePause(true)
+    else
+        --CS.Logger.LogInfo("游 戏 继 续")
+        fmod:PauseABus("bus:/SFX/Battle/Skill",false)
+        Groble_SceneMgr:GamePause(false)
+    end
+    self.isPause = isPause;
+end
+function UIMgr:IsPause()
+    return self.isPause;
+end
+
+function UIMgr:ShowMessageBox(canFade,isSel,message,success,cancel,noBKTouch)
+    if self.curMessageBox  == nil then
+        --CS.Logger.LogInfo("ShowMessageBox")
+        self.curMessageBox = UI_MessageBox:new();
+        self.curMessageBox.message = message;
+        self.curMessageBox.isSelection = isSel;
+        self.curMessageBox.succCallBack = success;
+        self.curMessageBox.cancelCallBack = cancel;
+        self.curMessageBox.canFade = canFade;
+        self.curMessageBox.noBKTouch = noBKTouch;
+        self.curMessageBox:onEnter()
+    end
+end
+function UIMgr:ResetMsgBox()
+    self.curMessageBox = nil;
+end
+
+--播放场景相关动画接口
+function UIMgr:PlayAni(obj,ani,speed,mation)
+    if obj == nil then
+        return
+    end
+    self:StopAni(obj)
+    local animation = nil;
+    if mation ~= nil then
+        animation = mation
+    else
+        animation = obj:GetComponent("Animation")
+    end
+    if speed ~= nil then
+        for _,v in pairs(animation) do
+            v.speed = speed
+        end
+    end
+
+    animation:Play(ani)
+end
+
+--停止场景相关动画接口
+function UIMgr:StopAni(obj)
+    if obj == nil then
+        return
+    end
+    obj:GetComponent("Animation"):Stop();
+end
+
+function UIMgr:ShowTipsLayer(desc,play)
+    UI_TipsLayer:ShowTipsLayer(desc, play)
+end
+
+function UIMgr:ShowGameWordTipsLayer(csv_key)
+    self:ShowTipsLayer(LanguageMgr:GetTextByID(csv_key))
+end
+
+function UIMgr:ShowRestPlayerEquipTipsLayer(trans, equips,itype)
+    local CItemTipsLayer = core.require("xlua/lua_UI/Comframework/ItemTipsLayer.txt")
+    CItemTipsLayer.GetInstance():showRestPlayerEquip(trans, equips,itype)
+end
+
+function UIMgr:ShowFightTipsLayer()
+    local fightTipsLayer = core.require("xlua/lua_UI/Comframework/FightTipsLayer.txt")
+    fightTipsLayer:new():show()
+end
+
+function UIMgr:ShowOriginTipsLayer(tipsType, cfgid, itype, count)
+    if count ~= nil then
+        local _lack_cnt = (count or 0) - Item:GetCount(cfgid)
+        -- if _lack_cnt > 0 then
+            GTemp:SetSweepTmpData({cfgid = cfgid, costCnt = count or 0, lackCnt = _lack_cnt})
+        -- end
+    end
+    local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
+    COriginTipsLayer:new(tipsType,itype,cfgid):show();
+end
+
+function UIMgr:ShowBuyPowerLayer()
+    local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
+    COriginTipsLayer:new(OriginTipsType.Stamina,Bag.TYPE_ITEM,Player.ITEM_VALUE_POWER):show();
+end
+
+--钻石充值界面
+function UIMgr:ShowBuyJewelLayer()
+    local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
+    COriginTipsLayer:new(OriginTipsType.Jewel,Bag.TYPE_ITEM,Player.ITEM_VALUE_MONEY):show();
+end
+
+function UIMgr:ShowNumberLayer(params)
+    local CNumberLayer = core.require("xlua/lua_UI/Comframework/NumberLayer.txt")
+    CNumberLayer:new(params)
+end
+
+function UIMgr:ShowSellLayer(params)
+    local CSellLayer = core.require("xlua/lua_UI/Comframework/SellLayer.txt")
+    CSellLayer:new(params)
+end
+
+function UIMgr:ShowCommonEffectLayer(itype, callback)
+    local CCommonEffectLayer = core.require("xlua/lua_UI/Comframework/CommonEffectLayer.txt")
+    CCommonEffectLayer:new():show(itype, callback)
+end
+
+function UIMgr:ShowLackCurrencyTips(cfgid)
+    local config = Item:GetCfg(cfgid)
+    local str = string.format(LanguageMgr:GetTextByID(73000008), config.Name)
+    Groble_UIMgr:ShowTipsLayer(str)
+end
+
+
+function UIMgr:ShowRuleTipsLayer(ruleid)
+    core.require("xlua/lua_UI/Comframework/RuleTipsLayer.txt"):new():showRule(ruleid)
+end
+
+function UIMgr:ShowAttrRuleTipsLayer(levelid)
+    local RuleTipsLayer = core.require("xlua/lua_UI/Comframework/RuleTipsLayer.txt")
+    RuleTipsLayer:new():showAttr(levelid)
+end
+
+function UIMgr:ShowGeneralRuleTipsLayer(titleId, titleEId, descId, showAttr)
+    local RuleTipsLayer = core.require("xlua/lua_UI/Comframework/RuleTipsLayer.txt")
+    RuleTipsLayer:new():showGeneral(titleId, titleEId, descId, showAttr)
+end
+
+
+function UIMgr:ShowCommonBuyLayer(params, black)
+    if params.cfgid == nil then
+        return
+    end
+    local cfg = Item:GetCfg(params.cfgid)
+    if cfg.directSell == "1" then
+        core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt"):new():showBuy(params)
+    else
+        if black then
+            self:ShowLackCurrencyTips(params.cfgid)
+        end
+    end
+end
+
+function UIMgr:ShowMsgLayer(desc, callback, click, onlyok)
+    local ConfirmLayer = core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt")
+    ConfirmLayer:new():showMsg(desc, callback, click, onlyok or false)
+end
+
+function UIMgr:ShowMsgBy2CallLayer(desc, nocall, okcall)
+    local ConfirmLayer = core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt")
+    ConfirmLayer:new():showMsgBy2Call(desc, nocall, okcall)
+end
+
+function UIMgr:showMsgBy2CallPer(desc,nocall,okcall,isToggleOn)
+    local ConfirmLayer = core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt")
+    ConfirmLayer:new():showMsgBy2CallPer(desc, nocall, okcall, isToggleOn)
+end
+
+function UIMgr:showMsgBy2CallPerWithShowType(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+    local function Show(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+        local ConfirmLayer = core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt")
+        ConfirmLayer:new():showMsgBy2CallPerWithShowType(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+    end
+
+    if(showType == nil) then
+        Show(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+    else
+        local needShow = GTemp:GetTempShowTipsTypeState(showType)
+        if(needShow) then
+            Show(msg,nocall,okcall, isToggleOn, showType, isIgnoreFight)
+        else    
+            okcall()
+        end
+    end
+end
+
+function UIMgr:ShowBuffTipsLayer(str,trans)
+    local BuffTipsLayer = core.require("xlua/lua_UI/Comframework/BuffTipsLayer.txt")
+    BuffTipsLayer:new():show(str,trans)
+end
+
+function UIMgr:ShowPowerModeTipsLayer(trans)
+    local BuffTipsLayer = core.require("xlua/lua_UI/Comframework/PowerModeTipsLayer.txt")
+    BuffTipsLayer:new():show(trans)
+end
+
+function UIMgr:ShowAttrLayer(heroid,trans)
+    local BuffTipsLayer = core.require("xlua/lua_UI/Comframework/AttrLayer.txt")
+    BuffTipsLayer:new():show(heroid ,trans)
+end
+
+function UIMgr:ShowInputLayer(layer, uid, callback, show, exit)
+    if(self.InputLayer == nil)then
+        self.InputLayer = core.require("xlua/lua_UI/Comframework/InputLayer.txt"):new(layer)
+    end
+    if false ~= show then
+        self.InputLayer:show(uid, callback, exit)
+    end
+end
+
+function UIMgr:ShowFightUpLayer()
+    local fightTipsLayerLayer = core.require("xlua/lua_UI/HomeScene/FightUpLayer.txt")
+    fightTipsLayerLayer:new():show()
+end
+
+function UIMgr:CloseInputLayer()
+    if(self.InputLayer == nil)then
+        return;
+    end
+    self.InputLayer = nil;
+end
+
+function UIMgr:ShowQuitGame(tips)
+    Groble_UIMgr:ShowMessageBox(true, true, tips,
+        function()
+            CS.UnityEngine.Application.Quit()
+        end)
+end
+
+function UIMgr:ShowOptionalLayer(cfgId, callback)
+    local OptionalLayer = core.require("xlua/lua_UI/HomeScene/OptionalLayer.txt")
+    OptionalLayer:new():show(cfgId, callback)
+end
+
+function UIMgr:ShowUnlockTipsLayer(sysid)
+    --nil代表无需判断
+    if sysid == nil then return true end
+
+    if Player:IsSysFuncOpen(sysid) then return true end
+    
+    self:ShowTipsLayer(Player:GetUnlockDesc(sysid))
+    return false
+end
+
+function UIMgr:ShowUnIndulgeLayer()
+    if UnIndulge:GetState() == true then
+        return
+    end
+    if(UnIndulge:GetNotStartGame())then
+        core.require("xlua/lua_UI/HomeScene/unIndulge/AuthAccountLayer.txt"):new():show(UnIndulge.CurrentType.type202);
+        return;
+    end
+    local atype,ptime = UnIndulge:GetCurrentAccType()
+    if atype == 0 then
+        return
+    end
+    core.require("xlua/lua_UI/HomeScene/unIndulge/AuthAccountLayer.txt"):new():show(atype,ptime)
+end
+
+function UIMgr:ShowArchiveAttrTipsLayer(callback)
+    local layer = core.require("xlua/lua_UI/Archive/ArchiveAttrTipsLayer.txt"):new();
+    layer:SetCallBack(callback);
+    layer:show();
+end
+
+function UIMgr:OpenLoadingLayer(loadStartCallBack,loadOverCallBack,delayLoadTime)
+    core.require("xlua/lua_UI/Comframework/LoadingLayer.txt"):new():show(loadStartCallBack,loadOverCallBack,delayLoadTime);
+end
+
+function UIMgr:CheckStackLayer(layername)
+    local _index = 0
+    for i, v in ipairs(self.popLayers) do
+        if v.__cname == layername then
+            _index = i
+            break
+        end
+    end
+    if _index > 0 then
+        local clayer
+        for i = #self.popLayers, _index, -1 do
+            clayer = self.popLayers[i]
+            clayer:onExit()
+            table.remove(self.popLayers, i)
+        end
+    end
+end
+
+function UIMgr:PushLayer(layer,hideOtherLayer)
+    if(self.curShowLayer == layer)then
+        return;
+    end
+    if(self.popLayers == nil)then
+        self.popLayers = {};
+    end
+    if(hideOtherLayer)then
+        for _, v in pairs(self.popLayers) do
+            v:hideLayer();
+        end
+    end
+    table.insert(self.popLayers,layer);
+    self.curShowLayer = layer;
+end
+
+--定位到指定界面
+function UIMgr:LocateToLayer(uiName)
+    if(type(uiName) ~= "string")then
+        return;
+    end
+    if(uiName == nil or uiName == "")then
+        AppMgr:LogError("uiName is nil!! **path = LocateToLayer()**");
+        return;
+    end
+    if(self.curShowLayer == nil)then
+        AppMgr:LogError("curShowLayer is nil!! **path = LocateToLayer()**");
+        return;
+    end
+    if(self.curShowLayer.__cname ~= uiName)then
+        self:PopLayer();
+        Groble_UIMgr:LocateToLayer(uiName);
+    end
+end
+
+function UIMgr:PopLayer()
+    if(self.curShowLayer == nil)then
+        return;
+    end
+    self.curShowLayer:onBackClick();
+end
+
+function UIMgr:CutCurShowLayer()
+    local remNum = #self.popLayers;
+    table.remove(self.popLayers,remNum);
+    remNum = #self.popLayers;
+    if(#self.popLayers > 0)then
+        self.curShowLayer = self.popLayers[remNum];
+        if(not self.curShowLayer._hideOtherLayer)then
+            for i = #self.popLayers,1,-1 do
+                self.popLayers[i]:activateLayer();
+                if(self.popLayers[i]._hideOtherLayer)then
+                    break;
+                end
+            end
+        end
+        self.curShowLayer:showLayer();
+    else
+        self.curShowLayer = nil;
+        self.popLayer = {};
+        uimgr:showHomeLayer()
+    end
+end
+
+function UIMgr:ShowBackLayer()
+    if(self.backLayer == nil)then
+        self.backLayer = core.require("xlua/lua_UI/Comframework/BackLayer.txt"):new();
+    end
+    self.backLayer:show();
+end
+
+function UIMgr:SetTopData(topData,topInfo)
+    if(self.backLayer == nil)then
+        return;
+    end
+    self.backLayer:SetTopData(topData,topInfo);
+end
+
+function UIMgr:SetBgData(bgData)
+    if(self.backLayer == nil)then
+        return;
+    end
+    self.backLayer:SetBgData(bgData);
+end
+
+function UIMgr:CloseBackLayer()
+    self.popLayers = {};
+    self.backLayer = nil;
+    self.curShowLayer = nil;
+end
+
+function UIMgr:ShowShareLayer(callback, canreward)
+    ShareMgr.canreward = canreward;
+    ShareMgr:DoScreenShot(function (sprite,filepath)
+        core.require("xlua/lua_UI/HomeScene/ShareLayer.txt"):new():show(canreward, sprite,filepath,
+                function ()
+                    callback()
+                end)
+    end)
+end
+
+function UIMgr:ClickOnReturnBtn()
+    if(self.backLayer ~= nil)then
+        Groble_UIMgr:PopLayer();
+    end
+end
+
+function UIMgr:SetBackBtnState(state,str)
+    if(self.backLayer ~= nil)then
+        self.backLayer:SetBackBtnState(state);
+        if(str ~= nil)then
+            self.backLayer:SetStr(str);
+        end
+    end
+end
+
+function UIMgr:ShowBackBtn()
+    if(self.backLayer ~= nil)then
+        self.backLayer:ShowBackBtn()
+    end
+end
+
+function UIMgr:HideBackBtn()
+    if(self.backLayer ~= nil)then
+        self.backLayer:HideBackBtn()
+    end
+end
+
+function UIMgr:SetBackButtonVisible(visible)
+    if self.backLayer ~= nil then
+        self.backLayer:SetBackButtonVisible(visible)
+    end
+end
+
+function UIMgr:BackLayerShow()
+    if(self.backLayer ~= nil)then
+        self.backLayer:show()
+    end
+end
+
+function UIMgr:BackLayerHide()
+    if(self.backLayer ~= nil)then
+        self.backLayer:hide()
+    end
+end
+
+function UIMgr:ShowMoneyUI(time,delayTime)
+    if(self.backLayer ~= nil)then
+        self.backLayer:ShowMoneyUI(time or 0,delayTime or 0)
+    end
+end
+
+function UIMgr:HideMoneyUI(time,delayTime)
+    if(self.backLayer ~= nil)then
+        self.backLayer:HideMoneyUI(time or 0,delayTime or 0)
+    end
+end
+
+--通用弹窗 显示文字描述
+function UIMgr:ShowDescTipsLayer(trans,name,desc,unlock)
+    core.require("xlua/lua_UI/Build/BuildDotTipsLayer.txt"):new():show(trans, name, desc, unlock)
+end

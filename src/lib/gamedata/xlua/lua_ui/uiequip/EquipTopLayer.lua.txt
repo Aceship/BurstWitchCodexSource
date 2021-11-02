@@ -1,0 +1,398 @@
+--
+-- author: haosun
+-- date  : 2019-02-18 16:57:19
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EquipTopLayer = class("EquipTopLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Top             = "button_top",
+    Coin            = "container_cost/button_coin",
+}
+
+function EquipTopLayer:ctor(super, layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEquip/UI_EquipTopLayer",
+        trans = layer,
+        obj = true,
+    }
+    self._cfgid     = 0
+    self._uid       = 0
+    self._itemObjs  = {}
+    self.cells      = {};
+    self:onEnter()
+end
+
+function EquipTopLayer:initObj()
+    self._infoObj           = self.layer.transform:Find("container_info")
+    self._nameCom           = self._infoObj.transform:Find("text_name"):GetComponent("Text")
+    self._templateObj       = self._infoObj.transform:Find("panel_curr/prefab_equip")
+    self._currEquipCObj     = Equip:CtorEquipCObj(self._infoObj.transform:Find("panel_curr/prefab_equip"), function()end)
+    self._currLevelCom      = self._infoObj.transform:Find("panel_curr/text_level"):GetComponent("Text")
+    self._nextEquipCObj     = Equip:CtorEquipCObj(self._infoObj.transform:Find("panel_next/prefab_equip"), function()end)
+    self._nextLevelCom      = self._infoObj.transform:Find("panel_next/text_level"):GetComponent("Text")
+    self._costObj           = self.layer.transform:Find("container_cost")
+    self._textTipsCom       = self.layer.transform:Find("container_materials/text_top_tips"):GetComponent("Text")
+    self._topCostCObjs ={}
+    self._selectObjs = {}
+    self._cost = {0,0,0,0}
+    self._selectNum = 0
+    for i =1,4 do
+        self._topCostCObjs[i]       = Equip:CtorEquipCObj(self._costObj.transform:Find("materails/top_materail_"..i), function()end)
+        self._topCostCObjs[i].lablLackObj = self._topCostCObjs[i]:Find("label_lack")
+        self._topCostCObjs[i].index   = 0
+        self._topCostCObjs[i].btnMaterial =  self._topCostCObjs[i]:GetComponent("button_material","Button")
+        self._topCostCObjs[i].btnMaterial.onClick :AddListener(
+                                            function()
+                                                self:onSelectMaterialClick(i)
+                                            end)
+    end
+    
+    self._emptyObj          = self.layer.transform:Find("container_materials/image_empty")
+    self._scrollObj         = self.layer.transform:Find("container_materials/scrollview")
+    --[[
+     self._costItemsCObj     = {}
+    for i = 1, 3, 1 do
+        local obj = self._costObj.transform:Find("item_" .. i)
+        self._costItemsCObj[i] = {
+            citem   = Bag:CtorComSimpleGoodsUi(obj.transform:Find("prefab_item"), function() self:onCostItemClick(i) end),
+            numObj  = obj.transform:Find("text_num")
+        }
+    end  
+    ]]
+      
+end
+
+function EquipTopLayer:ctorItemCObj(obj, call,index)
+    local cls       = Bag:CtorComSimpleGoodsUi(obj, call)
+    cls.lvTxtCom    = cls:GetComponent("txt_level", "Text")
+    cls.bgImgCom    = cls:GetComponent("img_levelBg", "Image")
+    cls.index       = index
+    return cls
+end
+
+function EquipTopLayer:setItemCObj(cls, data)
+    local isEquip = data[1] == Bag.TYPE_EQUIP
+    set_com_enabled(cls.starCom, isEquip)
+    set_com_enabled(cls.bgImgCom, isEquip)
+    if isEquip then
+        local edata = Equip:GetEquip(data[2])
+        Bag:SetComSimpleGoodsUi(cls, data[1], edata.cfgid)
+        Bag:SetStarSprite(cls.starChilds, edata.star)
+        cls.lvTxtCom.text = "Lv." .. edata.level
+    else
+        Bag:SetComSimpleGoodsUi(cls, data[1], data[2])
+        cls.lvTxtCom.text = ""
+    end
+end
+
+function EquipTopLayer:ctorCellCObj(obj)
+    local cls       = clsbase:new(obj)
+    cls.items       = {}
+    cls.row = 0
+    for i = 1, 5, 1 do
+        cls.items[i]    = self:ctorItemCObj(obj.transform:Find("prefab_" .. i), function() self:onTopMaterialClick(cls.items[i]) end)        
+    end    
+    return cls
+end
+
+function EquipTopLayer:setCellCObj(cls, row)
+    cls.row = row
+    local number = #self._materials
+    local edata, realindex, data
+    for i = 1, 5 do
+        realindex = row * 5 + i
+        if realindex <= number then
+            data = self._materials[realindex]
+            self:setItemCObj(cls.items[i], data)
+        end
+        cls.items[i]:Visible(realindex <= number)
+        cls.items[i].index = realindex
+        set_com_enabled(cls.items[i].checkCom, self._selectObjs[cls.row * 5 + i] ~= nil )
+    end
+end
+
+function EquipTopLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_TOP, 
+        function()
+            self:onEquipTopRep()
+        end)
+end
+
+function EquipTopLayer:onExit()
+    self._data = nil
+    self._materials = nil
+    CBaseLayer.onExit(self)
+end
+
+function EquipTopLayer:show(uid,isPlayerAnim,callback)
+    self._fading = false
+    if self._uid ~= uid then
+        self._uid   = uid
+      --  self._data  = Equip:GetEquip(uid)
+    end
+    self.callback = callback;
+    self:refreshLayer()
+    self:showLayer()
+
+    -- self:playAni("EquipTopLayerAni")
+end
+
+function EquipTopLayer:initEquipInfo()
+    self._data = Equip:GetEquip(self._uid)
+    if self._cfgid ~= self._data.cfgid then
+         self._cfgid = self._data.cfgid
+         self._cfg = Equip:GetCfg(self._data.cfgid)
+         self._nameCom.text = self._cfg.Name
+    end
+    self._costNum = Equip:GetEquipTopNum(self._cfg.StarUpCost, self._data.star )
+    if tonumber(self._cfg.Quality) < Bag.QLTY_SR then
+        self._textTipsCom = LanguageMgr:GetTextByID(72000077)
+    else
+        self._textTipsCom = LanguageMgr:GetTextByID(72000040)
+    end
+    for i= 1,4 do
+        self._topCostCObjs[i]:Visible(i <= self._costNum)
+    end
+    
+end
+
+function EquipTopLayer:SetTableView()
+    self._materials = Equip:GetTopMaterial(self._data);
+    set_obj_active(self._emptyObj, #self._materials == 0)
+    local rows = math.ceil(#self._materials * 0.2);
+    if(self._tvController == nil)then
+        self._tvController = UIController:CtorTableView(self.layer.transform:Find("container_materials/TableViewController"));
+        self._tvController:Init(rows, true,
+            function(cell, row)
+                self:refreshCell(cell, row)
+            end, 0.3, 0.1)
+    else
+        self._tvController:Reload(rows)
+        self._tvController:ScrollToTop()
+    end
+end
+
+local line_nums = 5;
+function EquipTopLayer:refreshCell(cell,row)
+    local cls = self.cells[cell]
+    if cls == nil then
+        cls = self:ctorCellCObj(cell)
+        self.cells[cell] = cls
+    end
+    self:setCellCObj(cls, row)
+end
+
+function EquipTopLayer:refreshLayer()
+    self._selectObjs = {}
+    self._cost = {0,0,0,0}
+    self._selectNum = 0
+    for i=1,4 do
+        self._topCostCObjs[i].index = 0    
+    end
+    self:initEquipInfo()
+    self:setInfo()
+    self:setCostItems()
+    self:setCostMaterial()
+    self:SetTableView();
+end
+
+
+function EquipTopLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.Top then
+        self:onTopClick()
+    elseif itype == BUTTON_TYPE.Click then
+          --  self:onTopMaterialClick(self.selectItem);
+           -- Groble_UIMgr:ShowOriginTipsLayer(self._data.cfgid, Bag.TYPE_EQUIP)
+    elseif itype == BUTTON_TYPE.Coin then
+        SingletonMgr:ShowItemTipsLayer(self.layer, Bag.TYPE_ITEM, Player.ITEM_VALUE_COIN)
+    else
+        --TODO:
+    end
+end
+
+function EquipTopLayer:setInfo()
+    set_obj_active(self._infoObj.transform:Find("img_arrow"), not self._data.top_max)
+    set_obj_active(self._infoObj.transform:Find("panel_next"), not self._data.top_max)
+        
+    Equip:SetEquipCObjByUid(self._currEquipCObj, self._data.uid, true)
+    self._currLevelCom.text =string.format(LanguageMgr:GetTextByID(99000041), self._data.level, self._data.curr_max_level)
+    if self._data.top_max then
+        u3d_set_localPos(self.layer.transform:Find("container_info/panel_curr"), 0)        
+    else
+        Equip:SetEquipCObjByUid(self._nextEquipCObj, self._data.uid, true)
+        Bag:SetStarSprite(self._nextEquipCObj.starChilds, self._data.star + 1)
+        self._nextLevelCom.text = string.format(LanguageMgr:GetTextByID(99000044), self._data.level, self._data.next_max_level)
+    end
+end
+
+function EquipTopLayer:setCostItems()
+    set_obj_active(self.layer.transform:Find("text_top_max"), self._data.top_max)
+	set_obj_active(self.layer.transform:Find("button_top"), not self._data.top_max)
+    set_obj_active(self.layer.transform:Find("container_cost"), not self._data.top_max)
+    if self._data.top_max then
+        return
+    end
+    -- 消耗固定材料
+  --  self._consumes = cost
+  --[[  self._lack_top_material = false
+    for i, cls in ipairs(self._costItemsCObj) do
+        if self._consumes[i] == nil then
+            cls.citem:Visible(false)
+            set_obj_active(cls.numObj, false)
+        else
+            cls.citem:Visible(true)
+            set_obj_active(cls.numObj, true)
+            
+            local lack = set_cost_color(cls.numObj, self._consumes[i][1], self._consumes[i][2], true)
+            self._lack_top_material = self._lack_top_material or lack
+            Bag:SetComSimpleGoodsUi(cls.citem, Bag.TYPE_ITEM, self._consumes[i][1])
+        end
+    end]]
+   
+end
+
+function EquipTopLayer:setCostMaterial()
+    for i= 1,self._costNum do
+        local index = self._topCostCObjs[i].index
+        local empty = self._selectObjs[index] == nil
+        -- 突破消耗同名装备
+        set_com_enabled(self._topCostCObjs[i].clsbag.checkCom, empty)
+        set_obj_active( self._topCostCObjs[i].lablLackObj, empty)
+        if empty then
+            Equip:SetEquipCObjByCfgid(self._topCostCObjs[i], self._cfgid)
+        else
+            local data = self._materials[index]
+            if data[1] == Bag.TYPE_ITEM then
+                Bag:SetComSimpleGoodsUi(self._topCostCObjs[i].clsbag, Bag.TYPE_ITEM, data[2])
+                Equip:HideEquipCObj(self._topCostCObjs[i])
+            else
+                Equip:SetEquipCObjByUid(self._topCostCObjs[i], data[2])
+            end
+        end
+        
+    end
+  
+    
+--[[
+    if self._sIndex ~= 0 then
+       
+    end
+    ]]
+end
+function EquipTopLayer:onSelectMaterialClick(index)
+    index = self._topCostCObjs[index].index
+    local item = self._selectObjs[index]
+    if item ~= nil  then
+        set_com_enabled(item.checkCom, false);
+        for i, v in ipairs(self._cost) do
+            if v ~= 0 and v[3] == item.index then
+                self._cost[i] =0
+                self._selectNum = self._selectNum -1
+                self._topCostCObjs[i].index = 0
+            end
+        end
+        self._selectObjs[index] = nil
+        self:setCostMaterial()
+    end
+  
+end
+function EquipTopLayer:onTopMaterialClick(item)
+    if self._fading then return end
+    if self._data.top_max then return end
+  
+    if self._selectObjs[item.index] ~= nil  then
+        set_com_enabled(item.checkCom, false);
+        self._selectObjs[item.index] = nil
+        for i, v in ipairs(self._cost) do
+            if v ~= 0 and v[3] == item.index then
+                self._cost[i] =0
+                self._selectNum = self._selectNum -1
+                self._topCostCObjs[i].index = 0
+                break
+            end
+        end
+        
+    else
+        if self._selectNum == self._costNum then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880017))
+            return
+        end
+        self._selectObjs[item.index] = item;
+        ---------
+        set_com_enabled(item.checkCom, true);
+        local data = self._materials[item.index]
+        if Bag.TYPE_EQUIP == data[1] then
+            if true == data[3] then
+                Groble_UIMgr:ShowGameWordTipsLayer(72000068)
+                return
+            end
+        end
+        for i, v in ipairs(self._cost) do
+            if v == 0 then
+                self._cost[i] = { data[1], data[2], item.index}
+                self._selectNum = self._selectNum +1
+                self._topCostCObjs[i].index = item.index
+                break
+            end
+        end
+    end
+    self:setCostMaterial()
+end
+
+function EquipTopLayer:onTopClick()
+    if self._data.top_max == 0 then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000037)
+        return
+    end
+    if  self._selectNum < self._costNum then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000066)
+        return
+    end
+    
+    if self._lack_top_coin then
+        Groble_UIMgr:ShowLackCurrencyTips(Player.ITEM_VALUE_COIN)
+        return
+    end
+    if self._data.level < self._data.curr_max_level then
+        Groble_UIMgr:ShowGameWordTipsLayer(72000067)
+        return
+    end
+    ----------
+    local count = 0
+    local uids = {}
+    for _,v in pairs(self._cost) do
+        if v ~= 0 then
+            if v[1] == Bag.TYPE_EQUIP then
+                table.insert(uids , v[2])
+            else
+                count = count + 1
+            end
+        end
+    end
+    Equip:TopReq(self._data.uid, count, uids)
+end
+
+function EquipTopLayer:onEquipTopRep()
+    Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.TOP_UP)
+    self:refreshLayer()
+    if(self.callback ~= nil)then
+        self.callback();
+    end
+end
+
+function EquipTopLayer:onCostItemClick(i)
+    if self._consumes == nil or self._consumes[i] == nil then
+        return
+    end 
+    GTemp:SetSweepTmpData({cfgid = self._consumes[i][1], count = self._consumes[i][2]})
+    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,self._consumes[i][1])
+end
+
+return EquipTopLayer
+

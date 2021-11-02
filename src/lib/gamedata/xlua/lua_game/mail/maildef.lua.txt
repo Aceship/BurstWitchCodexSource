@@ -1,0 +1,22 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 16:05:59
+-- brief : 
+--
+Mail = Mail or {}
+
+Mail.STATE_NIL          = 0
+Mail.STATE_UNREAD       = 0     -- 未读
+Mail.STATE_READ         = 1     -- 已读（存在奖励时已领取）
+
+Mail.ICON_BOX       = "icon_youxiang_3"
+Mail.ICON_READ      = "icon_youxiang_2"
+Mail.ICON_UNREAD    = "icon_youxiang_1"
+
+Mail.OPER_READ      = 1
+Mail.OPER_GET       = 2
+Mail.OPER_DEL       = 3
+
+Mail.DURATION_FOREVER       = 0;        -- 永久邮件持续时间
+Mail.DURATION_FOREVER_GOT   = 24 * 3600 -- 永久邮件领取后剩余持续时间
+

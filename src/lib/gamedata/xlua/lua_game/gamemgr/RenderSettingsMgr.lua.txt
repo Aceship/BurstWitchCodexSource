@@ -1,0 +1,64 @@
+--
+-- author: haosun
+-- date  : 2021-01-07 20:03:44
+-- brief : Scene的RenderSettings管理：环境灯、雾参数
+--
+RenderSettingsMgr = RenderSettingsMgr or {}
+
+local FogMode_Linear                = 1
+local FogMode_Exponential           = 2
+local FogMode_ExponentialSquared    = 3
+
+local Source_Skybox     = 1
+local Source_Gradient   = 2
+local Source_Color      = 3
+
+local _instance = CS.RenderSettingsMgr.Instance
+
+-- EnviromentLighting Interface --------------------------------------------------------------
+function RenderSettingsMgr:SetEnviromentLightingMode(mode)
+    _instance:SetEnviromentLightingMode(mode)
+end
+
+function RenderSettingsMgr:SetAmbientSkyColor(r, g, b, a)
+    _instance:SetAmbientSkyColor(r, g, b, a)
+end
+
+function RenderSettingsMgr:SetGradientColor(r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3)
+    _instance:SetGradientColor(r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3)
+end
+
+-- Fog Interface --------------------------------------------------------------
+function RenderSettingsMgr:FogSettings(fogmode, r, g, b, a, p1, p2)
+    self:SetFogMode(fogmode)
+    self:SetFogColor(r, g, b, a)
+    if fogmode == FogMode_Linear then
+        self:SetFogDistance(p1, p2)
+    elseif fogmode == FogMode_Exponential then
+        self:SetFogDensity(p1)
+    end
+end
+
+function RenderSettingsMgr:SetFogMode(fogmode)
+    _instance:SetFogMode(fogmode)
+end
+
+function RenderSettingsMgr:SetFogColor(r, g, b, a)
+    _instance:SetFogColor(r, g, b, a)
+end
+
+function RenderSettingsMgr:SetFogDistance(startValue, endValue)
+    if startValue == nil or endValue == nil then
+        AppMgr:LogError("!!!RenderSettingsMgr:SetFogDistance param is error.")
+    else
+        _instance:SetFogDistance(startValue, endValue)    
+    end
+end
+
+function RenderSettingsMgr:SetFogDensity(density)
+    _instance:SetFogDensity(density)
+end
+
+function RenderSettingsMgr:FogEnabled(enabled)
+    _instance:FogEnabled(enabled)
+end

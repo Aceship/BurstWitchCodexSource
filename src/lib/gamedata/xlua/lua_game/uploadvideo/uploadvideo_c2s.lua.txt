@@ -1,0 +1,137 @@
+--
+-- author: cjj
+-- date  : 2019-03-12 15:52:53
+-- brief : 
+--
+UpLoadVideo = UpLoadVideo or {}
+
+--上传数据
+function UpLoadVideo:UpLoadDataReq()
+	local fighterData = CS.BWRecord.record;
+	local zipData = CS.Network.NetworkZip.CompressZlib(fighterData,string.len(fighterData));
+	local data = {
+		path = UpLoadVideo:GetVideoPath(Player:GetId(),self._curVideoType,UpLoadVideo:GetCurScore()),
+		data = zipData,
+		charId = Player:GetId(),
+		type = self._curVideoType,
+	}
+	local bytes = ProtoMgr:Encode(UpLoadVideo.UploadVideoReq,data);
+	AppMgr:LogInfo("----------------开始上传战斗数据----------------")
+	Network:SendHttp(UpLoadVideo.Ip,UpLoadVideo.Port,Http.UPLOAD_VIDEO_REQ,bytes,function ()
+		self._isUpLoadErr = false;
+		--上传结束, 更新播放数据
+		AppMgr:LogInfo("----------------成功上传战斗数据----------------  "..UpLoadVideo:GetVideoPath(Player:GetId(),self._curVideoType,UpLoadVideo:GetCurScore()));
+		UpLoadVideo:CloseCurScore();
+	end);
+end
+
+function UpLoadVideo:UpLoadDataRep()
+
+end
+
+--视频上传错误处理
+function UpLoadVideo:UpLoadDataError()
+	if(not self._isUpLoadErr)then
+		self._isUpLoadErr = true;
+		UpLoadVideo:UpLoadDataReq();
+	else
+		self._isUpLoadErr = false;
+		UpLoadVideo:CloseCurScore();
+		Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(121055));
+	end
+end
+
+--下载视频数据
+function UpLoadVideo:DownLoadVideo(path,action)
+	local url = UpLoadVideo.DownLoadUrl..path;
+	return CS.DowLoadHelper.Instance:DownloadByUrl(url,
+			function(msg)
+				if(msg == nil)then -- 无效视频
+					Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(121036));
+					return;
+				end
+				--下载完毕,增加播放次数
+				--UpLoadVideo:AddVideoPlayNumReq(path);
+				-- TODO 临时脚本
+				AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/PlaybackLayer.txt")
+				PlaybackLayer:PlaybackLayerCreator();
+				PlaybackLayer:Show();
+				------------------
+			end);
+end
+
+function UpLoadVideo:GetDownLoadUrlReq()
+	local data = {
+		targe = self._playerData.id,
+		type = self._curVideoType,
+	}
+	local bytes = ProtoMgr:Encode(UpLoadVideo.GetVideoReq,data);
+	Network:SendHttp(UpLoadVideo.Ip,UpLoadVideo.Port,Http.VIDEO_GET_URL,bytes,function (id,bytes)
+		UpLoadVideo:GetDownLoadUrlRep(bytes);
+	end);
+end
+
+function UpLoadVideo:GetDownLoadUrlRep(bytes)
+	if(bytes == nil or bytes == "")then
+		if(UpLoadVideo:GetIsReportState())then--举报
+			UpLoadVideo:SetIsReportState(false);
+			Player:ReportRep();
+			return;
+		end
+		GEvent:fireEvent(EVENT_TYPE.GET_DOWN_LOAD_VIDEO_PATH_REP,"");
+		return;
+	end
+	local data = ProtoMgr:Decode(UpLoadVideo.GetVideoRep,bytes);
+	if(data.path == nil or data.path == "")then
+		Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(121036));
+		return;
+	end
+	if(UpLoadVideo:GetIsReportState())then
+		UpLoadVideo:SetIsReportState(false);
+		GEvent:fireEvent(EVENT_TYPE.GET_DOWN_LOAD_VIDEO_PATH_REP_REPORT,data.path);
+		return;
+	end
+	GEvent:fireEvent(EVENT_TYPE.GET_DOWN_LOAD_VIDEO_PATH_REP,data.path);
+end
+
+--[[添加播放次数
+function UpLoadVideo:AddVideoPlayNumReq(path)
+	local data = {
+		path = path,
+	}
+	local bytes = ProtoMgr:Encode(UpLoadVideo.VideoAddCountReq,data);
+	Network:SendHttp(UpLoadVideo.Ip,UpLoadVideo.Port,Http.VIDEO_ADD_COUNT_REQ,bytes,function ()
+		--播放次数添加
+		UpLoadVideo:AddPlayNumData(path);
+	end);
+end]]--
+
+--[[查询播放次数请求
+function UpLoadVideo:GetPlayNumReq()
+	local sendPath = {};
+	if(self._curVideoType == UpLoadVideo.VideoType.ShenYe)then
+		local data = lua_deep_copy(Rank:GetSYCurrData()).list;
+		for _, v in ipairs(data) do
+			table.insert(sendPath,UpLoadVideo:GetVideoPath(v.id,self._curVideoType));
+		end
+		if(#sendPath <= 0)then
+			return;
+		end
+	end
+	local data = {
+		paths = sendPath,
+	}
+	local bytes = ProtoMgr:Encode(UpLoadVideo.WatchVideoCountReq,data);
+	Network:SendHttp(UpLoadVideo.Ip,UpLoadVideo.Port,Http.WATCH_VIDEO_COUNT_REQ,bytes,function (id,data)
+		--获取播放次数返回, 更新播放次数
+		UpLoadVideo:GetPlayNumRep(sendPath,data);
+	end);
+end
+
+
+--查询播放次数返回
+function UpLoadVideo:GetPlayNumRep(sendPath,data)
+	local nums = ProtoMgr:Decode(UpLoadVideo.WatchVideoCountRep,data);
+	UpLoadVideo:UpdatePlayNumData(sendPath,nums);
+	GEvent:fireEvent(EVENT_TYPE.GET_RANK_VIDEO_PLAY_NUM_RES);
+end]]--

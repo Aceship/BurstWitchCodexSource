@@ -1,0 +1,166 @@
+
+local RankBossInfo = class("RankBossInfo")
+
+function RankBossInfo:ctor(super, parent)
+    self.layer = parent:CreateChild("prefab_rank/UI_RankBossInfo")
+    self:initObj()
+end
+
+function RankBossInfo:initObj()
+    self._infoBoss      = self.layer:GetImageComponent("info_boss")
+
+    self._temObj        = self.layer:Get("info_preview/template")
+    self._scrollview    = self.layer:Get("info_preview/scrollview")
+    self._contentObj    = self.layer:Get("info_preview/scrollview/viewport/content")
+
+    self._boss_des      = self.layer:Get("boss_des")
+    self._txt_des       = self._boss_des:GetTextComponent("txt_des")
+    self._keIcon_self   = self._boss_des:GetImageComponent("ke2/img_icon")
+    self._keIcon_other  = self._boss_des:GetImageComponent("ke1/img_icon")
+    --self._jiantou       = self._boss_des:Get("img_jiantou")
+    self._txt_kezhi     = self._boss_des:GetTextComponent("txt_kezhi")
+    self._kezhi_addvalue= self._boss_des:GetTextComponent("add_value")
+    self._showTip       = self._boss_des:GetButtonComponent("showTip")
+    self._imgAttr       = self._boss_des:GetImageComponent("boss_attr/img_icon");
+end
+
+function RankBossInfo:onExit()
+    self._infoBoss      = nil
+
+    self._temObj        = nil
+    self._scrollview    = nil
+    self._contentObj    = nil
+
+    self._boss_des      = nil
+    self._txt_des       = nil
+    self._keIcon_self   = nil
+    self._keIcon_other  = nil
+    --self._jiantou       = nil
+    self._txt_kezhi     = nil
+    self._kezhi_addvalue= nil
+    self._showTip       = nil
+    self._imgAttr       = nil;
+end
+
+function RankBossInfo:show()
+    self:showReally()
+end
+
+function RankBossInfo:showReally()
+    self:initLayer()
+    self:initBossView()
+    --起始坐标计算有误
+    --u3d_set_localPos(self._jiantou, -391)
+end
+
+function RankBossInfo:initLayer()
+    self._chapter = Chapter:GetShenYeChapter()
+
+    self._scrollview:GetComponent("ScrollRect").onValueChanged:AddListener(function()
+        self:UpdatePos()
+    end)
+
+    self._showTip.onClick:AddListener(function()
+        local level = Chapter:GetLevel(tonumber(self._chapter.levelids[1]))
+        Groble_UIMgr:ShowAttrRuleTipsLayer(level.id)
+    end)
+end
+
+function RankBossInfo:initBossView()
+    local bosslist = MidNight:GetAllMidNightBossIds();
+
+    if #bosslist > 0 then
+        for i = 1,#bosslist do
+            local cfg;
+            local prefab = Groble_ResMgr:Instantiate(self._temObj, self._contentObj)
+            prefab.name = "item"..i
+            if i == #bosslist then
+                prefab:Get("img_arrow"):SetVisible(false)
+            end
+            cfg = MidNight:GetMidNightBossCfgById(bosslist[i]);
+            prefab:Get("img_bg"):SetVisible(true)
+            prefab:Get("img_liang"):SetVisible(false)
+            prefab:GetTextComponent("txt_index"):SetText(i)
+            prefab:GetImageComponent("img_icon"):LoadSprite(cfg.avatar)
+            Hero:LoadAttrIconSp( prefab:GetImageComponent("img_attr_bg/img_attr"), cfg.attri_type)
+            prefab:SetVisible(true)
+            prefab:GetButtonComponent("img_bg").onClick:AddListener(function()
+                self:RankBossInfo(i, cfg)
+            end)
+            local killNum = EventController:GetKillBossNumber()
+            prefab:Get("img_killed"):SetVisible(i <= (killNum or 0))
+        end
+        self:RankBossInfo(1, MidNight:GetMidNightBossCfgById(bosslist[1]))
+        if #bosslist > 4 then
+            self.layer:GetScrollRectComponent("info_preview/scrollview").horizontal = true
+        end
+    end
+end
+
+function RankBossInfo:RankBossInfo(idx, bossInfo)
+    if self._idx then
+        local oldPre = self._contentObj:Get("item" .. self._idx)
+        oldPre:Get("img_bg"):SetVisible(true)
+        oldPre:Get("img_liang"):SetVisible(false)
+    end
+    if (not idx) and self._idx then
+        idx = self._idx
+    end
+    if (not bossInfo) and self._bossInfo then
+        bossInfo = self._bossInfo
+    end
+    local newPre = self._contentObj:Get("item" .. idx)
+    newPre:Get("img_bg"):SetVisible(false)
+    newPre:Get("img_liang"):SetVisible(true)
+    self._idx = idx
+    self._bossInfo = bossInfo
+
+    local level = Chapter:GetLevel(tonumber(self._chapter.levelids[1]))
+    local eleCfg = FightModule:GetElementCfg(bossInfo.boss_id)
+    self._infoBoss:LoadSprite(eleCfg.BodyAvatar)
+    --设置BossSpine位置缩放
+    self._infoBoss:SetAnchoredPosition(bossInfo.spinePos[1],bossInfo.spinePos[2]);
+    self._infoBoss.transform:SetScale(bossInfo.spineScale[1],bossInfo.spineScale[2],bossInfo.spineScale[3]);
+
+    self._txt_des:SetText(string.format("%s Lv.",bossInfo.des));
+    local attri_type = bossInfo.attri_type
+    local other_attri_type = attri_type + 2
+    if other_attri_type > 3 then
+        other_attri_type = other_attri_type - 3
+    end
+
+    self._imgAttr:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(attri_type)]);
+    self._keIcon_self:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[tonumber(attri_type)])
+    self._keIcon_other:LoadAtlasSprite(AtlasMgr.COM_RES, AtlasMgr.IMG_ATTRIBUTE[ math.floor(other_attri_type)])
+    self._txt_kezhi.text = string.format(LanguageMgr:GetTextByID(20065), level.Restraint_level[1])
+    self._kezhi_addvalue.text = string.format(LanguageMgr:GetTextByID(20069), level.Restraint_level[3])
+
+    self:UpdatePos(idx)
+end
+
+function RankBossInfo:UpdatePos(idx)
+    if (not idx) and self._idx then
+        idx = self._idx
+    end
+    self._idx = idx
+    local curPos = self._contentObj:GetComponent("RectTransform").localPosition.x + self._contentObj:Get("item" .. idx):GetComponent("RectTransform").localPosition.x
+    --[[local usePos = curPos + self._scrollview:GetComponent("RectTransform").localPosition.x - 40 --修正
+    if usePos < -432 then
+        usePos = -432
+    end
+    if usePos > 412 then
+        usePos = 412
+    end]]--
+    --u3d_set_localPos(self._jiantou, usePos)
+end
+
+function RankBossInfo:RefershKilled()
+    local bosslist = Rank:GetBossInfoCfg(tonumber(self._chapter.levelids[1]))
+    local killNum = EventController:GetKillBossNumber()
+    for i = 1,#bosslist do
+        local prefab = self._contentObj:Get("item"..i);
+        prefab:Get("img_killed"):SetVisible(i <= killNum)
+    end
+end
+
+return RankBossInfo

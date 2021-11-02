@@ -1,0 +1,319 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-04 15:55:41
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ArchiveLayer = class("ArchiveLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnAddValueTips = "container/trans_tips/btn_add_value_tips",
+	--@ButtonEnd
+}
+
+local MaxNum = 3;
+local AllType = 0;
+
+--构造函数
+function ArchiveLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_ArchiveLayer",
+        trans = parent,
+        obj = true
+    }
+    self._init = true;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function ArchiveLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    self:addEventListener(EVENT_TYPE.UPDATE_ARCHIVE_ADD,self.__cname, function()
+        self:SetData();
+        self:SetLeftTogUI(AllType);
+    end);
+end
+
+--按钮事件
+function ArchiveLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnAddValueTips)then 
+	   self:OnBtnAddValueTipsClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function ArchiveLayer:onBackClick()
+    if(self.callback)then
+        self:callback();
+    end
+    self:onPopLayer();
+end
+
+--初始化
+function ArchiveLayer:Init()
+    self._items = {};
+    self._isInit = true;
+    self._cells = {};
+    self._curIndex = nil;
+    self._v3Zero = CS.UnityEngine.Vector3.zero;
+    self:InitUI();
+end
+
+--初始化UI
+function ArchiveLayer:InitUI()
+
+    --@ImageEnd
+
+	self._txtHaveNum = self.layer:GetTextComponent("container/txt_have_num");
+
+	self._txtTitle = self.layer:GetTextComponent("container/trans_tips/txt_title");
+	--@TextEnd
+
+    self._transLeftTogContent = self.layer:Get("container/left_tog_bg/trans_left_tog_content");
+	self._transSelectTogBg = self.layer:Get("container/left_tog_bg/trans_select_tog_bg");
+	self._transAddValueBg = self.layer:Get("container/trans_add_value_bg");
+	self._transBuildAdd = self.layer:Get("container/trans_build_add");
+	--@TransformEnd
+
+    self._objLeftTog = self.layer:Get("container/item_hide/obj_left_tog").gameObject;
+    self._objNotHaveAdd = self.layer:Get("obj_not_have_add").gameObject;
+	--@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self._tvController = UIController:CtorTableView(self.layer:Get("container/TableViewController"));
+
+    self._buildAddItem = Archive:NewBuildAddItem(self._transBuildAdd);
+
+    self._attrAddItems = Archive:NewAttrAddItems(self._transAddValueBg);
+    self._togLefts = {};
+    local atkTable = Hero.ArchiveAtkTypeSort;
+    atkTable[AllType] = AllType;
+    for i = 0, #Hero.ArchiveAtkTypeSort do
+        local cls;
+        cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objLeftTog,self._transLeftTogContent));
+        cls.atkType = atkTable[i];
+        cls.tog = cls.transform:GetComponent("MToggle");
+        cls.imgRed = cls:GetImageComponent("img_red");
+        cls.select = {};
+        cls.select.txtTitle = cls:GetTextComponent("select/txt_title");
+        cls.select.txtTitleE = cls:GetTextComponent("select/txt_title_E");
+        cls.select.imgIcon = cls:GetImageComponent("select/img_icon");
+        cls.unselect = {};
+        cls.unselect.txtTitle = cls:GetTextComponent("unselect/txt_title");
+        cls.unselect.txtTitleE = cls:GetTextComponent("unselect/txt_title_E");
+        cls.unselect.imgIcon = cls:GetImageComponent("unselect/img_icon");
+        cls.tog.onValueChanged:AddListener(function (isOn)
+            self:OnLeftTogClick(isOn,cls.atkType);
+        end);
+        self._togLefts[cls.atkType] = cls;
+    end
+    self:SetAllLeftTogUI();
+    self._togLefts[AllType].tog.isOn = true;
+end
+
+--显示UI
+function ArchiveLayer:show()
+    self:showLayer();
+end
+
+function ArchiveLayer:showLayer()
+    self:playAni("ArchiveLayerAni");
+    if( self._init)then
+        self._init = false;
+    else
+        self._tvController:ScrollToTop();
+        self._tvController:Reload(self._dataNum,true);
+    end
+    CBaseLayer.showLayer(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ArchiveLayer:OnBtnAddValueTipsClick()
+    core.require("xlua/lua_UI/Archive/AdditionLayer.txt"):new():show();
+ end
+
+--人物半身像点击事件
+function ArchiveLayer:OnHeroItemBtnClick(heroId)
+    Archive:SetCurSelectHeroId(heroId);
+    if(Archive:GetHeroAddIsGet(heroId))then
+        Archive:GetHeroAddReq();
+        return;
+    end
+    local hero = Hero:GetHero(heroId);
+    if(hero == nil)then
+        CS.Logger.LogError("hero is null heroId = "..heroId);
+        return;
+    end
+    core.require("xlua/lua_UI/Archive/HeroInfoLayer.txt"):new():show();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function ArchiveLayer:OnLeftTogClick(isOn,index)
+    if(isOn)then
+        if(self._curIndex == index)then
+            return;
+        end
+        self._curIndex = index;
+        self._transSelectTogBg:SetParent(self._togLefts[self._curIndex].transform);
+        self._transSelectTogBg:SetAsFirstSibling();
+        if( self._init)then
+            self._transSelectTogBg:DOLocalMove(self._v3Zero,0);
+        else
+            self._transSelectTogBg:DOLocalMove(self._v3Zero,0.2);
+        end
+        self:SetData();
+    end
+end
+
+--@MToggleFunctionEnd
+
+--释放
+function ArchiveLayer:Close()
+
+	self._objLeftTog = nil;
+	self._transLeftTogContent = nil;
+    self._items = {};
+    self._cells = nil;
+	self._transSelectTogBg = nil;
+	self._txtHaveNum = nil;
+	--self._txtHaveNumRatio = nil;
+	self._transAddValueBg = nil;
+	self._txtTitle = nil;
+	self._objNotHaveAdd = nil;
+	self._transBuildAdd = nil;
+	--@CloseEnd
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ArchiveLayer:SetData()
+    self:SetAddUI();
+    self._heroIds = Hero:GetIdsByAtkType(Hero.ArchiveAtkTypeSort[self._curIndex]);
+    local tab = {};
+    local sortId = 0;
+    for i, v in ipairs(self._heroIds) do
+        if(Archive:GetHeroAddIsGet(v))then
+            sortId = 10;
+        else
+            sortId = 10000;
+        end
+        table.insert(tab,{id = v,sortId = sortId + i});
+    end
+    table.sort(tab,function (a,b)
+        return a.sortId < b.sortId;
+    end)
+    for i, v in ipairs(tab) do
+        self._heroIds[i] = v.id;
+    end
+    self._dataNum = math.ceil(#self._heroIds/MaxNum);
+    if(self._isInit)then
+        self._isInit = false;
+
+       
+        self._txtHaveNum.text =LanguageMgr:GetTextByID(32018).." "..math.floor(#Hero:GetHaveIds()).."/"..#self._heroIds;
+        self._tvController:Init(self._dataNum, true,
+                function(cell, row)
+                    self:UpdateItemData(cell, row);
+                end, 0.1, 0.08);
+    else
+         self._tvController:Reload(self._dataNum,true);
+    end
+end
+
+function ArchiveLayer:UpdateItemData(cell, row)
+    if(self._cells[cell] == nil)then
+        local cls = {};
+        cls.items = {};
+        for i = 1, MaxNum do
+            cls.items[i] = Hero:HalfItemClassNew(cell.transform:Find("prefab_"..i),function(heroId)
+                self:OnHeroItemBtnClick(heroId);
+            end);
+            cls.items[i].imgNotHave = cls.items[i]:GetImageComponent("img_not_have");
+            cls.items[i].objAward = cls.items[i]:Find("img_attr_award_bg");
+            cls.items[i].btnAddDetails = cls.items[i]:GetButtonComponent("btn_add_details");
+            cls.items[i].btnAddDetails.onClick:AddListener(function ()
+                Archive:SetCurSelectHeroId(cls.items[i].heroid);
+                if(Archive:GetHeroAddIsGet(cls.items[i].heroid))then
+                    Archive:GetHeroAddReq();
+                    return;
+                end
+                Archive:OpenAddDetailsLayer();
+            end);
+        end
+        self._cells[cell] = cls;
+    end
+    local cls = self._cells[cell];
+    local heroId,hero;
+    for i = 1, MaxNum do
+        hero = nil;
+        heroId = self._heroIds[row * MaxNum + i];
+        if(heroId ~= nil)then
+            hero = Hero:GetHero(heroId);
+        end
+        cls.items[i].obj:SetVisible(hero ~= nil);
+        if(hero ~= nil)then
+            Hero:SetHalfItemClassData(cls.items[i],heroId,hero,true);
+            set_com_enabled(cls.items[i].imgNotHave,not hero.owner);
+            cls.items[i].objAward:SetVisible(Archive:GetHeroAddIsGet(heroId));
+            cls.items[i].btnAddDetails.gameObject:SetVisible(not Archive:GetHeroAddIsGet(heroId));
+        end
+    end
+end
+
+function ArchiveLayer:SetAllLeftTogUI()
+    for i, v in pairs(self._togLefts) do
+        self:SetLeftTogUI(i);
+    end
+end
+
+function ArchiveLayer:SetLeftTogUI(atkType)
+    local cls = self._togLefts[atkType];
+    if(atkType == 0)then
+        cls.select.txtTitle:SetTextById(71200021);
+        cls.select.txtTitleE:SetTextById(71200022);
+        cls.unselect.txtTitle:SetTextById(71200021);
+        cls.unselect.txtTitleE:SetTextById(71200022);
+        set_com_enabled(cls.select.imgIcon,false);
+        set_com_enabled(cls.unselect.imgIcon,false);
+        set_com_enabled(cls.imgRed,Archive:GetRedStateByAtkType());
+    else
+        cls.select.txtTitle:SetTextById(71200000 + atkType);
+        cls.select.txtTitleE:SetTextById(71200010 + atkType);
+        cls.unselect.txtTitle:SetTextById(71200000 + atkType);
+        cls.unselect.txtTitleE:SetTextById(71200010 + atkType);
+        Hero:SetHeroAtkType(cls.select.imgIcon,atkType);
+        Hero:SetHeroAtkType(cls.unselect.imgIcon,atkType);
+        set_com_enabled(cls.imgRed,false);
+    end
+end
+
+
+function ArchiveLayer:SetAddUI()
+    local buildAdd = Archive:GetBuildAddByAtkType(self._curIndex);
+    self._transAddValueBg.gameObject:SetVisible(self._curIndex == AllType);
+    self._transBuildAdd.gameObject:SetVisible(self._curIndex ~= AllType and buildAdd ~= nil);
+    self._objNotHaveAdd:SetVisible(buildAdd == nil);
+    if(self._curIndex == AllType)then
+        self._objNotHaveAdd:SetVisible(Archive:GetAttrAdds() == nil or next(Archive:GetAttrAdds())== nil);
+        self._txtTitle:SetTextById(7120006);
+        Archive:SetAttrAddItemsData(self._attrAddItems);
+    else
+        self._objNotHaveAdd:SetVisible(buildAdd == nil);
+        self._txtTitle.text = LanguageMgr:GetTextByID(71200000 + self._curIndex) ..LanguageMgr:GetTextByID(7120007);
+        if(buildAdd ~= nil)then
+            Archive:SetBuildAddItemData(self._buildAddItem,self._curIndex,buildAdd.addNum);
+        end
+    end
+end
+
+return ArchiveLayer;

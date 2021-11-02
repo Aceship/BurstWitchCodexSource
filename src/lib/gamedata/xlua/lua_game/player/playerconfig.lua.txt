@@ -1,0 +1,495 @@
+--
+-- author: haosun
+-- date  : 2018-11-11 11:39:34
+-- brief :
+--
+
+Player = Player or {}
+
+function Player:_LoadConfig()
+    -- 初始化数据
+    local csvLoad = CsvLoadFile:new("Player_data")
+    csvLoad:LoadCsv()
+    self._baseconfig = csvLoad:GetData("1")
+
+    -- 玩家等级表
+    local configs = CfgLoader:LoadCfg("Player_levelup")
+    self._levelconfig = {}
+    for _, v in pairs(configs) do
+        self._levelconfig[tonumber(v.id)] = v
+    end
+    Player.MAX_LEVEL        = tonumber(self._baseconfig["max_level"])
+    Player.PER_POWER_TIME   = math.floor(1 / tonumber(self._baseconfig["defult_spirit_back"]) * 60)
+    Player.MAX_POWER_BUY    = tonumber(self._baseconfig["buy_physical_limit"])
+    local array = lua_str_split(self._baseconfig["midnight_ticket_reply"], "&")
+    Player.ITEM_SY_CLOCK = tonumber(array[1])
+    Player.MUSIC_RATE_LEVEL = tonumber(self._baseconfig["music_rate_HL"])
+    Player.MUSIC_RATE_STAR = tonumber(self._baseconfig["music_rate_HS"])
+    Player.REAL_NAME_AWARD = lua_parse_cfg(self._baseconfig["UnIndulge_award"],true)
+    Player.BUILD_LV_UP_COST = tonumber(self._baseconfig["BuildCost"])
+    Player.BUILD_LV_UP_HIGH_COST = tonumber(self._baseconfig["HighBuildCost"])
+    Player.BUILD_RESET_MAX_TIME = tonumber(self._baseconfig["ResetBuild"])
+    Player.OPEN_SKILLED_MODE_LEVEL = tonumber(self._baseconfig["Open_skilled_mode_level"]);
+    Player.FS_UP_GROUPS =  lua_parse_cfg(self._baseconfig["EquipUnlockLv"],true)[1] --符石解锁属性等级
+    Player.FS_UP_RATE = lua_parse_cfg(self._baseconfig["EquipLvUpNum"],true) --符石属性成长倍数
+    Player.WHITE_NIGHT_TASK_ITEM_ID = tonumber(self._baseconfig["Bonus_Item"])--白夜任务道具(小田说的, 加成道具只会有一个, 多个小田要开箱);
+    Player.PIECE_SHOP_NUM = lua_parse_cfg(self._baseconfig["PieceShop_Num"],true) --碎片商店转换比例
+    Player.FirstShare = lua_str_split(self._baseconfig["FirstShare"],"&")
+    Player.WeekFirstShare = lua_str_split(self._baseconfig["WeekFirstShare"],"&")
+    self:_LoadSysFuncCfg()
+    self:InitSysFunc()
+    self:_LoadBgCfg()
+    self:_LoadTutorhead()
+    --self._buildOpenLv = lua_str_split(self._baseconfig["BuildOpenLv"], "&",true);        --构筑角色开启等级
+    --[[for i, v in ipairs(self._buildOpenLv) do
+        v = tonumber(v);
+    end]]--
+    self._whiteNightAttrAdd = lua_parse_cfg(self._baseconfig["Bonus_Quality"],true);
+    self._activityLevelItemAdd = lua_parse_cfg(self._baseconfig["Bonus_Role"],true);
+    self._activityLevelFlipExpend = lua_str_split(self._baseconfig["Whitenight_ticket_buyLimit"],'&');
+    local buildAttrAdds = lua_parse_cfg(self._baseconfig.Build_des,true);
+    self._buildAttrAddType = {};
+    for _, v in ipairs(buildAttrAdds) do
+        self._buildAttrAddType[v[1]] = {};
+        for i, attrId in ipairs(v) do
+            if(i ~= 1)then
+                table.insert(self._buildAttrAddType[v[1]],attrId);
+            end
+        end
+    end
+
+    self._sweepinfo = lua_parse_cfg(self._baseconfig["moveup_max"], true)
+
+    self._cardPool = {};
+    local tempData = lua_parse_cfg(self._baseconfig["CardPool"], true);
+    for _, v in ipairs(tempData) do
+        self._cardPool[v[1]] = {id = v[1],num = v[2],star = v[3]};
+    end
+
+    --好感相关
+    self._sublimation = {};
+    self._sublimation.adventureMaxNum = tonumber(self._baseconfig["Adventure"]);
+    self._sublimation.adventureProbability = lua_str_split(self._baseconfig["AdventureProbability"],"&",true);
+    self._sublimation.wipeArea = tonumber(self._baseconfig["WipeArea"]) * 0.01;
+
+    --骰子
+    self._diceData = lua_parse_cfg(self._baseconfig.DiceIds,true);
+    self._freeDiceData = lua_str_split(self._baseconfig.FreeDiceIds,"&", true)
+    table.insert(self._diceData, self._freeDiceData)
+
+    --聊天
+    self._talkUnlockLv = tonumber(self._baseconfig.Chatlevel) or 0;
+
+    self._equipSchedule = lua_str_split(self._baseconfig["EquipSchedule"], "&", true)
+
+
+    self._ui_alpha_size = lua_str_split(self._baseconfig["ui_size"], "&", true)
+
+    --上传视频版本号
+    self._upLoadVideoVersion = math.floor(tonumber(self._baseconfig.UpLoadVideoNumber));
+
+    --音乐厅相关
+    self._musicUnitTime = tonumber(self._baseconfig["Music_time"]);
+    self._costDiomond = lua_str_split(self._baseconfig["Music_fftime"],"&",true);
+    self._heroQltyScore = lua_parse_cfg(self._baseconfig["Music_quality_score"],true);
+    self._heroQltyCorrect = lua_parse_cfg(self._baseconfig["Music_quality_accuracy_score"],true);
+    self._musicalMatchScore = lua_str_split(self._baseconfig["Music_instrument_score"],"&",true);
+    self._bookQltyCorrect = lua_parse_cfg(self._baseconfig["Opern_quality_accuracy_score"],true);
+    self._correctRange = lua_str_split(self._baseconfig["Accuracy_region"],"&",true);
+
+    self._NoticeActive_time = lua_str_split(self._baseconfig["NoticeActive_time"],"&",true)
+    --充值重置ID
+    self._chargeResetId = tonumber(self._baseconfig["FirstChargeId"]);
+end
+
+function Player:_LoadSysFuncCfg()
+    self._syscfg = {}
+    local cfgs = CfgLoader:LoadCfg("Player_levelProject")
+    local sysid = 0
+    for _, v in pairs(cfgs) do
+        sysid = tonumber(v.Play_LevelUp_id)
+        self._syscfg[sysid] = {
+            cfgid   = tonumber(v.id),
+            sysid   = sysid,
+            name    = Language:GetTxtBuyId(v.Name),
+            desc    = v.Des,
+            show    = v.IsShow == "1",
+            jump    = v.IsGo == "1",
+            jumpuid     = tonumber(v.GuideTo),
+            type        = v.unlock_type ,                   --解锁方式
+            guide       = tonumber(v.unlock_guide),         --0=不触发  1=关卡结算时解锁  2=玩家达到等级后触发  3=第一次进入某个界面触发
+            guide_no    = tonumber(v.unlock_number),        --关卡id 玩家等级 界面id
+            guide_back  = tonumber(v.unlock_type1_goto),    -- guide为1时,1=退回主界面  2=退回关卡选择界面
+            guide_id    = tonumber(v.guide_id),
+            hide        = tonumber(v.IsHide) == 1, -- 在首页是否在解锁后隐藏
+        }
+    end
+end
+
+function Player:_LoadBgCfg()
+    self._loadingBgs = {}
+    self._loadingBgsNumber = 0
+    local cfgs = CfgLoader:LoadCfg("LoadingPicture")
+    for _, v in pairs(cfgs) do
+        self._loadingBgs[tonumber(v.id)] = {
+            icon    = v.Picture,
+            name    = tonumber(v.Name),
+            name_en = v.EngName,
+            desc    = tonumber(v.Des),
+            colors  = lua_str_split(v.EngNameColour, "&", true),
+            moduleId = tonumber(v.moduleID),
+            levels = lua_str_split(v.playerlevel,"&",true)
+        }
+        self._loadingBgsNumber = self._loadingBgsNumber + 1
+    end
+    cfgs = nil
+end
+
+-- 导师
+function Player:_LoadTutorhead()
+    self._tutorheadcfgs = {}
+    local cfgs = CfgLoader:LoadCfg("tutorhead")
+    for k, v in pairs(cfgs) do
+        local id = tonumber(v.id)
+        self._tutorheadcfgs[id] = {
+            id = id, -- 导师id
+            headitemid = tonumber(v.headitemid), -- 头像物品id
+            Sublimation = v.Sublimation,
+            headchoose  = v.headchoose,
+            sexuality   = tonumber(v.sexuality)
+        }
+    end
+    cfgs = nil
+end
+-- 导师
+function Player:GetTutorhead()
+    local list = {}
+    for k, v in pairs(self._tutorheadcfgs) do
+        table.insert(list, v)
+    end
+    return list
+end
+-- 导师
+function Player:GetTutorheadByID(id)
+    return self._tutorheadcfgs[id]
+end
+
+function Player:GetBgCfg()
+    return self._loadingBgs
+end
+
+function Player:GetBgCfgByIndex(index)
+    return self._loadingBgs[index]
+end
+
+--章节小类 - 模块id
+function Player:GetRandomBySubtype(subtype)
+    local moduleList = {}
+    local curLevel = Player:GetLevel()
+    local randNum = 1
+    --print("当前模块Id   ：  "..subtype)
+    for i, v in pairs(self._loadingBgs) do
+        if v.moduleId == subtype and (curLevel >= self._loadingBgs[i].levels[1] and curLevel <= self._loadingBgs[i].levels[2]) then
+            table.insert(moduleList,v)
+        end
+    end
+    if #moduleList > 0 then
+        randNum = math.random(1,#moduleList)
+    end
+    return randNum,moduleList
+end
+
+--检测指定模块是否存在
+function Player:HasModule(subtype)
+    for i, v in pairs(self._loadingBgs) do
+        if v.moduleId == subtype then
+            return true
+        end
+    end
+    return false
+end
+
+function Player:GetBgCfgRandomIndex()
+    return math.random(1, self._loadingBgsNumber)
+end
+
+function Player:GetDefaultChapterId()
+    return tonumber(self._baseconfig["DungeonMap_id"])
+end
+
+function Player:GetFriendCfg()
+    local info = {
+        max_friends = tonumber(self._baseconfig["friend_max"]),
+        max_send    = tonumber(self._baseconfig["friend_coin_manMax"]),
+        max_recv    = tonumber(self._baseconfig["friend_coin_max"]),
+        max_black   = tonumber(self._baseconfig["unfriend_max"]),
+    }
+    return info
+end
+
+function Player:GetDefaultIcon()
+    return self._baseconfig["defult_head"]
+end
+
+function Player:GetDefaultBorder()
+    return self._baseconfig["defult_head_frame"]
+end
+
+function Player:_ParseEquipExpItems()
+    self._EquipExpItems = {}
+    local str = self._baseconfig["equip_Exp_item"]
+    if str ~= nil or str ~= "" then
+        local tmp = lua_str_split(str, "&")
+        for i, v in ipairs(tmp) do
+            local cfgid = tonumber(v)
+            local exp = Item:GetTransExp(v)
+            table.insert(self._EquipExpItems, {cfgid = cfgid, exp = exp})
+        end
+        table.sort(self._EquipExpItems, function(a, b)
+                return a.cfgid > b.cfgid
+            end)
+    end
+end
+
+function Player:GetEquipExpItems()
+    if self._EquipExpItems == nil then
+        self:_ParseEquipExpItems()
+    end
+    return self._EquipExpItems
+end
+function Player:GetChangeNameCost()
+    local tbl = lua_str_split(self._baseconfig["changename"], "&")
+    if self._snycdata.bfree_modify_name then
+        return tonumber(tbl[1]), 0
+    else
+        return tonumber(tbl[1]), tonumber(tbl[2])
+    end
+end
+
+function Player:GetRechargeStart()
+    return self._snycdata.is_recharge
+end
+
+
+function Player:GetRechargeIsGet()
+    return self._snycdata.recharge_is_get
+end
+
+function Player:SetRechargeIsGetStart(isGet)
+    self._snycdata.recharge_is_get = isGet;
+end
+
+function Player:GetShopRefreshCfg()
+    local tbl = lua_str_split(self._baseconfig["shop_refresh_cost"], "&")
+    local ret = {}
+    ret.nums = {};
+    for i, v in ipairs(tbl) do
+        if(i == 1)then
+            ret.id = tonumber(v)
+        else
+            if(i == #tbl)then
+                ret.maxNum = tonumber(v)
+            end
+            table.insert(ret.nums, tonumber(v))
+        end
+    end
+    return ret
+end
+
+function Player:GetMusicShopRefreshCfg()
+    local tbl = lua_str_split(self._baseconfig["shop_MP_refresh_cost"], "&")
+    local ret = {
+        cfgid = 0,
+        costs = {},
+        count = tonumber(self._baseconfig["shop_MP_refresh_times"])
+    }
+    ret.cfgid = tonumber(tbl[1])
+    for i = 2, #tbl do
+        table.insert(ret.costs, tonumber(tbl[i]))
+    end
+    return ret
+end
+
+function Player:GetNewerTaskDays()
+    return tonumber(self._baseconfig["rookie_quest_time"])
+end
+
+function Player:GetLevelCfg(level)
+    return self._levelconfig[level]
+end
+
+function Player:GetSysCfg(sysid)
+    return self._syscfg[sysid]
+end
+
+function Player:GetPerPower()
+    return Player.PER_POWER_TIME
+end
+
+function Player:GetPhysicalLimitPrice()
+    return lua_parse_cfg(self._baseconfig["Physical_limit_price"],true);
+end
+
+function Player:GetSYRankDailySettleTime()
+    return tonumber(self._baseconfig["midnight_coin_settle"])
+end
+
+function Player:GetMidNightLotteryBoxNumber()
+    return self._baseconfig["midnight_list_sublevel"]
+end
+
+function Player:GetMysteryCfg()
+    return tonumber(self._baseconfig["Rift_dailyKey_refresh"]), self._baseconfig["Rift_dailyKey_buyLimit"]
+end
+
+function Player:GetWarmUpActivityTimeID()--获取预热活动的时间表ID
+    return self._NoticeActive_time[2]
+end
+
+function Player:GetWarmUpActivityID()--获取预热活动的ID
+    return self._NoticeActive_time[1]
+end
+
+function Player:GetIDAuthAward()
+    return Player.REAL_NAME_AWARD
+end
+
+function Player:GetAutoFightCount()
+    return tonumber(self._baseconfig["Deposit_limit"])
+end
+
+function Player:GetBuildOpenLv()
+    return self._buildOpenLv
+end
+
+function Player:GetActivityLevelAttrAdd()
+   return self._whiteNightAttrAdd or {};
+end
+
+function Player:GetActivityLevelItemAdd()
+    return self._activityLevelItemAdd or {};
+end
+
+function Player:GetWhiteNightFlipExpend()
+    return self._activityLevelFlipExpend or {};
+end
+
+function Player:GetBuildAttrAddTypeByAtkType(atkType)
+    return self._buildAttrAddType[atkType] or {};
+end
+
+function Player:GetMaxSweepNumber(subtype)
+    for i, v in ipairs(self._sweepinfo) do
+        if v[1] == subtype then
+            return v[2]
+        end
+    end
+    return Chapter.LEVEL_SWEEP_MAX_NUM
+end
+
+function Player:GetCardPoolDataByCardId(id)
+    id = tonumber(id);
+    local retData = self._cardPool[id];
+    if(retData == nil)then
+        CS.Logger.LogError("can't CardPoolData id: {0}", id);
+    end
+    return retData;
+end
+
+function Player:GetLifeRecovery()
+    return tonumber(self._baseconfig.Life_recovery)
+end
+
+function Player:GetSublimation()
+    return self._sublimation or {};
+end
+
+--获取骰子数据
+function Player:GetAllDiceData()
+    return self._diceData or {};
+end
+
+--获取骰子数据
+function Player:GetDiceDataByIndex(index)
+    local retData = self._diceData[index];
+    if(retData == nil)then
+        AppMgr:LogError("diceData is null!!!!!  **pos = Player:GetDiceDataByIndex **  index =  " .. index);
+        return {};
+    end
+    return retData;
+end
+
+--获取聊天解锁等级
+function Player:GetTalkUnlockLv()
+    return self._talkUnlockLv;
+end
+
+function Player:GetUpLoadVideoVersion()
+    return self._upLoadVideoVersion or "";
+end
+
+function Player:GetAutoItemId()
+    return tonumber(self._baseconfig["Times_ticket"])
+end
+
+function Player:GetMusicUnitTime()
+    return self._musicUnitTime;
+end
+
+--魔女品质对应评分
+function Player:GetScoreByHeroQlty(qlty)
+    qlty = tonumber(qlty)
+
+    for i, v in pairs(self._heroQltyScore) do
+        if v[1] == qlty then
+            return v[2]
+        end
+    end
+    return 0
+end
+
+--魔女品质对应正确率
+function Player:GetCorrectByHeroQlty(qlty)
+    qlty = tonumber(qlty)
+    for i, v in pairs(self._heroQltyCorrect) do
+        if v[1] == qlty then
+            return v[2]
+        end
+    end
+    return 0
+end
+
+--乐谱品质对应正确率
+function Player:GetCorrectByBookQlty(qlty)
+    qlty = tonumber(qlty)
+    for i, v in pairs(self._bookQltyCorrect) do
+        if v[1] == qlty then
+            return v[2]
+        end
+    end
+    return 0
+end
+
+function Player:GetMusicUnitTime()
+    return self._musicUnitTime;
+end
+
+function Player:GetCostDiomond()
+    return self._costDiomond;
+end
+
+function Player:GetMatchScore(isMatch)
+    if isMatch > 0 then
+        return self._musicalMatchScore[1]
+    else
+        return self._musicalMatchScore[2]
+    end
+end
+
+function Player:GetRateRegion()
+    return self._correctRange
+end
+
+function Player:GetChargeResetId()
+    return self._chargeResetId or 0;
+end

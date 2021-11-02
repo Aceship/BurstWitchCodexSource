@@ -1,0 +1,14 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/buildcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/build.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/buildui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/builddef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/build_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/builddata.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Build/buildtask.txt")
+
+Build:Ctor()
+Build:LoadCfg()

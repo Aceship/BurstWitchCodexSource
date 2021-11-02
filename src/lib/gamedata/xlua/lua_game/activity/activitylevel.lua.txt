@@ -1,0 +1,185 @@
+--
+-- author: lv
+-- date  : 2021-09-24 11:45:24
+-- brief : 活动关卡
+--
+Activity = Activity or {}
+
+function Activity:SetLevelTopData(topData)
+    self._levelTopData = topData or {};
+end
+
+function Activity:GetLevelTopData()
+    return self._levelTopData;
+end
+
+function Activity:InitActivityChapterIds()
+    self._activityChapterIds = Chapter:GetChaptersIdByMainType(Chapter.FIGHT_TYPE_ACTIVITY);
+end
+
+function Activity:GetActivityChapterIds()
+    return self._activityChapterIds or {};
+end
+
+--初始化活动关卡数据
+function Activity:InitActivityLevelData()
+    self._curSelectLevelId = 0;
+end
+
+--设置活动关卡layer类型
+function Activity:SetActivityLevelLayerType(activityLevelType)
+    self._curActivityLevelLayerType = activityLevelType;
+end
+
+--获取活动关卡layer类型
+function Activity:GetActivityLevelLayerType()
+    return self._curActivityLevelLayerType;
+end
+
+--获取活动开启的天数
+function Activity:GetCurrActivityDay(id)
+    self.currday = tonumber(CTime:GetOffsetDay()) -tonumber(self:GetoffsetDay(id)) +1
+    return self.currday
+end
+
+function Activity:GetCurActivityLevelId()
+    return self._curSelectLevelId;
+end
+
+function Activity:SetCurActivityLevelId(id)
+    if(id == nil or id == 0)then
+        AppMgr:LogError("id is null !!  path = **Activity:SetCurActivityLevelId(id)**");
+        return;
+    end
+    self._curSelectLevelId = id;
+end
+
+function Activity:CloseCurActivityLevelId()
+    self._curSelectLevelId = 0;
+end
+
+function Activity:GetActivityLevelIsJump()
+    return Activity:GetCurActivityLevelId() ~= nil and Activity:GetCurActivityLevelId() > 0;
+end
+
+function Activity:GetOpenWarmUpLevelId() --获取第六封印预热的UID
+    local cTimeID = Player:GetWarmUpActivityTimeID()
+    local isOpen = CTime:IsOpen(cTimeID)
+    if isOpen then
+        return Operation.ActivityID.WarmUp;
+    end
+    return 0;
+end
+
+function Activity:GetOpenActivityLevelId() --获取第六封印正式开启的UID
+    local typeCfg = Activity:GetActivityLevelTypeCfgByUid(Operation.ActivityID.SixthSeal);
+    if(Operation:GetActiveIsOpenByUid(typeCfg.shopUid))then
+        return Operation.ActivityID.SixthSeal;
+    end
+    return 0;
+end
+
+-------------------------------------------红点相关--------------------------------------------
+--获得第一次打开的特殊关卡ID
+function Activity:GetFirstOpenSpecialLevelId()
+    local retId = 0;
+    local chapterIds = Activity:GetActivityChapterIds();
+    local curChapter;
+    for _, v in ipairs(chapterIds) do
+        local chapter = Chapter:GetChapter(v);
+        if(CTime:IsOpen(chapter.timeid) and chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL)then--深渊关卡, 并且再活动时间内
+            curChapter = chapter;
+            break;
+        end
+    end
+    if(curChapter == nil)then
+        return retId;
+    end
+    local levels = curChapter.levelids;
+    local level;
+    for _, levelId in ipairs(levels) do
+        level = Chapter:GetLevel(levelId);
+        if(not level.open)then
+            retId = levelId;
+            break;
+        end
+    end
+    return retId;
+end
+
+--主界面关卡红点状态
+function Activity:GetLevelRedState_Main()
+    local chapterIds = Activity:GetActivityChapterIds();
+    for _, v in ipairs(chapterIds) do
+        local chapter = Chapter:GetChapter(v);
+        if(CTime:IsOpen(chapter.timeid) and chapter.sub_type ~= Chapter.MODE_ACTIVITY_LEVEL_SPECIAL)then
+            if(Chapter:ChallengRedTip(chapter))then
+                return true;
+            end
+            if(Chapter:OneButtonRedTip(chapter))then
+                return true;
+            end
+        end
+    end
+    return false;
+end
+function Activity:GetLevelAllRedState_Main()    --活动正式开启的红点
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.syc_activity_level) then
+        if Activity:GetOpenActivityLevelId() > 0 then
+            return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0)
+        else
+            return false
+        end
+    else
+        return false
+    end
+    
+end
+
+
+
+
+
+
+
+
+
+
+
+function Activity:GetActivityLevelSaveStr()
+    return string.format("%s_ActivityLevel",Player:GetId());
+end
+
+function Activity:GetActivityLevelIsFirstOpen()
+    --[[if(self._isFirstOpen)then
+    end]]--
+    self._isFirstOpen = Groble_SceneMgr:PrefsGetString(Activity:GetActivityLevelSaveStr()) == "";
+    return self._isFirstOpen;
+end
+
+function Activity:SetActivityLevelIsFirstOpen()
+    Groble_SceneMgr:PrefsSetString(Activity:GetActivityLevelSaveStr(),"1");
+end
+
+function Activity:CloseActivityLevelIsFirstOpen()
+    if(not self._isFirstOpen)then
+        Groble_SceneMgr:PrefsSetString(Activity:GetActivityLevelSaveStr(),"");
+        self._isFirstOpen = true;
+    end
+end
+
+--获得活动关卡商店倒计时
+function Activity:GetActivityLevelShopCountDown()
+    local uid = Activity:GetOpenActivityLevelId();
+    if(uid <= 0)then
+        return 0;
+    end
+    local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
+    local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
+    if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
+        if(tempCfg.openConditions[1][1] == Operation.OpenConditionType.Time)then
+            return CTime:GetRemainTime(tempCfg.openConditions[1][2]);
+        end
+    end
+    return 0;
+end

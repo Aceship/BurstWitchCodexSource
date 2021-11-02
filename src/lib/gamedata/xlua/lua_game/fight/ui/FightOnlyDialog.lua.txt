@@ -1,0 +1,214 @@
+--
+-- author: haosun
+-- date  : 2021-05-11 19:51:23
+-- brief : 
+--
+UI_FightOnlyDialog = UI_FightOnlyDialog or {}
+
+local _Linear = CS.DG.Tweening.Ease.Linear
+
+function UI_FightOnlyDialog:FightOnlyDialogCreator()
+    self._gameObject = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightTalk/prefab/UI_OnlyDialog")
+    self._gameObject:AddAnimationBehaviour(self)
+    self._gameObject:SetVisible(false)
+
+    self._btn_next  = self._gameObject:GetButtonComponent("btn_next")
+    self._btn_skip  = self._gameObject:GetButtonComponent("btn_skip")
+    self._btn_auto  = self._gameObject:GetButtonComponent("btn_auto")
+    self._btn_record = self._gameObject:GetButtonComponent("btn_record")
+    self._txt_msg = self._gameObject:GetTextComponent("talkbg/txt_msg")
+    self._txt_name = self._gameObject:GetTextComponent("talkbg/txt_name")
+    self._img_next = self._gameObject:Get("talkbg/img_nextbg")
+    self._img_namebg = self._gameObject:Get("talkbg/img_namebg")
+    
+    self._btn_skip.interactable = false
+    self._btn_record.interactable = false    
+    self._btn_skip:AddButtonListener(function() self:onSkipClick() end)
+    self._btn_next:AddButtonListener(function() self:onNextClick() end)
+    self._btn_auto:AddButtonListener(function() self:onAutoClick() end)
+    self._btn_record:AddButtonListener(function() self:onRecordClick() end)
+
+    self._obj_hero      = self._gameObject:Get("obj_hero")
+    self._img_header    = self._obj_hero:GetImageComponent("img_icon")    
+
+    self._msg_text = ""
+    self._name_text = ""
+    self._recordText = {}
+    self._last_header_id = -1
+    CS.UnityHelper.NotchfitY(self._gameObject:Get("btn_skip"))
+    CS.UnityHelper.NotchfitY(self._gameObject:Get("btn_auto"))
+    CS.UnityHelper.NotchfitY(self._gameObject:Get("btn_record"))
+end
+
+function UI_FightOnlyDialog:FightOnlyDialogDestructor()
+    if(self._btn_next ~= nil) then
+        self._btn_next.onClick:RemoveAllListeners()
+    end
+    if(self._btn_skip ~= nil) then
+        self._btn_skip.onClick:RemoveAllListeners()
+    end
+    if(self._btn_auto ~= nil) then
+        self._btn_auto.onClick:RemoveAllListeners()
+    end
+    if(self._btn_record ~= nil) then
+        self._btn_record.onClick:RemoveAllListeners()
+    end
+
+    self._btn_next      = nil
+    self._btn_skip      = nil
+    self._btn_auto      = nil
+    self._btn_record    = nil
+    if self._gameObject ~= nil then
+        self._gameObject:Release()
+    end
+    self._gameObject = nil
+    self._recordText = nil
+    self._last_header_id = -1
+end
+
+function UI_FightOnlyDialog:EnterFightOnlyDialog(dialogid)
+    self._isVisible = true
+    self._dialogid = dialogid
+    self._config = FightModule:GetFightTalkCfg(self._dialogid)
+    self._skip_msg = self._config.talk_sample
+    self._gameObject:SetVisible(true)
+    self._gameObject:AnimationPlay("OnlyDialogEnter")
+end
+
+function UI_FightOnlyDialog:ExitFightOnlyDialog()
+    if false == self._isVisible then return end
+    -- self._recordbutton.interactable = false; 
+    -- self._skipbutton.interactable = false; 
+    -- self._nextarrow:SetVisible(false)
+    for k, v in pairs(self._soundInstanceList or {}) do
+        fmod:StopByInstnace(v)
+        self._soundInstanceList[k] = nil
+    end
+    self._btn_skip.interactable = false
+    self._btn_record.interactable = false
+    self._img_next:SetVisible(false)
+    self._gameObject:AnimationPlay("OnlyDialogExit")
+    TalkController:OnlyDialogEnd()
+end
+
+function UI_FightOnlyDialog:onSkipClick()
+    if self._skip_msg ~= -1 and (not GTemp:IsSkipFightTalk()) then
+        UI_TalkSkipLayer:EnterTalkSkipLayer(self._skip_msg,
+            function()
+                self:ExitFightOnlyDialog()
+            end)
+    else
+        self:ExitFightOnlyDialog()
+    end
+end
+
+function UI_FightOnlyDialog:onNextClick()
+    self:doReallyTalk()
+end
+
+function UI_FightOnlyDialog:onAutoClick()
+end
+
+function UI_FightOnlyDialog:onRecordClick()
+    core.require("xlua/lua_UI/GameFightScene/UI_RecordLayer.txt"):new():show(self._recordText)
+end
+
+function UI_FightOnlyDialog:doReallyTalk()
+    AppMgr:LogInfo("========================_dialogid========================" .. self._dialogid .. type(self._dialogid))
+    if self._dialogid == nil or self._dialogid == -1 then
+        self:ExitFightOnlyDialog()
+    else
+        self._btn_record.interactable = true
+        self._btn_skip.interactable = true
+        self._config = FightModule:GetFightTalkCfg(self._dialogid)
+        if self._config.talk_info[1] == FightModule.talk_type_talk then
+            AppMgr:LogInfo("========================对话ID========================" .. self._config.talk_info[2])
+            self:showTalkText(self._config.talk_info[2])
+            self:refreshId()
+        else
+            AppMgr:LogError("========================配置错误，不支持的类型========================")
+            self:refreshId()
+            self:doReallyTalk()
+        end
+    end
+end
+
+function UI_FightOnlyDialog:refreshId()
+    if self._dialogid == self._config.nextid then
+        self._dialogid = -1
+    else
+        self._dialogid = self._config.nextid
+    end
+end
+
+function UI_FightOnlyDialog:showTalkText(cfgid)
+    local cfg = FightModule:GetFightTalkTextCfg(cfgid)
+    
+    self._name_text = ""
+    if cfg.talk_name ~= nil and cfg.talk_name == "#p#" and Player:GetName() ~= nil then
+        self._name_text = Player:GetName()
+    else
+        if cfg.talk_name == "-1" then
+            self._name_text = ""
+        else
+            self._name_text = cfg.talk_name
+        end
+    end
+    self._msg_text = FightModule.LanguageTextMsg[cfgid]
+
+    self._btn_record:SetVisible(true)    
+    self._txt_name:SetText(self._name_text)
+    self._img_namebg:SetVisible(self._name_text ~= "")
+    
+    if tonumber(cfgid) == 13193 then
+        self._msg_text = string.gsub(self._msg_text, "xxxxxx", Player:GetName())
+    end
+    self._img_next:SetVisible(false)
+    self._btn_next.interactable = false
+    self._txt_msg.text = ""
+    self._txt_msg:DOText(self._msg_text, cfg.text_speed * #self._msg_text, true):SetEase(_Linear):OnComplete(function()
+        self._img_next:SetVisible(true)
+        self._btn_next.interactable = true
+    end)
+    local _headid = cfg.head_id
+    if _headid == 1000 then
+        -- 导师形象更换
+        local tutorId = Player:GetTutorID()
+        if tutorId == nil or tutorId == 0 then
+            _headid = 11002000
+        else
+            local cfg = Player:GetTutorheadByID(tutorId)
+            _headid = cfg.headitemid
+        end
+    end
+    -- 记录
+    table.insert(self._recordText, {
+            textid = cfgid,
+            headid = _headid,
+            name = self._name_text,
+        })
+    if _headid ~= -1 then
+        if self._last_header_id ~= _headid then
+            self._last_header_id = _headid
+            local _filepath = "source_avatar/hero/head_" .. _headid
+            self._img_header:LoadSprite(_filepath)
+        end
+    end
+    self._obj_hero:SetVisible(_headid ~= -1)
+end
+
+-- animation interface-----------------------------------------------
+function UI_FightOnlyDialog:onAnimationDestroy()
+    self:FightOnlyDialogDestructor()
+end
+
+function UI_FightOnlyDialog:onAnimationEvent(anitype, keyTag)
+    if 6 == anitype then
+        if 99 == keyTag then            
+            self:doReallyTalk()
+        elseif 0 == keyTag then
+            self._isVisible = false
+            self._gameObject:SetVisible(false)
+        end
+    end
+end

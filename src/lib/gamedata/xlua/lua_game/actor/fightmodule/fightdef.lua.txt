@@ -1,0 +1,309 @@
+FightModule = FightModule or {}
+
+----------------战斗公式常数
+FightModule.dis_rate 			   = 1.2;--瞳距圈默认系数
+FightModule.crit_rate 			   = 4500;--暴击率公式常数
+FightModule.hit_hurt_rate 		   = 4000;--爆伤公式系数
+FightModule.hit_hurt_max		   = 3;--爆伤公式上限
+FightModule.eye_rate     		   = 2500;--瞳距常数
+FightModule.eye_max     		   = 0.8;--瞳距上限系数
+--分数相关
+FightModule.score_disin_rate 	   = 1.1--瞳距内伤害系数
+FightModule.score_witch_hp_rate    = 0.65  --魔女生命系数
+
+--------------------关卡状态
+
+FightModule.lbf1act_hit             = 1;--击中时
+FightModule.lbf1act_onFight         = 2;--魔女上场时
+
+FightModule.lbf1act_onCircleOut     = 1;--瞳距圈外时
+
+FightModule.lbf1act_onBeginFight     = 1;--开场时
+FightModule.lbf1act_onHpActive       = 2;--血量条件
+----------------------
+
+-- 音效播放状态 ------------------------------------
+FightModule.fs_playskill   = 1;		-- 释放必杀
+FightModule.fs_playfade    = 2;		-- 入场时
+FightModule.fs_playhit     = 3;		-- 受击时
+FightModule.fs_playdead    = 4;		-- 死亡时
+
+--狂暴状态鸡
+-----
+FightModule.KB_State1 = 1;
+FightModule.KB_State2 = 2;
+FightModule.KB_State3 = 3;
+FightModule.KB_State4 = 4;
+FightModule.KB_State5 = 5;
+FightModule.KB_State6 = 6;
+FightModule.KB_State7 = 7;
+FightModule.KB_State8 = 8;
+FightModule.KB_State9 = 9;
+
+--BOSS体型
+FightModule.Body_Small  = 1
+FightModule.Body_Middle = 2
+FightModule.Body_Big    = 3
+FightModule.Body_Super  = 4
+FightModule.Body_CloseTime = {
+	[FightModule.Body_Small] 	= 3,
+	[FightModule.Body_Middle] 	= 3,
+	[FightModule.Body_Big] 		= 5,
+	[FightModule.Body_Super]	= 6,
+}
+FightModule.Body_Effect = {
+    [FightModule.Body_Small]    = "prefab_fightEffect/enemeyDeadEffect/EnemeyDeadEffect_1",
+    [FightModule.Body_Middle]   = "prefab_fightEffect/enemeyDeadEffect/EnemeyDeadEffect_2",
+    [FightModule.Body_Big]      = "prefab_fightEffect/enemeyDeadEffect/EnemeyDeadEffect_3",
+    [FightModule.Body_Super]    = "prefab_fightEffect/enemeyDeadEffect/EnemeyDeadEffect_4",
+}
+
+--  属性buff释放条件类型如下：
+FightModule.state_onfight               = 1     -- 开战时
+FightModule.state_attrib_big            = 2     -- 某属性类型 > X%时 (例如:1 & 60%)
+FightModule.state_attrib_small          = 3     -- 某属性类型 < X%时 （同上）
+FightModule.state_ondead                = 4     -- 死亡时
+FightModule.state_onkill                = 5     -- 击杀敌人时 （；例如 : 5 & 击杀数量）
+FightModule.state_onoff                 = 6     -- 在场下休息时
+FightModule.state_onfight_withwitch     = 7     -- 开战时队里拥有指定种族类型魔女n个时 (例如L 7 & 1 & 数量)
+FightModule.state_life_witch            = 8     -- 存活魔女数量满足条件时 （例如: 8 & 1 ）提升属性 * 魔女数量
+FightModule.state_play_skill            = 9     -- 释放必杀时 例如（9 & 概率百分比）
+FightModule.state_play_power            = 10    -- 释放蓄力技时 例如(10 & 概率)
+FightModule.state_on_cirt               = 11    -- 暴击时 例如（11 & 概率） 
+FightModule.state_cd_fresh              = 12    -- 间隔时间 例如（12&buff获得间隔时间&是否受伤消失)
+FightModule.state_onfight_again         = 13    --
+FightModule.state_onGf_Full             = 14    -- 满神火时
+FightModule.state_on_Circle             = 15    --
+FightModule.state_on_WitchSkill_hit     = 16    --
+FightModule.state_on_Skill_Damage       = 17	-- 大招造成伤害时
+FightModule.state_on_Take_In			= 18	-- 黑洞吸收子弹时
+FightModule.state_on_Eat_Drop			= 19	-- 道具掉落
+FightModule.state_on_Cadan				= 20	-- 擦弹
+FightModule.state_on_take_damage		= 21	-- 受伤害时
+FightModule.state_on_skill_cirt         = 22    -- 技能造成的必杀
+FightModule.state_on_change_atk_type	= 23	-- 切换枪型时
+
+--防御特殊增幅
+FightModule.def_buffer_type1 			= 1 --擦弹分增幅
+FightModule.def_buffer_type2 			= 2 --损失生命值增幅
+
+--免伤护盾
+FightModule.dun_onplay_must 			= 2
+
+--死亡免疫buff触发条件
+--1：死亡时
+FightModule.nodead_ondead 				= 1
+
+--无敌buff触发条件
+--1：受攻击时
+FightModule.nohurt_onhurt 				= 1
+
+--回血触发条件
+
+FightModule.recorver_hp_ondead 			= 1--1：死亡时
+FightModule.recorver_hp_oncirt 			= 2--2:暴击时
+
+--回血触发条件2
+FightModule.recorver_hp_onfight 		= 1 --每波开始时
+FightModule.recorver_hp_onSecond 		= 2 --每X秒
+FightModule.recorver_hp_onNoFight 		= 3 --场下休息时
+--血量条件
+FightModule.hp_active_none      		= 1 --无血量要求
+
+
+--最终伤害血量激活类型
+FightModule.fast_hp_big 		= 1 --高于
+FightModule.fast_hp_low 		= 2 --低于
+
+--额外伤害激活条件
+FightModule.on_other_cirt        		= 1 --暴击时
+FightModule.on_other_atktype        	= 2 --属性克制时
+FightModule.on_other_cirlce           	= 3 --进入瞳距圈时
+FightModule.on_other_other           	= 4 --任意攻击时
+
+--最终伤害提升条件
+FightModule.on_fast_activeType1         = 1 --血量条件
+FightModule.on_fast_activeType2         = 2 --任何负面状态下
+
+--暴击增幅类型
+FightModule.on_cirt_bufferType1         = 1 --时间增幅
+
+FightModule.TargetType =  {
+	target_self  = 1,--自身（包括宠物）
+	target_all   = 2,--所有人（包括宠物）
+	target_self_witch = 3,--自身魔女（不包含宠物）
+	target_all_witch = 4,--所有魔女（不包含宠物）
+	target_all_pet = 5,--所有宠物（不包含魔女）
+	target_self_pet = 6,--自身宠物（不包含魔女）
+	target_curwitch = 7,--除自身外所有存活魔女（不包含宠物）
+	target_GuangWitch = 8,--光属性魔女
+	target_ANWitch = 9,--暗属性魔女
+	target_HDWitch = 10,--混沌属性魔女
+	target_BestAtk = 11,--最高攻击魔女
+	target_CurFight = 12,--当前战斗中魔女
+	target_witchID = 1000,--1000+为魔女id
+}
+
+FightModule.buffIcon_witch  = 1;
+FightModule.buffIcon_pet    = 2;
+FightModule.buffIcon_debuff = 3;
+FightModule.buffIcon_dot    = 4;
+
+-- 分裂方向
+FightModule.SplitDir = {
+	{x = -2, z = 0},
+	{x = 2,  z = 0},
+	{x = 0,  z = -2},
+	{x = 0,  z = 2},
+	{x = -2, z = -2},
+	{x = 2,  z = -2},
+}
+
+-- 额外必杀(或必杀分拆)类型
+FightModule.skill_extra_on_skill_crit = 1;						-- 必杀暴击时额外释放
+FightModule.skill_extra_on_gf_rate = 2;							-- 按神火余量计算概率
+FightModule.skill_extra_on_enemy_debuff = 3;					-- 敌方有debuff时额外释放
+FightModule.skill_extra_on_always = 4;							-- 始终额外释放，分拆技能用
+
+------------------------------------------------------------------------
+--魔女技能类型
+FightModule.wc_skill_barrage = 1	-- 子弹攻击
+FightModule.wc_skill_must    = 10   -- 必杀攻击
+FightModule.wc_skill_must_sub= 11	-- 必杀攻击的子技能
+--子弹类型
+FightModule.barrage_normal    = 1;--普通子弹
+FightModule.barrage_lesr      = 2;--激光
+FightModule.barrage_dao       = 3;--刀光
+--额外伤害类型
+FightModule.hurt_none   	     = 1;--无伤害
+FightModule.hurt_dps             = 2;--技能基本伤害
+FightModule.hurt_target_all      = 1;--场上所有敌人
+FightModule.hurt_target_dis      = 2;--瞳距敌人
+
+--击中特效类型
+FightModule.hit_effect   = 1;--普通击中
+FightModule.cirt_effect  = 2;--暴击击中
+
+--屏幕效果类型
+FightModule.shadow_hue   = 1;
+FightModule.shadow_color = 2;
+
+--魔女击中附加效果触发类型
+FightModule.attach_effect_nil    = 0	-- 无附加效果
+FightModule.attach_effect_hit    = 1    -- 击中时触发
+FightModule.attach_effect_play   = 2    -- 释放时触发
+FightModule.attach_effect_must_crit   = 3    -- 大招暴击时
+FightModule.attach_effect_end    = 4    -- 大招结束时
+
+--BUFF额外属性
+FightModule.buff_buildLevel			= 200;	--构筑等级+X
+FightModule.buff_buildLevelEnd		= 300;
+FightModule.buff_dpsRate	  		= 301;	--dpsRate
+FightModule.buff_dps				= 302;	--伤害
+FightModule.buff_hitAddGf			= 303;	--普攻命中加神火
+FightModule.buff_benchAddHp			= 304;	--场下缓慢回血
+FightModule.buff_bloodSuckPercent   = 305;	--吸血百分比
+FightModule.buff_bloodSuckValue     = 306;  --吸血固定数值
+FightModule.buff_bloodSuckBPercent  = 307;	--吸血B百分比
+FightModule.buff_bloodSuckBValue    = 308;  --吸血B固定数值
+
+
+--附加效果DEBUFF类型
+FightModule.attach_debuff_yj         = 1;--印记
+FightModule.attach_debuff_attrib     = 2;--属性削弱
+FightModule.attach_debuff_time       = 3;--时间DEBUFF
+FightModule.attach_debuff_sh         = 4;--石化
+FightModule.attach_debuff_js         = 5;--减速
+FightModule.attach_debuff_ys         = 6;--易伤
+FightModule.attach_debuff_boom       = 7;--三个印记爆炸
+FightModule.attach_debuff_dot_add	 = 8;--dot增强
+--DEBUFF额外属性
+FightModule.debuff_ys_atk_all  		= 101;--元素攻增幅
+FightModule.debuff_ys_def_all  		= 102;--元素防增幅
+
+--附加效果DEBUFF作用目标
+FightModule.attach_debuff_all    = 1;--场上所有敌人
+FightModule.attach_debuff_hit    = 2;--当前击中的敌人
+--附加效果DOT作用目标
+FightModule.attach_dot_all    = 1;--场上所有敌人
+FightModule.attach_dot_hit    = 2;--当前击中的敌人
+--特殊技能效果类型
+FightModule.attach_otherskill_hd    = 1;--黑洞
+
+--范围型技能效果类型
+FightModule.attach_round_cool    = 1;--冰冻
+FightModule.attach_round_hot     = 2;--冶炎
+FightModule.attach_round_tp      = 3;--天枰
+--电流攻击类型
+FightModule.attach_flash_dis     = 1;--瞳距圈
+
+--额外类型buff
+FightModule.other_buff_hp  		= 101;--嗜血
+
+--技能效果强化
+FightModule.skill_buffer1 		= 1 --蜜糖领域效果强化
+FightModule.skill_buffer2 		= 2 --dot效果易伤
+FightModule.skill_buffer3 		= 3 --印记效果易伤
+FightModule.skill_buffer4 		= 4 --dot
+
+--清弹效果
+FightModule.clear_barrage_type1 		= 1 --变BUFF掉落
+--力场类技能
+FightModule.rounds_type_1 		= 1 --月之立场
+--条件技能类型
+FightModule.other_barrage_type1 		= 1 --月读
+---魔女技能回血相关
+--基于类型
+FightModule.hp_recorver_type1 		= 1 --基于自身
+FightModule.hp_recorver_type2 		= 2 --基于作用目标
+--作用目标
+FightModule.hp_recorver_target1 	= 1 --除自身外所有魔女
+
+FightModule.debuff_bonus_damage			= 1	  --敌人身上的debuff增加伤害
+FightModule.debuff_bonus_crit_damage	= 2   --敌人身上的debuff增加暴击伤害
+------------------------------------------------------------------------------------debug------------------------------------------------
+--是否开启dps信息(默认:关)
+FightModule._fight_test = false;
+--是否关闭夜莺祝福
+FightModule._fight_no_buff = false;
+
+--魔女dps统计时间 >0 时有效
+FightModule._fight_test_dps = 0;
+
+--关闭魔女子弹
+FightModule._fight_no_barrage = false;
+
+--关闭魔女必杀
+FightModule._fight_no_must = false;
+--无克制差别
+FightModule._fight_no_kezhi = false;
+
+
+--宠物dps统计时间 >0 时有效
+FightModule._fight_test_pet_dps = 60;
+
+--不携带宠物出战
+FightModule._fight_no_pet = false;
+
+--宠物
+FightModule._fight_pet_test = false;
+
+
+
+--在下方填写自定义被动效果id ps：如果使用了自定义效果，将直接清楚原本正常游戏中的效果
+--对应表skillpass_fight.xlsx
+FightModule._fight_diy_effect = false;--是否自定义被动效果 true 为开启
+FightModule._diy_effect = {
+	100101,
+	100102,
+	100103
+}
+
+--开启弹幕检测
+FightModule._barrage_check = false;
+
+FightModule.hp_add_buff     = 1
+FightModule.hp_add_info     = 2
+FightModule.hp_add_value    = 3
+FightModule.hp_add_percent  = 4
+

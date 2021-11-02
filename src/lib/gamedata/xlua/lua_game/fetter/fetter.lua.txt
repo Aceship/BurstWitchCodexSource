@@ -1,0 +1,493 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日15:02:16
+-- brief : 
+-- 
+--
+
+Fetter = Fetter or {}
+
+function Fetter:Ctor()
+    self.LibraryLayer = nil
+    self._hasStep = false
+    self._fetterNotice = {} --羁绊解锁通知内容
+end
+
+function Fetter:Clear()
+    self:Ctor()
+end
+
+function Fetter:GetStep()
+    return self._hasStep
+end
+
+function Fetter:GetFavourLevelMax(groupid)
+   local levelgroup = self:GetIntimacyByGroup(groupid)
+   return levelgroup[#levelgroup].level
+end
+
+--根据id获取该羁绊所有相关数据
+--查看别的玩家羁绊时 isattr =true, steplv~= nil
+function Fetter:GetFetterAtts(fetterid,isattr,steplv,isActive,starlv,hero)
+   local tbl = {}
+   local attrs = {}
+   tbl.collects = {}
+   tbl.steps = {}
+   tbl.stars = {}
+   if tonumber(fetterid) == -1 then
+      return tbl
+   end
+   local fetter = self:GetFetterCfg(fetterid)
+   
+  -- local exp = self:GetFetterExp(fetterid)
+   --解锁魔女个数
+   local witches = fetter.fetter_card
+   local num = 0
+   local stepLevel = 0
+   local starLevel = 0
+   local witch
+   for _,hid in pairs(witches) do
+      if hero ~= nil and hid == hero.id then
+         witch = hero
+         num = num + 1
+         stepLevel = stepLevel + witch.step
+         starLevel = starLevel + witch.star
+      else
+         witch = Hero:GetHero(hid)
+         if witch ~= nil and witch.owner then
+            num = num + 1
+            stepLevel = stepLevel + witch.step
+            starLevel = starLevel + witch.star
+         end
+      end
+
+   end
+   if starlv ~= nil then
+      tbl.owned = isActive
+      tbl.stepNum = steplv
+      tbl.starNum = starlv
+      tbl.num = #witches
+      stepLevel = steplv or 0
+      starLevel = starlv or 0
+   else
+      tbl.owned = num == #witches
+      tbl.stepNum = stepLevel
+      tbl.starNum = starLevel
+      tbl.num = num
+   end
+  
+   --收集属性
+   local collect = fetter.collect_att
+   --v[1] type, v[2] value
+   local val = 0
+   local attrcfg
+   for k,v in pairs(collect) do
+      if tonumber(v[2]) > 0 then
+         attrcfg = CAttr:GetCfg(tonumber(v[1]))
+         val = math.floor(v[2])
+         table.insert(tbl.collects,{type = v[1] ,num= val ,name = attrcfg.name ,active = tbl.owned})
+         table.insert(attrs,{type = v[1] ,num= val ,name = attrcfg.name ,active = tbl.owned})
+      end
+   end
+   --升阶属性
+ --  local fetteratt =  Fetter:GetFetterAttCfg(fetter.fetter_att_group)
+ --  local steps = fetteratt.Step_Level
+ --  local attSkills = fetteratt.Deskill_2
+   local stars = fetter.star_lv
+   local starSkills = fetter.star_add
+   local isactive
+   if self._hasStep then
+       --[[
+         for i = 1 , #steps do
+         tbl.steps[i] = {}
+         tbl.steps[i].attr = {}
+         tbl.steps[i].level = steps[i][1]
+         isactive = stepLevel >= tbl.steps[i].level
+         tbl.steps[i].active = isactive
+         for j = 1, #attSkills do
+            if attSkills[j][i+1] > 0 then
+               attrcfg = CAttr:GetCfg(attSkills[j][1])
+               val = math.floor(attSkills[j][i+1])
+               table.insert(tbl.steps[i].attr,{type = attSkills[j][1] ,num = val ,name =  attrcfg.name ,active = isactive})
+               table.insert(attrs,{type = attSkills[j][1] ,num = val ,name = attrcfg.name ,active = isactive})
+            end
+         end
+      end
+       ]]
+
+   end
+
+   for i = 1, #stars do
+      tbl.stars[i] = {}
+      tbl.stars[i].attr = {}
+      tbl.stars[i].level = stars[i][1]
+      isactive = starLevel >= tbl.stars[i].level
+      tbl.stars[i].active = isactive
+      for j = 1, #starSkills do
+         if starSkills[j][i+1] > 0 then
+            attrcfg = CAttr:GetCfg(starSkills[j][1])
+            val = math.floor(starSkills[j][i+1])
+            table.insert(tbl.stars[i].attr,{type = starSkills[j][1] ,num = val ,name =  attrcfg.name ,active = isactive})
+            table.insert(attrs,{type = starSkills[j][1] ,num = val ,name = attrcfg.name ,active = isactive})
+         end
+      end
+   end
+
+   --返回属性集合
+   if isattr then
+      return attrs
+   end
+   
+   return tbl
+end
+
+
+--获得魔女所有羁绊属性之和
+function Fetter:GetFetterAttrs(hero)
+   local attr = {
+      [CAttr.TYPE_HP ] = { type = CAttr.TYPE_HP , name =  CAttr:GetCfg(CAttr.TYPE_HP ).name, num =0 , value = 0 },
+      [CAttr.TYPE_ATK] = {type = CAttr.TYPE_ATK, name =  CAttr:GetCfg(CAttr.TYPE_ATK).name, num =0 , value = 0 },
+      [CAttr.TYPE_PRODUCT_DIS] = {type = CAttr.TYPE_PRODUCT_DIS, name =  CAttr:GetCfg(CAttr.TYPE_PRODUCT_DIS).name, num =0 , value = 0 },
+      [CAttr.TYPE_DEF   ] = {type = CAttr.TYPE_DEF   , name =  CAttr:GetCfg(CAttr.TYPE_DEF   ).name, num =0 , value = 0 },
+      [CAttr.TYPE_HIT ] = {type = CAttr.TYPE_HIT , name =  CAttr:GetCfg(CAttr.TYPE_HIT ).name, num =0 , value = 0 },
+      [CAttr.TYPE_DMG ] = {type = CAttr.TYPE_DMG , name =  CAttr:GetCfg(CAttr.TYPE_DMG ).name, num =0 , value = 0 },
+   }
+   --计算其他玩家羁绊
+   if hero.other then
+      --lv 等级 ，c_ok =0 羁绊未收集
+      for fetterid,tbl in pairs(hero.fetters) do
+         local atts = self:GetFetterAtts(tonumber(fetterid) ,true, tonumber(tbl.lv),tonumber(tbl.c_ok) == 1, tonumber(tbl.lv_star))
+         for _,val in pairs(atts) do
+            if  attr[val.type] ~= nil then
+               attr[val.type].num = attr[val.type].num + val.num
+               if val.active then
+                  attr[val.type].value =  attr[val.type].value + val.num
+               end
+            end
+         end
+      end
+   else
+      for _,v in pairs(hero.fetters) do
+         local atts = self:GetFetterAtts(tonumber(v) ,true,nil,nil,nil,hero)
+         for k,val in pairs(atts) do
+            if  attr[val.type] ~= nil then
+               attr[val.type].num = attr[val.type].num + val.num
+               if val.active then
+                  attr[val.type].value =  attr[val.type].value + val.num
+               end
+            end
+         end
+      end
+   end
+   
+   return attr
+end
+--纹章技能加成
+function Fetter:GetEmblemSkills(hero)
+   local out_skill = {}
+   local in_skill = {}
+   for k,v in pairs( Fetter:GetEmblemsByHeroid(hero.id)) do
+      --说明激活了
+      if hero.emblems ~= nil and hero.emblems[tonumber(v.id)] ~= nil then
+         local cfg = Fetter:GetEmblemByGroupAndLevel(v.cost_group , hero.emblems[tonumber(v.id)])
+         table.insert(out_skill, tonumber(cfg.skillpass_out))
+        
+         if  v.heart_skill ~= nil and v.heart_skill ~= "-1" then
+            local heartskill = lua_parse_cfg(v.heart_skill)
+            if hero.emblems[tonumber(v.id)] >= tonumber(heartskill[1][1]) then
+               table.insert(in_skill, tonumber(heartskill[1][2]))
+            end
+            if hero.emblems[tonumber(v.id)] >= tonumber(heartskill[2][1]) then
+               table.insert(in_skill, tonumber(heartskill[2][2]))
+            end
+            if hero.emblems[tonumber(v.id)] >= tonumber(heartskill[3][1]) then
+               table.insert(in_skill, tonumber(heartskill[3][2]))
+            end
+         end
+      end
+   end
+ 
+   return out_skill,in_skill
+end
+
+--外部纹章解锁判断
+function Fetter:GetEmblemUnlock(hero)
+   if not Fetter.Emblem_Open then
+      return false
+   end
+   for _,emblemdata in pairs(Fetter:GetEmblemsByHeroid(hero.id)) do
+      if  hero.emblems[tonumber(emblemdata.id)] == nil then
+          local red = self:UpdateRedByLock(emblemdata, hero)
+          if red then
+            return true
+          end
+      end
+   end
+   return false
+end
+
+--外部纹章可升级判断
+function Fetter:GetEmblemConsume(hero)
+   if not Fetter.Emblem_Open then
+      return false
+   end
+   for k,v in pairs(self:GetEmblemsByHeroid(hero.id)) do
+      if  hero.emblems[tonumber(v.id)] ~= nil then
+         local red = self:UpdateRedByEmblem(v.cost_group, hero.emblems[tonumber(v.id)])
+         if red then
+            return true
+         end
+      end
+   end
+   return false
+end
+--判断是否满足所有消耗
+function Fetter:UpdateRedByEmblem(cost,level)
+   --满级不计算
+   if tonumber(level) == Fetter.Heart_Max_Level then
+      return false
+   end
+   local cfg = self:GetEmblemByGroupAndLevel(cost, level)
+   if self:GetCousume(cfg.cost_1) and self:GetCousume(cfg.cost_2) and self:GetCousume(cfg.money) then
+         return true;
+   end
+   return false
+end
+
+--判断是否满足解锁条件
+function Fetter:UpdateRedByLock(data,hero)
+   local emblemCons = Hero:getEmblemCondition()
+   local conditions = lua_parse_cfg(data.unlocking_condition)
+      for i =1,2 do
+         --判断配置表中条件
+         if conditions[i] ~= nil or data.condition2 ~= "-1"  then
+            local canlock = false
+            if conditions[i] ~= nil then
+               if conditions[i][1] == "1" then
+                  canlock = hero.intimacy_data.level >= tonumber(conditions[i][2])
+               elseif conditions[i][1] == "3" then
+                  --拥有某魔女
+                  canlock = Hero:GetHero(conditions[i][2]).owner
+               elseif conditions[i][1] == "4" then
+                  --魔女等级达到某级
+                  canlock = Hero:GetHero(conditions[i][2]).level >= tonumber(conditions[i][3])
+               elseif conditions[i][1] == "5" then
+                  --纹章总等级
+                  local elevel = 0
+                  for _,level in pairs(hero.emblems) do
+                     elevel = elevel + level
+                  end
+                  canlock = elevel >= tonumber(conditions[i][2])
+               end
+            else
+               --通关某关卡条件
+               if emblemCons ~= nil and emblemCons[tonumber(data.id)] ~= nil and emblemCons[tonumber(data.id)] == true then
+                  canlock = true
+               end
+            end
+            if not canlock then
+               return false
+            end
+         end
+      end
+   return true
+end
+
+--单一消耗是否满足
+function Fetter:GetCousume(cosume)
+   if cosume == "-1" then
+      return true
+   end
+   local cost =  GameTools.GetCsvValueList(cosume,"&")
+   return  (Item:GetCount(tonumber(cost[1])) >= tonumber(cost[2]))
+end
+--纹章红点统一外部接口
+function Fetter:EmblemHasRed(heroid)
+   --未解锁不显示红点
+   if not Player:IsSysFuncOpen(Player.SYS_FUNC.fetter_emblem) then
+      return false
+   end
+   local hero = Hero:GetHero(heroid)
+   --未拥有不显示
+   if not hero.owner then
+      return false
+   end
+  return  (self:GetEmblemUnlock(hero) or self:GetEmblemConsume(hero))
+end
+
+--按照每个魔女初始化相关羁绊达成信息
+function Fetter:InitFetterByHero()
+   self._fetters = {}
+   local fetter = {}
+   local attr
+   local owner = true
+   local stepCount = 0
+   local starCount = 0
+   local heroids = {}
+   --判断每个羁绊达成情况
+   for __, card in pairs(self._fetterCfgs) do
+      fetter = {}
+  --    attr = self:GetFetterAttCfg(card.fetter_att_group)
+      owner = true
+      stepCount = 0
+      starCount = 0
+      heroids = {}
+      --判断是否拥有羁绊
+      for _k,id in pairs(card.fetter_card) do
+         local fetterhero =Hero:GetHero(id)
+         if  not fetterhero.owner then
+            owner = false
+         else
+            stepCount = stepCount + fetterhero.step
+            starCount = starCount + fetterhero.star
+         end
+         table.insert(heroids, tonumber(id))
+      end
+      fetter.heroids = heroids
+      fetter.owner = owner
+      if self._hasStep then
+         local steps = {}
+         for _k,step in pairs( card.Step_Level) do
+            if  owner then
+               steps[step[1]] = stepCount >= step[1]
+            else
+               steps[step[1]] = false
+            end
+         end
+         fetter.steps = steps
+      end
+      local stars = {}
+      --判断是否星数加成激活
+      for _k,star in pairs(card.star_lv) do
+         if owner then
+            stars[star[1]] = starCount >= star[1]
+         else
+            stars[star[1]] = false
+         end
+      end
+      fetter.stars = stars
+      self._fetters[card.id] = fetter
+   end
+end
+
+--羁绊是否达成
+
+function Fetter:FetterClear(fetterid)
+   if fetterid == -1 then
+      return false
+   end
+    local fetter = self._fetters[fetterid]
+    if fetter == nil then
+        CS.Logger.LogError("can't find fetter clear , fetterid = " .. fetterid)
+       return
+    end
+    local cfg = self:GetFetterCfg(fetterid)
+    local chero = Hero:GetHero(fetter.heroids[1])
+    local owner = true
+    local name
+    local stepLevel = 0
+    local starLevel = 0
+    local hero
+    local showClear = false
+    local result
+    local result2
+    for _,heroid in pairs(fetter.heroids) do
+         hero = Hero:GetHero(heroid)
+        if not hero.owner then
+            owner = false
+        else
+            stepLevel = stepLevel + hero.step
+            starLevel = starLevel + hero.star
+        end
+    end
+    --未解锁判断是否解锁
+    if not fetter.owner then
+        if owner then
+            fetter.owner = true
+            name = string.format(LanguageMgr:GetTextByID(31209), chero.config.Name, cfg.fetter_name)
+            showClear = true
+        end
+    end
+   if  fetter.steps ~= nil then
+      --已解锁判断是否进阶了
+      for level,cleared in pairs(fetter.steps) do
+         if not cleared then
+            if stepLevel >= level then
+               showClear = true
+               result = string.format(LanguageMgr:GetTextByID(31210), chero.config.Name, cfg.fetter_name)
+               fetter.steps[level] = true
+            end
+         end
+      end
+   end
+
+   --已解锁判断是否升星了
+    for level,cleared in pairs(fetter.stars) do
+      if not cleared then
+         if starLevel >= level then
+            showClear = true
+            result2 = string.format(LanguageMgr:GetTextByID(31216), chero.config.Name, cfg.fetter_name)
+            fetter.stars[level] = true
+         end
+      end
+    end
+    return showClear,name, result, result2
+end
+
+--获得魔女或者进阶时判断是否解锁或升级羁绊
+function Fetter:FetterIsClear(heroid)
+    local hero = Hero:GetHero(heroid)
+    local calHero = false
+    for _,fetterid in pairs(hero.fetters) do
+        local isclear,result,result2,result3 = self:FetterClear(fetterid)
+        if isclear then
+           if result ~= nil then
+              table.insert(self._fetterNotice ,result)
+           end
+           if result2 ~= nil then
+              table.insert(self._fetterNotice ,result2)
+           end
+           if result3 ~= nil then
+              table.insert(self._fetterNotice ,result3)
+           end
+           calHero = true
+        end
+    end
+   --有解锁或升级 刷新全魔女属性
+   Hero:CalAllHeroAttr()
+end
+
+function Fetter:GetFetterNotice()
+    return self._fetterNotice
+end
+
+function Fetter:ClearFetterNotice()
+    self._fetterNotice = {}
+end
+
+--获取达到指定等级好感所需经验
+function Fetter:GetCurLvExp(groupid ,curLv, exp)
+   local totalExp = 0
+   for i = 1, curLv -1 do
+      totalExp = totalExp + tonumber( self:GetIntimacyByGroupAndLevel(groupid, i).exp)
+   end
+   return totalExp + exp
+end
+--根据经验计算能升到多少级
+function Fetter:GetCurExpLv(groupid, curLv, exp, addExp, maxLv)
+    local cfg = self:GetIntimacyByGroupAndLevel(groupid, curLv)
+    if cfg == nil then
+        return curLv, 0, 0
+    end
+    local curExp = tonumber(cfg.exp) - exp
+    while addExp >= curExp do
+        addExp = addExp - curExp
+        curLv = curLv + 1
+        if curLv >= maxLv then
+            curExp = 0
+            break
+        end
+        curExp = tonumber(self:GetIntimacyByGroupAndLevel(groupid, curLv).exp)
+    end
+    return curLv, addExp, curExp
+end

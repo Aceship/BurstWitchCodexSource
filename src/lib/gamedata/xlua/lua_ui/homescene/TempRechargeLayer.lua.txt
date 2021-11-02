@@ -1,0 +1,86 @@
+--
+-- author: haosun
+-- date  : 2021-04-01 14:06:50
+-- brief : 临时充值UI
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TempRechargeLayer = class("TempRechargeLayer", CBaseLayer)
+
+function TempRechargeLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/UI_TempRechargeLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_MAIN,
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+
+    self._loadAsync = true
+    self:loadAsync()
+end
+
+function TempRechargeLayer:onEnter()
+
+end
+
+function TempRechargeLayer:onExit()
+    self._lists = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function TempRechargeLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function TempRechargeLayer:show()
+    self:initLayer()
+    self:showLayer()
+end
+
+local r_cell_num = 3
+
+function TempRechargeLayer:initLayer()
+    self._lists = Recharge:GetRecharges()
+    local rows = math.ceil(#self._lists / r_cell_num)
+    local transform = self.layer:Get("ViewController/Content")
+    local _height = transform:GetSizeDeltaY()
+    if rows * 480 > _height then
+        transform:SetSizeY(rows * 480)
+    end
+    local _posX, _posY = -330, 0
+    local item = self.layer:Get("item").gameObject
+    for i, v in ipairs(self._lists) do
+        local child = transform:AddChild(item)
+        child:SetPosition(_posX + ((i-1)%r_cell_num)*330, _posY - (math.ceil(i / r_cell_num) - 1) * 480, 0, true)
+
+        child:GetImageComponent("img_icon"):LoadSprite(self._lists[i].icon)
+        child:GetTextComponent("txt_name"):SetText(self._lists[i].name)
+        child:GetTextComponent("txt_num"):SetText(self._lists[i].goods[3])
+        child:GetTextComponent("txt_price"):SetText(self._lists[i].price)
+        child:GetComponent("Button"):AddButtonListener(
+            function()
+                self:doCreateOrder(i)
+            end)
+    end
+
+    item:Release()
+end
+
+function TempRechargeLayer:doCreateOrder(i)
+    -- 创建充值订单
+    Recharge:CreateOrderReq(self._lists[i].cfgid)
+end
+return TempRechargeLayer
+
+

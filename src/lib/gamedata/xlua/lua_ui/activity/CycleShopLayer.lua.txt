@@ -1,0 +1,222 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-28 17:15:52
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local CycleShopLayer = class("CycleShopLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+local ItemMinNum = 5;
+--构造函数
+function CycleShopLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_CycleShopLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+    };
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function CycleShopLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_NAME.SHOP_BUY,self.__cname,
+            function(cfgid)
+                self:SetItem(self._selectItem);
+            end)
+    self:Init();
+end
+
+--按钮事件
+function CycleShopLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--退出按钮事件
+function CycleShopLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function CycleShopLayer:Init()
+    self._items = {};
+    self._shopCfg = {}    
+    self:UpDateData();
+    self:InitUI();
+end
+
+--初始化UI
+function CycleShopLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transContent = self.layer:Get("container/item_bg/trans_content");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("container/item_hide/obj_item").gameObject;
+    self._objNotHaveItem = self.layer:Get("container/item_hide/obj_not_have_item").gameObject;
+    --@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._scrollRect = self.layer:Get("container/item_bg"):GetComponent("ScrollRect");
+    self._scrollRect.horizontal = false;
+    self._aniPanelFadeInEndCallback = function()
+        self._scrollRect.horizontal = true;
+    end
+    self:InitItem();
+end
+
+--显示UI
+function CycleShopLayer:show()
+    for _, v in ipairs(self._items) do
+        self:SetItem(v);
+    end
+    self:showLayer();
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function CycleShopLayer:onExit()
+
+    self._objNotHaveItem = nil;
+	self._objItem = nil;
+	self._transContent = nil;
+    if self._shopBuyLayer ~= nil then
+        self._shopBuyLayer:onExit()
+        self._shopBuyLayer = nil
+    end
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function CycleShopLayer:UpDateData()
+
+end
+
+function CycleShopLayer:InitItem()
+    local num = ItemMinNum;
+    if(num < #self._shopCfg)then
+        num = #self._shopCfg;
+    end
+    for i = 1, num do
+        if(self._shopCfg[i] == nil)then
+            CS.UnityEngine.GameObject.Instantiate(self._objNotHaveItem,self._transContent);
+        else
+            local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transContent));
+            cls.imgIcon = cls:GetImageComponent("img_icon");
+            cls.imgLimit = cls:GetImageComponent("img_limit");
+            cls.objTimeBg = cls.transform:Find("img_time_bg").gameObject;
+            cls.txtName = cls:GetTextComponent("txt_name");
+            cls.txtNameE = cls:GetTextComponent("txt_name_E");
+            cls.imgExpIcon = cls:GetImageComponent("img_exp_icon");
+            cls.txtExpNum = cls:GetTextComponent("txt_exp_num");
+            cls.objHave = cls.transform:Find("img_have").gameObject;
+            cls.btn = cls:GetButtonComponent("btn_click");
+            cls.data = self._shopCfg[i];
+            cls.btn.onClick:AddListener(function ()
+                self._selectItem = cls;
+                local param = {
+                    name  = cls.data.name,
+                    buytype = cls.data.goods[1],
+                    cfgid = cls.data.goods[2],
+                    count = cls.data.goods[3],
+                    costcfgid = cls.data.costtype,
+                    price = cls.data.rePrice,
+                    hasDouble = cls.data.double~= -1 and cls.data.count == 0,
+                    showtype = cls.data.costtype,
+                    oneBuyNum = cls.data.oneBuyNum,
+                    stock = cls.data.stock,
+                    buyCount = cls.data.count,
+                    showtype = cls.data.costtype,
+                }
+                local isSkin = false;
+                if param.buytype ~= Bag.TYPE_EQUIP then
+                    local cfg = Item:GetCfg(cls.data.goods[2])
+                    isSkin = tonumber(cfg.itemType) == Item.TYPE_ROLE_ATTIRE
+                end
+                if(isSkin)then
+                    local skinlayer = core.require("xlua/lua_UI/HomeScene/SkinBuyLayer.txt"):new();
+                    skinlayer:show(param,
+                            function(bbuy,buyNum)
+                                if bbuy then
+                                    self:onBuy(cls.data,buyNum)
+                                end
+                            end)
+                else
+                    if(self._shopBuyLayer == nil)then
+                        self._shopBuyLayer = core.require("xlua/lua_UI/HomeScene/ShopBuyLayer.txt"):new();
+                    end
+                    self._shopBuyLayer:show(param,
+                            function(bbuy,buyNum)
+                                if bbuy then
+                                    self:onBuy(cls.data,buyNum)
+                                end
+                            end)
+                end
+            end);
+            self._items[i] = cls;
+        end
+    end
+end
+
+function CycleShopLayer:SetItem(v)
+    --头像
+    v.imgIcon.sprite = AssetLoader:LoadSprite("source_avatar/hero/card_" .. v.data.goods[2]);
+    --限定
+    set_com_enabled(v.imgLimit,v.data.buytype == Shop.BUY_TYPE_ONCE);
+    v.txtName.text = v.data.name;
+    v.txtNameE.text = v.data.name;
+    Item:SetItemIcon(v.imgExpIcon.transform, v.data.costtype);
+    local price = v.data.price * v.data.discount;
+    if(Item:GetCount(v.data.costtype) < price)then
+        v.txtExpNum.text = string.format(uistr.txtColorRed, price);
+    else
+        v.txtExpNum.text = price;
+    end
+    v.objHave:SetVisible(Item:GetCount(v.data.goods[2]) >= v.data.stock);
+    v.btn.gameObject:SetVisible(Item:GetCount(v.data.goods[2]) < v.data.stock);
+end
+
+function CycleShopLayer:onBuy(data,buyNum)
+    local costcfgid = data.costtype
+    if Item:GetCount(costcfgid) < data.rePrice then
+        if((costcfgid == Player.ITEM_VALUE_WITCH_COIN)or (costcfgid == Player.ITEM_VALUE_MONEY))then
+            Groble_UIMgr:ShowMessageBox(true, true, string.format(LanguageMgr:GetTextByID(90055),
+                    Item:GetCfg(costcfgid).Name))
+            return;
+        end
+        Groble_UIMgr:ShowLackCurrencyTips(costcfgid)
+        return
+    end
+    if data.stock ~= 0 and data.stock - data.count == 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(99000017))
+        return
+    end
+end
+
+return CycleShopLayer;

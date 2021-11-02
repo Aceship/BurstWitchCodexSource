@@ -1,0 +1,139 @@
+--
+-- author: haosun
+-- date  : 2020-08-01 17:35:37
+-- brief : 
+--
+
+KeyboardController = KeyboardController or {}
+
+KeyboardController.E        = 101
+KeyboardController.Q        = 113
+KeyboardController.T        = 116
+KeyboardController.X        = 120
+KeyboardController.Escape   = 27
+KeyboardController.Space    = 32
+KeyboardController.Alpha1   = 49
+KeyboardController.Alpha2   = 50
+KeyboardController.UpArrow      = 273
+KeyboardController.DownArrow    = 274
+KeyboardController.RightArrow   = 275
+KeyboardController.LeftArrow    = 276
+KeyboardController.End          = 279
+KeyboardController.RightShift   = 303
+KeyboardController.LeftShift    = 303
+
+KeyboardController.KeyUp    = 0     -- 按下
+KeyboardController.KeyDown  = 1     -- 离开
+
+-- 
+KeyboardController.KeyPlayer_Speed      = 0.16;
+KeyboardController.KeyPlayer_SpeedUp    = 0.12;
+KeyboardController.KeyPlayer_ShiftUp    = KeyboardController.KeyPlayer_SpeedUp/3.5;
+KeyboardController.KeyPlayer_Shift      = KeyboardController.KeyPlayer_Speed/3.5;
+
+function KeyboardController:InitKeyboardController()
+    self:ResetKey()
+
+    -- 添加键盘监听
+    local _keyboard = CS.UnityEngine.GameObject.Find("Canvas").gameObject:AddComponent(typeof(CS.KeyboardBehaviour))
+    _keyboard:InitMonoBehaviour(self)
+    _keyboard:AddKeyCode(KeyboardController.E)
+    _keyboard:AddKeyCode(KeyboardController.Q)
+    _keyboard:AddKeyCode(KeyboardController.X)
+    _keyboard:AddKeyCode(KeyboardController.Escape)
+    _keyboard:AddKeyCode(KeyboardController.Space)
+    _keyboard:AddKeyCode(KeyboardController.Alpha1)
+    _keyboard:AddKeyCode(KeyboardController.Alpha2)
+    _keyboard:AddKeyCode(KeyboardController.T, true)
+    _keyboard:AddKeyCode(KeyboardController.End, true)
+end
+
+function KeyboardController:ResetKey()
+    self._upArrow       = KeyboardController.KeyUp
+    self._downArrow     = KeyboardController.KeyUp
+    self._leftArrow     = KeyboardController.KeyUp
+    self._rightArrow    = KeyboardController.KeyUp
+    self._shift         = KeyboardController.KeyUp
+end
+
+-- 按键按下
+function KeyboardController:KeyDown(keycode)
+    if keycode == KeyboardController.UpArrow then
+        self._upArrow = KeyboardController.KeyDown
+    elseif keycode == KeyboardController.DownArrow then
+        self._downArrow = KeyboardController.KeyDown
+    elseif keycode == KeyboardController.LeftArrow then
+        self._leftArrow = KeyboardController.KeyDown
+    elseif keycode == KeyboardController.RightArrow then
+        self._rightArrow = KeyboardController.KeyDown
+    elseif keycode == KeyboardController.RightShift then
+        self._shift = KeyboardController.KeyDown
+    else
+    end
+end
+
+-- 按键离开
+function KeyboardController:KeyUp(keycode)
+    if keycode == KeyboardController.UpArrow then
+        self._upArrow = KeyboardController.KeyUp
+    elseif keycode == KeyboardController.DownArrow then
+        self._downArrow = KeyboardController.KeyUp
+    elseif keycode == KeyboardController.LeftArrow then
+        self._leftArrow = KeyboardController.KeyUp
+    elseif keycode == KeyboardController.RightArrow then
+        self._rightArrow = KeyboardController.KeyUp
+    elseif keycode == KeyboardController.RightShift then
+        self._shift = KeyboardController.KeyUp
+    else
+    end
+end
+
+function KeyboardController:IsKeyDown()
+    return self._upArrow == KeyboardController.KeyDown or self._downArrow == KeyboardController.KeyDown or 
+        self._leftArrow == KeyboardController.KeyDown or self._rightArrow == KeyboardController.KeyDown
+end
+
+-- xlua interface-------------------------------------------------------------------------
+function KeyboardController:KeyboardUp(keycode)
+    if keycode == KeyboardController.Q then
+        -- 开启自动战斗
+    elseif keycode == KeyboardController.E then
+        -- 开启自动必杀
+    elseif keycode == KeyboardController.Alpha1 then
+        -- UIController:KeyboardSelectPlayer(2)
+    elseif keycode == KeyboardController.Alpha2 then
+        -- UIController:KeyboardSelectPlayer(1)
+    elseif keycode == KeyboardController.Space or keycode == KeyboardController.X then
+        -- -- 释放技能
+        -- if not TutorialController:IsTutorialLevel() then
+        --     local player = HeroController:GetCurUsedPlayer()
+        --     if player ~= nil then
+        --         player:KeyTouchPlaySkill()
+        --     end    
+        -- end
+    elseif keycode == KeyboardController.End then
+        -- 战斗结算
+        FightController:EndFightController(true)
+    elseif keycode == KeyboardController.Escape then
+        -- UIController:KeyboardPauseGame()
+    elseif keycode == KeyboardController.T then
+        -- TestController:ShowTestInfoLayer()
+    elseif keycode == KeyboardController.X then
+        TalkController:OpenAutoNext()
+    else
+        self:KeyUp(keycode)
+    end
+end
+
+function KeyboardController:KeyboardDown(keycode)
+    self:KeyDown(keycode)
+end
+
+function KeyboardController:KeyboardEvent()
+    -- if Groble_UIMgr:IsPause() then
+    --     HeroController:MoveVariableClear()
+    --     Groble_UIMgr:GamePause(false)
+    -- else
+    --     Groble_UIMgr:GamePause(true)
+    -- end
+end

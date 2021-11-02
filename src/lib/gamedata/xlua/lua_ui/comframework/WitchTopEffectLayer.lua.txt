@@ -1,0 +1,101 @@
+--
+-- author: liangxt
+-- date  : 2019年12月10日22:23:20
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchTopEffectLayer = class("WitchTopEffectLayer", CBaseLayer)
+
+function WitchTopEffectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/need_preload/UI_WitchTopEffectLayer",
+    }
+    self._uitype = 2
+    self:onEnter()
+end
+
+
+function WitchTopEffectLayer:onEnter()
+    self:createPnl()
+    self._KeyFrameCall = function()
+        if  self._showtype == Hero.UNLOCK_TYPE_QLTY then
+            Hero:SetHeroQlty(self.layer.transform:Find("content/item1/image_icon") , self._oldqlty + 1)
+        end
+      
+    end
+    self._title1      = self.layer:GetTextComponent("content/txt_title_1")
+    self._title2      = self.layer:GetTextComponent("content/txt_title_2")
+    self._title3      = self.layer:GetTextComponent("content/txt_title_3")
+    self._title4      = self.layer:GetTextComponent("content/txt_title_4")
+    self._title1:SetTextById(70082)
+    self._title2:SetTextById(70083)
+    self._title3:SetTextById(70084)
+    self._title4:SetTextById(70085)
+end
+
+function WitchTopEffectLayer:show( showtype ,data ,callback)
+    self._callback = callback
+    if showtype == Hero.UNLOCK_TYPE_QLTY  then
+        self._showtype = showtype
+        self._oldqlty = data
+        self:initQlty(data)
+    elseif  showtype == Hero.UNLOCK_TYPE_TALENT  then
+        self:initSkill(data)
+    elseif showtype == Hero.UNLOCK_TYPE_BUILD then
+        self:initBuild(data)
+    end
+    self:showLayer()
+    self._fading = true
+    self:playAni("WitchTopEffectLayerFadeInAni")
+end
+
+function WitchTopEffectLayer:initQlty(data)
+    Hero:SetHeroQlty(self.layer:Get("content/item1/image_icon") , data)
+    set_obj_active(self.layer:Get("content/item1"),true)
+    set_obj_active(self.layer:Get("content/item2"),false)
+    set_obj_active(self.layer:Get("content/item3"),false)
+end
+
+function WitchTopEffectLayer:initSkill(cfg)
+    self._title1:SetTextById(70086)
+    self._title2:SetTextById(70087)
+    self._title3:SetTextById(70088)
+    self._title4:SetTextById(70089)
+    set_obj_active(self.layer:Get("content/item1"),false)
+    set_obj_active(self.layer:Get("content/item2"),true)
+    set_obj_active(self.layer:Get("content/item3"),false)
+    local cls = Hero:CtorHeroTalent(self.layer:Get("content/item2"),1)
+    self.layer:Get("content/txt_title_E"):SetVisible(false)
+    cls[1].icon.sprite  = AssetLoader:LoadSprite("source_icon/talent/"..cfg.cfg.Talent_ICON)
+    cls[1].name.text = cfg.cfg.Talent_Name
+    cls[1].desc.text = lua_color_str(cfg.cfg.desc)
+end
+
+function WitchTopEffectLayer:initBuild(cfg)
+    self._title1:SetTextById(70109)
+    self._title2:SetTextById(70110)
+    self._title3:SetTextById(70088)
+    self._title4:SetTextById(70089)
+    Build:SetBuildIcon( self.layer:GetImageComponent("content/item3/img_icon"), cfg.iconPath)
+    self.layer:GetTextComponent("content/item3/text_name").text = cfg.name
+    set_obj_active(self.layer:Get("content/item1"),false)
+    set_obj_active(self.layer:Get("content/item2"),false)
+    set_obj_active(self.layer:Get("content/item3"),true)
+end
+
+
+function WitchTopEffectLayer:onBackClick()
+    self:playAni("WitchTopEffectLayerFadeOutAni")
+    self._fading = true
+end
+
+function WitchTopEffectLayer:onLayerFadeOutEndCall()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+return WitchTopEffectLayer
+

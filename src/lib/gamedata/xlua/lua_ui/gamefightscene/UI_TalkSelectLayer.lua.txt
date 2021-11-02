@@ -1,0 +1,68 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local UI_TalkSelectLayer = class("UI_TalkSelectLayer", CBaseLayer)
+
+function UI_TalkSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiFight/ui_FightTalk/prefab/UI_TalkSelectLayer",
+    }
+    self._fading = false;
+
+    self:onEnter()
+end
+
+function UI_TalkSelectLayer:onEnter()
+    self:createPnl()
+
+    self:addEventListener(EVENT_TYPE.UI_ACTION,EVENT_NAME.TALK_SELECT_EDIT,
+        function(isAdd)
+            if isAdd == true then
+                Groble_UIMgr:ShowGameWordTipsLayer(22052)
+            else
+                Groble_UIMgr:ShowGameWordTipsLayer(22053)
+            end
+            self:onExit()
+        end)
+end
+
+function UI_TalkSelectLayer:onExit()
+    self.call(self._jump_id)
+    self.call = nil
+
+    CBaseLayer.onExit(self)
+end
+
+--显示UI
+function UI_TalkSelectLayer:show(info, call)
+    self.call = call
+    local _posy = 86 * (#info - 1)
+    for i = 1, 4, 1 do
+        local tmpobj = self.layer:Get("button_select"..i)
+        tmpobj:SetVisible(info[i+1] ~= nil)
+        if info[i+1] ~= nil then
+            tmpobj:GetButtonComponent("btn"):AddButtonListener(
+                function()
+                    self:onSelect(info[i+1])
+                end)
+            local cfg = FightModule:GetFightTalkSelectCfg(info[i+1])
+            tmpobj:GetTextComponent("btn/info"):SetText(cfg.select_info)
+            tmpobj:DOScale(1, 0.2):SetDelay((i-1)*0.1)
+
+            tmpobj:SetPositionY(_posy - (i - 1) * 192 , true)
+        end
+    end
+    self:showLayer()
+end
+
+function UI_TalkSelectLayer:onSelect(cfgid)
+    local cfg = FightModule:GetFightTalkSelectCfg(cfgid)
+    self._jump_id = cfg.jump_id
+    if cfg.add_info == "-1" then
+        self:onExit()
+    else
+        Player:SetCampAttrReq(cfgid)
+    end
+end
+
+return UI_TalkSelectLayer
+

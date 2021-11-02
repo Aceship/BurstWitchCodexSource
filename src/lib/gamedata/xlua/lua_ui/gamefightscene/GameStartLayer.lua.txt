@@ -1,0 +1,48 @@
+--
+-- author: haosun
+-- date  : 2021-05-19 17:59:00
+-- brief : 开场文字提示
+--
+GameStartLayer = GameStartLayer or {}
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Fight/ui/DoubleClickLayer.txt")
+
+function GameStartLayer:EnterGameStartLayer()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_Totail/UI_GameStartLayer")
+    self.layer:AddAnimationBehaviour(self)
+    -- 戴耳机提示
+    local txt = self.layer:GetTextComponent("img_tips/txt_tips")
+    local img = self.layer:GetImageComponent("img_tips")
+    txt:DOFade(1, 1)
+    img:DOFade(1, 1):OnComplete(
+        function()
+            txt:DOFade(0, 1):SetDelay(1)
+            img:DOFade(0, 1):SetDelay(1):OnComplete(function() self:onTipsEnd() end)
+        end)
+    -- RenderSettingsMgr:FogSettings(1, 10/255, 20/255, 30/255, 1, -50, 200)
+    WeatherController:RecoveyFogSetting()
+end
+
+function GameStartLayer:onAnimationEvent(anitype, keyTag)    
+
+    Timer:AddTimerCall(1.05, function()
+        self.layer:Release()
+        self.layer = nil
+    end)
+
+    Timer:AddTimerCall(0.05, function()
+        CameraController:StartFightBcEffect()
+        DoubleClickLayer:InitDoubleClickLayer()
+        local _ecsInstance = CS.ECSManager.Instance
+        _ecsInstance:DoOpenTimeline()
+        AppMgr:LogInfo("================播放音乐================")
+        fmod:playEvent("event:/CGScene/prologue-1")
+        -- fmod:PlayBgm("event:/GameBgm/MusicBook-MagicalGirl")
+    end)
+end
+
+function GameStartLayer:onTipsEnd()
+    self.layer:Get("img_tips"):SetVisible(false)
+    self.layer:AnimationPlay("GameStartLayerEnter")
+end
+
+return GameStartLayer

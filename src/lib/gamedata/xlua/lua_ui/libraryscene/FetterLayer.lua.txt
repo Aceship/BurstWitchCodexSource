@@ -1,0 +1,235 @@
+--
+-- author: liangxt
+-- date  : 2019年10月8日16:09:07
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FetterLayer = class("FetterLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Gift            = "main_buttons/button_gift",           -- 赠送礼物
+    BtnHideGift     = "btn_hide_gift",                      --隐藏赠送礼物界面
+    BtnSublimation  = "main_buttons/btn_sublimation",       --升华
+}
+
+function FetterLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_FetterLayer",
+        trans = parent,
+        obj = true
+    }
+    self._transParent = parent;
+    self._showGift = false;
+    self:onEnter()
+end
+
+function FetterLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("IntroPanel"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_sublimation"))
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.UPDATE_GUIDE, self.__cname, function()
+            Fetter:ReloadGiftLayer()
+        end)
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.UPDATE_FAVOUR_DATA, function()
+        --更新好感相关数据
+        self:SetSublimationUIState();
+    end)
+
+    self._controller = Fetter:GetLibraryLayer()
+    self._spine =   self._controller._spine
+end
+
+function FetterLayer:onExit()
+    Fetter:ExitGiftLayer()
+    if self._heroTableViewCtrl ~= nil then
+        self._heroTableViewCtrl:onExit()
+        self._heroTableViewCtrl = nil
+    end
+
+    self._spine = nil
+    self._controller = nil
+
+    self._buttonsPnl    = nil
+    self._btnGift       = nil
+    self._transBtnSublimation = nil
+    self._imgSublimationOpen = nil
+    self._imgSublimationLock = nil
+    self._txtSublimationTitle = nil
+    self._intro = nil
+    self._transSublimation = nil
+    self._rectIntroPanel = nil
+    self._objSublimationTips = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function FetterLayer:initObj()
+    self._buttonsPnl    = self.layer:Get("main_buttons")
+    self._btnGift       = self.layer:Get("main_buttons/button_gift")
+    self._transBtnSublimation = self.layer:Get(BUTTON_TYPE.BtnSublimation);
+    self._imgSublimationOpen = self.layer:GetImageComponent("main_buttons/btn_sublimation/img_unlock");
+    self._imgSublimationLock = self.layer:GetImageComponent("main_buttons/btn_sublimation/img_lock");
+    self._txtSublimationTitle = self.layer:GetTextComponent("main_buttons/btn_sublimation/text");
+    self._heroTableViewCtrl = core.require("xlua/lua_UI/Comframework/HeroTableViewCtrl.txt"):new(self.layer)
+    self._intro = Hero:NewIntroInfo(self.layer:Get("IntroPanel"));
+    self._transSublimation = self.layer:Get("trans_sublimation");
+    self._rectIntroPanel = self.layer:GetRectTransformComponent("IntroPanel");
+
+    self._objSublimationTips = self.layer:Get("main_buttons/btn_sublimation/img_tips")
+end
+
+function FetterLayer:onBackClick()
+    self:onPopLayer();
+end
+
+function FetterLayer:show()
+    local heroid = Fetter:GetFavorEnterHeroId()
+    Fetter:CreateGiftLayer(self._transParent)
+    self._fading = false
+    self._heroTableViewCtrl:onInit({
+        owner = false,
+        refreshCall = function(hero_id)
+            self:refreshHeroInfo(hero_id)
+        end,
+        spine    = true,
+        spineObj = self._spine,
+        sort   = true,
+        drag   = true,
+        type   = HeroTable_Type.favour,
+        index  = 0,
+        heroid = heroid,
+        talk   = false,
+        showRed = false,
+        sortingOrder = 2005,
+        sortdata = {
+            key = self.__cname,
+            sorts = {
+                Hero.Select_TYPE_HERO.attri,
+                Hero.Select_TYPE_HERO.gunType,
+                Hero.Select_TYPE_HERO.sort,
+            }
+        },
+    })
+    self._heroTableViewCtrl:setCurHeroId(heroid)
+    self:showLayer()
+    Fetter:ShowGiftLayer()
+    self:playAni("FetterLayerFadeIn")
+end
+
+function FetterLayer:refreshHeroInfo(heroid)
+    self._hero = Hero:GetHero(heroid)
+    if self._hero.intimacy_data ~= nil then
+        self._hero.intimacy_data.old_level =  self._hero.intimacy_data.level
+    end
+    self._SublimationCfg = Hero:GetSublimationCfgsByGroupId(self._hero.Intimacy[4]);
+    self:SetSublimationUIState();
+    self._maxlevel = tonumber(Fetter:GetFavourLevelMax(self._hero.Intimacy[1]))
+    self:setIntroInfo(self._intro, self._hero)
+    self._btnGift:SetVisible(self._hero.owner)
+    self:showMaxEffect()
+    if self._hero.owner then
+        Fetter:SetSelectHeroGiftLayer(self._hero.id)
+    end
+end
+
+function FetterLayer:onButtonClick(itype)
+    if self._fading then
+        return
+    end
+    Groble_SoundMgr:StopHeroSound()
+    if itype == BUTTON_TYPE.Gift then
+        self._heroTableViewCtrl:setSpineAlpha(1)
+        Fetter:ShowAnimGiftLayer()
+        self._showGift = true;
+        self:playAni("FetterLayerFadeOut")
+        self._heroTableViewCtrl:hideLayer();
+        Groble_UIMgr:HideBackBtn();
+    elseif(itype == BUTTON_TYPE.BtnHideGift)then
+        if(self._showGift)then
+            self._showGift = false;
+            Fetter:HideAnimGiftLayer()
+            self:playAni("HideGiftLayerAnim");
+            self._heroTableViewCtrl:showLayer();
+            self._heroTableViewCtrl:refreshHeros()
+            self:SetSublimationUIState();
+            
+            Groble_UIMgr:ShowBackBtn();
+            self.layer:DelayCall(0.5, function()
+                    Guide:ContinueGuideEvent(self.__cname)
+                end)
+        end
+    elseif(itype == BUTTON_TYPE.BtnSublimation)then
+        self:OnBtnSublimationClick();
+    end
+end
+
+function FetterLayer:setIntroInfo()
+    Hero:SetIntroInfo(self._intro, self._hero)
+end
+
+function FetterLayer:showLayer()
+    --刷新货币
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+    CBaseLayer.showLayer(self)
+end
+
+function FetterLayer:showMaxEffect()
+    if self._hero.intimacy_data.level == self._maxlevel then
+        self._controller:showMaxEffect(true)
+    else
+        self._controller:showMaxEffect(false)
+    end
+end
+
+function FetterLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function FetterLayer:OnBtnSublimationClick()
+    local isLock,openLv = Hero:GetSublimationIsLock(self._hero.id);
+    if(isLock)then
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(31022),openLv));
+        return;
+    end
+    core.require("xlua/lua_UI/LibraryScene/SublimationTipsLayer.txt"):new():show(self._hero.id);
+end
+
+function FetterLayer:SetSublimationUIState()
+    local btnType = Hero:GetHeroIsSublimation(self._hero.id);
+
+    self._transBtnSublimation:SetVisible(btnType ~= Hero.SublimationBtnType.Close and self._hero.owner);
+    self._transSublimation:SetVisible(btnType ~= Hero.SublimationBtnType.Sublimation);
+    self._heroTableViewCtrl:refreshHeros()
+
+    -- if(btnType ~= Hero.SublimationBtnType.Sublimation)then
+    --     self._rectIntroPanel:DOAnchorPosY(-859,0.1);
+    -- else
+    --     self._rectIntroPanel:DOAnchorPosY(-799,0.1);
+    -- end
+    if(btnType == Hero.SublimationBtnType.Sublimation)then
+        local isLock = Hero:GetSublimationIsLock(self._hero.id);
+        self._imgSublimationLock:SetEnabled(isLock);
+        self._imgSublimationOpen:LoadAtlasSprite("source_atlas/atlas_witch", "Btn_n__MoNv_shenghua");
+        self._txtSublimationTitle:SetTextById(31020);
+    elseif(btnType == Hero.SublimationBtnType.LockBack)then
+        self._imgSublimationLock:SetEnabled(false);
+        self._imgSublimationOpen:SetEnabled(true);
+        self._imgSublimationOpen:LoadAtlasSprite("source_atlas/atlas_witch", "Btn_n__MoNv_huigu");
+        self._txtSublimationTitle:SetTextById(31029);
+    end
+
+    self._objSublimationTips:SetVisible(Hero:IsBatterSublimationOper(self._hero.id))
+end
+
+function FetterLayer:ActivateFetterLayer()
+    if self._showGift then
+        Groble_UIMgr:HideBackBtn()
+    end
+end
+
+return FetterLayer
+

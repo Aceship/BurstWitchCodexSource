@@ -1,0 +1,8 @@
+--
+-- author: haosun
+-- date  : 2018-10-18 10:44:14
+-- brief : init event module
+--
+
+GEvent = core.require("xlua/lua_Game/Event/Event.txt"):new()
+

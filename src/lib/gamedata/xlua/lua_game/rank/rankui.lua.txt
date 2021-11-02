@@ -1,0 +1,67 @@
+--
+-- author: haosun
+-- date  : 2019-07-04 11:49:31
+-- brief : 
+--
+
+Rank = Rank or {}
+
+function Rank:ShowPlayerCardLayer(pdata,isRank)
+    Player:SetPlayerCard(pdata, isRank)
+    Player:ShowPlayerCardLayer()
+end
+
+function Rank:SetRankingComUi( cls, ranking)
+    cls.orderImgObj:SetVisible(ranking <= 3)
+    cls.orderTxtObj:SetVisible(ranking > 3)
+    if ranking <= 3 then
+        cls.orderImgCom.sprite = AtlasMgr:LoadAtlasSprite(Rank.ATLAS_PATH, "icon_rank_" .. ranking)
+    else
+        cls.orderTxtCom:SetText(ranking)
+    end
+end
+
+function Rank:RefreshRankingCell(cls, score, ranking, _color)
+    self:SetRankingComUi(cls , ranking)
+    cls.scoreCom.text = score
+    local color = _color
+    cls.nameCom.color = color
+    if cls.txtCoinCom ~= nil then
+        cls.txtCoinCom.color = color
+    end
+    cls.scoreCom.color = color
+    cls.orderTxtCom.color = color
+end
+
+function Rank:RefreshRankingCell2(cls, score, ranking, r, g, b, a)
+    self:SetRankingComUi(cls , ranking)
+    cls.scoreCom.text = score
+    local color = _color
+    cls.nameCom:SetTextColor(r, g, b, a)
+    if cls.txtCoinCom ~= nil then
+        cls.txtCoinCom:SetTextColor(r, g, b, a)
+    end
+    cls.scoreCom:SetTextColor(r, g, b, a)
+    cls.orderTxtCom:SetTextColor(r, g, b, a)
+end
+
+function Rank:LoadLvIconByName(imgCom, icon)
+    local _filepath = "source_icon/syrank/" .. icon
+    imgCom.sprite = AssetLoader:LoadSprite(_filepath)
+end
+
+function Rank:ctorRankObj(obj, callback)
+    local cls       = clsbase:new(obj)
+    cls.cplayer     = Player:CtorPlayerIconBorder(cls:Find("prefab_player"))
+    cls.bgCom       = cls:Find("img_bg")
+    cls.nameCom     = cls:GetTextComponent("text_name")
+    cls.orderImgCom = cls:GetImageComponent("img_order")
+    cls.orderImgObj = cls:Find("img_order")
+    cls.orderTxtCom = cls:GetTextComponent("text_order")
+    cls.orderTxtObj = cls:Find("text_order")
+    cls.infoObj     = cls:Find("img_self")
+    cls.scoreCom    = cls:GetTextComponent("text_score")
+
+    return cls
+end
+

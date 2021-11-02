@@ -1,0 +1,70 @@
+--
+-- author: cjj
+-- date  : 2019-04-10 13:39:53
+-- brief : 
+--
+
+FightModule = FightModule or {}
+
+function FightModule:Ctor()
+	self._FightTest = false;
+	self._FightTesting = false;
+	self._levelwords   = {};
+    ---关卡血量
+    self._level_hp = 1
+
+    -----barragePreCreate
+    self._precreate_barrage = {};
+end
+
+function FightModule:Clear()
+    self:Ctor()
+end
+
+function FightModule:IsFightTest()
+	return self._FightTest
+end
+function FightModule:FightTest(isOpen)
+	self._FightTest = isOpen;
+end
+function FightModule:FightTesting(isOpen)
+	self._FightTesting = isOpen;
+end
+function FightModule:IsTesting()
+	return self._FightTesting
+end
+function FightModule:SetLevelHp(levelHp)
+    self._level_hp = levelHp;
+end
+function FightModule:GetLevelHp()
+    return self._level_hp;
+end
+function FightModule:SetLevelWords(words)
+	self._levelwords = words
+end
+function FightModule:GetLevelWords()
+	return self._levelwords;
+end
+function FightModule:preCreateBarrage(barrageName,num,relname,barragePath,skillid,needfix)
+	if self._precreate_barrage[barrageName] == nil then
+		self._precreate_barrage[barrageName] = {};
+		self._precreate_barrage[barrageName].num = num;
+		self._precreate_barrage[barrageName].name = relname
+		self._precreate_barrage[barrageName].barragePath = barragePath
+		self._precreate_barrage[barrageName].skillid = skillid
+		self._precreate_barrage[barrageName].needfix = needfix
+	else
+		if self._precreate_barrage[barrageName].num < num then
+			self._precreate_barrage[barrageName].num = num;
+			self._precreate_barrage[barrageName].barragePath = barragePath
+			self._precreate_barrage[barrageName].name = relname
+			self._precreate_barrage[barrageName].skillid = skillid
+		end
+	end
+end
+function FightModule:GetPreCreateBarrage(barrageName)
+	return self._precreate_barrage[barrageName]
+end
+function FightModule:ClearCreateBarrage()
+	self._precreate_barrage = {};
+end

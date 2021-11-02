@@ -1,0 +1,104 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-03 13:43:34
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightHonorTrophyLayer = class("MidNightHonorTrophyLayer", CBaseLayer)
+--构造函数
+function MidNightHonorTrophyLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightHonorTrophyLayer",
+    }
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function MidNightHonorTrophyLayer:onEnter()
+    self:createPnl();
+    self:Init();
+end
+
+--初始化
+function MidNightHonorTrophyLayer:Init()
+    self:InitData();
+    self:InitUI();
+end
+
+--初始化数据
+function MidNightHonorTrophyLayer:InitData()
+    self._honorData = MidNight:GetHonorData();
+end
+
+--初始化UI
+function MidNightHonorTrophyLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtHonorTrophyNum = self.layer:GetTextComponent("trans_container/trans_honor_trophy/txt_honor_trophy_num");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._danGrading = MidNight:NewDanGradingUI(self.layer:Get("trans_container/trans_dan_grading"));
+    self._txtAnimTrophyNum = self._danGrading.txtTrophyNum.transform:GetComponent("TextAnimation");
+    self._txtAnimHonorTrophyNum = self._txtHonorTrophyNum.transform:GetComponent("TextAnimation");
+end
+
+--显示UI
+function MidNightHonorTrophyLayer:show()
+    MidNight:SetDanGradingUI(self._danGrading,MidNight:GetDanId(),self._honorData[1]);
+    self._txtHonorTrophyNum:SetText(self._honorData[2]);
+    self:showLayer();
+end
+
+--退出按钮事件
+function MidNightHonorTrophyLayer:onBackClick()
+    self:onPopLayer();
+    GEvent:fireEvent(EVENT_TYPE.CLOSE_HONOR_TROPHY_LAYER);
+end
+
+--释放
+function MidNightHonorTrophyLayer:onExit()
+    
+    self._txtHonorTrophyNum = nil;
+	--@CloseEnd
+    self._danGrading:clear();
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function MidNightHonorTrophyLayer:KeyFrameCall(intkey)
+    if(intkey == 1)then
+        local timer = self._honorData[3] * 0.0015;
+        if(timer < 0.3)then
+            timer = 0.3;
+        end
+        self._txtAnimTrophyNum:TxtAnimation(self._danGrading.txtTrophyNum,tonumber(self._danGrading.txtTrophyNum.text), self._honorData[1] - self._honorData[3], false, timer,1.1);
+        self._txtAnimHonorTrophyNum:TxtAnimation(self._txtHonorTrophyNum,tonumber(self._txtHonorTrophyNum.text), self._honorData[2] + self._honorData[3], false, timer,1.1);
+    elseif(intkey == 2)then
+        self:onBackClick();
+    end
+end
+
+return MidNightHonorTrophyLayer;

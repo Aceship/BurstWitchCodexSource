@@ -1,0 +1,91 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:33
+-- brief : 
+--
+Activity = Activity or {}
+
+function Activity:SetAtlasSprite(img,path)
+	if(img == nil)then
+		img = img:GetComponent("Image");
+	end
+	img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
+end
+
+function Activity:OpenPushActivityLayer(params)
+	core.require("xlua/lua_UI/Activity/ActivityPushLayer.txt"):new():show(params);
+end
+
+function Activity:OpenActivityMainLayer()
+	self._mainLayer = core.require("xlua/lua_UI/Activity/ActivityMainLayer.txt"):new();
+	self._mainLayer:show();
+end
+
+function Activity:CloseActivityMainLayer()
+	self._mainLayer = nil;
+end
+
+function Activity:OpenActiveGatherLayer(parent)
+	return core.require("xlua/lua_UI/Activity/ActiveGatherLayer.txt"):new(parent);
+end
+
+function Activity:OpenSixthSealLayer()--打开第六封印预热
+	return core.require("xlua/lua_UI/Activity/SixthSealLayer.txt"):new():show();
+end
+--设置活动BG
+function Activity:SetActivityBGImage(path)
+	if(self._mainLayer ~= nil)then
+		self._mainLayer:SetBGImage(path);
+	end
+end
+
+-- 
+-- brief: 打开夜莺巡查
+-- 
+function Activity:OpenChessBoardMainLayer()
+	-- 判断是否处于开启状态
+	if Operation:GetActiveIsOpenByUid(Operation.ActivityID.ChessBoard) then
+		core.require("xlua/lua_UI/Activity/ChessBoardMainLayer.txt"):new():show()
+		return true
+	end
+	UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
+	return false
+end
+-- 
+-- brief: 打开每日签到
+-- 
+function Activity:OpenDaliySignLayer()
+    -- 判断是否处于开启状态
+    core.require("xlua/lua_UI/Activity/DaySignInLayer.txt"):new():show()
+end
+
+function Activity:OpenNewbieUpLayer()
+	local isPush = Activity:IsPushActivityAD()
+	--print("今日是否弹窗  ： "..tostring(isPush))
+	if isPush then
+		local pushList = Activity:GetTriggerActivites()
+		if #pushList > 0 then
+			Activity:OpenPushActivityLayer(pushList)
+		else
+			uimgr:CheckTodoList()
+		end
+	else
+		uimgr:CheckTodoList()
+	end
+end
+
+function Activity:SetImgTitle(img,rect,data)
+	if(data.ad_Image ~= nil)then--设置广告字
+		local tempV;
+		Operation:SetOperationImage(img,data.ad_Image[1],Operation.AD_IMAGE_FILE);--加载广告字图片
+		if(data.ad_Image[4] == nil)then
+			tempV = CS.UnityEngine.Vector2(0.5, 1);
+		else
+			tempV = CS.UnityEngine.Vector2(tonumber(data.ad_Image[4]), tonumber(data.ad_Image[5]));
+		end
+		rect.anchorMax = tempV;
+		rect.anchorMin = tempV;
+		rect.pivot = tempV;
+		rect.anchoredPosition = CS.UnityEngine.Vector2(tonumber(data.ad_Image[2]), tonumber(data.ad_Image[3]));
+	end
+end

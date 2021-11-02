@@ -1,0 +1,91 @@
+WitchDemoSkill = WitchDemoSkill or {}
+
+local _instance = nil
+function WitchDemoSkill:InitWitchDemoSkill(heroId, star, isBuild, skinId)
+	if self._init then return end
+    _instance = CS.SkillDemoMgr.Instance
+	self.playerMgrForScene = _instance:InitMgr("prefab_SkillDemo/demoBk");
+	self.playerMgrForScene:CreateChild("prefab_comframeWork/main_preload/GameMainInfo")
+
+	self.skillType = -1
+
+	self._init = true
+    local data = self:_strJson(heroId, star, isBuild)
+    if skinId ~= nil and skinId ~= 0 then
+        data.skinId = skinId
+    end
+	CS.LuaLogicStaticCall.StartUIBattle(luajson.encode(data));
+end
+
+function WitchDemoSkill:_strJson(heroId, star, isBuild)
+    local hero = Hero:GetHero(heroId)
+    local skinid = 0
+    if hero.skinid ~= hero.skinids[1] then
+        skinid = hero.skinid
+    end
+    local data = {
+        heroId  = heroId,
+        star    = star or hero.star,
+        spd     = hero.attrs[CAttr.TYPE_SPD],
+        skinId  = skinid,
+        gunType = hero.atktype,
+        build   = {},
+        buildConvergeLevel = 0,
+    }
+    if isBuild then
+        local builds = Build:GetBuildLevelByAtktype(hero.atktype)
+        for _, buildid in pairs(hero.build_ids) do
+            local buildcfg = Build:GetBuildDataCfg(buildid)
+            local buildlevel = builds[buildcfg.buildtype] or 0
+            if(buildlevel > buildcfg.maxLevel) then
+                buildlevel = buildcfg.maxLevel
+            end
+
+            table.insert(data.build, { buildId = buildid, buildLevel = buildlevel })
+            if (buildcfg.buildtype == Build.BuildType.Converge) then
+                data.buildConvergeLevel = buildlevel
+            end
+        end
+    end
+    return data
+end
+
+function WitchDemoSkill:ChangeWitch(heroId, star, isBuild)
+    local data = self:_strJson(heroId, star, isBuild)
+    CS.LuaLogicStaticCall.ChangeWitch(luajson.encode(data))
+end
+
+function WitchDemoSkill:PlayDemo(skillType,index)
+	CS.LuaLogicStaticCall.ChangeSkillIndex(index);
+end
+
+function WitchDemoSkill:ChangeWitchDemoBuild(builds)
+    local data = {
+        build   = {},
+        buildConvergeLevel = 0,
+    }
+    for i, v in ipairs(builds) do
+        local buildcfg = Build:GetBuildDataCfg(v.buildId)
+        table.insert(data.build, { buildId = v.buildId, buildLevel = v.buildLevel })
+        if (buildcfg.buildtype == Build.BuildType.Converge) then
+            data.buildConvergeLevel = v.buildLevel
+        end
+    end
+    CS.LuaLogicStaticCall.ChangeWitchDemoBuild(luajson.encode(data));
+end
+
+function WitchDemoSkill:DestoryWitchDemoSkill()
+     if not self._init then return end
+     self._init = false
+     self.playerMgrForScene = nil
+
+     if _instance ~= nil then
+         _instance:UnInitMgr()
+     end
+	 CS.LuaLogicStaticCall.StopUIBattle();
+     _instance = nil
+end
+
+function WitchDemoSkill:GetInitState()
+    return self._init or false;
+end

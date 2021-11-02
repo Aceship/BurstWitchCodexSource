@@ -1,0 +1,71 @@
+--
+-- author: haosun
+-- date  : 2019-09-02 16:19:49
+-- brief : 
+--
+cdnwww = cdnwww or {}
+
+local _downloadCount    = 0
+local TRY_MAX_COUNT     = 5
+local _ins = nil
+
+function cdnwww:DownloadServerCallBack(succ, msg)
+    if succ then
+        _downloadCount = 0
+        Login:SetIpConfig(msg)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_SERVER_CFG)
+    else
+        CS.Logger.LogError("download server list error!!! msg = {0}", msg)
+        self:DownloadServer()
+    end
+end
+
+function cdnwww:DownloadServer()
+    if _downloadCount == TRY_MAX_COUNT then
+        _downloadCount = 0
+        Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(10037),
+            function()
+                self:DownloadServer()
+            end, nil, true)
+    else
+        _downloadCount = _downloadCount + 1
+        CS.CdnWwwHelper.DownloadServerList(
+            function(succ, msg)
+                self:DownloadServerCallBack(succ, msg)
+            end)
+    end
+end
+
+function cdnwww:CheckHotVersionIsOK(okCall)
+    if okCall == nil then
+        CS.Logger.LogError("call function param error!!! CheckHotVersionIsOK")
+        return
+    end
+    if AppMgr:IsEditor() or GameSdkMgr:IsVerifyVer() then
+        okCall(true)
+        return;
+    end    
+    CS.CdnWwwHelper.DownloadHotResVersionCfg(
+        function(succ, msg)
+            if succ then
+                okCall(Player:SyncHotFix(msg))
+            else                
+                local tempStr = string.format(LanguageMgr:GetTextByID(880034), msg)
+                Groble_UIMgr:ShowMessageBox(true, false, tempStr)
+                okCall(false)
+                CS.Logger.LogError("check hotver error!!! msg = {0}", msg)
+            end
+        end)
+end
+
+function cdnwww:GetCDN_Notice(onCall)
+    CS.CdnWwwHelper.DownloadNotice(
+        function(succ, msg)
+            if succ then
+                onCall(msg)
+            else
+                CS.Logger.LogError("download notice error!!! msg = {0}", msg)
+            end
+        end)
+end
+

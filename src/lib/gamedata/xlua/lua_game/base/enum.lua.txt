@@ -1,0 +1,589 @@
+--
+-- author: haosun
+-- date  : 2018-10-16 15:08:42
+-- brief :
+--
+
+MAIN_BUTTON_TYPE = {
+    TYPE_HOME       = 1,    -- 主页
+    TYPE_WITCH      = 2,    -- 魔女
+    TYPE_PLOT       = 3,    -- 剧情
+    TYPE_LOTTERY    = 5,    -- 召唤
+}
+
+EVENT_TYPE = {
+    UPDATE                  = "update",
+    UPDATE_CURRENCY         = "update_currency",
+    UI_ACTION               = "ui_action",
+    UPDATE_MUSIC_INFO       = "UPDATE_MUSIC_INFO",      --刷新乐器信息
+    SCRIPT_ACTION           = "script_action",
+    UTIME_ACTION            = "utime_action",
+    OPEN_FUNC               = "open_func",
+    UTIME_UPDATEDAY         = "utime_updateday",
+    UTIME_UPDATE_MONTH      = "utime_update_month",
+    UPDATE_TIPS             = "update_tips",
+    SWEEP_SUCC              = "sweep_succ",
+    UPDATE_GIFT_BAG         = "UPDATE_GIFT_BAG",        --刷新礼包界面
+    UPDATE_SELECT_MUSIC     = "UPDATE_SELECT_MUSIC",    --刷新选中乐器信息
+    GET_GROW_UP_REP         = "GET_GROW_UP_REP",        --领取成长计划返回
+    DELETE_MAIL              = "DELETE_MAIL",           --删除邮件
+    UPDATE_OPERATION_RED_POINT = "UPDATE_OPERATION_RED_POINT",--刷新主页红点
+    ACTIVITY_GET_REP        = "ACTIVITY_GET_REP",       --活动物品领取成功
+    GET_HAND_BOOK           = "GET_HAND_BOOK",
+
+    MYSTERY_BUY_TICKET      = "MYSTERY_BUY_TICKET",
+
+    UPDATE_BUILD_HERO_IDS   = "UPDATE_BUILD_HERO_IDS",--更新构筑角色ID
+    UPDATE_BUILD_LV_DATA    = "UPDATE_BUILD_LV_DATA",--更新构筑等级信息
+    BUILD_DOT_LV_CHANGE     = "BUILD_DOT_LV_CHANGE",--构筑点等级变化
+    UPDATE_ARCHIVE_ADD      = "UPDATE_ARCHIVE_ADD",--更新图鉴加成
+    DAY_UPDATE              = "DAY_UPDATE",        --日刷新
+    OPEN_COMMENT_LAYER      = "OPEN_COMMENT_LAYER",--打开评论界面
+    COMMENT_DATA_UPDATE_OVER= "COMMENT_DATA_UPDATE_OVER",--评论数据更新完毕
+    COMMENT_DATA_UPDATE     = "COMMENT_DATA_UPDATE",--更新评论数据
+    COMMENT_LIKE_UPDATE     = "COMMENT_LIKE_UPDATE",--更新点赞信息
+    COMMENT_REPLY_REP       = "COMMENT_REPLY_REP",  --评论回复返回
+    COMMENT_GET_REPLY_REP   = "COMMENT_GET_REPLY_REP",--获取评论回复返回
+    UPDATE_RED_POINT_STATE  = "UPDATE_RED_POINT_STATE",--刷新红点
+    WORLD_BOSS_UPDATE_DAY   = "WORLD_BOSS_UPDATE_DAY",--世界Boss日刷新
+    POP_UP_GIFT_BAG_SEND_REP= "POP_UP_GIFT_BAG_SEND_REP",--弹出礼包回调
+    REFRESH_MUSICHALL       = "REFRESH_MUSICHALL", --刷新音乐厅监听
+
+    CUT_SELECT_BUILD_TYPE   = "CUT_SELECT_BUILD_TYPE", --切换选中的构筑子弹类型
+
+    NOTICE_SYSTEM_TASK      = "NOTICE_SYSTEM_TASK", -- 系统通知
+    HERO_EQUIP_UI           = "HERO_EQUIP_UI",      -- 装备UI更新
+    LOTTERY_FIRST_RESULT    = "LOTTERY_FIRST_RESULT",-- 新手抽卡回包
+
+    TASK_DAILY_GET          = "TASK_DAILY_GET",         -- 每日任务获取
+    TASK_GET_REP            = "TASK_GET_REP",           --任务领取
+    HOME_MSG_UPDATE         = "HOME_MSG_UPDATE",        -- 主界面信息条目数量更新
+    UPDATE_STAMINA          = "UPDATE_STAMINA",     --  更新体力
+    JUMP_OVER_EVENT         = "JUMP_OVER_EVENT",    --跳转结束
+    CUT_BUILD_TYPE          = "CUT_BUILD_TYPE",     --切换构筑类型
+
+    HERO_UP_SKILL           = "hero_up_skill",      -- 技能升级
+
+    UPDATE_GUIDE            = 1001,
+
+    GET_RANK_VIDEO_PLAY_NUM_RES = "GET_RANK_VIDEO_PLAY_NUM_RES",--获取深夜视频播放返回
+    BACK_TIPS_LAYER         = "BACK_TIPS_LAYER",--关闭提示界面
+    REMOVE_COMMENT          = "REMOVE_COMMENT",--评论被删除
+
+    CONCERT_EXIT_HERO_SELECT = "CONCERT_EXIT_HERO_SELECT",--音乐厅
+    CONCERT_REQ_PLAY_SUCCESS = "CONCERT_REQ_PLAY_SUCCESS",--演奏请求返回
+    CONCERT_ENDPLAY_SUCCESS = "CONCERT_ENDPLAY_SUCCESS", --结束演奏
+    CONCERT_COMPOS_BOOK_SUCCESS = "CONCERT_COMPOS_BOOK_SUCCESS",--乐谱合成
+    CONCERT_CLOSE_HERO_PREVIEW_WIN = "CONCERT_CLOSE_HERO_PREVIEW_WIN",--关闭魔女预览界面
+    CONCERT_CLOSE_BOOK_PREVIEW_WIN = "CONCERT_CLOSE_BOOK_PREVIEW_WIN",--关闭乐谱预览界面
+    CONCERT_OPEN_HERO_PREVIEW = "CONCERT_OPEN_HERO_PREVIEW",--打开魔女预览界面
+
+    MID_NIGHT_SETTLE_DAY = "MID_NIGHT_SETTLE_DAY",--深夜日结算
+    MID_NIGHT_SETTLE_STEP = "MID_NIGHT_SETTLE_STEP",--深夜结算步骤
+    RANK_REGISTER_REP       = "RANK_REGISTER_REP",--排行榜注册回调
+    GET_HONOR_TROPHY_REP = "GET_HONOR_TROPHY_REP",--获取荣誉奖杯返回
+    CLOSE_HONOR_TROPHY_LAYER = "CLOSE_HONOR_TROPHY_LAYER",--关闭荣誉奖杯结算界面
+    GET_MIDNIGHT_DAY_AWARD_REP ="GET_MIDNIGHT_DAY_AWARD_REP",--深夜日奖励获取返回
+    MID_NIGHT_TASK_UPDATE = "MID_NIGHT_TASK_UPDATE",--深夜任务刷新
+    MID_NIGHT_SETTLE = "MID_NIGHT_SETTLE",--深夜结算(日结算,小赛季,大赛季)
+
+    SHOW_LOGIN_QQORWX   = "SHOW_LOGIN_QQORWX", --展示QQ或wx登录界面
+
+    GET_SIXTH_SEAL_AWARD_SUCCESS_REQ = "GET_SIXTH_SEAL_AWARD_SUCCESS_REQ", --第六封印奖励领取成功
+	GET_SIXTH_SEAL_AWARD_Sign_REQ = "GET_SIXTH_SEAL_AWARD_Sign_REQ",--第六封印簽到領取成功
+
+    UPDATE_TIME                     = "UPDATE_TIME",--时间ID更新
+
+    SHOW_SHARE_CALLBACK="SHOW_SHARE_CALLBACK", --分享回调
+
+    GET_DOWN_LOAD_VIDEO_PATH_REP = "GET_DOWN_LOAD_VIDEO_PATH_REP",--获取下载视频路径返回
+    GET_DOWN_LOAD_VIDEO_PATH_REP_REPORT = "GET_DOWN_LOAD_VIDEO_PATH_REP_REPORT",--获取下载视频路径返回(举报)
+
+    REPORT_REP = "REPORT_REP",--举报返回回调
+}
+
+EVENT_NAME = {
+    UI_BUTTON_ADVEN         = "ui_button_adven",
+    UI_WEAP_UPDATE          = "ui_weap_update",     --
+    UI_MOVE_HERO_POS        = "ui_move_hero_pos",   --
+    UI_CHAPTER_REWARD       = "UI_CHAPTER_REWARD",
+    UI_MAIN_HEADINFO        = "UI_MAIN_HEADINFO",
+    UI_MAIN_MASKBG          = "UI_MAIN_MASKBG",
+    UI_CAMERA_UPDATE        = "UI_CAMERA_UPDATE",
+    UI_CAMERA_VAGUE         = "UI_CAMERA_VAGUE",
+    UI_REFRESH_REDTIP       = "UI_REFRESH_REDTIP", --刷新mainlayer红点
+
+    SYNC_PLAYER_INFO        = "sync_player_info",       -- 玩家货币同步
+    MODIFY_PLAYER_NAME      = "modify_player_name",     -- 修改玩家姓名成功
+    MODIFY_PLAYER_NAME_ERR  = "modify_player_name_err",     -- 修改玩家姓名成功
+    MODIFY_PLAYER_AVATAR    = "modify_player_avatar",   -- 修改玩家头像边框
+    MODIFY_PLAYER_SIGN      = "MODIFY_PLAYER_SIGN",     -- 修改签名
+    MODIFY_PLAYER_SHOWTEAM  = "MODIFY_PLAYER_SHOWTEAM", -- 修改名片队伍信息
+    LOOK_RANK_PLAYER_INFO   = "LOOK_RANK_PLAYER_INFO",  --
+    ON_FIGHT_CLOSE          = "ON_FIGHT_CLOSE",
+    UPDATE_DIVIN_STATE      = "UPDATE_DIVIN_STATE",
+
+    HERO_UNLOCK             = "hero_unlock",        -- 合成/解锁魔女
+    HERO_UP_LEVEL           = "hero_up_level",      -- 升级
+    HERO_UP_STEP            = "hero_up_step",       -- 升阶
+    HERO_TOP                = "hero_top",           -- 突破（升星）
+    HERO_UP_LEVEL_LAYER     = "hero_up_level_layer",        -- 升级后刷新属性
+    HERO_STAR_WORLD_UP      = "HERO_STAR_WORLD_UP",
+    HERO_CUT_SKIN            = "hero_cut_skin",      --魔女更换皮肤
+
+    HERO_UP_SKILL           = "hero_up_skill",      -- 技能升级
+    HERO_RESET_SKILL        = "hero_reset_skill",   -- 技能重置
+
+    HERO_UP_LACKEY          = "hero_up_lackey",     -- 爪牙升级
+
+    HERO_EQUIP_LEVEL        = "hero_equip_level",   -- 装备升级
+    HERO_EQUIP_TOP          = "hero_equip_top",     -- 装备升星
+    HERO_EQUIP_SELL         = "hero_equip_sell",    -- 装备出售
+    HERO_EQUIP_UPDATE       = "hero_equip_update",  -- 装备卸载/镶嵌
+    EQUIP_EFFECT_VISIBLE    = "equip_effect_visible",   --
+    EQUIP_LOCK_START_CHANGE = "equip_lock_start_change",--装备锁定状态变更
+
+    HERO_RUNE_STATE_UPDATE  = "hero_rune_update",   -- 符文状态更新
+
+    CHAPTER_LEVEL_BEGIN     = "chapter_level_begin",    -- 关卡开始请求
+    LEVEL_SWEEP             = "level_sweep",            -- 扫荡
+    LEVEL_REWARD_RECVED     = "level_reward_recved",    -- 关卡三星奖励领取
+    CHAPTER_REWARD_RECVED   = "chapter_reward_recved",  -- 副本星级奖励领取
+    CHAPTER_NIGHT_RANK      = "chapter_night_rank",     -- 深夜永久排行
+    CHAPTER_FIGHT_BUY       = "CHAPTER_FIGHT_BUY",      -- 挑战次数购买
+    CHAPTER_ETHER_CLOSE_INFO="CHAPTER_ETHER_CLOSE_INFO",--以太关卡重置数据
+    ETHER_AWARE_GET_RRP     = "ETHER_AWARE_GET_RRP",    --以太奖励获取回调
+    FLIP_OVER               = "FLIP_OVER",              --翻牌结束
+    FLIP_REP                = "FLIP_REP",               --翻牌回调
+
+    LEVEL_EFFECT_VISIBLE    = "level_effect_visible",   --
+    LEVEL_EFFECT_VISIBLE2   = "level_effect_visible2",   --
+
+    BAG_SELL                = "BAG_SELL",               -- "背包出售"
+    BAG_USE                 = "BAG_USE",                -- "背包使用"
+    ------mail
+
+    MAIL_MAILLISTREQ        = "mail_listreq",           -- 列表请求返回
+    MAIL_ONE_GET            = "mail_one_get",           -- 一键领取返回
+    MAIL_ONE_DELETE         = "mail_one_delete",        -- 一键删除返回
+    MAIL_GET                = "mail_get",               -- 领取返回
+    MAIL_DELETE             = "mail_delete",            -- 删除返回
+    MAIL_READ               = "mail_read",              -- 读取返回
+
+    SHOP_BUY                = "shop_buy",               -- 商城购买
+    SHOP_REFRESH            = "shop_refresh",           -- 商城黑市刷新
+    SHOP_ITEMS              = "shop_items",             -- 商城物品请求
+
+    TASK_RECV_REWARD        = "TASK_RECV_REWARD",       -- 任务奖励领取
+    TASK_RANK_DAILY         = "TASK_RANK_DAILY",        --
+    TASK_RECV_NOTIFY        = "TASK_RECV_NOTIFY",       -- 任务完成通知
+
+    LOTTRY_RESULT           = "LOTTRY_RESULT",          --
+    LOTTERY_BUY_RESULT      = "LOTTERY_BUY_RESULT",         -- 抽卡购买抽奖券返回
+
+    ACTIVITY_CHANGE_REP     = "ACTIVITY_CHANGE_REP",    --活动物品兑换成功
+
+    ON_NEXT_GUIDE           = "ON_NEXT_GUIDE",
+    RECOVER_GUIDE           = "RECOVER_GUIDE",
+    MOVE_GUIDE_END          = "MOVE_GUIDE_END",
+    CHANGE_REP              = "CHANGE_REP",             --兑换码请求成功
+
+    CHECK_PLUGIN            = "CHECK_PLUGIN",
+
+    GET_FRIEND_APPLY        = "GET_FRIEND_APPLY",
+    REFRESH_APPLY_LIST      = "REFRESH_APPLY_LIST",
+    FIND_FRIEND             = "FIND_FRIEND",               -- 搜索玩家
+    FIND_RECOMMENDFRIEND    = "FIND_RECOMMENDFRIEND",      -- 刷新推荐好友
+    REFRESH_FRIEND          = "REFRESH_FRIEND",            -- 刷新好友
+    REFRESH_UNFRIEND        = "REFRESH_UNFRIEND",          -- 刷新黑名单
+    REFRESH_PLAYERINFOFRIEND= "REFRESH_PLAYERINFOFRIEND",  -- 刷新玩家信息页好友信息
+    FRIEND_APPLY_SUCC       = "FRIEND_APPLY_SUCC",
+
+    REFRESH_WORLD_TALKS     = "REFRESH_WORLD_TALKS",        -- 刷新世界聊天
+    PRIVATE_TALK_NTF        = "PRIVATE_TALK_NTF",           -- 私人聊天列表通知
+    REFRESH_HOME_MSG        = "REFRESH_HOME_MSG",
+    REFRESH_SYSTEM_TALKS    = "REFRESH_SYSTEM_TALKS",       -- 系统消息
+
+    REFRESH_MAIL_TIPS       = "REFRESH_MAIL_TIPS",     -- 刷新邮件红点
+
+    BUY_RANK_BUFF           = "BUY_RANK_BUFF",
+    RANK_DAILY_SETTTLE      = "RANK_DAILY_SETTTLE",     -- 深夜排行每日领取奖励
+    RANK_SHOP_BOX_RECV      = "RANK_SHOP_BOX_RECV",     -- 深夜排行商店领取宝箱
+    RANK_SHOP_LOTTERY       = "RANK_SHOP_LOTTERY",      -- 深夜排行抽奖
+
+    MUSIC_START              = "MUSIC_START", --演奏开始
+    MUSIC_STOP               = "MUSIC_STOP", --演奏结束
+    MUSIC_REFRSH_TAG         = "MUSIC_REFRSH_TAG",--刷新契合度标签
+    ADD_VIGOUR_VALUE        = "ADD_VIGOUR_VALUE",        --增加精力值
+    ADD_RANDREWARD_ITEM     = "ADD_RANDREWARD_ITEM",        --随机获得一个魔女碎片
+
+    UPDATE_ADD_UP_RECHARGE  = "UPDATE_ADD_UP_RECHARGE", --刷新累计充值礼包界面
+
+    UPDATE_OPER_TOG_STATE   = "UPDATE_OPER_TOG_STATE",  --刷新运营活动Tog状态
+    BUY_SKIN_REP            = "BUY_SKIN_REP",--购买皮肤回调
+
+    GET_FIRSTTIMEPAY_OVER   = "GET_FIRSTTIMEPAY_OVER",--领取首充完毕
+    START_DIAL              = "START_DIAL",--启动转盘
+    CLOSE_SCENE_SEL_LAYER   = 100001,
+
+    GIVE_GIFT               = "GIVE_GIFT", --赠送礼物
+    GET_ADVENTURE_REP       = "GET_ADVENTURE_REP",--获取奇遇返回
+    SUBLIMATION_REP         = "SUBLIMATION_REP",--升华返回
+    UPDATE_FAVOUR_DATA      = "UPDATE_FAVOUR_DATA",--更新好感数据
+    UPGRADE_EMBLEM          = "UPGRADE_EMBLEM",--升级纹章
+
+    SDK_LOGIN               = "SDK_LOGIN",
+    SDK_LOGOUT              = "SDK_LOGOUT",
+    SDK_SWITCH_ACC          = "SDK_SWITCH_ACC",
+    LINE_UP_REP             = "LINE_UP_REP",
+    GAME_SERVER_CFG         = "GAME_SERVER_CFG",
+    GAME_SERVER_LIST        = "GAME_SERVER_LIST",
+    GAME_LOGIN_RST          = "GAME_LOGIN_RST",
+
+    PLOT_RANK               = "PLOT_RANK",
+    TOWER_WEEK_UPDATE       = "TOWER_WEEK_UPDATE",
+
+    MYSTERY_BUFF            = "MYSTERY_BUFF",
+    MYSTERY_SETTLE          = "MYSTERY_SETTLE",
+    RECV_AUTH_GIFT          = "RECV_AUTH_GIFT", --实名认证奖励
+    HERO_RED_STATE          = "HERO_RED_STATE", --魔女红点锁定状态
+    THROWING_DICE           = "THROWING_DICE",  --投掷色子
+    GET_TURNS_OF_AWARD      = "GET_TURNS_OF_AWARD",--获取棋盘圈数奖励
+    GET_CYCLE_AWARD         = "GET_CYCLE_AWARD",-- 获取转盘周期奖励
+    UPDATE_CYCLE_AWARD      = "UPDATE_CYCLE_AWARD",--更新转盘圈数奖励内容
+    SIGN_IN_INFO_UPDATE     = "SIGN_IN_INFO_UPDATE",--签到信息更新
+    FROST_VIEW               = "FROST_VIEW",--冻结界面
+    BOSS_ANIM_PLAY_OVER     = "BOSS_ANIM_PLAY_OVER",--boss动画播放完毕
+    WORLD_BOSS_GET_LIST_OVER="WORLD_BOSS_GET_LIST_OVER",--世界Boss获取排行榜
+    ASSET_LOAD_OVER          = "ASSET_LOAD_OVER",--资源加载完成
+
+    TALK_SELECT_EDIT="TALK_SELECT_EDIT",--善恶指数修改回调
+    SWEEP_LEVEL   = "SWEEP_LEVEL", --活动关扫荡
+    BUILD_MADE_LOAD_OVER = "BUILD_BOOK_MADE_LOAD_OVER",--构筑模型加载完毕
+    CLOSE_BUILD_DOT_TIPS     = "CLOSE_BUILD_DOT_TIPS",--关闭构筑Dot提示界面
+    BUY_UPGRADE_PACKAGE_REP = "BUY_UPGRADE_PACKAGE_REP",--等级礼包购买返回
+    TALK_FORBID = "TALK_FORBID",--聊天禁言
+
+    Concert_StartShow = "Concert_StartShow", --开始演奏
+    Concert_EndShow = "Concert_EndShow",
+    Concert_GetNewBook = "Concert_GetNewBook", --获得新的乐谱
+}
+
+local Color = CS.UnityEngine.Color
+COLOR_TYPE = {
+    GraySprite          = Color(1.00, 1.00, 1.00, 0.39),
+    Red                 = Color(1, 0, 0, 1),
+    Black               = Color(0, 0, 0, 1),
+    Gray                = Color(0.36, 0.36, 0.36, 1.00),
+    Gray21              = Color(0.21, 0.21, 0.21, 1.00),
+    Gray55              = Color(0.55, 0.55, 0.55, 1.00),
+    GrayBlack           = Color(0.63, 0.65, 0.69, 1.00),
+    GrayBlue            = Color(0.40, 0.47, 0.53, 1.00),
+    GrayIcon            = Color(0.57, 0.57, 0.57, 1.00),
+    RankGray            = Color(0.8,  0.8,  0.8, 1.00),
+    White               = Color(1, 1, 1, 1),
+    White_a_40          = Color(1, 1, 1, 0.4),                      --图片40%透明度
+    White_a_50          = Color(1, 1, 1, 0.5),                      --图片50%透明度
+    White_a_60          = Color(1, 1, 1, 0.6),                      --图片60%透明度
+    WhiteTranslucent    = Color(1.00, 1.00, 1.00, 0.39),            -- 图片叠加半透明
+    GrayWhite           = Color(0.67, 0.67, 0.75, 1.00),
+    GrayTranslucent     = Color(0.67, 0.67, 0.75, 0.39),
+    Green               = Color(0.54, 0.76, 0.38, 1.00),
+    Blue                = Color(0.33, 0.63, 1.00, 1.00),
+    Blue46861           = Color(0.46, 0.86, 1.00, 1.00),
+    Purple              = Color(0.69, 0.38, 1.00, 1.00),
+    GrayPurple          = Color(0.56, 0.47, 0.86, 1.00),
+    Yellow              = Color(1.00, 0.73, 0.16, 1.00),
+    PaleRed             = Color(1.00, 0.40, 0.32, 1.00),
+    PaleRed2            = Color(0.84, 0.25, 0.28, 1.00),
+    DullRed             = Color(0.95, 0.39, 0.36, 1.00),
+    NorWar              = Color(0.49, 0.26, 0.27, 1.00),
+    TaskDone            = Color(1.00, 1.00, 1.00, 0.50),
+
+    ChaperUnlocak       = Color(0.60, 0.60, 0.60, 1.00),
+    PET_HP_COLOR        = Color(34/255, 196/255, 235/255, 1.00),--宠物血条颜色
+    PET_MP_COLOR        = Color(252/255, 209/255, 53/255, 1.00),--宠物技能条颜色
+    PET_HURT_COLOR      = Color(77/255, 255/255, 255/255, 1.00), --宠物伤害颜色
+
+    FIGHT_WEAK_OTHER    = Color(255/255, 185/255, 0/255, 1.00),--额外伤害
+    FIGHT_WEAK_HIT      = Color(255/255, 255/255, 0/255, 1.00),--暴击伤害
+    COOL_SUB_SPEED      = Color(79/255, 147/255, 174/255, 1),--冰冻减速颜色
+    COOL_COLOR          = Color(0, 97/255, 1, 1),--冰冻颜色
+
+    Fetter_Blue         = Color(150/255,221/255,1,1), --羁绊蓝
+    Fetter_Green        = Color(190/255,1,158/255,1), --羁绊绿
+    Fetter_Red          = Color(1,185/255,185/255,1), --羁绊红
+    Fetter_Purple       = Color(238/255,155/255,1,1), --羁绊紫
+    Emblem_Blue         = Color(91/255,100/255,123/255,1), --纹章蓝
+    Slider_Red          = Color(115/255,45/255,37/255,1), --演奏厅红
+    Black_Zero          = Color(0,0,0,0),--透明黑
+    Glitter_Effect      = Color(0.6,0.6,0.6,1),         --闪白颜色
+    BossGlitter_Effect  = Color(0.3,0.3,0.3,1),          --BOSS闪白颜色
+    Glitter_Part        = Color(0.8,0.8,0.8,1),         --闪白颜色
+
+    White_Gray          = Color(235/255,235/255,235/255,1),
+    Gray_White          = Color(190/255,190/255,190/255,1),
+    Color_Has_Done      = Color(131/255,131/255,132/255,1),
+    Color_Recv          = Color(14/255,14/255,14/255,1),
+    Color_Recved        = Color(69/255,70/255,72/255,1),
+    Color_Black         = Color(7/255,6/255,2/255,1),
+    Color_Red           = Color(225/255,80/255,60/255,1),
+    Gary_New            = Color(150/255,150/255,150/255,1),
+    Color_Btn_Black     = Color(20/255,17/255,14/255,1),
+    Talk_Other_Color    = Color(255/255,243/255,148/255,1),
+
+    EquipSuitOn         = Color(179/255, 238/255, 253/255), -- 符石套装激活
+    EquipSuitOff        = Color(149/255, 149/255, 149/255), -- 符石套装未激活
+
+    HasDayColor         = Color(135/255, 135/255, 135/255, 1), -- 暮光礼赞
+    MaskReceiveColor    = Color(165/255, 159/255, 159/255, 1), --血色輪迴
+}
+
+COLOR_PER = {
+    PER  = Color(1, 1, 1, 1),
+    PER4 = Color(1, 1, 1, 0.4),
+}
+
+COLOR_QLTY = {
+    [1] = Color(0, 0, 0, 0.3),
+    [2] = Color(0.13, 0.13, 0.17, 0.3),
+    [3] = Color(0.25, 0.25, 0.41, 0.3),
+    [4] = Color(0.48, 0.15, 0.64, 0.3),
+    [5] = Color(0.84, 0.41, 0.10, 0.3),
+}
+
+COLOR_QLTY_2 = {
+    [1] = Color(142/255,100/255,75/255,1),
+    [2] = Color(1, 1, 1, 1),
+    [3] = Color(226/255, 200/255, 68/255, 1),
+    [4] = Color(212/255,64/255, 251/255, 1),
+    [5] = Color(96/255, 0, 0, 1),
+}
+
+COLOR_STR = {
+    EquipLevel          = "<color=#8EB7FFFF><size=42>Lv.%s</size></color>/%s",
+    EquipAdd            = "<color=#8AC261FF>%s</color>/%s",
+    EquipAddLevel       = "<color=#FFBB2AFF>%s</color> <color=#8AC261FF>+%s</color>/%s",
+    EquipAddExp         = "%s <color=#8AC261FF>+%s</color>/%s",
+    LotteryNor          = " x%d",
+    LotteryRed          = " x<color=#FF6751FF>%d</color>",
+    LackColor           = "<color=#FF6751FF>%d</color>/%d",
+    EquipLevelNew       ="<color=#8EB7FFFF><size=42>%s</size></color>/%s",
+    EquipLevelMax       ="<color=#FFFFFFFF><size=42>%s</size></color>/%s",
+    EquipAddNew         = "<color=#8EB7FFFF>%s</color>/%s",
+    LvUpLevel           = "<color=#8EB7FFFF><size=42>Lv.%s</size></color>/%s",
+    LightBlue           = "<color=#91b6fa>%s</color>",
+    LightRed            = "<color=#e1503c>%s</color>",
+}
+
+FILE_PATH = {
+    STAR_LIGHT          = "source_icon/other/Img_MoNvTouXiAng_Xing_Da1",
+    STAR_DARK           = "source_icon/other/Img_MoNvTouXiAng_Xing_Da2",
+}
+
+WITCHES_IN_TYPE = {
+    WITCHES     = 1,
+    FIGHT       = 2,
+    SHOW        = 3,
+    FIGHT_TOWER = 4,
+    MUSIC       = 5,
+}
+
+FightInfoMode = {
+    Fight_Level     = 1,
+    Fight_ShenYe    = 2,
+    Fight_TiaoZhan  = 3,
+}
+
+FightCardInfo = {
+    FightCard_Pos1 = 1,
+    FightCard_Pos2 = 2,
+    FightCard_Pos3 = 3,
+}
+
+RULE_TYPE = {
+    EQUIP_FORGE     = 1,
+    FIGHT_PLOT      = 101,
+    FIGHT_PLOT_D    = 102,
+    FIGHT_PLOT_S    = 103,
+    FIGHT_BLOOD     = 104,
+    FIGHT_COIN      = 201,
+    FIGHT_MINE      = 202,
+    FIGHT_GOLD      = 203,
+    FIGHT_HEART     = 204,
+    FIGHT_LIGHT     = 301,
+    FIGHT_DARK      = 302,
+    FIGHT_CHAOS     = 303,
+    FIGHT_RANK_LV       = 401,
+    FIGHT_RANK_SCORE    = 402,
+    FIGHT_RANK_REWARD   = 403,
+    FIGHT_TOWER     = 501,
+    FIGHT_MEMORY    = 601,
+}
+
+RULE_SHOW_ATTR = {
+    [RULE_TYPE.FIGHT_PLOT]      = true,
+    [RULE_TYPE.FIGHT_COIN]      = true,
+    [RULE_TYPE.FIGHT_MINE]      = true,
+    [RULE_TYPE.FIGHT_GOLD]      = true,
+    [RULE_TYPE.FIGHT_LIGHT]     = true,
+    [RULE_TYPE.FIGHT_DARK]      = true,
+    [RULE_TYPE.FIGHT_CHAOS]     = true,
+    [RULE_TYPE.FIGHT_PLOT_D]    = true,
+    [RULE_TYPE.FIGHT_PLOT_S]    = true,
+    [RULE_TYPE.FIGHT_BLOOD]     = true,
+    [RULE_TYPE.FIGHT_HEART]     = true,
+    [RULE_TYPE.FIGHT_TOWER]     = true,
+    [RULE_TYPE.FIGHT_MEMORY]    = true,
+}
+
+BusinessType = {
+    info_set    = 1,    -- 设置模式
+    info_look   = 2,    -- 查看模式
+}
+
+EQUIP_FORGE_MODE_TYPES = {
+    IntensifyMode   = 1,
+    TopMode         = 2,
+}
+--抽卡特效配置
+LOTTERY_EFFECT = {
+    EFFECT_LEVEL1  = 1,--最弱
+    EFFECT_LEVEL2  = 2,--2档
+    EFFECT_LEVEL3  = 3,--3档
+}
+
+EFFECT_TYPE = {
+    TOP_UP          = 880005,
+    STEP_UP         = 880006,
+    LEVEL_UP        = 880007,
+    INTENSITY       = 880008,
+    FIRST_REWARD    = 880009,
+    CG_REWARD       = 880010,
+    GIFT_REWARD     = 880011,
+    SUMMON          = 880012,
+    AWAKE           = 7010018,
+    MARK_UP         = 880050,
+    ChessBoard      = 90168,
+    SUBLIMATION     = 31031,
+    BLOODWHILE      = 6900027,
+}
+
+-----ResABLoadState
+
+ABLoadState = {
+    state_other  = 0,--其他资源例如UI资源随场景切换释放
+    state_fight  = 1,--战斗相关内存随逻辑释放
+    state_static = 2,--静态常驻内存
+    state_luastatic = 3,--静态常驻内存
+}
+
+--EFGHIJKLMDBAC
+HURT_NUM_E = {
+    ["1"] = "E",
+    ["2"] = "F",
+    ["3"] = "G",
+    ["4"] = "H",
+    ["5"] = "I",
+    ["6"] = "J",
+    ["7"] = "K",
+    ["8"] = "L",
+    ["9"] = "M",
+    ["0"] = "D",
+    ["+"] = "B",
+    ["!"] = "A",
+    ["-"] = "C",
+}
+--efghijklmdbac
+HIT_NUM = {
+    ["1"] = "e",
+    ["2"] = "f",
+    ["3"] = "g",
+    ["4"] = "h",
+    ["5"] = "i",
+    ["6"] = "j",
+    ["7"] = "k",
+    ["8"] = "l",
+    ["9"] = "m",
+    ["0"] = "d",
+    ["+"] = "b",
+    ["!"] = "a",
+    ["-"] = "c",
+}
+
+
+InputUid = {
+    acc     = 1,    -- 账号激活
+    code    = 2,    -- 兑换码
+    name    = 3,    -- 修改名字
+}
+
+HeroTable_Type =
+{
+    favour = 1 ,  --好感
+
+}
+
+--返回按钮状态
+BackBtnState = {
+    Normal = 1,             --正常
+    Stop = 2,               --禁止
+    StopAndShowTips = 3,    --禁止并显示提示框
+}
+
+BackBgPath = {
+    Null = "",
+    BG_DEF = "source_common/comm_bg_2",
+    BG_HOME = "source_common/Img_ZhuYe_Bg_3",
+    BG_BABEL = "source_common/Ether/img_YiTai_bg",
+    BG_ETHER = "source_common/Ether/img_YiTai_bg2",
+    BG_PLOT = "source_common/Img_ZhuYe_Bg",
+    BG_NEWER_TASK = "source_common/NewerTask/Img_MuGuang_Bg",
+    BG_FIRST_PAY = "source_common/img_liuyuan_libao_jineng_bg_01",
+    BG_CHESS = "source_common/img_huodong_zzl_bg",
+    BG_MID_NIGHT_1 = "source_common/Img_shengye_bg_01",
+    BG_MID_NIGHT_2 = "source_common/Img_shengye_bg_02",
+}
+
+HomeLayerMsgType = {
+    FriendApply = 1, -- 1 好友请求
+    ChatReward = 2,  -- 2 聊天频道领奖
+    ChatPrivate = 3, -- 3 私聊
+}
+
+HomeLayerBtnType = {
+    Mail = 1,   -- 邮件提醒
+}
+
+--相机位置
+CamPosType = {
+    Normal = 1,--正常相机位置
+    Build = 2,--构筑
+    WorldBoss = 3,--世界Boss
+    Lottery = 4,--召唤
+}
+
+OriginTipsType = {
+  Stamina = 1,--体力
+  Jewel = 2,--钻石
+  HeroClip = 3,--角色碎片
+  Item = 4,--普通物品
+};
+
+HeroTxtType = {
+    Name = 1, --名字
+    Fight = 2,--战力
+    Lv = 3,--等级
+}
+
+G_VoiceLanguageZh   = 0     -- 中文
+G_VoiceLanguageJp   = 1     -- 日文
+
+FPSSettingLow   = 0     -- 30帧
+FPSSettingHigh   = 1     -- 60帧
+
+WakeUpBorderScale_X = 0.7
+WakeUpBorderScale_Y = 0.7
+
+LayerType_Plot = "PlotLayer";
+LayerType_Home = "HomeLayer";

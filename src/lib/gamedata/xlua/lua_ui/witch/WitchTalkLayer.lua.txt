@@ -1,0 +1,236 @@
+--
+-- author: liangxt
+-- date  : 2020年4月10日16:16:50
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchTalkLayer = class("WitchTalkLayer", CBaseLayer)
+
+local BTNS = {
+    BtnJianJie = "container/btn_JianJie",
+    BtnMask = "container/btn_mask"
+}
+function WitchTalkLayer:ctor(super, spine)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchTalkLayer",
+    }
+    -- self._topData = {
+    --     showBtnBack     = true,
+    -- };
+    self.skeletonAni = spine
+    self.aniName = self.skeletonAni.AnimationName
+    self._addStack = false
+    self._curId = 0
+    self._changed = false
+    self._uitype = 2;
+    self:onEnter()
+end
+
+function WitchTalkLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BTNS);
+end
+
+function WitchTalkLayer:initObj()
+    self._TableViewController   = self.layer:Get("container/TableViewController")
+    self._txtObj                = self.layer:Get("container/image_text")
+    self._txtVoice              = self.layer:GetTextComponent("container/image_text/text")
+    self._dtVoice               = self.layer:Get("container/image_text/text"):GetComponent("DOTweenAnimation");
+
+    self.cells   = {}
+    self._dt     = 0
+    self._curDia = nil
+    self._index  = 0
+    self._nextIndex = 0
+    self._curTxt = 1
+    self._playing = false
+    self._dt = 0
+
+end
+
+
+function WitchTalkLayer:onBackClick()
+    self:stopTalk()
+    self:hide()
+    if self._hideCallBack ~= nil then
+        self._hideCallBack()
+        self._hideCallBack = nil
+    end
+end
+
+function WitchTalkLayer:onButtonClick(itype)
+    if itype == BTNS.BtnJianJie or itype == BTNS.BtnMask then
+        print("点击档案")
+        self:stopTalk()
+        self:hide()
+        if self._hideCallBack ~= nil then
+            self._hideCallBack()
+            self._hideCallBack = nil
+        end
+    end
+end
+
+function WitchTalkLayer:show(heroid,hideCallBack)
+    self._fading = false
+    self._hideCallBack = hideCallBack
+    self._hero = Hero:GetHero(heroid)
+    self._dialogue = Hero:GetDiaCfg(heroid)
+    self:sortDialogue()
+    self:initTableViewController()
+    self:playAni("WitchTalkLayerAnim")
+    self:showLayer()
+end
+
+function WitchTalkLayer:initTableViewController()
+    if(self._tvController == nil)then
+        self._tvController          = UIController:CtorTableView(self._TableViewController)
+        self._tvController:Init(#self._dialogue, true,
+                function(cell, row)
+                    self:refreshUnitCell(cell, row+1)
+                end, 0.1, 0.03)
+    else
+        self._tvController:Reload(#self._dialogue,true)
+        self._tvController:ScrollToTop()
+    end
+end
+
+function WitchTalkLayer:refreshUnitCell(cell, row)
+    local cls = self.cells[cell.name]
+    if cls == nil then
+        cls = self:ctorCell(cell)
+        self.cells[cell.name] = cls
+    end
+    cls.data = self._dialogue[row]
+    cls.index = row
+    local locked = cls.data.locked
+
+    if(not locked)then
+        cls.imgPlay.transform:SetScale(1,1,1)
+    else
+        cls.imgPlay.transform:SetScale(0,0,0)
+    end
+    cls.imgPlaying:SetScale(0,0,0);
+    set_obj_active(cls.imgLock , locked)
+    set_obj_active(cls.imgDark , locked)
+
+    if self._index == cls.index then
+        cls.imgPlay.transform:SetScale(0,0,0)
+        cls.imgPlay:SetImageColor(1,1,1,0);
+        cls.imgPlaying:SetScale(1,1,1);
+    else
+        cls.imgPlay.transform:SetScale(1,1,1)
+        cls.imgPlay:SetImageColor(1,1,1,1);
+        cls.imgPlaying:SetScale(0,0,0);
+    end
+    cls.txtVoice.text = cls.data.short_name
+end
+
+function WitchTalkLayer:ctorCell(obj)
+    local cls = clsbase:new(obj)
+    cls.imgPlay      = cls:GetImageComponent("img_play")
+    cls.imgPlaying   = cls:Find("img_playing")
+    cls.imgLock      = cls:Find("img_lock")
+    cls.imgDark      = cls:Find("img_dark")
+    cls.txtVoice     = cls:GetTextComponent("txt_voice")
+    local btn       = cls:GetButtonComponent("btn_click")
+    btn.onClick:AddListener(
+            function()
+                self:PlaySound(cls )
+            end
+    )
+    return cls
+end
+
+function WitchTalkLayer:PlaySound(cls)
+    if cls.data.locked then
+        Groble_UIMgr:ShowTipsLayer( string.format( LanguageMgr:GetTextByID(71004), cls.data.unlock ))
+        return
+    end
+    if  self._curDia ~= nil then
+        Groble_UIMgr:PlayAni(cls.transform, "WitchTalkStopAnim")
+    end
+    if cls.data.id == self._curId then
+        self._curId = 0
+        self._playing = false
+        return
+    end
+    if self._playing then
+        self:stopTalk()
+        self._dt = 0
+    end
+    self._playing = true
+    self._curId = cls.data.id
+    if self.aniName ~= cls.data.expression then
+        self._changed = true
+        self.skeletonAni.state:SetAnimation2(0, cls.data.expression, true, true)
+    end
+    Hero:SetBoxHeight(self._txtObj, cls.data.dialogue)
+    self._dtVoice:DORestart();
+    self._dtVoice:DOPause();
+    self._txtVoice.text = cls.data.dialogue
+    Groble_UIMgr:PlayAni(cls.transform, "WitchTalkPlayAnim")
+    self._curDia = cls
+    self._index  = cls.index
+    --播放语音
+    self._inst = SoundMgr:PlayByDiaID(cls.data.id,
+            function ()
+                self._playing = false
+            end)
+end
+
+function WitchTalkLayer:sortDialogue()
+    for _,v in pairs( self._dialogue ) do
+        v.locked = false
+        if v.unlock ~= "-1" then
+            v.locked = self._hero.intimacy_data.level < tonumber(v.unlock)
+        end
+        if v.locked then
+            v.sortid = tonumber(v.id) * 100
+        else
+            v.sortid = tonumber(v.id)
+        end
+    end
+    table.sort(self._dialogue , function (a,b)
+        return  a.sortid < b.sortid
+    end)
+
+end
+
+function WitchTalkLayer:stopTalk()
+    self._playing = false
+    if self._inst ~= nil then
+        Groble_SoundMgr:StopOnceEffect(self._inst)
+    end
+    if  self._curDia ~= nil then
+        if(self._curDia.index == self._index)then
+            Groble_UIMgr:PlayAni(self._curDia.transform, "WitchTalkStopAnim")
+        end
+        self._curDia = nil
+    end
+    self._txtVoice.text = "";
+    self._dtVoice:DOPlayForward();
+    self._index = 0
+    if self._changed then
+        self.skeletonAni.state:SetAnimation2(0, self.aniName, true , true)
+        self._changed = false
+    end
+end
+
+function WitchTalkLayer:onUpdate(dt)
+    if self._playing == true then
+        self._dt = self._dt +dt
+    else
+        if self._dt > 0 then
+            self._dt = 0
+            self:stopTalk()
+        end
+    end
+end
+
+
+
+
+return WitchTalkLayer
+

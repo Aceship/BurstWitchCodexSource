@@ -1,0 +1,246 @@
+--
+-- author: haosun
+-- date  : 2018-10-16 15:08:58
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/AssetAsyncLoader.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/cfgloader.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/clsbase.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/core.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/enum.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/gtemp.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/uimgr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/timer.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/unityengine.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/uistr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/utility.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/cdnwww.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/CanvasMgr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/AtlasMgr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/LanguageMgr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/ShareMgr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Base/SensitiveWordUtil.txt")
+
+function AnlyAssetText(textInfo)
+    local tempDict = {};
+    local configs = lua_str_split(textInfo, "\n")
+    local keys = lua_str_split(configs[2], ",")
+    for i = 4, #configs do
+        local value = lua_str_split(configs[i], ",")
+        if value ~= nil and #value > 0 then
+            tempDict[value[1]] = {}
+            for r = 1, #keys do
+                tempDict[value[1]][keys[r]] = value[r]
+            end
+        end
+    end
+    return tempDict;
+end
+
+function lua_color_str(str,isDef)
+    local ret
+    if(isDef)then
+        ret = string.gsub(str, "<#", "<color=#DE9C57FF>")
+    else
+        ret = string.gsub(str, "<#", "<color=#8EB7FFFF>")
+    end
+    ret = string.gsub(ret, "#>", "</color>")
+    return ret
+end
+
+function calc_follow_postion(position, offsetx, offsety, disy)
+    -- convert world position to screen position
+    local Camera = CS.UnityEngine.GameObject.Find("UI_Camera"):GetComponent("Camera");
+    position = Camera:WorldToScreenPoint(position)
+    
+    -- posx    
+    if position.x < offsetx then
+        position.x = offsetx
+    end
+    if position.x > CS.UnityEngine.Screen.width - offsetx then
+        position.x = CS.UnityEngine.Screen.width - offsetx
+    end
+
+    -- posy    
+    position.y = position.y + disy
+    if position.y > CS.UnityEngine.Screen.height - offsety then
+        position.y = CS.UnityEngine.Screen.height - offsety
+    end
+
+    -- convert screen position to worldposition
+    position = Camera:ScreenToWorldPoint(position)
+
+    return position
+end
+
+function fixed_position(position, offsetx, offsety)
+    -- convert world position to screen position
+    local Camera = CS.UnityEngine.GameObject.Find("UI_Camera"):GetComponent("Camera");
+    position = Camera:WorldToScreenPoint(position)
+
+    position.x = position.x + offsetx
+    position.y = position.y + offsety
+
+    -- convert screen position to worldposition
+    position = Camera:ScreenToWorldPoint(position)
+
+    return position
+end
+
+function set_cost_color(uitext, cfgid, count, showhas)
+    local has = Item:GetCount(cfgid)
+    set_uitext_color(uitext, has, count, showhas)
+    return has < count
+end
+
+function set_uitext_color(uitext, has, need, showhas)
+    local lack = has < need
+    local showstr = need
+    if(uitext.text == nil)then
+        uitext = uitext:GetComponent("Text");
+    end
+    if showhas == nil then
+        if lack then
+            uitext.color = COLOR_TYPE.PaleRed
+        else
+            uitext.color = COLOR_TYPE.White
+        end
+    else
+        if lack then
+            showstr = string.format("<color=#FF6751FF>%d</color>/%d", has, need)
+        else
+            showstr = string.format("<color=#FFFFFFFF>%d/%d</color>", has, need)
+        end
+    end
+    uitext.text = showstr
+end
+
+function set_particle_order(container, order)
+    local function _doloop (objtrans, order)
+        for i = 1, objtrans.transform.childCount do
+            local child = objtrans.transform:GetChild(i - 1).gameObject
+            local particle = child:GetComponent("ParticleSystem")
+            if particle ~= nil then
+                particle:GetComponent("Renderer").sortingOrder = order
+            end
+            _doloop(child, order)
+        end
+    end
+    _doloop(container, order)
+end
+
+function set_particle_scale(container, scale)
+    local function _doloop (objtrans, scale)
+        for i = 1, objtrans.transform.childCount do
+            local child = objtrans.transform:GetChild(i - 1).gameObject
+            local particle = child:GetComponent("ParticleSystem")
+            if particle ~= nil then
+                local localScale = child.transform.localScale
+                localScale = localScale * scale
+                child.transform.localScale = localScale
+            end
+            _doloop(child, scale)
+        end
+    end
+    _doloop(container, scale)
+end
+
+function u3d_destory_obj(obj, immediate)
+    if obj ~= nil then
+        if immediate then
+            CS.UnityEngine.GameObject.DestroyImmediate(obj.gameObject)
+        else
+            CS.UnityEngine.GameObject.Destroy(obj.gameObject)
+        end
+        obj = nil
+    end
+end
+
+function clear_obj_children(obj)
+    for i = 1, obj.transform.childCount do
+        local child = obj.transform:GetChild(i - 1).gameObject
+        u3d_destory_obj(child)
+    end
+end
+function set_obj_interactable(obj, value)
+    if(obj.interactable == nil)then
+        obj = obj:GetComponent("Button");
+    end
+    if obj.interactable ~= value then
+        obj.interactable = value;
+    end
+end
+
+function set_obj_active(obj, value)
+    if obj.gameObject.activeSelf ~= value then
+        obj.gameObject:SetActive(value)
+    end
+end
+
+function set_com_enabled(com, value)
+    if com.enabled ~= value then
+        com.enabled = value
+    end
+end
+
+function u3d_g_scale()
+    local designWidth = 1080
+    local designHeight = 1920
+    local designScale = designWidth / designHeight;
+    local scaleRate = CS.UnityEngine.Screen.width / CS.UnityEngine.Screen.height
+    local scaleFactor = scaleRate / designScale
+    if scaleRate < designScale then
+        return scaleFactor
+    else
+        return 1
+    end
+end
+
+function u3d_set_size(obj, w, h)
+    local rect = obj:GetComponent("RectTransform")
+    local sizeDelta = rect.sizeDelta
+    sizeDelta.x = w or sizeDelta.x
+    sizeDelta.y = h or sizeDelta.y
+    rect.sizeDelta = sizeDelta
+end
+
+function u3d_set_localPos(obj, x, y)
+    if(obj.localPosition == nil)then
+        obj = obj.transform;
+    end
+    local localPos = obj.localPosition
+    localPos.x = x or localPos.x
+    localPos.y = y or localPos.y
+    obj.localPosition = localPos
+end
+
+function u3d_set_scale(obj, x, y)
+    if(obj.localPosition == nil)then
+        obj = obj.transform;
+    end
+    local localScale = obj.localScale
+    if localScale.x == x and localScale.y == y then
+        return
+    end
+    localScale.x = x or localScale.x
+    localScale.y = y or localScale.y
+    obj.localScale = localScale
+end
+
+function play_button_recv()
+    Groble_SoundMgr:PlayEffect(20000012)
+end
+
+function play_button_fight()
+    Groble_SoundMgr:PlayEffect(20000024)
+end
+
+function play_effect_show()
+    Groble_SoundMgr:PlayEffect(20000003)
+end
+
+function play_effect_buy()
+    Groble_SoundMgr:PlayEffect(20000023)
+end
+
+

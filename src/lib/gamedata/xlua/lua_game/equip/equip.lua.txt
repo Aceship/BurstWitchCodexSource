@@ -1,0 +1,402 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:00:13
+-- brief :
+--
+Equip = Equip or {}
+
+function Equip:Ctor()
+    self._equips    = {}
+    self._numEquip  = 0
+end
+
+function Equip:Clear()
+    self:Ctor()
+end
+
+function Equip:ClearEquipNumber()
+    self._numEquip = 0
+end
+
+--获取当前装备数量是否大于最大值
+function Equip:GetEquipNumWhetherMax()
+    local ret = false;
+    if(self._numEquip >= Equip.MAX_EQUIP_NUM)then
+        ret = true;
+    end
+    return ret
+end
+
+function Equip:GetEquipNum()
+    return self._numEquip
+end
+
+function Equip:GetAllCfgid()
+    local cfgids = {}
+    for cfgid, v in pairs(self._configs) do
+        table.insert(cfgids, cfgid)
+    end
+    return cfgids
+end
+
+function Equip:InitEquip(cfgid)
+    local cfg = self:GetCfg(cfgid)
+    local equipdata = {
+        uid             = 0,
+        cfgid           = cfgid,
+        level           = 1,
+        exp             = 0,
+        heroid          = 0,
+        skills          = {},
+        skill_level     = 0,
+        init_skills     = {},
+        star            = tonumber(cfg.Star),
+        qlty            = tonumber(cfg.Quality),
+        ntype           = tonumber(cfg.Type),
+        suitid          = tonumber(cfg.Classmate),
+        belong_dept     = cfg.belong_dept,
+        curr_max_level  = 0,
+        next_max_level  = 0,
+        is_level_max    = false,
+        top_max         = false,
+        attrs           = CAttr:NewAttrs(),
+        ex_attrs        = {},
+        show_attrs      = {},
+    }
+
+    equipdata.mattr = tonumber(cfg.OrgAttribute)
+    return equipdata
+end
+
+function Equip:SetEquipData(equip, data, calHero)
+    equip.uid             = data.id
+    equip.cfgid           = data.configid
+    equip.level           = data.level
+    equip.exp             = data.exp
+    equip.heroid          = data.heroid
+    equip.star            = data.star
+	equip.lock            = data.lock
+    equip.ex_attrs        = data.ex_attrs
+    equip.m_attr          = data.m_attr
+    self:RefreshMaxLevel(equip)
+    self:SetAttr(equip, calHero)
+    self:SetShowAttr(equip)
+end
+--设置显示用属性
+function Equip:SetShowAttr(equip)
+    local attrs = self:CalcEquipAttr(equip, equip.level)
+    local showattrs = {}
+    --主属性
+    table.insert(showattrs, {equip.mattr , attrs[equip.mattr]})
+    local poolcfg
+    --副属性
+    if equip.ex_attrs ~= nil then
+        for _ ,attr in ipairs(equip.ex_attrs) do
+            poolcfg = self:getPoolCfgById(attr.id)
+            ----------todo
+            local attr_num = attr.all_val
+            table.insert(showattrs, {poolcfg.atype ,attr_num})
+        end
+    end
+    equip.show_attrs = showattrs
+end
+
+function Equip:_addEquip(data)
+    local equip = self:InitEquip(data.configid)
+    self:SetEquipData(equip, data)
+    self._equips[equip.uid] = equip
+    self._numEquip = self._numEquip + 1
+end
+
+function Equip:RefreshMaxLevel(equip)
+    local cfg = self:GetCfg(equip.cfgid)
+    local tbl = lua_str_split(cfg.MaxLevel, "|")
+    equip.curr_max_level = tonumber(tbl[equip.star] or 0)
+    equip.next_max_level = tonumber(tbl[equip.star+1] or tbl[equip.star] or 0)
+    equip.max_level = tonumber(tbl[#tbl])
+    equip.is_level_max = equip.level == equip.max_level
+    equip.top_max = equip.star == tonumber(cfg.Star_MAX)
+    equip.curr_max_level = equip.max_level
+end
+
+function Equip:_subEquip(uid)
+    self._equips[uid] = nil
+    self._numEquip = self._numEquip - 1
+end
+
+function Equip:GetEquips()
+    return self._equips
+end
+
+function Equip:GetEquip(uid)
+    if uid == nil then
+        CS.Logger.LogError("error!!! call function(Equip:GetEquip) param is nil")
+        return nil
+    end
+    if uid == 0 then
+        return nil
+    end
+    if self._equips[uid] then
+        return self._equips[uid]
+    else
+        CS.Logger.LogError("err!!! can't find equip by uid: {0}", uid)
+        return nil
+    end
+end
+
+-- 某一类型的装备
+function Equip:GetEquipsByType(itype)
+    local datas = {}
+    for _, v in pairs(self._equips) do
+        if itype == v.ntype then
+            local tbl = {
+                uid     = v.uid,
+                sortid  = v.level * 10000000000 + v.qlty * 100000000 + v.cfgid,
+                belong_dept = v.belong_dept
+            }
+            table.insert(datas, tbl)
+        end
+    end
+    return datas
+end
+
+-- 获取可以装备到魔女的装备(类型)
+function Equip:GetFitEquip(hero, itype)
+    local ret = {}
+    local equip = Hero:GetEquip(hero, itype)
+    if equip ~= nil then
+        local tbl = {
+            uid     = equip.uid,
+            sortid  = equip.level * 10000000000 + equip.qlty * 100000000 + equip.cfgid,
+            belong_dept = equip.belong_dept
+        }
+        table.insert(ret, tbl)
+    end
+    local tmp = {}
+    local uid = hero.equipids[itype]
+    local datas = self:GetEquipsByType(itype)
+    for _, v in pairs(datas) do
+        if v.uid ~= uid then
+            if v.belong_dept == "-1" then
+                table.insert(tmp, v)
+            else
+                local ids = lua_str_split(v.belong_dept, "|")
+                for _, equiptype in pairs(ids) do
+                    if tonumber(equiptype) == hero.attri_type then
+                        table.insert(tmp, v)
+                    end
+                end
+            end
+        end
+    end
+    table.sort(tmp, function(a, b)
+            return a.sortid > b.sortid
+        end)
+    ret = lua_merge_tables(false, ret, tmp)
+
+    return ret
+end
+
+-- 可以装备的所有装备
+function Equip:GetFitEquipAll(hero)
+    local list = {}
+    for k, v in pairs(self._equips) do
+        local pos = v.ntype
+        local _uid = hero.equipids[pos]
+        if v.uid ~= _uid then
+            if v.belong_dept == "-1" then
+                table.insert(list, {uid = v.uid, sortid  = v.level * 10000000000 + v.qlty * 100000000 + v.cfgid, belong_dept = v.belong_dept})
+            else
+                local ids = lua_str_split(v.belong_dept, "|")
+                for _, equiptype in pairs(ids) do
+                    if tonumber(equiptype) == hero.attri_type then
+                        table.insert(list, {uid = v.uid, sortid  = v.level * 10000000000 + v.qlty * 100000000 + v.cfgid, belong_dept = v.belong_dept})
+                    end
+                end
+            end
+        end
+    end
+    return list
+end
+
+function Equip:GetCompareId(equipuid)
+    if equipuid == nil or equipuid == 0 then
+        return 0
+    end
+    local equip = self:GetEquip(equipuid)
+    return equip.level * 0.1 + equip.qlty * 0.8-- + equip.star
+end
+
+function Equip:GetBestOneEquip(hero, itype, cmpuid)
+    if(itype < 0)then
+        return -1;
+    end
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.equip_fs) then
+            return 0
+        end
+    local uids = self:GetFitEquip(hero, itype)
+    local uid = 0
+    local cmpid = self:GetCompareId(cmpuid)
+    for i, v in pairs(uids) do
+        local equip = Equip:GetEquip(v.uid)
+        if equip.heroid == 0 then
+            local num = self:GetCompareId(v.uid)
+            if num > cmpid then
+                cmpid = num
+                uid = v.uid
+            end
+        end
+    end
+    return uid
+end
+
+--
+-- brief: 装备出售获得经验和货币
+--
+function Equip:GetSellCoinExp(uid)
+    -- 返还经验         = 累计获得的经验值 * 装备出售经验返还系数(trans_exp)
+    -- 出售价格         = 累计获得的经验值 * 升级魂晶需求系数 * 装备出售返还魂晶系数(trans_money)
+    -- 出售获取配置数量 =  配置数量 * （当前星级 - 装备初始星级 + 1）
+    local equip = self:GetEquip(uid)
+    local data = {coin = 0, exp = 0, equip_coin = 0, equip_money = 0}
+    local cfg = self:GetCfg(equip.cfgid)
+    local tmp = lua_parse_cfg(cfg.canSell)
+    for _, v in pairs(tmp) do
+        local value = tonumber(v[2]) * (equip.star - tonumber(cfg.Star) + 1)
+        if tonumber(v[1]) == Player.ITEM_VALUE_COIN then
+            data.coin = data.coin + value
+        end
+        if tonumber(v[1]) == Player.ITEM_VALUE_EQUIP_COIN then
+            data.equip_coin = data.equip_coin + value
+        end
+        if tonumber(v[1]) == Player.ITEM_VALUE_EQUIP_MONEY then
+            data.equip_money = data.equip_money + value
+        end
+    end
+    local sumExp = self:GetEquipSumExp(uid)
+    data.coin   = data.coin + sumExp * Equip.LEVEL_COIN_RATE * tonumber(cfg.trans_money)
+    data.exp    = sumExp * tonumber(cfg.trans_exp)
+
+    data.coin   = math.floor(data.coin)
+    data.exp    = math.floor(data.exp)
+
+    return data
+end
+
+function Equip:GetDefaultType(hero)
+    local ret = -1
+    for i, v in ipairs(Equip.TYPES) do
+        if hero.equipids[v] ~= 0 then
+            ret = v
+            break
+        end
+    end
+    return ret
+end
+
+function Equip:FindEquipInArrByUid(uid, arr)
+    for _, v in pairs(arr) do
+        if uid == v.id then
+            return v
+        end
+    end
+    return nil
+end
+
+function Equip:GetAllRedTipsByUid(uid)
+    local isTips = false;
+    if(uid == nil)then
+        return isTips;
+    end
+    local equip = Equip:GetEquip(uid);
+    if(equip == nil)then
+        CS.Logger.LogError("[reload_Lua_faild] no find lua:"..uid);
+        return isTips;
+    end
+    if(equip.level < equip.curr_max_level)then
+        local items = Item:GetItemsBySubType(Item.SUBTYPE_EQUIP_UP);
+        if(#items > 0)then
+            local item = Item:GetCfg(items[1].uid)
+            local equipCfg = Equip:GetCfg(equip.cfgid);
+            if(math.floor(tonumber(item.trans_exp) *  tonumber(equipCfg.LvUpCostRate)) <= Item:GetCount(Player.ITEM_VALUE_COIN))then
+                isTips = true
+            end
+        end
+    end
+    return isTips;
+end
+
+function Equip:GetEquipIsUpLv(uid)
+    local isTips = false;
+    if(uid == nil)then
+        return isTips;
+    end
+    local equip = Equip:GetEquip(uid);
+    if(equip == nil)then
+        CS.Logger.LogError("[reload_Lua_faild] no find lua:"..uid);
+        return isTips;
+    end
+    if(equip.level < equip.curr_max_level)then
+        local items = Item:GetItemsBySubType(Item.SUBTYPE_EQUIP_UP);
+        if(#items > 0)then
+            local item = Item:GetCfg(items[1].uid)
+            local equipCfg = Equip:GetCfg(equip.cfgid);
+            if(math.floor(tonumber(item.trans_exp) *  tonumber(equipCfg.LvUpCostRate)) <= Item:GetCount(Player.ITEM_VALUE_COIN))then
+                isTips = true
+            end
+        end
+    end
+    return isTips;
+end
+
+function Equip:OneKeySetEquip(hero)
+    local oneEquips = {};
+    for slot, uid in ipairs(hero.equipids) do
+        local betteruid = Equip:GetBestOneEquip(hero, slot, uid)
+        if(betteruid ~= 0) and (betteruid ~= uid)then
+            table.insert(oneEquips,betteruid);
+        end
+    end
+    return oneEquips;
+end
+
+function Equip:GetCount(cfgId)
+    local retNum = 0;
+    cfgId = tonumber(cfgId);
+    for i, v in pairs(self._equips) do
+        if(v.cfgid == cfgId)then
+            retNum = retNum + 1;
+        end
+    end
+    return retNum;
+end
+
+--根据符石品质 获取对应等级的解锁属性
+function Equip:GetFsUnlockAttByQuality(quality, level)
+
+end
+--[ pos, id, val]
+function Equip:RefreshEquipEXAttr(equip , add_attr)
+    local addtbl = {}
+    local unlocktbl = {}
+    for _ , adddata in pairs(add_attr) do
+        if equip.ex_attrs[adddata[1]] ~= nil  then
+            equip.ex_attrs[adddata[1]].all_val = equip.ex_attrs[adddata[1]].all_val + adddata[3]
+            table.insert(addtbl, adddata)
+        else
+            equip.ex_attrs[adddata[1]] = {id = adddata[2], foster = 0, all_val =  adddata[3]}
+            table.insert(unlocktbl, adddata)
+        end
+    end
+    return addtbl,unlocktbl
+end
+
+function Equip:GetEquipSortAttrs(equip)
+    local attrs = {}
+    table.insert(attrs, equip.mattr)
+    for _ ,v in pairs(equip.ex_attrs) do
+        local poolcfg = self:getPoolCfgById(v.id)
+        table.insert(attrs, poolcfg.atype)
+    end
+    return attrs
+end

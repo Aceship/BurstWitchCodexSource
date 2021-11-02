@@ -1,0 +1,71 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:01:30
+-- brief : 
+--
+
+Equip = Equip or {}
+
+-- 类型
+Equip.TYPE_HP            = 1     -- 防御、暴击
+Equip.TYPE_ATK           = 2     -- 攻击、爆伤
+Equip.TYPE_SPD           = 3     -- 血量、暴击
+Equip.TYPE_DIS           = 4     -- 魔力、瞳力
+Equip.TYPE_DEF           = 5     -- 血量、瞳距
+Equip.TYPE_WEAP          = 6     -- 攻击、魔力、瞳力、爆伤
+
+Equip.TYPES = {
+    Equip.TYPE_WEAP,
+    Equip.TYPE_HP,
+    Equip.TYPE_ATK,
+    Equip.TYPE_SPD,
+    Equip.TYPE_DIS,
+    Equip.TYPE_DEF,
+}
+
+-- 符文操作类型
+Equip.OPER_EQUIP         = 1                 -- 装备
+Equip.OPER_UPDATE        = 2                 -- 更换
+Equip.OPER_UNDRESS       = 3                 -- 卸下
+
+Equip.SUIT_NULL         = 0
+
+Equip.STAR_LEVEL_RATE   = 10
+
+Equip.SUIT_MAX_NUM      = 4
+
+Equip.SHOWATTRS     = {
+    CAttr.TYPE_HP,
+    CAttr.TYPE_ATK,
+    CAttr.TYPE_DEF,
+    CAttr.TYPE_PRODUCT_DIS,
+    CAttr.TYPE_HIT,
+    CAttr.TYPE_DMG,
+}
+
+Equip.MAX_EQUIP_NUM         = 2000
+
+Equip.SUIT_SHOW_MAX_NUM     = 6;
+
+Equip.LEVEL_COIN_RATE    = 21   -- 升级消耗的魂晶系数
+
+Equip.EquipLockStart =
+{
+    UnLock = 0,
+    Lock = 1,
+}
+
+--符石最多属性个数
+Equip.FS_ATTR_COUNT = 5
+--符石提升间隔等级
+Equip.FS_ATTR_UP_LV = 3
+
+Equip.QualityType = {
+    N = 1,
+    R = 2,
+    SR = 3,
+    SSR = 4,
+}
+
+Equip.EquipMapQuality = {Equip.QualityType.N,Equip.QualityType.R,Equip.QualityType.SR,Equip.QualityType.SSR};
+

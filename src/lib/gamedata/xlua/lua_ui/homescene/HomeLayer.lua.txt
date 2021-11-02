@@ -1,0 +1,1294 @@
+--
+-- author: haosun
+-- date  : 2018-10-17 17:46:46
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HomeLayer = class("HomeLayer", CBaseLayer)
+
+local HOME_BUTTON_TYPE = {
+    TYPE_CHAT       = 91,    -- 聊天
+    TYPE_MAIL       = 92,    -- 邮件
+    TYPE_FRIEND     = 93,    -- 好友
+    TYPE_TASK       = 94,    -- 任务
+    TYPE_BAG        = 95,    -- 背包
+    TYPE_QUEST      = 96,    -- 问卷    
+    TYPE_WITCH      = 2,    -- 魔女主页
+    TYPE_PLOT       = 3,    -- 战斗
+    TYPE_LOTTERY    = 5,    -- 召唤
+    TYPE_WELFARE    = 11,   -- 商城
+    TYPE_NEWERTASK  = 14,   -- 暮光礼赞
+    TYPE_AUTH       = 18,   -- 实名认证
+    TYPE_WITCH_BOOK = 19,   --魔女手册
+    TYPE_GRID       = 21,   -- 棋盘活动
+    TYPE_SIGN       = 22,
+    TYPE_ARCHIVE    = 23,--图鉴
+    TYPE_BUILD      = 24,--构筑
+    TYPE_ACTIVITY   = 25,--活动
+    TYPE_WHITE_NIGHT= 26,--白夜
+    Type_CONCERT    = 30,--音乐厅
+    TYPE_Sixth_Seal =  31, --第六封印
+}
+
+function HomeLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._destory = false
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_HomeLayer",
+    }
+    self._time = 0
+    self._topData = {
+        showBtnBack     = false,
+        showPlayerInfo  = true,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_MAIN,
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true;
+    self._countDown = 0;
+    self._hasHandleTodoList = false
+    self:onEnter()    
+end
+
+function HomeLayer:refreshRedPoint()
+    self:SetOperationRedPoint();
+    self.redMail:SetVisible(Mail:GetUnreadCount() > 0 and Player:IsSysFuncOpen(Player.SYS_FUNC.sys_mail))
+    local newmsg = Talk:HasNewTalk()
+    self.redChat:SetVisible(newmsg)
+    self.newChat:SetVisible(newmsg)
+    self.countChat:SetVisible(newmsg)
+    self._imgtxtbg:SetVisible(newmsg)
+    self.redAuth:SetVisible(UnIndulge:RewardRedTip())
+end
+
+function HomeLayer:onEnter()
+
+    self:createPnl()
+    RenderSettingsMgr:FogEnabled(false);
+    self:registerButtonEvent()
+    self:addRedTipsListener()
+    self:addUpdateDayListener();
+    self:addUpdateFuncListener()
+    self:addEventMailInfoListener()
+    self:RegisterHandler();
+
+    self.redMail    = self.layer:Get("Obj_Buttons_2/Viewport/Content/Home_ButtonMail/image_red_tips");
+    self.redWelfare = self.layer:Get("Obj_Buttons_1/Viewport/Content/Home_ButtonWelfare/image_red_tips");
+    self.redChat    = self.layer:Get("Home_ButtonChat/image_red_tips")
+    self.newChat    = self.layer:Get("Home_ButtonChat/img_new_bg")
+    self.countChat  = self.layer:Get("Home_ButtonChat/text_new_count")
+    self._imgtxtbg  = self.layer:Get("Home_ButtonChat/img_txt_bg")
+    self.txtChatInfo = {}
+    self.txtChatInfo[1] = self.layer:GetTextComponent("Home_ButtonChat/text_info")
+    self.txtChatInfo[2] = self.layer:GetTextComponent("Home_ButtonChat/text_info_2")
+    self.txtNotice   = self.layer:GetTextComponent("Home_ButtonChat/text_info_notice")
+    self.txtInfoEmpty = self.layer:Get("Home_ButtonChat/text_info_empty")
+
+    self._btnAuthObj = self.layer:Get("Obj_Buttons_2/Viewport/Content/Home_ButtonAuth")
+    self.redAuth     = self.layer:Get("Obj_Buttons_2/Viewport/Content/Home_ButtonAuth/image_red_tips")
+
+    self.Content1    = self.layer:Get("Obj_Buttons_1/Viewport/Content")
+    self.Content2    = self.layer:Get("Obj_Buttons_2/Viewport/Content")
+
+    self.ADdata = Operation:GetActiveADCfgs();
+    if((self.ADdata == nil) or (#self.ADdata == 0))then
+        self.layer:Get("AD_bg"):SetVisible(false);
+    else
+        self._ADController = core.require("xlua/lua_UI/Controller/ADController.txt"):new(self.layer.transform:Find("AD_bg"),
+            function (cfg)
+                self:ADAction(cfg);
+            end);
+        self._ADController:Init(self.ADdata,8);
+    end
+    self._upTime = 30
+    self._spine = self.layer:Get("sign_pnl/spine")
+    self.layer:GetButtonComponent("sign_pnl"):AddButtonListener(function() self:onSignClick() end)
+    self._playingSound = false
+    self._checkADPush = true
+    self._dt = 0
+    self._hitdt = 0
+    self._witchTxt          = self.layer:GetTextComponent("image_text/text")
+    self._txtObj            = self.layer:Get("image_text")
+    self._effectBj    = self.layer:GetParticleComponent("ui_effect/effect_talk/UI43_bj_main/p_bj")
+    self._effectHit   = self.layer:GetParticleComponent("ui_effect/effect_talk_hit/UI42_dianji/p_dianji")
+    self._hitObj      = self.layer:Get("ui_effect/effect_talk_hit")
+  --  self.soundPlayer 		= self.layer.transform:Find("sound_player"):GetComponent("FmodEmitterLite")
+    self._mouInst = CS.Mouseposition.Instance
+    self._changed = false
+    self._skinid = -1
+    self:setSignWitch()
+    if(Chapter:GetWhiteNightOpenState())then
+        Chapter:OpenWhiteNightLayer();
+    end
+
+    -- 主界面修改5.1
+    self:initInfo()
+    
+    self.layer:GetButtonComponent("obj_tips/Home_TipsSell"):AddButtonListener(
+        function()
+            Operation:CheckValidTriggerPackage()
+            Operation:OpenTriggerPackageLayer(false)
+        end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("Home_ButtonMenu"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("Obj_Buttons_1"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("Obj_Buttons_2"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("btn_right"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("AD_bg"))
+end
+
+function HomeLayer:onExit()
+    self.redMail    = nil
+    self.redWelfare = nil
+    self.redChat    = nil
+    self.newChat    = nil
+    self.countChat  = nil
+    self._imgtxtbg  = nil
+    self.imgFirstRed = nil;
+
+    self.obj_achieve    = nil
+    self.obj_up         = nil
+    self.txt_achieve    = nil
+    self.txt_reward     = nil
+    self.img_task_bg    = nil
+    self.eventBtn       = nil
+    self.eventBtn_des   = nil
+    self._transTaskDesBg = nil
+    self._txtTaskDes    = nil
+    self._txtTaskPlan   = nil
+    self._nobjEffect    = nil
+    self._sobjEffect    = nil
+    self.skeletonAni = nil
+    self._txtNewerTaskTime = nil
+
+    if self._ADController ~= nil then
+        self._ADController:OnDestroy()
+    end
+    self._ADController = nil
+
+
+    for i, v in ipairs(self.txtChatInfo) do
+        self.txtChatInfo[i] = nil
+    end
+    self.txtChatInfo    = nil
+    self.txtNotice      = nil
+    self.txtInfoEmpty   = nil
+    self._btnAuthObj    = nil
+    self.redAuth        = nil
+    self.Content1       = nil
+    self.Content2       = nil
+    self.ADdata         = nil
+    self._upTime        = nil
+    self._spine         = nil
+    self._witchTxt      = nil
+    self._txtObj        = nil
+    self._effectBj      = nil
+    self._effectHit     = nil
+    self._hitObj        = nil
+    self._curMoudle     = nil
+    self.aniName        = nil
+    for i, v in ipairs(self.buttonData) do
+        self.buttonData[i] = nil
+    end
+    self.buttonData = nil
+    self.obj_first = nil
+    self._objTipsSell:clear()
+    self._objTipsSell = nil
+    self.obj_tipsMail = nil
+    self.objButtons_1 = nil
+    self.objButtons_2 = nil
+    self.objMenuRed = nil
+    self.imgMenu = nil
+    self.txtInfoNum = nil
+    self.objInfoRed = nil
+    
+
+    self._txtNewerTaskTime = nil
+    self._imgWarmUp =nil
+    self._imgTitle =nil
+    self._txtLableTitle = nil
+    self._txtLableTitleEn = nil
+    self._txtTime = nil
+    self.objSign = nil
+    self._objFightTips = nil
+    self.objWitchBook = nil
+    self._objFightNewTips = nil
+
+    CBaseLayer.onExit(self)
+end
+
+--广告板跳转
+function HomeLayer:ADAction(cfg)
+    if(tonumber(cfg.Jump) ~= -1)then        --运营活动
+        if not  Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_benefits) then
+            return
+        end
+        local Jump = tonumber(cfg.Jump);
+        local isOpen = Operation:GetActiveIsOpenByUid(Jump);
+        if(isOpen)then
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                Operation:OpenOperationMainLayer(nil, Jump)
+            end);
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(880032);
+        end
+    elseif(tonumber(cfg.JumpCard) ~= -1)then--召唤
+        if not  Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_call) then
+            return
+        end
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            Lottery:EnterLotteryLayer(tonumber(cfg.JumpCard) or 0)
+        end);
+    elseif(tonumber(cfg.JumpInterface) ~= -1)then--关卡跳转
+        if not  Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.fight_blood) then
+            return
+        end
+        if(CTime:IsOpen(tonumber(cfg.Time)))then
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                Chapter:SetJumpChapterLevel(tonumber(cfg.JumpInterface));
+                Chapter:OnFixedJumpChapter();
+                uimgr:showPlotLayer()
+            end);
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(90086);
+        end
+    elseif(tonumber(cfg.JumpNotice) ~= -1)then--公告
+        cdnwww:GetCDN_Notice(
+        function(list)
+            core.require("xlua/lua_UI/LoginScene/NoticeLayer.txt"):new():show(list,tonumber(cfg.JumpNotice));
+        end)
+    elseif(tonumber(cfg.JumpActive) ~= -1)then
+        local jumpId = tonumber(cfg.JumpActive);
+        if(jumpId == Activity:GetOpenActivityLevelId())then--活动关卡
+            self:OnBtnActivityLevelClick();
+        else
+            Activity:OpenActivityMainLayer();
+        end
+    end
+end
+
+function HomeLayer:addEventMailInfoListener()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_MAIL_TIPS,
+    function()
+        self:refreshRedPoint()
+    end)
+    self:addEventListener(EVENT_TYPE.UI_ACTION, EVENT_NAME.REFRESH_HOME_MSG,
+    function()
+        self:refreshTalkMsg()
+    end)
+end
+
+function HomeLayer:show()
+    self._fading = true
+    Operation:SetTogRedPoint()
+    -- self:SYRankTip()
+    self:showLayer()
+    self:playAni("HomeLayerFadeIn") -- 开启动画
+    self.isInit = false;
+end
+
+function HomeLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    self:onUpdateFunc()
+    self:refreshTalkMsg()
+    self:refreshTalkMsg()
+    self._spine:SetVisible(true)
+    self:SetNewerTaskTime();
+    self:SetActivityLevelTimeAndEffectAndSprite();
+    self:SetXueTime()
+    -- 6元礼包
+    local firstBuyCfg = Recharge:GetFirstBuyCfg();
+    local giftState = Operation:GetRepeatGetStateById(firstBuyCfg.cfgid);
+    self.obj_first:SetVisible(giftState ~= Recharge.RepeatState.GetOver);
+    if(giftState ~= Recharge.RepeatState.GetOver)then
+        self.imgFirstRed:SetEnabled(Operation:GetFirstRedState());
+    end
+    self:refreshInfo()
+    -- 任务目标
+    self:refreshTaskInfo()
+    self:doCheckFightTips()
+    self:todoList()
+end
+
+function HomeLayer:SetOperationRedPoint()
+    self.redWelfare:SetVisible(Operation:GetMainLayerBtnRedState());
+end
+
+function HomeLayer:hide()
+    self._fading = true
+    self:hideLayer()
+  --  self:playAni("HomeLayerFadeOut")
+end
+
+function HomeLayer:hideLayer()
+    self:StopTalk()
+    self:hideTalkBox()
+    self._spine:SetVisible(false)
+    self._isFightTipsCd = false
+    self._objFightTips:SetVisible(false)
+    CBaseLayer.hideLayer(self)
+end
+
+function HomeLayer:registerButtonEvent()
+    -- bottom bottons
+    self.buttons = {
+        [HOME_BUTTON_TYPE.TYPE_BAG] = {
+            name = "Obj_Buttons_2/Viewport/Content/Home_ButtonBag",
+            sysid = Player.SYS_FUNC.sys_bag
+        },
+        [HOME_BUTTON_TYPE.TYPE_TASK] = {
+            name = "Obj_Buttons_1/Viewport/Content/Home_ButtonTask",
+            sysid = Player.SYS_FUNC.sys_task
+        },
+        [HOME_BUTTON_TYPE.TYPE_FRIEND] = {
+            name = "Obj_Buttons_2/Viewport/Content/Home_ButtonFriend",
+            sysid = Player.SYS_FUNC.sys_friend
+        },
+        [HOME_BUTTON_TYPE.TYPE_MAIL] = {
+            name = "Obj_Buttons_2/Viewport/Content/Home_ButtonMail",
+            sysid = Player.SYS_FUNC.sys_mail
+        },
+        [HOME_BUTTON_TYPE.TYPE_CHAT] = {
+            name = "Home_ButtonChat",
+        --    sysid = Player.SYS_FUNC.sys_chat
+        },
+        [HOME_BUTTON_TYPE.TYPE_QUEST] = {
+            name = "Obj_Buttons_2/Viewport/Content/Home_ButtonQuest",
+        },
+        [HOME_BUTTON_TYPE.TYPE_WELFARE] = {
+            name = "Obj_Buttons_1/Viewport/Content/Home_ButtonWelfare",
+            sysid = Player.SYS_FUNC.sys_benefits
+        },        
+        [HOME_BUTTON_TYPE.TYPE_NEWERTASK] = {
+            name = "btn_right/Home_ButtonNewerTask",
+            sysid = Player.SYS_FUNC.sys_newer_task,
+        },
+        [HOME_BUTTON_TYPE.TYPE_AUTH] = {
+            name = "Obj_Buttons_2/Viewport/Content/Home_ButtonAuth",
+        },
+        [HOME_BUTTON_TYPE.TYPE_WITCH_BOOK] = {
+            name = "btn_right/Home_ButtonWitchBook",
+        },
+        [HOME_BUTTON_TYPE.TYPE_WITCH] = {
+            name = "Home_ButtonWitch",
+        },
+        [HOME_BUTTON_TYPE.TYPE_PLOT] = {
+            name = "Home_ButtonFight",
+        },
+        [HOME_BUTTON_TYPE.TYPE_LOTTERY] = {
+            name = "Home_ButtonExplore",
+            sysid = Player.SYS_FUNC.sys_call
+        },
+        [HOME_BUTTON_TYPE.Type_CONCERT] = {
+            name = "Home_ButtonFortress",
+            sysid = Player.SYS_FUNC.sys_concert
+        },
+        [HOME_BUTTON_TYPE.TYPE_SIGN] = {
+            name = "Home_ButtonSign",
+        },
+        [HOME_BUTTON_TYPE.TYPE_ARCHIVE] = {
+          name = "Obj_Buttons_2/Viewport/Content/Home_ButtonArchive",
+          sysid = Player.SYS_FUNC.sys_archive
+        },
+        [HOME_BUTTON_TYPE.TYPE_BUILD] = {
+          name = "Home_ButtonBuild",
+          sysid = Player.SYS_FUNC.sys_bulid
+        },
+        [HOME_BUTTON_TYPE.TYPE_ACTIVITY]= {
+            name = "Obj_Buttons_1/Viewport/Content/Home_ButtonActivity",
+            sysid = Player.SYS_FUNC.sys_active
+        },
+        [HOME_BUTTON_TYPE.TYPE_Sixth_Seal] = {
+            name = "btn_right/Home_ButtonWarmUp",
+            sysid = Player.SYS_FUNC.syc_activity_level
+        },
+    }
+    for k,v in pairs(self.buttons) do
+        local obj = self.layer:Get(v.name)
+        self.buttons[k].obj = obj
+        self.buttons[k].redtip = obj:Get("image_red_tips")
+    end
+
+	for itype, tbl in pairs(self.buttons) do
+		self.layer:GetButtonComponent(tbl.name):AddButtonListener(
+            function()
+                self:onButtonClick(itype)
+            end)
+    end
+end
+
+function HomeLayer:onButtonClick(itype)
+    if self._fading then return end
+
+    local sysid = self.buttons[itype].sysid
+    --聊天 在内部判断
+    if not Groble_UIMgr:ShowUnlockTipsLayer(sysid) then return end
+
+    if itype == HOME_BUTTON_TYPE.TYPE_BAG then
+        -- self._fading = true
+        -- uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        -- self._fading = false
+        Bag:OpenBagLayer(Bag.SHOW_TYPE_PROP)
+        -- end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_TASK then
+        -- self._fading = true
+        -- uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        --     self._fading = false
+        Task:OpenTaskUi(Task.UI_TYPE_TASK)
+        -- end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_FRIEND then
+        self._fading = true
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            self._fading = false
+            Friend:OpenFriendLayer()
+        end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_MAIL then
+        self.obj_tipsMail:SetVisible(false)
+        Player:IgnoreHomeLayerBtnData(HomeLayerBtnType.Mail)
+        self._fading = true
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            self._fading = false
+            Mail:OpenMailLayer()
+        end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_CHAT then
+        Talk:OpenTalkLayer()
+    elseif itype == HOME_BUTTON_TYPE.TYPE_WELFARE then
+        Operation:OpenOperationMainLayer(nil, Operation.ActivityID.MonthlyCard)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_NEWERTASK then--暮光礼赞点击
+        -- self._fading = true
+        -- uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        --     self._fading = false
+        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW)
+        -- end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_QUEST then
+        Groble_SceneMgr:OpenUrl("https://wj.qq.com/s2/5212830/723f")
+    elseif itype == HOME_BUTTON_TYPE.TYPE_AUTH then
+        local itype
+        if UnIndulge:RewardRedTip() then
+            itype = UnIndulge.CurrentType.type203
+        else
+            itype = UnIndulge.CurrentType.type201
+        end
+        local ptime = UnIndulge:GetPlayTime()
+        local timeMin = math.floor(ptime/60)
+        core.require("xlua/lua_UI/HomeScene/unIndulge/AuthAccountLayer.txt"):new():show( itype,timeMin,UnIndulge.Account_Type.unRealNamed,
+                function()
+                    self:onUpdateFunc()
+                end
+        )
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_WITCH_BOOK)then--血之轮回点击
+        Operation:OpenBloodCycleLayer()
+    elseif itype == HOME_BUTTON_TYPE.TYPE_SIGN then
+        self._fading = true
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            self._fading = false
+            core.require("xlua/lua_UI/HomeScene/SignWitchLayer.txt"):new(self._heroid, self._skinid):show(
+                    function (skinid)
+                        self:setSignWitch(skinid)
+                    end);
+        end);
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_ARCHIVE)then
+        core.require("xlua/lua_UI/Archive/ArchiveMainLayer.txt"):new():show();
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_BUILD)then
+        self._fading = true
+        self._fading = false
+        local data = {
+            showPlayerInfo  = false,
+            showTopInfo     = false,
+        };
+        Groble_UIMgr:SetTopData(data);
+        Build:OpenBuildMainLayer();
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_ACTIVITY)then
+        Activity:OpenActivityMainLayer();
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_WHITE_NIGHT)then
+        Chapter:SetWhiteNightOpenState(true);
+        Chapter:OpenWhiteNightLayer();
+    elseif itype == HOME_BUTTON_TYPE.TYPE_LOTTERY then
+        Lottery:EnterLotteryLayer(0)
+    elseif itype == HOME_BUTTON_TYPE.Type_CONCERT then
+        Concert:EnterConcertHall();
+    elseif itype == HOME_BUTTON_TYPE.TYPE_PLOT then
+        uimgr:showPlotLayer()
+    elseif itype == HOME_BUTTON_TYPE.TYPE_WITCH then
+        uimgr:showMainWitchLayer()
+    elseif(itype == HOME_BUTTON_TYPE.TYPE_Sixth_Seal)then--第六封印点击
+        self:OnBtnActivityLevelClick();
+    else
+    end
+end
+
+function HomeLayer:onUpdateFunc()
+    local obj, open, hide
+    for _, v in pairs(self.buttons) do
+        open = Player:IsSysFuncOpen(v.sysid)
+        --hide 为true 则未解锁前不显示
+        if v.sysid == Player.SYS_FUNC.sys_newer_task then
+            hide = Player:GetSysFunc(v.sysid).cfg.hide
+            open = Task:NewerIsOpen()
+            local unlock =  Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task)
+            --未解锁前按配置
+            if not unlock then
+                if hide then
+                    v.obj:SetVisible(open)
+                else
+                    v.obj:SetVisible(true)
+                end
+            else
+                --超时后则隐藏
+                v.obj:SetVisible(open)
+            end
+        else
+            if  Player:GetSysFunc(v.sysid) ~= nil then
+                hide = Player:GetSysFunc(v.sysid).cfg.hide
+            else
+                hide = false
+            end
+            if hide then
+                v.obj:SetVisible(open)
+            else
+                v.obj:SetVisible(true)
+            end
+            if(v.imgLock ~= nil)then
+                v.imgLock:SetVisible(open);
+            end
+        end
+    end
+    if GameSdkMgr:IsIssueJuren() then
+        self._btnAuthObj:SetVisible(false)
+    else
+        --屏蔽实名认证
+        self._btnAuthObj:SetVisible(false) --not UnIndulge:HasReward())
+    end
+    self.buttons[HOME_BUTTON_TYPE.TYPE_QUEST].obj:SetVisible(false)
+    self:checkTriggerPackage()
+    self:onUpdateRedTips()
+    self:UpdateSixthSealButtonShow()
+end
+function HomeLayer:UpdateSixthSealButtonShow() --第六封印活动按钮是否开启
+    if Activity:IsSixthSealStartState() then
+        self.buttons[HOME_BUTTON_TYPE.TYPE_Sixth_Seal].obj:SetVisible(true)
+    else
+        self.buttons[HOME_BUTTON_TYPE.TYPE_Sixth_Seal].obj:SetVisible(false)
+    end
+end
+function HomeLayer:onUpdateRedTips()
+    local checks = {
+        {
+            button = HOME_BUTTON_TYPE.TYPE_NEWERTASK,
+            bshow = Task:GetNewerTaskRedTips()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_TASK,
+            bshow = Task:GetTaskRedTips()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_BAG,
+            bshow = Item:ExistGift()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_FRIEND,
+            bshow = Friend:ExistBatterOper()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_WITCH,
+            bshow = Hero:HeroIsAnyBetter()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_PLOT,
+            bshow = Chapter:GetFightRedtip()
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_BUILD,
+            bshow = (Build:GetBuildRedState() or Build:ExistBuildAddTips())
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_ACTIVITY,
+            bshow = Activity:GetRedState();
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_ARCHIVE,
+            bshow = Archive:GetRedStateByAtkType();
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_WITCH_BOOK,
+            bshow = Operation:GetBloodCycleRed(Operation:GetOpenBloodCycleId());
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_Sixth_Seal,--第六封印入口红点
+            bshow = Activity:GetSixthSealRedState() or Activity:GetLevelAllRedState_Main()
+        },
+        {
+            button = HOME_BUTTON_TYPE.Type_CONCERT,
+            bshow = Concert:IsConcertMainRed();
+        }
+    }
+    for _, v in pairs(checks) do
+        self.buttons[v.button].redtip:SetVisible(v.bshow)
+    end
+
+    if Chapter:IsExistNewLevel() then
+        self._objFightNewTips:SetVisible(true)
+        self.buttons[HOME_BUTTON_TYPE.TYPE_PLOT].redtip:SetVisible(false)
+    else
+        self._objFightNewTips:SetVisible(false)
+    end
+
+    self.objSign:SetVisible(false)
+    self:refreshRedPoint()
+    self:updateBtnMenuRed()
+end
+
+function HomeLayer:refreshTalkMsg()
+    local strs = Talk:GetLastWorldMsg()
+    self.txtInfoEmpty:SetVisible(#strs == 0)
+    for i = 1, 2 do
+        if strs[i] ~= nil then
+            self.txtChatInfo[i].text = strs[i].sender.name .. ":" .. (strs[i].msgstr or "")
+            self._imgtxtbg:SetVisible(true)
+        else
+            self.txtChatInfo[i].text = ""
+            self._imgtxtbg:SetVisible(false)
+        end
+    end
+end
+
+--注册
+function HomeLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_OPERATION_RED_POINT, self.__cname,
+        function()
+            self:SetOperationRedPoint();
+        end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG, self.__cname,
+        function()
+            self:checkTriggerPackage()
+        end);
+    self:addEventListener(EVENT_TYPE.POP_UP_GIFT_BAG_SEND_REP, self.__cname,
+        function()
+            self:checkTriggerPackage()
+        end);
+    self:addEventListener(EVENT_TYPE.ACTIVITY_GET_REP, self.__cname,
+        function(drops)
+            --Activity:SetCurDayCheckDrop(drops)
+            -- Operation:OpenOperationMainLayer(Operation.BottomTogUID.Welfare, Operation.ActivityID.DailyCheckIn)
+        end)
+    self:addEventListener(EVENT_NAME.SHOP_BUY, self.__cname,
+        function()
+            self:checkTriggerPackage()
+        end)
+    
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:refreshTaskInfo()
+        end)
+    self:addEventListener(EVENT_TYPE.UPDATE_TIME, self.__cname,
+        function(timeData)
+            if timeData.id == Player:GetWarmUpActivityTimeID() or Activity:IsSixthSealStartState() then
+                self:UpdateSixthSealButtonShow()
+                self:SetActivityLevelTimeAndEffectAndSprite()
+            end
+        end)
+end
+
+function HomeLayer:hideTalkBox()
+    self._dt = 0
+    self._hitdt = 0
+    if self._changed then
+        self.skeletonAni.state:SetAnimation(0, self.aniName, true , true)
+        self._changed = false
+    end
+    self._txtObj:SetVisible(false)
+end
+
+function HomeLayer:onUpdate(dt)
+    if self._playingSound then
+        self._dt = self._dt + dt
+        self._hitdt = self._hitdt + dt
+    else
+        if self._dt > 0 then
+            self:hideTalkBox()
+        end
+    end
+end
+
+function HomeLayer:onPerSecondUpdate()
+    if self._showSYTip then
+        self._dt = self._dt + 1
+        if self._dt >= 3 then
+            self._showSYTip = false
+            self._dt = 0
+            self._txtObj:SetVisible(false)
+        end
+    end
+    if self._countDown ~= nil then
+        if(self._countDown >= 0)then
+            self._countDown = self._countDown - 1;
+            if(self._countDown < 0)then
+                self._isActivity = false;
+            end
+            self:SetActivityLevelTimeAndEffectAndSprite();
+        end
+    end
+    self._time = self._time +1
+    if self._time >= self._upTime then
+        self._time = 0
+    end
+    if(self._ADController ~= nil)then
+        self._ADController:Update();
+    end
+    if self._isFightTipsCd then
+        self._isFightTipsCdNumber = self._isFightTipsCdNumber - 1
+        if self._isFightTipsCdNumber < 0 then
+            self._isFightTipsCd = false
+            self._objFightTips:SetVisible(true)
+            self._objFightTips:Get("img_hand"):DOScale(1.3, 0.33):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+        end
+    end
+    if self._isTipsSell then
+        Operation:SetHomeTriggerPackageTips(self._objTipsSell, self._isTipsSell)
+    end
+end
+
+function  HomeLayer:setSignWitch(skinid)
+    if self._skinid == skinid then return end
+
+    self._skinid = skinid or Player:GetSignWitch()
+    local skincfg = Hero:GetSkinCfg(self._skinid )
+    self._heroid = tonumber(skincfg.heroid)
+    local heroid
+    if skincfg.buyType == Hero.SKIN_BUY_TYPE.NIL then
+        heroid = self._heroid
+    else
+        heroid = self._skinid
+    end
+    self.skeletonAni = nil
+    Hero:LoadSpineAsync(self.__cname,self._spine, heroid , Hero.SPINE_UI_TYPE_KANBAN, 
+        function (obj)
+            self._curMoudle = obj
+            if self._curMoudle ~= nil then
+                self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+                self.aniName = self.skeletonAni.AnimationName
+            end
+        end, true)
+end
+
+function HomeLayer:onSignClick()
+    self:WitchTalk()
+    self.objSign:SetVisible(true)
+    self.objSign:DelayInvoke(2, 
+        function()
+            self.objSign:SetVisible(false)
+        end)
+end
+
+function HomeLayer:WitchTalk()
+    if self._playingSound and self._hitdt < 1 then return end
+
+    self:StopTalk()
+    local num = math.random(1,2)
+    local dtype
+    if num == 1 then
+      dtype =  Hero.Talk_Type.talk
+    else
+      dtype =  Hero.Talk_Type.favour
+    end
+    local dialogue = Hero:GetHeroDialogueRan(self._heroid , dtype)
+    if dialogue == nil or dialogue == "-1" then return end
+
+    self._effectBj:Play()
+    local pos = self._mouInst:GetMouseUIPos()-- self:GetMouspos()
+    self._hitObj:SetPosition(pos.x, pos.y, 0, true)
+    self._effectHit:Play()
+    --todo
+    if self.skeletonAni == nil then return end
+
+    if self.aniName ~= dialogue.expression then
+      --  self.skeletonAni.state:SetAnimation2(0, dialogue.expression, true, true)
+        self._changed = true
+    end
+    self.skeletonAni.state:SetAnimation(0, dialogue.expression, true)
+    --播放语音
+    self._inst = SoundMgr:PlayByDiaID(dialogue.id,function ()
+        self._playingSound = false
+    end)
+    self._witchTxt.text = dialogue.dialogue
+    Hero:SetBoxHeight(self._txtObj, dialogue.dialogue)
+    self._txtObj:SetVisible(true)
+    self._playingSound = true
+    self._dt = 0
+    self._hitdt = 0
+end
+
+function HomeLayer:StopTalk()
+    if self._inst ~= nil then
+        self._hitdt = 0
+        self._playingSound = false
+        Groble_SoundMgr:StopOnceEffect(self._inst)
+    end
+end
+-- 深夜成绩变化时弹窗
+function HomeLayer:SYRankTip()
+   --[[local state, str =  Rank:GetMainLayerTip()
+    if state then
+        self._showSYTip = true
+        self._witchTxt.text = str
+        Hero:SetBoxHeight(self._txtObj, str)
+        self._txtObj:SetVisible(true)
+    end]]--
+end
+
+function HomeLayer:checkTriggerPackage()
+    self._isTipsSell = Operation:IsExistTriggerPackage()
+    Operation:SetHomeTriggerPackageTips(self._objTipsSell, self._isTipsSell)
+    self:refreshMailTips()
+end
+
+function HomeLayer:SetNewerTaskTime()
+    local remain = Task:NewerTaskRemainTime()
+    remain = math.max(remain, 0)
+    local day = math.floor(remain / CTime.DAY_SEC);
+    if(self._txtNewerTaskTime == nil)then
+        self._txtNewerTaskTime = self.layer:GetTextComponent("btn_right/Home_ButtonNewerTask/txt_time");
+    end
+    self._txtNewerTaskTime.text = string.format(LanguageMgr:GetTextByID(50027),day);
+end
+function HomeLayer:SetActivityLevelTimeAndEffectAndSprite() --设置预热活动的txt、img和effect
+    local actitvityCfg = Activity:GetActivity()
+    local warmUpId = Player:GetWarmUpActivityID()
+    if self._imgWarmUp == nil then
+        self._imgWarmUp = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp");
+    end
+    self._imgWarmUp:LoadAtlasSprite("source_atlas/atlas_home_layer",actitvityCfg[warmUpId].info.Mainpageicon)
+    if self._imgTitle == nil then
+        self._imgTitle = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp/img_title");
+    end
+    if self._txtLableTitle == nil then
+        self._txtLableTitle = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title");
+    end
+    self._txtLableTitle.text = actitvityCfg[warmUpId].info.Name
+    if self._txtLableTitleEn == nil then
+        self._txtLableTitleEn = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title_en");
+    end
+    if self._effectYuGao == nil then
+        self._effectYuGao = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_yugao");
+    end
+    if self._effectIsStart == nil then
+        self._effectIsStart = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_zhengshikaiqi");
+    end
+    self._txtLableTitleEn.text = actitvityCfg[warmUpId].info.EnglishName
+
+    local uid = Activity:GetOpenActivityLevelId();
+    if(self._txtTime == nil)then
+        self._txtTime = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/txt_time");
+    end
+    if uid > 0 then
+        local activityCfg = Operation:GetActiveCfgByUID(uid);
+        local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
+        self._isActivity = Operation:GetActiveIsOpenByUid(typeCfg.uid);
+        if(self._isActivity)then
+            self._countDown = CTime:GetRemainTime(activityCfg.Time);
+        else
+            local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
+            if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
+                if(tempCfg.openConditions[1] == Operation.OpenConditionType.Time)then
+                    self._countDown = CTime:GetRemainTime(tempCfg.openConditions[2]);
+                end
+            end
+        end
+        if self._isActivity then
+            self._effectYuGao:SetVisible(false)
+            self._effectIsStart:SetVisible(true)
+            self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
+            self._txtTime.text = CTime:Time2Str_3(self._countDown)
+        else
+            self._effectYuGao:SetVisible(false)
+            self._effectIsStart:SetVisible(true)
+            self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
+            if(self._countDown~=nil)then
+                if(self._countDown < 0)then
+                    self._countDown = 100;
+                end
+                if(self._countDown >= 0)then
+                    self._txtTime:SetText(LanguageMgr:GetTextByID(901040));
+                else
+                    self._txtTime:SetText(LanguageMgr:GetTextByID(90380));
+                end
+            end
+        end
+    else
+        if Activity:GetOpenWarmUpLevelId() > 0 then
+            self._effectIsStart:SetVisible(false)
+            self._effectYuGao:SetVisible(true)
+            local day = Activity:GetSixthSealDaysRemaining()
+            self._txtTime.text = string.format(LanguageMgr:GetTextByID(50027),day);
+        end
+    end
+end
+
+function HomeLayer:SetXueTime()
+
+    local UID = Operation:GetOpenBloodCycleId();
+    if UID == -1 then
+        self.objWitchBook:SetVisible(false)
+        return
+    end
+
+    local _cfg = Operation:GetActiveCfgByUID(UID);
+
+    if not _cfg or _cfg.openConditions == -1 then
+        self.objWitchBook:SetVisible(false)
+        return
+    end
+
+    local curTime = CTime:GetRemainTime(_cfg.openConditions[1][2]);
+    curTime = math.max(curTime, 0)
+    local day = math.ceil(curTime / CTime.DAY_SEC) - 1;
+
+    if day == -1 then
+        self.objWitchBook:SetVisible(false)
+        return
+    end
+
+    self.objWitchBook:SetVisible(true)
+    if(self._txtXueTime == nil)then
+        self._txtXueTime = self.layer:GetTextComponent("btn_right/Home_ButtonWitchBook/txt_time");
+        self._txtXueTime.text = string.format(LanguageMgr:GetTextByID(50027), day);
+    end
+end
+
+function HomeLayer:onUpdateDay()
+    self:SetNewerTaskTime();
+    self:SetActivityLevelTimeAndEffectAndSprite();
+    self:SetXueTime()
+end
+
+------------------------------ 主界面修改5.1
+
+function HomeLayer:initInfo()
+    -- 按钮组
+    -- 1 -> {活动，商城，任务}
+    -- 2 -> {邮件，好友，背包，图鉴，认证}
+    self.buttonData = {}
+    for i = 1, 2 do
+        local data = {}
+        data.gameobject = self.layer:Get(string.format("Obj_Buttons_%d", i))
+        -- -- data.btn_fold = data.gameobject:Get("btn_fold")
+        -- data.gameobject:GetButtonComponent("btn_fold"):AddButtonListener(function ()
+        --     data.fold = not data.fold
+        --     data.gameobject:SetSizeY(data.fold and 300 or 500)
+        -- end)
+        data.scr = data.gameobject:GetScrollRectComponent("")
+        data.num = data.gameobject.childCount
+        data.fold = true -- true 折叠, false 展开
+        self.buttonData[i] = data
+    end
+    self.curButtonMenu = 1 -- 按钮组切换
+
+    self.obj_first = self.layer:Get("Obj_Buttons_1/Viewport/Content/Home_ButtonFirst")
+
+    self.obj_achieve    = self.layer:Get("Home_ButtonAchieve")
+    self.obj_up         = self.layer:Get("Home_ButtonExplore/label_up")
+    self.txt_achieve    = self.layer:GetTextComponent("Home_ButtonAchieve/label_title")
+    self.txt_reward     = self.layer:GetTextComponent("Home_ButtonAchieve/label_reward")
+    self.img_task_bg    = self.layer:GetImageComponent("Home_ButtonAchieve/img_icon")
+    self.eventBtn       = self.layer:Get("Home_ButtonAchieve/eventBtn")
+    self.eventBtn_des   = self.layer:GetTextComponent("Home_ButtonAchieve/eventBtn/des_text")
+    self._transTaskDesBg = self.layer:Get("Home_ButtonAchieve/img_task_des_bg");
+    self._txtTaskDes    = self._transTaskDesBg:GetTextComponent("txt_task_des");
+    self._txtTaskPlan   = self.layer:GetTextComponent("Home_ButtonAchieve/txt_task_plan");
+    self._nobjEffect    = self.obj_achieve:Get("ui_91_renwutishi_01")
+    self._nobjEffect:SetVisible(false)
+    self._sobjEffect    = self.obj_achieve:Get("ui_91_renwutishi_02")
+    self._sobjEffect:SetVisible(false)
+
+    self._objTipsSell = Operation:NewHomeTriggerPackageTips(self.layer:Get("obj_tips/Home_TipsSell"))
+    self.obj_tipsMail = self.layer:Get("obj_tips/Home_TipsMail")
+    self.objButtons_1 = self.layer:Get("Obj_Buttons_1")
+    self.objButtons_2 = self.layer:Get("Obj_Buttons_2")
+    self.objMenuRed = self.layer:Get("Home_ButtonMenu/image_red_tips")
+    self.imgMenu = self.layer:Get("Home_ButtonMenu/img_icon")
+    self.txtInfoNum = self.layer:GetTextComponent("Home_ButtonChat/obj_num/label_title")
+    self.objInfoRed = self.layer:Get("Home_ButtonChat/obj_num/image_red_tips")
+
+    self.imgFirstRed = self.layer:GetImageComponent("Obj_Buttons_1/Viewport/Content/Home_ButtonFirst/image_red_tips")
+    
+    -- 换肤按钮
+    self.objSign = self.layer:Get("Home_ButtonSign").gameObject
+
+    self._objFightTips = self.layer:Get("Home_ButtonFight/tips_ani")
+    self._objFightTips:SetVisible(false)
+    self.objWitchBook = self.layer:Get("btn_right/Home_ButtonWitchBook"); -- 血之轮回
+    self._objFightNewTips = self.layer:Get("Home_ButtonFight/obj_new")
+
+    -- 首充
+    self.layer:GetButtonComponent("Obj_Buttons_1/Viewport/Content/Home_ButtonFirst"):AddButtonListener(
+        function()
+            Operation:OpenFirstPayLayer()
+        end)
+
+    -- 任务条件
+    self:refreshTaskInfo()
+    self.layer:GetButtonComponent("Home_ButtonAchieve"):AddButtonListener(function ()
+        local taskID = Task:GetMainLayerState()
+        if taskID then
+            self._fading = true
+            uimgr:ShowInterimLayer(CTime.delayTime,function ()
+                self._fading = false
+                Task:OpenTaskUi(Task.UI_TYPE_TASK, taskID)
+            end)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(60037)
+        end
+    end)
+
+    self.layer:GetButtonComponent("Home_ButtonAchieve/eventBtn"):AddButtonListener(function () 
+        local taskID = Task:GetMainLayerState()
+        if taskID then
+            local task = Task:GetTask(taskID)
+            if task.state == Task.STATE_HAS_DONE then
+                Task:GetRewardReq({taskID})
+            else
+                JumpMgr:JumpCheck(task.dataJump)
+            end 
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(60037)
+        end
+    end)
+
+    -- 召唤
+    -- self.obj_up:SetVisible(Lottery:HaveUpPool())
+
+    -- + 按钮
+    self.menuClick = true
+    local r = self.curButtonMenu == 1 and 0 or 90
+    self.imgMenu:SetRotation(0, 0, r, true)
+    self.layer:GetButtonComponent("Home_ButtonMenu"):AddButtonListener(function ()
+        if not self.menuClick then
+            return
+        end
+        self.menuClick = false
+        self.curButtonMenu = 3 - self.curButtonMenu
+        self.buttonData[self.curButtonMenu].gameobject:SetVisible(true)
+        local r = self.curButtonMenu == 1 and 0 or 90
+        self.imgMenu:SetRotation(0, 0, r, true)
+        self:updateBtnMenuRed()
+
+        local close, open = self:getContent()
+        close:SetPosition(0, 0, 0, true)
+        open:SetPosition(0, 1000, 0, true)
+        close:DOLocalMoveY(1000, 0.2):OnComplete(function ()
+            open:DOLocalMoveY(0, 0.2):OnComplete(function ()
+                self.menuClick = true
+            end)
+        end)
+    end)
+
+    -- 快速处理的邮件按钮
+    self.layer:GetButtonComponent("obj_tips/Home_TipsMail"):AddButtonListener(function ()
+        self.obj_tipsMail:SetVisible(false)
+        Player:IgnoreHomeLayerBtnData(HomeLayerBtnType.Mail)
+        self._fading = true
+        uimgr:ShowInterimLayer(CTime.delayTime,function ()
+            self._fading = false
+            Mail:OpenMailLayer()
+        end)
+    end)
+
+    -- 带数量的红点消息
+    self.layer:GetButtonComponent("Home_ButtonChat/obj_num"):AddButtonListener(function ()
+        if Player:GetHomeMsgCount() == 0 then
+            Groble_UIMgr:ShowGameWordTipsLayer(880083)
+            return
+        end
+
+        core.require("xlua/lua_UI/Comframework/MsgJumpTipsLayer.txt"):new():show()
+    end)
+
+    self:addEventListener(EVENT_TYPE.HOME_MSG_UPDATE, self.__cname, function(param)
+        if not param then
+            -- 带数量的消息
+            self:refreshMsgNum()
+        else
+            -- 按钮
+            self:refreshMsgBtn(param)
+        end
+    end)
+end
+
+function HomeLayer:refreshInfo()
+    local btnData = Player:GetHomeLayerBtnData()
+    self.obj_tipsMail:SetVisible(btnData[HomeLayerBtnType.Mail])
+    if btnData[HomeLayerBtnType.Mail] then
+        self:refreshMailTips()
+    end
+    for i = 1, 2 do
+        local item = self.buttonData[i]
+        item.gameobject:SetVisible(self.curButtonMenu == i)
+    end
+    self:refreshMsgNum()
+end
+
+function HomeLayer:refreshMsgNum()
+    local count = Player:GetHomeMsgCount()
+    local txt = count <= 99 and count or "..."
+    if count == 0 then
+        txt = ""
+    end
+    self.txtInfoNum:SetText(txt)
+    self.objInfoRed:SetVisible(count ~= 0)
+end
+
+-- 显示快速提醒的按钮
+function HomeLayer:refreshMsgBtn(param)
+    if param == HomeLayerBtnType.Mail then
+        self.obj_tipsMail:SetVisible(true)
+        self:refreshMailTips()
+    end
+end
+
+function HomeLayer:refreshMailTips()
+    if self._isTipsSell then
+        self.obj_tipsMail:SetPositionX(32, true)
+    else
+        self.obj_tipsMail:SetPositionX(-152, true)
+    end
+end
+
+-- + 按钮红点
+function HomeLayer:updateBtnMenuRed()
+    if self.curButtonMenu == 2 then
+        -- 1 -> {活动，商城，任务}
+        self.objMenuRed:SetVisible(Task:GetTaskRedTips() or Activity:GetRedState() or 
+            Operation:GetMainLayerBtnRedState())
+    elseif self.curButtonMenu == 1 then
+        -- 2 -> {邮件，好友，背包，图鉴，认证} -- TODO 认证
+        self.objMenuRed:SetVisible((Mail:GetUnreadCount() > 0) or Friend:ExistBatterOper() or 
+            Item:ExistGift() or Archive:GetRedStateByAtkType())
+    end
+end
+
+function HomeLayer:getContent()
+    if self.curButtonMenu == 1 then
+        return self.Content2, self.Content1
+    end
+
+    if self.curButtonMenu == 2 then
+        return self.Content1, self.Content2
+    end
+end
+
+-- 任务目标
+function HomeLayer:refreshTaskInfo()
+    local taskID, name, path,desId = Task:GetMainLayerState()
+    -- self.obj_achieve:SetVisible(taskID)
+    if not taskID then
+        self.img_task_bg:LoadSprite("source_common/ImageText/Img_wurenwu_ad")
+        self.eventBtn:SetVisible(false)
+        self.txt_achieve.text = LanguageMgr:GetTextByID(60037)
+        self.txt_reward.text = ""
+        self._transTaskDesBg:SetVisible(false);
+        self._txtTaskPlan:SetVisible(false);
+        self._nobjEffect:SetVisible(false)
+        self._sobjEffect:SetVisible(false)
+        return
+    end
+    local task = Task:GetTask(taskID);
+    self._txtTaskPlan:SetVisible(true);
+    self._txtTaskPlan:SetText(string.format("%s/%s",task.hasValue,task.cmpValue));
+
+    local tState = task.state
+    self._transTaskDesBg:SetVisible(desId ~= nil and desId > 0);
+    if(desId ~= nil)then
+        if(desId > 0)then
+            self._txtTaskDes:SetText(Language:GetTxtBuyId(desId));
+        end
+    end
+    if tState == Task.STATE_HAS_DONE then
+        self.eventBtn_des:SetTextById(60001)
+        self._nobjEffect:SetVisible(false)
+        self._sobjEffect:SetVisible(true)
+    else
+        self.eventBtn_des:SetTextById(90007)
+        self._nobjEffect:SetVisible(true)
+        self._sobjEffect:SetVisible(false)
+    end
+    if taskID then
+        local taskDB = Task:GetTask(taskID)
+        self.txt_achieve:SetText(name)
+        local reward = taskDB.rewards[1] -- 4&1000002&14
+        local name = ""
+        if reward[1] == 1 then --魔女
+            name = Hero:GetHero(reward[2]).config.Name
+        elseif reward[1] == 2 then --宠物
+            --没有，暂不处理
+        elseif reward[1] == 3 then --装备
+            name = Equip:GetCfg(reward[2]).Name
+        elseif reward[1] == 4 then --道具
+            name = Item:GetCfg(reward[2]).Name
+        end
+
+        if reward[3] then
+            self.txt_reward:SetText(name .. "x" .. reward[3])
+        else
+            self.txt_reward:SetText("")
+        end
+        self.img_task_bg:LoadSprite(path)
+    end
+end
+
+function HomeLayer:doCheckFightTips()
+    self._isFightTipsCd = false
+    -- 当前正在引导
+    if Guide:IsGuiding() then return end
+    -- 4-8未通关
+    local level = Chapter:GetLevel(100408)
+    if level == nil or level.open then return end
+    -- 体力不足
+    if Player:GetPlayerPower() < 6 then return end
+    -- 开启提示计时
+    self._isFightTipsCd = true
+    self._isFightTipsCdNumber = 60
+end
+
+--活动关卡按钮回调
+function HomeLayer:OnBtnActivityLevelClick()
+    if Activity:GetOpenWarmUpLevelId() > 0 then
+        self._isDoTodoList = false
+        Activity:CloseActivityLevelIsFirstOpen()--打开预告, 清空状态
+        Activity:OpenSixthSealLayer();
+    elseif(Activity:GetOpenActivityLevelId() > 0)then
+        self._isDoTodoList = false
+        Activity:SetActivityId(Activity:GetOpenActivityLevelId())
+        Activity:OpenActivityLevelMainLayer();
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032));
+    end
+end
+
+function HomeLayer:IsJumpActivityLayer()
+    if(Activity:GetActivityLevelIsJump())then
+        self:OnBtnActivityLevelClick();
+        if(Activity:GetOpenActivityLevelId() <= 0)then--活动关闭, 清空界面关卡ID
+            Activity:CloseCurActivityLevelId();
+        end
+    end
+end
+
+function HomeLayer:todoList()
+    self._isDoTodoList = true
+    self:IsJumpActivityLayer()
+    if self._isDoTodoList then
+        if not self._hasHandleTodoList then
+            self._hasHandleTodoList = true
+            self.layer:DelayInvoke(0.6, 
+                function() 
+                    self._fading = false
+                    uimgr:CheckTodoList()
+                end)
+        end
+    end
+end
+
+return HomeLayer
+

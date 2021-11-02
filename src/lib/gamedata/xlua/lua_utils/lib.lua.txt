@@ -1,0 +1,177 @@
+--
+-- author: haosun
+-- date  : 2018-10-12 11:32:51
+-- brief : 
+--
+--------------------------------------------------------------
+Lib = Lib or {}
+--------------------------------------------------------------
+
+-- 堆栈输出
+__G__TRACKBACK__ = function(msg)
+    local msg = debug.traceback(msg, 3)
+    CS.Logger.LogError(msg)
+    return msg
+end
+
+-- 按照统一的格式回调函数
+function Lib:CallBack(formattable)
+    local func = formattable[1]
+    local function call()
+        return func(table.unpack(formattable , 2))
+    end
+    return xpcall(call, __G__TRACKBACK__)
+end
+
+-- 执行脚本
+function Lib:DoString(code)
+    local function call()
+        return assert(loadstring(code))();
+    end
+    return xpcall(call, __G__TRACKBACK__);
+end
+
+-- 格式化为十六进制串
+function Lib:DumpToHex(buff)
+    local hex = "";
+    local length = string.len(buff);
+    for i = 1, length do
+        hex = hex..string.format("%02X", string.byte(buff, i));
+        hex = hex.." ";
+    end
+    return hex
+end
+
+--
+-- brief 时间字符串转换为time（格式：yyyy/mm/dd HH:mm:ss）
+-- 无yyyy/mm/dd日期默认为当天
+-- 无HH:mm:ss时间默认为00:00:00)
+-- param 字符串
+-- return 时间
+--
+function Lib:Str2Time(str)
+    local date = os.date("*t", os.time());
+
+    local year, month, day = string.match(str,"(%d+)%d*/(%d+)%d*/(%d+)%d*");
+    local hour, min, sec = string.match(str,"(%d+)%d*:(%d+)%d*:(%d+)%d*");
+
+    return os.time({year = year or date.year, month = month or date.month, day = day or date.day, hour = hour or 0, min = min or 0, sec = sec or 0, isdst = false});
+end
+
+--
+-- brief 字符串转换为偏移时间（格式：%d+W, %d+D, %d+H, %d+M, %d+S）
+-- param 字符串
+-- return 偏移时间（单位：秒）
+--
+function Lib:Str2OffsetTime(str)
+    -- 周
+    local week = string.match(str,"(%d+)%d*W");
+    if week then
+        return week * (7 * 24 * 60 * 60);
+    end
+    -- 天
+    local day = string.match(str,"(%d+)%d*D");
+    if day then
+        return day * (24 * 60 * 60);
+    end
+    -- 小时
+    local hour = string.match(str,"(%d+)%d*H");
+    if hour then
+        return hour * (60 * 60);
+    end
+    -- 分钟
+    local min = string.match(str,"(%d+)%d*M");
+    if min then
+        return min * 60;
+    end
+    -- 秒
+    local sec = string.match(str,"(%d+)%d*S");
+    if sec then
+        return sec;
+    end
+    return 0;
+end
+
+--
+-- brief 获得天偏移秒数（格式：HH:mm:ss）
+-- param 字符串
+-- return 偏移秒数
+--
+function Lib:GetDayOffsetSecs(str)
+    local hour, min, sec = string.match(str,"(%d+)%d*:(%d+)%d*:(%d+)%d*");
+
+    return hour * (60 * 60) + min * 60 + sec;
+end
+
+--
+-- brief 获得某天的起始时间
+-- param time 某天时间
+-- return 天起始时间
+--
+function Lib:GetDayStartTime(time)
+    local date = os.date("*t", time);
+    
+    return time - date.hour * (60 * 60) - date.min * 60 - date.sec;
+end
+
+--
+-- brief 获得某天已经过了多久
+-- param：utctime
+-- return number (s)
+-- 
+function Lib:GetDayPassTime(time)
+    local date = os.date("*t", time)
+    return date.hour * (60 * 60) + date.min * 60 + date.sec;
+end
+
+--
+-- brief 获得某周的起始时间（星期一为周起始天）
+-- param time 某周时间
+-- return 周起始时间
+--
+function Lib:GetWeekStartTime(time)
+    local date = os.date("*t", time);
+    local wday = (date.wday - 1 + 6) % 7;
+
+    return time - wday * (24 * 60 * 60);
+end
+
+
+--
+-- brief 根据日期获取星期几
+-- param utime 
+-- return 周几
+--
+function Lib:GetWeekNum(utime)
+    local idx = os.date("*t", utime).wday - 1
+    if idx == 0 then
+        idx = 7
+    end
+    return idx
+end
+
+--
+-- brief 时间值转为分:秒.毫秒格式
+-- param number 
+-- return mm:ss.mis
+--
+function Lib:GetMsm(value)
+    local sec, mis = math.modf(value)
+    local min = math.floor(sec/60)
+    sec = sec % 60
+    mis = math.floor(mis * 1000)
+
+    return string.format("%02d:%02d.%03d", min, sec, mis)
+end
+
+--
+-- brief 时间值转为分:秒
+-- param number 
+-- return mm:ss
+--
+function Lib:GetMs(value)
+    local sec, mis = math.modf(value)
+    local min = math.floor(sec/60)
+    sec = sec % 60
+    return string.format("%02d:%02d", min, sec)
+end

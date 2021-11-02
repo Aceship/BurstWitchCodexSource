@@ -1,0 +1,652 @@
+--
+-- author: haosun
+-- date  : 2018-10-22 16:22:21
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MainWitchLayer = class("MainWitchLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    Story           = "container/main_buttons/button_story",          -- 魔女传记
+    Skin            = "container/main_buttons/button_skin",           -- 皮肤
+    Evaluate        = "container/main_buttons/button_evaluate",       -- 魔女评价
+    SkillShow       = "container/main_buttons/btn_skill_show",   -- 技能展示
+    GetWitch        = "container/GetPanel/button_get",                -- 获取魔女碎片
+    ComposeWitch    = "container/GetPanel/button_compose",            -- 合成魔女
+    Favour          = "container/main_buttons/button_favour",         -- 好感
+    BtnAttr         = "container/IntroPanel/image_attr/btn_click",    -- 属性
+    AtkType         = "container/IntroPanel/img_atk_type/btn_click",    -- 枪形
+    Stone           = "container/main_buttons/button_stone",         -- 符石
+    Mark            = "container/info_mark/button_mark",         -- 刻印
+    Level           = "container/info_level/button_lv",         -- 升级
+    heroAttr        = "container/info_attr/btn_attr",--魔女属性
+    heroJob         = "container/IntroPanel/btn_job",--魔女定位
+}
+
+function MainWitchLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_MainWitchLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+function MainWitchLayer:onBackClick()
+    if self._heroTableViewCtrl ~= nil then
+        self._heroTableViewCtrl:onClickBackParent()
+    end
+    self:onPopLayer()
+end
+
+function MainWitchLayer:initObj()
+    self._buttonsPnl    = self.layer:Get("container/main_buttons")
+    self._objFavourTips = self.layer:Get("container/main_buttons/button_favour/image_red_tips")
+    self._chipPnl       = self.layer:Get("container/GetPanel")
+    self._iconImg       = self.layer:GetImageComponent("container/GetPanel/image_icon")
+    self._chipTxt       = self.layer:GetTextComponent("container/GetPanel/text_count")
+    self._getBtn        = self.layer:Get("container/GetPanel/button_get")
+    self._composeBtn    = self.layer:Get("container/GetPanel/button_compose")
+    self._effect        = self.layer:Get("container/GetPanel/ui_effect")
+    self._heroTableViewCtrl = core.require("xlua/lua_UI/Comframework/HeroTableViewCtrl.txt"):new(self.layer)
+    self._stoneRed = self.layer:Get("container/main_buttons/button_stone/image_red_tips")
+    self._infoAttr = self.layer:Get("container/info_attr")
+    self._fightinfo     = self.layer:Get("container/IntroPanel/fight")
+    -- 刻印
+    self._infoMark  = self.layer:Get("container/info_mark")
+    self._marklock  = self._infoMark:Get("img_lock")
+    self._markRed   = self._infoMark:Get("image_red_tips")
+    self._txtMark   = self._infoMark:GetTextComponent("txt_mark")
+    self._markImg   = self._infoMark:GetImageComponent("button_mark")
+    self._objMarkEffect = self._infoMark:Get("obj_effect")
+    -- 刻印星数
+    self._img_stars = {
+        self._infoMark:GetImageComponent("image_stars/image_star_1"),
+        self._infoMark:GetImageComponent("image_stars/image_star_2"),
+        self._infoMark:GetImageComponent("image_stars/image_star_3"),
+        self._infoMark:GetImageComponent("image_stars/image_star_4"),
+        self._infoMark:GetImageComponent("image_stars/image_star_5"),
+        self._infoMark:GetImageComponent("image_stars/image_star_6"),
+    }
+    -- 等级
+    self._infoLevel     = self.layer:Get("container/info_level")
+    self._levelRed      = self._infoLevel:Get("image_red_tips")
+    self._txtLevel      = self._infoLevel:GetTextComponent("text_level")
+    self._sliderExp     = self._infoLevel:GetSliderComponent("slider_exp")
+    self._txtLvTitle    = self._infoLevel:GetTextComponent("button_lv/text");
+    self._txtLvTitleE   = self._infoLevel:GetTextComponent("button_lv/text_en")
+    self._objLvEffect   = self._infoLevel:Get("obj_effect")
+    -- 皮肤
+    self._objSkin       = self.layer:Get("container/main_buttons/button_skin")
+    self._objSkinTips   = self._objSkin:Get("image_red_tips")
+    self._objSkinEffect = self._objSkin:Get("obj_effect")
+
+    self._attrCObjArr  = CAttr:NewAttrObjArr(self.layer:Get("container/info_attr"), 5)
+    self._jobName = self.layer:GetTextComponent("container/IntroPanel/btn_job/text_name")
+    self._commentBtn =  self.layer:Get("container/main_buttons/button_evaluate")
+    -- 技能
+    self._skillRed = self.layer:Get("container/main_buttons/btn_skill_show/image_red_tips")
+    self._objSkillEffect    = self.layer:Get("container/main_buttons/btn_skill_show/obj_effect")
+
+    self.__collectTogObj = self.layer:Get("container/IntroPanel/tog_collect")
+    self._collectTog = self.layer:Get("container/IntroPanel/tog_collect").transform:GetComponent("MToggle")
+    self._collectTog.onValueChanged:AddListener(function (isOn)
+        self:OnCollectTogClick(isOn);
+    end);
+end
+
+function MainWitchLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_UNLOCK,
+        function(heroid)
+            self:onHeroRep(heroid, false)
+        end)
+    self:addEventListener(EVENT_TYPE.COMMENT_DATA_UPDATE_OVER,self.__cname,function ()
+        Comment:LoadCache();
+        Comment:GetCommentReq();
+    end)
+    self:addEventListener(EVENT_TYPE.OPEN_COMMENT_LAYER, self.__cname,
+            function()
+                core.require("xlua/lua_UI/Comment/CommentLayer.txt"):new():show();
+            end)
+
+
+    --技能升级时
+    self:addEventListener( EVENT_TYPE.HERO_UP_SKILL,self.__cname,
+            function()
+                self:refreshHeroInfo(self._hero.id);
+            end)
+
+    local hid = Guide:GetGuideJumpHid()
+    if hid ~= 0 then
+        Guide:SetGuideJumpHid(0)
+    end
+    self.btnstate =
+    {
+        [1] = {
+            lock = self.layer:Get("container/main_buttons/button_stone/img_lock"),
+            unlock = self.layer:Get("container/main_buttons/button_stone/img_unlock"),
+            sys_id = Player.SYS_FUNC.sys_equip
+        },
+        [2] = {
+            lock = self.layer:Get("container/main_buttons/button_favour/img_lock"),
+            unlock = self.layer:Get("container/main_buttons/button_favour/img_unlock"),
+            sys_id = Player.SYS_FUNC.sys_favour
+        },
+        [3] = {
+            lock = self.layer:Get("container/main_buttons/btn_skill_show/img_lock"),
+            unlock = self.layer:Get("container/main_buttons/btn_skill_show/img_unlock"),
+            sys_id = Player.SYS_FUNC.sys_skill
+        },
+    }
+    self._heroTableViewCtrl:onInit({
+        owner = false,
+        refreshCall = function(heroid)
+            self:refreshHeroInfo(heroid)
+        end,
+        index = 0,
+        spine = true,
+        sound = false,
+        drag  = true,
+        sort = true,
+        talk = false,
+        showRed = true,
+        sortingOrder = 2004,
+        sortdata = {
+            key = self.__cname,
+            sorts = {
+                Hero.Select_TYPE_HERO.attri,
+                Hero.Select_TYPE_HERO.gunType,
+                Hero.Select_TYPE_HERO.sort,
+            }
+        },
+        heroid = hid
+    })
+    self._KeyFrameCall = function ()
+        self:showFavourLayer()
+    end
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/IntroPanel"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_evaluate"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_story"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_favour"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_skin"))
+end
+
+function MainWitchLayer:onExit()
+    if self._heroTableViewCtrl ~= nil then
+        self._heroTableViewCtrl:onExit()
+        self._heroTableViewCtrl = nil
+    end
+
+    self._buttonsPnl    = nil
+    self._objFavourTips = nil
+    self._chipPnl       = nil
+    self._iconImg       = nil
+    self._chipTxt       = nil
+    self._getBtn        = nil
+    self._composeBtn    = nil
+    self._effect        = nil
+    self._stoneRed      = nil
+    self._infoAttr      = nil
+    self._fightinfo     = nil
+    if self._attrCObjArr ~= nil then
+        for _, cls in pairs(self._attrCObjArr) do
+            cls:clear()
+        end
+    end
+    self._attrCObjArr   = nil
+    self._jobName       = nil
+    self._commentBtn    = nil
+    self._skillRed      = nil
+
+    self._infoMark  = nil
+    self._marklock  = nil
+    self._markRed   = nil
+    self._txtMark   = nil
+    self._markImg   = nil
+
+    self._infoLevel     = nil
+    self._levelRed      = nil
+    self._txtLevel      = nil
+    self._sliderExp     = nil
+    self._txtLvTitle    = nil
+    self._txtLvTitleE   = nil
+
+    self._objSkin       = nil
+    self._objSkinTips   = nil
+
+    if self._img_stars ~= nil then
+        for k, v in pairs(self._img_stars) do
+            self._img_stars[k] = nil
+        end
+    end
+    self._img_stars     = nil
+
+    if self.btnstate ~= nil then
+        for i, v in ipairs(self.btnstate) do
+            v.lock = nil
+            v.unlock = nil
+        end
+    end
+    self.btnstate       = nil
+
+    self._txtCommentNum = nil
+    self._txtName       = nil
+    if self.introInfo ~= nil then
+        self.introInfo.transform = nil
+        self.introInfo.introInfo:clear()
+        self.introInfo.imgNameBgs = nil
+    end
+    self.introInfo      = nil
+    self.atkobj = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function MainWitchLayer:showLayer()
+    Comment:SetCommentData(Comment.CommentMod.MODULE_HERO,self._hero.id,1);
+    self._heroTableViewCtrl:showAct()
+    self._heroTableViewCtrl:UpdateSpine();
+    self._heroTableViewCtrl:refreshHeros() --全部英雄
+    CBaseLayer.showLayer(self)
+end
+
+function MainWitchLayer:hideLayer()
+    self._heroTableViewCtrl:hideAct()
+
+    CBaseLayer.hideLayer(self)
+end
+
+function MainWitchLayer:show()
+    local heroid = Hero:GetMainWitchHero()
+    --从出战界面跳转过来
+    if heroid ~= nil and heroid ~= 0 then
+        self._init = true
+        self:showSelfLayer(heroid)
+        Hero:SetMainWitchHero(0)
+    else
+        if not self._init then
+            self._init = true
+            local hid = Guide:GetGuideJumpHid()
+            if hid ~= 0 then
+                Guide:SetGuideJumpHid(0)
+                self:showSelfLayer(hid)
+            end
+        else
+            if self._hero ~= nil then
+                self:showSelfLayer(self._hero.id)
+            end
+        end
+    end
+
+    Comment:GetModeCommentNumReq(function ()
+        Comment:SetCommentNumText(self._txtCommentNum,self._hero.id);
+    end, false);
+    self:showLayer()
+    self._fading = false
+    self:playAni("MainWitchLayerAni")
+end
+
+function MainWitchLayer:setGetComposeTop()
+    set_obj_active(self._chipPnl, not self._hero.owner)
+
+    local has, cost = Hero:GetHeroChipNumber(self._hero)
+
+    self._chipPnl = self.layer:Get("container/GetPanel")
+    self._iconImg = self._chipPnl:Get("image_icon"):GetComponent("Image")
+    self._chipTxt = self._chipPnl:Get("text_count"):GetComponent("Text")
+    self._getBtn = self._chipPnl:Get("button_get")
+    self._composeBtn = self._chipPnl:Get("button_compose")
+
+    Item:SetItemIcon(self._iconImg.transform, self._hero.config.StarItemID)
+
+    self._chipTxt.text = has .. "/" .. cost
+    set_obj_active(self._getBtn, has < cost)
+    set_obj_active(self._composeBtn, not self._hero.owner and has >= cost)
+end
+
+function MainWitchLayer:onButtonClick(itype)
+    if self._fading then
+        return
+    end
+    Groble_SoundMgr:StopHeroSound()
+    if itype == BUTTON_TYPE.GetWitch then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_call) then
+            return
+        end
+        local showIds = Lottery:GetShowLottery();
+        local isJump = false;
+        for i, v in ipairs(showIds) do
+            if(tonumber(self._hero.config.CallJump) == v.id)then
+                isJump = true;
+                break;
+            end
+        end
+        if(isJump)then
+            Lottery:EnterLotteryLayer(tonumber(self._hero.config.CallJump) or 0)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(70074);
+        end
+    elseif itype == BUTTON_TYPE.Evaluate then
+        Comment:GetServerDataReq();
+    elseif itype == BUTTON_TYPE.Story then
+        core.require("xlua/lua_UI/Witch/WitchStoryLayer.txt"):new():show(self._hero.id)
+    elseif itype == BUTTON_TYPE.Skin then
+        self._objSkinEffect:SetVisible(false)
+        Hero:OpenWitchSkinLayer(self._hero.skinid);
+    elseif itype == BUTTON_TYPE.ComposeWitch then
+        self:onGetHeroReq()
+    elseif itype == BUTTON_TYPE.Favour then
+        self:showFavourLayer()
+    elseif(itype == BUTTON_TYPE.BtnAttr)then
+        if(self.btnAttr == nil)then
+            self.btnAttr = self.layer.transform:Find(BUTTON_TYPE.BtnAttr);
+        end
+        Groble_UIMgr:ShowAttrLayer(self._hero.id,self.btnAttr)
+    elseif(itype == BUTTON_TYPE.SkillShow)then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_skill) then
+            return
+        end
+        self._objSkillEffect:SetVisible(false)
+        core.require("xlua/lua_UI/Witch/WitchSkillNewLayer.txt"):new():show(self._hero.id)
+    elseif itype == BUTTON_TYPE.Stone then
+        Equip:EnterWitchEquipLayer(self._hero.id)
+    elseif itype == BUTTON_TYPE.Mark then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_top) then
+            return
+        end
+        self._objMarkEffect:SetVisible(false)
+        core.require("xlua/lua_UI/Witch/WitchTopPreviewLayer.txt"):new():show(self._hero.id,function ()
+            self:showSelfLayer(self._hero.id)
+        end);
+    elseif itype == BUTTON_TYPE.Level then
+        self._objLvEffect:SetVisible(false)
+        if Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_herolevel) then
+            local showType = Hero.LvUpShowType.Lv
+            if(self._hero.level >= self._hero.maxLv)then
+                local maxStepCfg = Hero:GetMaxLvStepCfg();
+                if(self._hero.step < maxStepCfg.stepNum)then
+                    showType = Hero.LvUpShowType.Step;
+                else
+                    Groble_UIMgr:ShowGameWordTipsLayer(70073)
+                    return;
+                end
+            else
+                local lvUpCfg = Hero:GetCurSublimationCfgByHeroId(self._hero.id);
+                if lvUpCfg == nil then
+                    CSU.Logger.LogError("lvUpCfg is nil   path = ## Hero:GetCurSublimationCfgByHeroId ##");
+                    return
+                end
+                --lvUpCfg.lvUpMaxLevel
+                if self._hero.level < self._hero.maxLv and self._hero.level >= lvUpCfg.lvUpMaxLevel and self._hero.intimacy_data.raise <= 0 then
+                    showType = Hero.LvUpShowType.WakeUp
+                end
+            end
+
+            core.require("xlua/lua_UI/Witch/WitchNewLvUpLayer.txt"):new():show(self._hero.id,showType,
+                function ()
+                    self:refreshHeroInfo(self._hero.id)
+                    self._heroTableViewCtrl:refreshHeros()
+                end,
+                function()
+                    self:showFavourLayer()
+                end)
+        end
+    elseif itype == BUTTON_TYPE.heroAttr then
+        core.require("xlua/lua_UI/Witch/HeroAttrLayer.txt"):new():show(self._hero)
+    elseif itype == BUTTON_TYPE.AtkType then
+        if  self.atkobj == nil then
+            self.atkobj = self.layer:Get(BUTTON_TYPE.AtkType)
+        end
+        local atkcfg = Build:GetAtkTypeCfgById( self._hero.config.AtkType)
+        Groble_UIMgr:ShowDescTipsLayer(self.atkobj, atkcfg.name, atkcfg.desc)
+    elseif itype == BUTTON_TYPE.heroJob then
+
+        Groble_UIMgr:ShowDescTipsLayer( self._jobName.transform,  self._hero.job_name, self._hero.job_des)
+    end
+end
+
+function MainWitchLayer:onGetHeroReq()
+    if Hero:CanCallOrStarUp(self._hero.id) then
+        Hero:UnlockHeroReq(self._hero.id)
+    else
+        Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(21002))
+    end
+end
+
+function MainWitchLayer:onHeroRep(heroid)
+    core.require("xlua/lua_UI/HomeScene/WitchEffectLayer.txt"):new():show(heroid, false, function()
+        self._heroTableViewCtrl:setCurHeroId(heroid)
+        self:refreshHeroInfo(heroid)
+    end)
+end
+
+function MainWitchLayer:OnCollectTogClick(isOn)
+    if isOn then
+        Hero:SetCollectHeroState(self._hero.id,1)
+    else
+        Hero:SetCollectHeroState(self._hero.id,0)
+    end
+    self._heroTableViewCtrl:SaveToPrefs()
+end
+
+function MainWitchLayer:showSelfLayer(heroid)
+    -- show mainlayer head info
+    self._heroTableViewCtrl:setCurHeroId(heroid)
+    self:refreshHeroInfo(heroid)
+end
+
+function MainWitchLayer:showFavourLayer()
+    Fetter:OpenLibraryLayer(self._hero.id, function (heroid)
+        self:showSelfLayer(heroid)
+        self._fading = true
+        self:playAni("MainWitchLayerAni")
+    end)
+end
+
+function MainWitchLayer:refreshHeroInfo(heroid)
+    self._hero = Hero:GetHero(heroid)
+    if(self.introInfo == nil)then
+        self.introInfo = Hero:NewIntroInfo(self.layer.transform:Find("container/IntroPanel"));
+        self._txtCommentNum = self.layer:GetTextComponent("container/main_buttons/button_evaluate/txt_comment_num");
+        self._txtName = self.layer:GetTextComponent("container/IntroPanel/text_name");
+    end
+    -- 刻印星数，iOS审核临时后续可优化，2021.4.1 hao
+    for i, img in ipairs(self._img_stars) do
+        if self._hero.star < i then
+            img:LoadAtlasSprite("source_atlas/atlas_common_res", "Img_MoNvTouXiAng_Xing_Da6")
+        else
+            img:LoadAtlasSprite("source_atlas/atlas_common_res", "Img_MoNvTouXiAng_Xing_Da5")
+        end
+    end
+
+    Hero:SetIntroInfo(self.introInfo, self._hero,true)
+    self._txtName.text = string.format(LanguageMgr:GetTextByID(6900015) ,self._hero.config.Name,uistr.com_chapterstr[self._hero.step + 1]);
+    Comment:SetCommentData(Comment.CommentMod.MODULE_HERO,self._hero.id,1);
+    Comment:SetCommentNumText(self._txtCommentNum,heroid);
+    self._buttonsPnl:SetVisible(self._hero.owner)
+    
+    -- 皮肤数据
+    local hasSkin = #self._hero.skinids > 1
+    self._objSkin:SetVisible(hasSkin)
+    if hasSkin then
+        self._objSkinTips:SetVisible(Hero:IsHasNewHeroSkin(heroid))
+    end
+
+    self:setGetComposeTop()
+    local showred = Player:GetHeroRedTipsById(heroid)
+    -- 好感红点
+    if(self._hero.owner)then
+        self._objFavourTips:SetVisible(Hero:GetAwardBtnShowStateByHeroId(heroid) or Hero:IsBatterSublimationOper(heroid))
+    else
+        self._objFavourTips:SetVisible(false);
+    end
+    -- 符石红点
+    self._stoneRed:SetVisible(Hero:IsBatterEquipOper(heroid))
+    --技能红点
+    self._skillRed:SetVisible(Hero:HasLevelUpSkill(heroid))
+
+    --升级按钮title相关
+    if(self._hero.level >= self._hero.maxLv)then
+        --[[local maxStepCfg = Hero:GetMaxLvStepCfg();
+        if(maxStepCfg.levelMax > self._hero.maxLv)then
+            --升阶
+            --self._txtLvTitle:SetTextById(6900013);
+            --self._txtLvTitleE:SetTextById(6900014);
+        else
+            --升级
+        end]]--
+        local maxStepCfg = Hero:GetMaxLvStepCfg();
+        if(self._hero.step < maxStepCfg.stepNum)then
+            self._txtLvTitle:SetTextById(31108);
+            self._txtLvTitleE:SetTextById(31109);
+        else
+            self._txtLvTitle:SetTextById(31120);
+            self._txtLvTitleE:SetTextById(31121);
+        end
+    else
+        --升级
+        self._txtLvTitle:SetTextById(31108);
+        self._txtLvTitleE:SetTextById(31109);
+    end
+    local isCollect = Hero:GetCollectHeroState(heroid)
+    self._collectTog.isOn = isCollect == 1
+    self.__collectTogObj:SetVisible(self._hero.owner)
+    self:setBtnActive()
+    self:setAttrInfo()
+    self:setLevelInfo()
+    self:setMark()
+    self:setJob()
+    self:setComment()
+end
+
+--好感按钮解锁显示
+function MainWitchLayer:setBtnActive()
+    for _, v in pairs( self.btnstate) do
+        local open = Player:IsSysFuncOpen(v.sys_id)
+        v.lock:SetVisible(not open)
+        v.unlock:SetVisible(open)
+    end
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_top) then
+        self._marklock:SetVisible(false)
+        self._markImg:SetImageColor(1, 1, 1, 1)
+    else
+        self._marklock:SetVisible(true)
+        self._markImg:SetImageColor(114/255 , 114/255 , 114/255, 1)
+    end
+end
+
+function MainWitchLayer:onLayerFadeInEndCall()
+    self:checkEnterType()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function MainWitchLayer:setAttrInfo()
+    if  self._hero.owner then
+        self._infoAttr:SetVisible(true)
+        Hero:SetHeroAttr(self._attrCObjArr, self._hero)
+    else
+        self._infoAttr:SetVisible(false)
+    end
+end
+
+function MainWitchLayer:setLevelInfo()
+    if  self._hero.owner then
+        self._txtLevel.text = self._hero.level
+        local exp = Hero:GetNextLevelExp(self._hero.id, self._hero.level)
+
+        local per = exp > 0 and self._hero.exp/exp or 0
+        self._sliderExp.value = per
+        self._infoLevel:SetVisible(true)
+        
+        self._levelRed:SetVisible(Hero:CanLvUp(self._hero.id) or Hero:HeroIsStepUp(self._hero.id))        
+    else
+        self._infoLevel:SetVisible(false)
+    end
+end
+
+function MainWitchLayer:setMark()
+    if  self._hero.owner then
+        if self._hero.star < Hero.MAX_STAR_NUM then
+            local marknum = self._hero.star_mark
+            if marknum ~= 0 then
+                self._txtMark.text = uistr.com_stepstr[marknum]
+            else
+                self._txtMark.text = ""
+            end
+        else
+            self._txtMark.text = ""
+        end
+        self._infoMark:SetVisible(true)
+        --self._fightinfo:SetVisible(true)
+        self._markRed:SetVisible(Player:IsSysFuncOpen(Player.SYS_FUNC.sys_top) and Hero:CanCallOrStarUp(self._hero.id))
+    else
+        self._infoMark:SetVisible(false)
+        --self._fightinfo:SetVisible(false)
+    end
+end
+
+function MainWitchLayer:setJob()
+    if self._hero.job_type == Hero.JOB_ATK then
+        self._jobName:SetTextColor(249/255,100/255,42/255,1)
+    elseif self._hero.job_type == Hero.JOB_DEF then
+        self._jobName:SetTextColor(103/255,189/255,244/255,1)
+    elseif self._hero.job_type == Hero.JOB_SUP then
+        self._jobName:SetTextColor(197/255,244/255,150/255,1)
+    end
+    self._jobName.text = self._hero.job_name
+end
+
+function MainWitchLayer:setComment()
+    if not self._hero.owner then
+        self._commentBtn:SetVisible(false)
+    else
+        self._commentBtn:SetVisible(true)
+        local count = lua_str_utf8len(self._txtCommentNum.text)
+    end
+end
+
+function MainWitchLayer:hideObjs()
+    self._fightinfo:SetVisible(false)
+    self._infoLevel:SetVisible(false)
+    self._infoAttr:SetVisible(false)
+    self._infoMark:SetVisible(false)
+    self._buttonsPnl:SetVisible(false)
+end
+
+function MainWitchLayer:checkEnterType()
+    local _entertype = uimgr:GetMainWitchEnterType()
+    if _entertype == JumpMgr.Jump_Witch_Main then
+    elseif _entertype == JumpMgr.Jump_Witch_Level then
+        self._objLvEffect:SetVisible(true)
+        self._objLvEffect:GetComponent("ParticleBehaviour"):Play()
+    elseif _entertype == JumpMgr.Jump_Witch_Skill then
+        self._objSkillEffect:SetVisible(true)
+        self._objSkillEffect:GetComponent("ParticleBehaviour"):Play()
+    elseif _entertype == JumpMgr.Jump_Witch_Mark then
+        self._objMarkEffect:SetVisible(true)
+        self._objMarkEffect:GetComponent("ParticleBehaviour"):Play()
+    elseif _entertype == JumpMgr.Jump_Witch_Skin then
+        self._objSkinEffect:SetVisible(true)
+        self._objSkinEffect:GetComponent("ParticleBehaviour"):Play()
+    else
+    end
+    uimgr:SetMainWitchEnterType(JumpMgr.Jump_Witch_Main)
+end
+
+return MainWitchLayer

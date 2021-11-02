@@ -1,0 +1,66 @@
+--
+-- author: haosun
+-- date  : 2020-07-17 15:24:21
+-- brief : 场景灯光
+--
+
+LightController = LightController or {}
+
+function LightController:InitLightController()
+    self._curpath   = nil
+    self._lightPath = {}
+    self._lightGo   = CS.FightLightMgr.LightMgrCreator(self)
+    self._lightMgr  = self._lightGo.transform:GetComponent("FightLightMgr")
+    AppMgr:LogInfo("==========LightController:InitLightController()==========")
+end
+
+function LightController:UnInitLightController()
+    self:doClearLight()
+    self:LuaOnDestroyLight()
+    AppMgr:LogInfo("==========LightController:UnInitLightController()==========")
+end
+
+function LightController:LuaOnDestroyLight()
+    self._curpath       = nil
+    self._lightPrefab   = nil
+    self._lightPath     = nil
+    self._lightMgr      = nil
+    self._lightGo       = nil
+    AppMgr:LogInfo("==========LightController:LuaOnDestroyLight()==========")
+end
+
+function LightController:doClearLight()
+    if self._lightPrefab ~= nil then
+        self._lightPrefab:Release()
+        self._lightPrefab = nil
+    end
+end
+
+function LightController:AddLightPath(resPath)
+    table.insert(self._lightPath, resPath)
+end
+
+function LightController:OnEnterLight()
+    self:LightCreator(1)
+end
+
+function LightController:LightCreator(index)
+    if self._lightPath[index] == nil then return end
+    -- 相同灯光不替换
+    if self._curpath == self._lightPath[index] then return end
+    
+    self:doClearLight()
+    self._curpath       = self._lightPath[index]
+    self._lightPrefab   = self._lightGo:CreateChild(self._curpath)
+    self._intensity     = self._lightMgr:InitLight()    
+end
+
+function LightController:SetLightIntensity(intensity)
+    if self._lightMgr ~= nil then
+        self._lightMgr:SetLightIntensity(intensity or self._intensity)
+    end
+end
+
+function LightController:SetEnabled(enabled)
+    self._lightGo:SetVisible(enabled)
+end

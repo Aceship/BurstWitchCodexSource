@@ -1,0 +1,329 @@
+--
+-- author: cjj
+-- date  : 2019-03-12 15:52:53
+-- brief : 
+--
+Activity = Activity or {}
+
+local serverData;
+function Activity:SyncActive(data, warm_day_start,offsetDay)
+	if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步活动数据----------")
+	serverData = data;
+	if(data.sevendays ~= nil)then
+		for k, v in pairs(data.sevendays) do
+			self._getItems[tonumber(k)] = 1;
+		end
+	end
+	if(data.playerlv ~= nil)then
+		for k, v in pairs(data.playerlv) do
+			self._getItems[tonumber(k)] = 1;
+		end
+	end
+
+	--每日签到
+	self._curMonthDayNum = CTime:GetCurMonthDayNum() or 0;
+
+	self._curDay = CTime:GetCurDayByMonth();
+
+	local curMonth = CTime:GetCurMonth();
+	self._curSignInCycNum = curMonth % Activity.DaySignInCycNum;
+	if(self._curSignInCycNum == 0)then
+		self._curSignInCycNum = Activity.DaySignInCycNum;
+	end
+
+	if(data.daliysign ~= nil)then
+		if(data.daliysign.sign_days ~= nil)then
+			for i = 1, self._curMonthDayNum do
+				if(data.daliysign.sign_days[i] ~= nil)then
+					self._signInData[i] = 1;
+				else
+					self._signInData[i] = 0;
+				end
+			end
+		end
+	end
+	
+
+	-- 夜莺巡查
+	self._chessData = {};
+	self._chessData.getItems = {};
+	self._chessData.curTurns = data.chess.coils or 0;--当前圈数
+	for i, _ in pairs(data.chess.gifts) do
+		self._chessData.getItems[i] = 1;
+	end
+	self._chessData._isMax = false;
+	self._chessData.pos = data.chess.pos;
+	if(self._chessData.pos  > # self._chessCfg)then
+		self._chessData._isMax = true;
+		self._chessData.curTurns = self._chessData.curTurns + 1;
+		self._chessData.pos = # self._chessCfg;
+	end
+	self._chessData.lastPos = self._chessData.pos;
+	if(self._chessData.pos <= 0)then
+		self._chessData.pos = 1;
+	end
+	self._chessData.allThrowNum = data.chess.dnum or 0;
+
+	CTime:RemoveAllHandlerById(CTime.EVENT_ID_DIAL);
+	CTime:RegisterHandler(CTime.EVENT_ID_DIAL,function(timeData)
+		Activity:UpdateDialTimeCallBack(timeData);
+	end);
+	Activity._getDataFromServer = true;
+	if Operation:GetDataFromServer() then
+		Operation:PushSuperProperties()
+	end
+	self:InitUpgradePackage()
+    self:InitWitchBook()
+    self:InitSevenActivity()
+	--第六封印接收服务区数据
+	self:InitSixthSealServerData(data.notice,warm_day_start,offsetDay);
+	self:SetSignData(data.sixth)
+end
+
+function Activity:GetDataFromServer()
+	return Activity._getDataFromServer
+end
+
+function Activity:SetDialData()
+	local data = serverData;
+	if(Operation:GetActiveIsOpenByUid(Operation.ActivityID.Dial))then
+		self._dialData.curCycle = CTime:GetCurStartTimeById(tonumber(Activity:GetActivityByUId(Operation.ActivityID.Dial).info.Time)) % Activity.DialCycleAwardMaxNum;
+		if(self._dialData.curCycle == 0)then
+			self._dialData.curCycle = Activity.DialCycleAwardMaxNum;
+		end
+		self._dialData.startNum = data.turntable.count;
+		self._dialData.gifts = data.turntable.gifts;
+	end
+end
+
+function Activity:GetItemReq(actId,id)
+	self._curGetActID = actId
+	local cfg = Activity:GetActivityItemById(actId,id)
+	local isEquip = false;
+	for _, v in ipairs(cfg.items) do
+		if(v[1] == Bag.TYPE_EQUIP)then
+			isEquip = true;
+			break
+		end
+	end
+	if(isEquip)then
+		if(Equip:GetEquipNumWhetherMax())then
+			Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+			return;
+		end
+	end
+	CS.Logger.LogInfo("----------活动请求领取物品----------actID:"..actId.." itemID:"..id)
+    Network:CallServerScript({c2s.ACTIVE_GET_ACTIVE_ITEM_REQ, id})
+end
+--领取物品回调
+function Activity:onItemReqCall(item_id,drops)
+	if(self._getItems[tonumber(item_id)] == nil)then
+		self._getItems[tonumber(item_id)] = 0;
+	end
+	self._getItems[tonumber(item_id)] = self._getItems[tonumber(item_id)] + 1
+	AppMgr:LogInfo("----------活动领取物品回调----------" .. item_id)
+    GEvent:fireEvent(EVENT_TYPE.ACTIVITY_GET_REP,drops)
+	self._isDay = false;
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+--清理签到信息
+function Activity:onClearDayCheckInfo(isMonthChange)
+	if(isMonthChange)then
+		self._signInData = {};
+		self._curMonthDayNum = CTime:GetCurMonthDayNum() or 0;
+	end
+	GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG,false);
+end
+--日刷新
+function Activity:onChangeDay(isMonthChange,isWeekChanged)
+	AppMgr:LogInfo("----------活动隔日刷新回调----------" .. tostring(isMonthChange))
+	self:onClearDayCheckInfo(isMonthChange);
+	if(not isMonthChange)then--天刷新, 日签到数据更新
+		self._curDay = self._curDay + 1;
+	end
+	GEvent:fireEvent(EVENT_TYPE.DAY_UPDATE);
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+----兑换码请求
+function Activity:NetChangeItem(Code)
+	AppMgr:LogInfo("----------请求兑换码----------Code:"..Code)
+    
+    if Groble_SceneMgr:GetStrLen(Code) ~= Activity.GIFT_CODE_LEN then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800073)
+        return;
+    end
+    if  Activity:IsLegalCode(Code) == false then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800074)
+        return;
+    end
+
+	--codeID 【1,150000】
+    local codeID = Activity:Code2Num(string.sub(Code, 1, Activity.GIFT_CODE_HEAD));
+    -- print("codeID:"..codeID)
+
+    if  codeID < 1 or codeID > 150000 then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800075)
+        return;
+    end
+
+    Network:CallServerScript({c2s.PLAYERINFO_GIFT_CODE_REQ, Code})
+end
+----兑换码回调
+function Activity:onDuiHuanReqCall(retCode, codeType)
+	AppMgr:LogInfo("----------兑换码请求成功----------" .. retCode)
+	-- GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.CHANGE_REP,retCode)
+	if retCode == 0 then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800092)
+	elseif retCode == -1 then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800075)
+	elseif retCode == 1 then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800076)
+	elseif retCode == 2 then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800077)
+	elseif(retCode == 3)then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800090)
+	elseif (retCode == 4) then
+		Groble_UIMgr:ShowGameWordTipsLayer(1800091)
+	end
+	if not codeType then
+		ThinkingMgr:SendTrack("redeem_code", {redem_code_type = retCode})
+	end
+end
+
+--开始转盘活动
+function Activity:StartDialReq(num)
+	Activity:SetMainLayerTogClickState(false);
+	Network:CallServerScript({c2s.ACTIVE_PLAY_TURNTABLE_REQ,num});
+end
+
+--转盘活动回调
+function Activity:StartDialRep(ids,drop)
+	local addNum = #ids;
+	if(self._dialData.startNum ~= nil)then
+		self._dialData.startNum = self._dialData.startNum + addNum;
+	else
+		self._dialData.startNum = addNum;
+	end
+	GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.START_DIAL,{ids = ids,drop = drop});
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+local SelectDiceType = nil;
+--投掷色子
+function Activity:ThrowingDiceReq(type,num)
+	SelectDiceType = type;
+	Network:CallServerScript({c2s.ACTIVE_PLAY_CHESS_REQ,type,num});
+end
+
+--投掷色子返回
+function Activity:ThrowingDiceRep(addList,drop,curTurns,endPos,allThrowNum)
+	self._chessData.lastPos = self._chessData.pos;
+	self._chessData.pos = endPos or 1;
+	if(self._chessData.pos  > # self._chessCfg)then
+		self._chessData._isMax = true;
+		self._chessData.pos = #self._chessCfg;
+	end
+	self._chessData.curTurns = curTurns or 0;
+	self._chessData.allThrowNum = self._chessData.allThrowNum + allThrowNum;
+	for _, v in ipairs(addList) do
+		Activity:AddChessEventData(v,SelectDiceType);
+	end
+	ThinkingMgr:SendTrack("activity_patrol", {
+		turns_current_level = curTurns,
+		cell_current_id     = self._chessCfg[self._chessData.pos].id,
+		dice_figure       	= addList,
+	})
+	SelectDiceType = nil;
+	GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.THROWING_DICE,{addList,drop});
+end
+
+--领取棋盘圈数奖励
+function Activity:GetNumAwardReq(id)
+	Network:CallServerScript({c2s.ACTIVE_GET_CHESS_AWARD_REQ,id})
+end
+
+--领取棋盘圈数奖励返回
+function Activity:GetNumAwardRep(id)
+	if(self._chessData.getItems[tonumber(id)] == nil)then
+		self._chessData.getItems[tonumber(id)] = 1;
+	else
+		self._chessData.getItems[tonumber(id)] = self._chessData.getItems[tonumber(id)] + 1;
+	end
+	GEvent:fireEvent(EVENT_NAME.GET_TURNS_OF_AWARD,id);
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+--请求转盘活动奖励
+function Activity:GetCycleAwardReq(aid)
+	Network:CallServerScript({c2s.ACTIVE_GET_TURNTABLE_AWARD_REQ,aid})
+end
+
+--转盘活动奖励返回
+function Activity:GetCycleAwardRep(aid)
+	if(	self._dialData.gifts[aid] == nil)then
+		self._dialData.gifts[aid] = 1;
+	end
+	GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GET_CYCLE_AWARD,aid);
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+function Activity:UpdateDialTimeCallBack(timeData)
+	if(timeData.state == CTime.STATE_CLOSE)then--关闭
+		self._dialData.gifts = {};
+	end
+	GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.UPDATE_CYCLE_AWARD);
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+--每日签到请求
+function Activity:DaySignInReq()
+	Network:CallServerScript({c2s.ACTIVE_DALIY_SIGN_REQ})
+end
+
+--每日签到返回
+function Activity:DaySignInRep(drop,exDrop)
+	local drops = {
+		drop = drop,
+		exDrop = exDrop,
+	};
+	self._signInData[self._curDay] = 1;
+	GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SIGN_IN_INFO_UPDATE,drops);
+	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
+end
+
+------------------------------------------第六封印相关----------------------------------+
+--第六封印请求
+function Activity:GetSixthSealAwardReq(day)
+	Network:CallServerScript({c2s.ACTIVE_GET_NOTICE_DAY_GIFT_REQ,day})
+end
+--第六封印返回
+function Activity:GetSixthSealAwardRep(day)
+	Activity:SetSixthSealNotice(day);
+    GEvent:fireEvent(EVENT_TYPE.GET_SIXTH_SEAL_AWARD_SUCCESS_REQ,day);
+end
+--第六封印签到请求
+function Activity:GetSixthSealSignReq(active_id, day)
+	Network:CallServerScript({c2s.ACTIVE_GET_SIXTH_CLASS_DAY_GIFT_REQ ,active_id, day})
+end
+--第六封印签到请求返回
+function Activity:GetSixthSealAwardBack(active_id, day)
+	---将已经签到的天数重置为已领取状态---
+	self:SetSignDay(active_id, day)
+	GEvent:fireEvent(EVENT_TYPE.GET_SIXTH_SEAL_AWARD_Sign_REQ,day);
+end
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.ACTIVE_DATA_SYNC]               = {Activity,Activity.SyncActive}
+c2s[c2s.ACTIVE_GET_ACTIVE_ITEM_RES]     = {Activity,Activity.onItemReqCall}
+c2s[c2s.PLAYERINFO_GIFT_CODE_RES]       = {Activity,Activity.onDuiHuanReqCall}
+c2s[c2s.ACTIVE_PLAY_CHESS_RES]			= {Activity,Activity.ThrowingDiceRep}
+c2s[c2s.ACTIVE_GET_CHESS_AWARD_RES]		= {Activity,Activity.GetNumAwardRep}
+c2s[c2s.ACTIVE_PLAY_TURNTABLE_RES]		= {Activity,Activity.StartDialRep}
+c2s[c2s.ACTIVE_GET_TURNTABLE_AWARD_RES] = {Activity,Activity.GetCycleAwardRep}
+c2s[c2s.ACTIVE_DALIY_SIGN_RES] 			= {Activity,Activity.DaySignInRep} -- 日签到 返回 p2:drop_ret(普通) p3:drop_ret(特殊 无则nil)
+
+c2s[c2s.ACTIVE_GET_NOTICE_DAY_GIFT_RES] 			= {Activity,Activity.GetSixthSealAwardRep} -- 第六封印返回
+c2s[c2s.ACTIVE_GET_SIXTH_CLASS_DAY_GIFT_RES] 			= {Activity,Activity.GetSixthSealAwardBack}--第六封印签到请求返回
+

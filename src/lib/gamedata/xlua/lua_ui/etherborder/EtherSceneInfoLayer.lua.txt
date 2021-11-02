@@ -1,0 +1,120 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-23 11:26:57
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherSceneInfoLayer = class("EtherSceneInfoLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function EtherSceneInfoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherSceneInfoLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function EtherSceneInfoLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function EtherSceneInfoLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function EtherSceneInfoLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function EtherSceneInfoLayer:Init()
+    self._affixs = Ether:GetCurAffixDataByType(Ether.Affix_Context);
+    self:InitUI();
+end
+
+--初始化UI
+function EtherSceneInfoLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transContent = self.layer:Get("trans_container/trans_attr_bg/trans_content");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._affixItems = {};
+    for i, v in ipairs(self._affixs) do
+        local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transContent));
+        cls.txtName = cls:GetTextComponent("txt_name");
+        cls.txtIndex = cls:GetTextComponent("txt_index");
+        cls.txtDes = cls:GetTextComponent("txt_des");
+        local cfg = Ether:GetAffixCfgById(v.id);
+        cls.txtName.text = cfg.name;
+        cls.txtIndex.text = i;
+        cls.txtDes.text = cfg.des
+    end
+end
+
+--显示UI
+function EtherSceneInfoLayer:show()
+    self:showLayer();
+end
+
+--释放
+function EtherSceneInfoLayer:onExit()
+
+    self._objItem = nil;
+	self._transContent = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherSceneInfoLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherSceneInfoLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+function EtherSceneInfoLayer:KeyFrameCall(intkey)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return EtherSceneInfoLayer;

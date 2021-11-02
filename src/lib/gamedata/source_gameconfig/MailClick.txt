@@ -1,0 +1,5 @@
+id,邮件defid,持续时间,附件
+id,Defid,Duration,Awards
+number,number,number,array_&_|
+1,1011,1209600,4&7000007&1
+2,1011,1209600,4&7000007&1

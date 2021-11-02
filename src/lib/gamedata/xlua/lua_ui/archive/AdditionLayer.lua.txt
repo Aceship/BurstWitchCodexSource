@@ -1,0 +1,115 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-04 15:13:05
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local AdditionLayer = class("AdditionLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function AdditionLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_AdditionLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function AdditionLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function AdditionLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then
+        self:OnRetBtnClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+--退出按钮事件
+function AdditionLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function AdditionLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function AdditionLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transAddValue = self.layer:Get("container/trans_add_value");
+	self._transTypeAdditionContent = self.layer:Get("container/addition_view/trans_type_addition_content");
+	--@TransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self._attrAddItems = Archive:NewAttrAddItems(self._transAddValue);
+
+    self._buildAddItems = {};
+    for i = 1, #Hero.ArchiveAtkTypeSort do
+        self._buildAddItems[i] = Archive:NewBuildAddItem(self._transTypeAdditionContent:Find("trans_build_add"..i));
+    end
+end
+
+--显示UI
+function AdditionLayer:show(callback)
+    self:showLayer();
+    self:SetAddValueUI();
+    self.callback = callback;
+    self:playAni("CommonLayerFadeInAni");
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function AdditionLayer:OnRetBtnClick()
+    self:onBackClick();
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function AdditionLayer:onExit()
+
+	self._transAddValue = nil;
+	self._transTypeAdditionContent = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function AdditionLayer:SetAddValueUI()
+    Archive:SetAttrAddItemsData(self._attrAddItems);
+    local buildAdds = Archive:GetBuildAddByAtkType();
+    for i, v in ipairs(Hero.ArchiveAtkTypeSort) do
+        self._buildAddItems[i].obj:SetVisible(buildAdds[i] ~= nil);
+        if(buildAdds[i] ~= nil)then
+            Archive:SetBuildAddItemData(self._buildAddItems[i],v,buildAdds[i].addNum);
+        end
+    end
+end
+
+return AdditionLayer;

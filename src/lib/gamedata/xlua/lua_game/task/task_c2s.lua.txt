@@ -1,0 +1,126 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 14:24:26
+-- brief : 
+--
+Task = Task or {}
+
+-- 数据结构
+--[[
+    data:{
+            quest_awards = { [taskid] = count, ... },           任务领取次数
+            rookie_day = xx,                                    暮光礼赞
+            ids_not_load = { taskid1, taskid2, taskid3, ...}    深夜任务
+        }
+]]--
+
+function Task:SyncTask(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步任务数据----------")
+    self._tempTaskData = data
+end
+
+function Task:SetTaskServerData()
+    for id, task in pairs(self._tasks) do
+        task.recv_number = 0
+    end
+    self._task_recv = false
+    --print(self._tempTaskData.rookie_day)
+    --print(CTime:GetServerTime())
+    --print(CTime:GetServerTime()/CTime:GetOneDaySecond());
+    self._newer_days = self._tempTaskData.rookie_day or 0
+    -- 任务领取次数
+    for id, cnt in pairs(self._tempTaskData.quest_awards or {}) do
+        local task = self:GetTask(id)
+        task.recv_number = cnt
+    end
+    self:SetRankDailyTaskId(self._tempTaskData.ids_not_load)
+    self._tempTaskData = nil
+    -- 刷新任务状态
+    self:UpdateTasks()
+end
+
+function Task:CheckTaskRedTips(taskid)
+    local canGet = false
+    local task = self:GetTask(taskid)
+    if task.Quest_Open[1] == Task.OPEN_TYPE_LEVEL then
+        if Player:GetLevel() >= task.Quest_Open[2] then
+            canGet = task.state == Task.STATE_HAS_DONE
+        end
+    elseif task.Quest_Open[1] == Task.OPEN_TYPE_VIP then
+        -- TODO
+    elseif task.Quest_Open[1] == Task.OPEN_TYPE_CHAPTER then
+        local level = Chapter:GetLevel(task.Quest_Open[2])
+        if level ~= nil and level.open then
+            canGet = task.state == Task.STATE_HAS_DONE
+        end
+    end
+    if canGet == true then
+        if task.showtype == Task.TYPE_NEWER or task.showtype == Task.TYPE_NEWER_SCORE then
+            canGet = task.subtype <= (self:NewerTaskDays() + Task.DAY_TASK_INDEX)
+            self._newer_task_recv = self._newer_task_recv or canGet
+        else
+            self._task_recv = true
+        end
+    end
+    return canGet
+end
+
+function Task:GetRewardReq(taskids)
+    local isEquip = false;
+    for _, id in pairs(taskids) do
+        local task = self:GetTask(id)
+        for i, reward in ipairs(task.rewards) do
+            if reward[1] == Bag.TYPE_EQUIP then
+                isEquip = true
+                break
+            end
+        end
+    end
+    if isEquip and Equip:GetEquipNumWhetherMax() then
+        Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+        return
+    end
+    Network:CallServerScript({c2s.QUEST_GET_REWARD_REQ, taskids})
+end
+
+-- data = {[taskid] = count, ...}
+function Task:GetRewardRep(data, drops)
+    local idTab = {}
+    for id, cnt in pairs(data) do
+        local task = self:GetTask(id)
+        if task ~= nil then
+            task.recv_number = task.recv_number + cnt
+            self:_refreshTaskState(task)
+            if task.showtype == Task.TYPE_NOR_TASK then
+                Operation:SetTogRedPoint()
+                GEvent:fireEvent(EVENT_TYPE.TASK_DAILY_GET)
+            end
+            table.insert(idTab, id)
+            GZSDKHelper:missionFlowWithPlayerInfo(id, Language.LanguageTxt[task.Quest_des], task.subtype, "领取奖励")
+        end
+    end
+    Bag:ShowDrops(drops)
+    GEvent:fireEvent(EVENT_NAME.TASK_RECV_REWARD)
+    GEvent:fireEvent(EVENT_TYPE.TASK_GET_REP)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+
+    ThinkingMgr:SendTrack("quest", {
+        quest_id        = idTab
+    })
+    Guide:RecoverGuide()
+end
+-- 
+-- Brief: 深夜排行的每日任务
+-- 
+function Task:RankDailyNotify(ntaskids)
+    AppMgr:LogInfo("~~~~~~~~~~~~~~~~~~~~~~~深夜排行的每日任务~~~~~~~~~~~~~~~~~~~~~~~")
+    self:SetRankDailyTaskId(ntaskids)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RANK_DAILY)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.QUEST_DATA_SYNC]                = {Task, Task.SyncTask}
+c2s[c2s.QUEST_GET_REWARD_RES]           = {Task, Task.GetRewardRep}
+c2s[c2s.QUEST_MIDNIGHT_CHANGE_NTF]      = {Task, Task.RankDailyNotify}

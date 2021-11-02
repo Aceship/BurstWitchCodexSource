@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2019-08-28 15:03:37
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Clock/clock.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Clock/clockcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Clock/clockdef.txt")
+
+Clock:Ctor()
+Clock:_LoadCfg()

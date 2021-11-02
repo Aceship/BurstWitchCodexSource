@@ -1,0 +1,254 @@
+---
+--- Author:admin
+--- Create Time:2021-08-30 11:42:27
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MidNightRankAwardRuleLayer = class("MidNightRankAwardRuleLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnBack = "button_back"
+}
+--构造函数
+function MidNightRankAwardRuleLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiMidNight/UI_MidNightRankAwardRuleLayer"
+    }
+    self._uitype = 2
+    self._fading = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function MidNightRankAwardRuleLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+--按钮事件
+function MidNightRankAwardRuleLayer:onButtonClick(itype)
+    if (itype == BTNS.BtnBack) then
+        self:OnBtnReturnClick()
+    else --@ButtonCallBackEnd
+    end
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function MidNightRankAwardRuleLayer:Init()
+    self:InitData()
+    self:InitUI()
+end
+--初始化数据
+function MidNightRankAwardRuleLayer:InitData()
+    self._awards = {}
+    local danId = MidNight:GetDanId()
+    -- print("----------------------段位ID" .. danId)
+    -- LanguageMgr:GetTextByID()
+
+    self._danCfg = MidNight:GetDanGradingCfgById(danId)
+    self._serverData = MidNight:GetServerData()
+    self._rankList = self._serverData.list
+    self._awardCfg = MidNight:GetAwardCfgByDanGradingIdAndRank(self._danCfg.id, self._serverData.ranking)
+    -- self._groupCfg = MidNight:GetGroupCfgByDanId(self._serverData.danId)
+    local danCfg = MidNight:GetDanGradingCfgById(self._serverData.danId)
+    local startIndex = 0
+    local startNum = math.ceil(#self._serverData.list * danCfg.addTrophyRate)
+    startIndex = math.ceil(danCfg.maxNum * danCfg.addTrophyRate - startNum + 1)
+    self._groupAwards = MidNight:GetAwardCfgsByDanGradingId(self._danCfg.id)
+    -- lua_table_print(self._groupAwards)
+    for i = startIndex, #self._groupAwards do
+        table.insert(self._awards, self._groupAwards[i])
+    end
+end
+--初始化UI
+function MidNightRankAwardRuleLayer:InitUI()
+    self._imgRankIconShow = self.layer:GetImageComponent("trans_container/img_rank_icon_show")
+    self._imgRankBg = self.layer:GetImageComponent("trans_container/img_rank_icon_show/img_rank_bg")
+
+    --@ImageEnd
+
+    self._transProgressBg = self.layer:Get("trans_container/img_progress_bg")
+    self._transProgresspos = self._transProgressBg:Get("img_progresspos")
+    self._transContainer = self.layer:Get("trans_container")
+    self._transItem = self._transProgresspos:Get("trans_item")
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._slider = self._transProgressBg:GetComponent("Slider")
+    --@GameObjectEnd
+
+    --@MToggleEnd
+    self._txtRank = self.layer:GetTextComponent("trans_container/img_rank_icon_show/txt_rank")
+    self._txtRankDownLevelShow =
+        self.layer:GetTextComponent("trans_container/img_rank_icon_show/txt_rank_down_level_show")
+    self._txtRule = self.layer:GetTextComponent("trans_container/scroll/txt_rule")
+    self._txtRankLevelDes = self._transItem:GetTextComponent("txt_rank_level_des")
+
+    --@TextEnd
+
+    --@MToggleCallBackEnd
+    self:SetDanUI()
+    self:SetRankData()
+    self:SetRule(406)
+    --120105
+    self:InitDayAwardItem()
+    self:ShowAwardItemData()
+    self:ShowSlider()
+end
+
+--显示UI
+function MidNightRankAwardRuleLayer:show()
+    self:showLayer()
+end
+
+--退出按钮事件
+function MidNightRankAwardRuleLayer:onBackClick()
+    self:onPopLayer()
+end
+local speed = 0.4
+local value = 0
+function MidNightRankAwardRuleLayer:onUpdate()
+    if self._slider.value < value then
+        self._slider.value = self._slider.value + speed
+    end
+end
+--释放
+function MidNightRankAwardRuleLayer:onExit()
+    --@CloseEnd
+    self._awards = nil
+    self._danCfg = nil
+    self._serverData = nil
+    self._rankList = nil
+    self._imgRankIconShow = nil
+    self._imgRankBg = nil
+    self._conten = nil
+    self._transProgressBg = nil
+    self._transProgresspos = nil
+    self._transContainer = nil
+    self._awardCfg = nil
+    self._transItem = nil
+    self._txtRank = nil
+    self._txtRankDownLevelShow = nil
+    self._txtRule = nil
+    self._txtRankLevelDes = nil
+    -- self._groupCfg = nil
+    self._slider = nil
+    self._groupAwards = nil
+    if self._showAwardItems ~= nil then
+        for _, cls in ipairs(self._showAwardItems) do
+            cls:clear()
+        end
+        self._showAwardItems = nil
+    end
+    if self._dayAwardItems ~= nil then
+        for _, cls in ipairs(self._dayAwardItems) do
+            cls:clear()
+        end
+        self._dayAwardItems = nil
+    end
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function MidNightRankAwardRuleLayer:OnBtnReturnClick()
+    self:onBackClick()
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function MidNightRankAwardRuleLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+--排名的进度条
+function MidNightRankAwardRuleLayer:ShowSlider()
+    self._slider.maxValue = #self._rankList
+    if #self._rankList == 1 then
+        value = #self._rankList
+    else
+        value = #self._rankList - self._serverData.ranking
+    end
+end
+
+--显示最高级和最低级的奖励
+local RankAwardMaxNum = 2
+function MidNightRankAwardRuleLayer:ShowAwardItemData()
+    self._showAwardItems = {}
+    local _trans
+    for i = 1, RankAwardMaxNum do
+        _trans = self._transContainer:Get("trans_item_" .. i)
+        local cls = clearbase:new()
+        cls.imgIcon = _trans:GetImageComponent("img_icon")
+        cls.txtNum = _trans:GetTextComponent("txt_num")
+        self._showAwardItems[i] = cls
+    end
+    -- lua_table_print(self._awards)
+    self._showAwardItems[1].imgIcon:LoadSprite(Item:GetItemIconPath(self._groupAwards[1].dayAward[1][2]))
+    self._showAwardItems[1].txtNum:SetText("×" .. tostring(self._groupAwards[1].dayAward[1][3]))
+    self._showAwardItems[2].imgIcon:LoadSprite(Item:GetItemIconPath(self._groupAwards[#self._rankList].dayAward[1][2]))
+    self._showAwardItems[2].txtNum:SetText("×" .. tostring(self._groupAwards[#self._rankList].dayAward[1][3]))
+end
+--待优化代码
+-- function MidNightRankAwardRuleLayer:SetShowAwardUI(num)
+--     for _, v in ipairs(self._showAwardItems) do
+--         v.imgIcon:LoadSprite(Item:GetItemIconPath(self._groupAwards[num].dayAward[_][2]))
+--         v.txtNum:SetText("×" .. tostring(self._groupAwards[num].dayAward[_][3]))
+--     end
+-- end
+--显示当前排名奖励
+function MidNightRankAwardRuleLayer:InitDayAwardItem()
+    self._dayAwardItems = {}
+    local _trans
+    _trans = self._transItem:Get("trans_item_1")
+    local cls = clearbase:new()
+    cls.imgIcon = _trans:GetImageComponent("img_icon")
+    cls.txtNum = _trans:GetTextComponent("txt_num")
+    cls.imgIcon:LoadSprite(Item:GetItemIconPath(self._awardCfg.dayAward[1][2]))
+    cls.txtNum:SetText("×" .. tostring(self._awardCfg.dayAward[1][3]))
+end
+--显示排行规则
+function MidNightRankAwardRuleLayer:SetRule(ruleId)
+    local cfg = CCfg:GetRuleCfg(ruleId)
+    if (cfg == nil) then
+        self._txtRule:SetText("Error rule config！！！")
+        return
+    end
+    local str = string.gsub(cfg.desc, "\n", "\n")
+    self._txtRule:SetText(str)
+end
+--段位信息
+function MidNightRankAwardRuleLayer:SetDanUI()
+    local bgPath = ""
+    if (self._danCfg.groupId == 1) then
+        bgPath = "Img_shengye_duanwei_wenzi_bg_01"
+    elseif (self._danCfg.groupId == 2) then
+        bgPath = "Img_shengye_duanwei_wenzi_bg_02"
+    else
+        bgPath = "Img_shengye_duanwei_wenzi_bg_03"
+    end
+    MidNight:SetRankIcon(self._imgRankIconShow, self._danCfg.iconPath)
+    -- self._imgRankIconShow:LoadAtlasSprite(string.format("source_icon/midNight/",self._danCfg.iconPath))
+    self._txtRank:SetText(self._danCfg.name)
+    self._imgRankBg:LoadAtlasSprite(AtlasMgr.MID_NIGHT, bgPath)
+end
+--人物数据的显示
+function MidNightRankAwardRuleLayer:SetRankData()
+    local cls = Player:CtorPlayerIconBorder(self._transItem:Get("prefab_player"))
+    Player:SetPlayerIconBorderObj(cls, Player:GetHeadIcon(), Player:GetHeadBorder(), -1)
+    self._txtRankLevelDes:SetText(string.format(LanguageMgr:GetTextByID(120105), self._serverData.ranking))
+    self._txtRankDownLevelShow:SetText(string.format(LanguageMgr:GetTextByID(120106), #self._rankList))
+end
+
+return MidNightRankAwardRuleLayer

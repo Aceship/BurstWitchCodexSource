@@ -1,0 +1,30 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Ether = Ether or {}
+
+function Ether:SetIcon(img,path)
+    img.sprite = AssetLoader:LoadSprite(path);
+end
+
+function Ether:SetAffixImage(img,path)
+    if(img == nil)then
+        CS.Logger.LogInfo("img is nil")
+        return;
+    end
+    if(path == nil)then
+        return;
+    end
+    local _filepath = path;
+    img.sprite = AssetLoader:LoadSprite(_filepath);
+end
+
+
+function Ether:OpenEtherRuleTipsLayer()
+    core.require("xlua/lua_UI/EtherBorder/EtherRuleTipsLayer.txt"):new():show();
+end
+
+function Ether:EnterEtherLayer()
+    core.require("xlua/lua_UI/EtherBorder/BabelLayer.txt"):new():show()
+end

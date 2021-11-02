@@ -1,0 +1,287 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-03 11:05:29
+---
+Comment = Comment or {}
+
+function Comment:InitData()
+    self._commentModeData = {
+        commentType = 0,
+        pages = 1,
+        entry = 0,
+        curPages = 1,
+    };
+    self._selectCId = 0;
+    self._sendStr = nil;
+    self._replyShowDatas = {};
+end
+
+function Comment:SetCommentData(commentType,entry,pages)
+    self:SetCurCommentType(commentType);
+    self:SetCurEntry(entry);
+    self:SetCurPages(pages);
+end
+
+function Comment:LoadCache()
+    self._replyDatas = {};
+    self._replyShowDatas = {};
+    self._commentCacheIsLoad = false;  --是否加载缓存数据
+    Comment:LoadMyReplyData();
+    Comment:LoadReplyCacheData();
+    Comment:LoadCommentCacheData();
+    Comment:SetReplyDataByCacheData();
+    self._commentLikeData = Comment:GetCommentLikeData();
+end
+
+function Comment:GetCurCommentType()
+    return self._commentModeData.commentType;
+end
+
+function Comment:SetCurCommentType(cType)
+    self._commentModeData.commentType = cType;
+end
+
+function Comment:GetCurEntry()
+    return self._commentModeData.entry;
+end
+
+function Comment:SetCurEntry(entry)
+    self._commentModeData.entry = entry;
+end
+
+function Comment:GetCurPages()
+    return self._commentModeData.curPages;
+end
+
+function Comment:SetCurPages(pages)
+    self._commentModeData.pages = pages;
+end
+
+function Comment:AddCurPages()
+    if(self._commentModeData.pages ~= self._commentModeData.curPages)then
+        self._commentModeData.pages = self._commentModeData.curPages;
+    end
+    self._commentModeData.pages = self._commentModeData.curPages + 1;
+end
+
+function Comment:SetSendStr(sendStr)
+    self._sendStr = sendStr;
+end
+
+function Comment:SetSelectCId(id)
+    self._selectCId = id;
+    self._curCommentData = self:GetCommentDataById(id);
+end
+
+function Comment:AddCurReplyPages()
+    self._curCommentData.curReplyPage = self._commentData[self._selectCId].replyPages + 1;
+end
+
+function Comment:DecCurReplyPages()
+    if(self._commentData[self._selectCId].replyPages > 1)then
+        self._curCommentData.curReplyPage = self._commentData[self._selectCId].replyPages - 1;
+    end
+end
+
+function Comment:CloseReplyPagesByCid(cid)
+    if self._commentData[cid] == nil then
+        self._commentData[cid] = {}
+    end
+    self._commentData[cid].replyPages = 1;
+    self._commentData[cid].curReplyPage = 1;
+    Comment:SetCommentIsOpenReply(self._commentData[cid], false);
+end
+
+function Comment:UpdateCurReplyPages()
+    self._curCommentData.replyPages = self._curCommentData.curReplyPage;
+end
+
+function Comment:SetCurReplyPage(index)
+    self._curCommentData.curReplyPage = index;
+end
+
+function Comment:AddReplyData(reply)
+    if(self._replyDatas[self._selectCId] == nil)then
+        self._replyDatas[self._selectCId] = {};
+    end
+    self._replyDatas[self._selectCId][reply.id] = reply;
+end
+
+function Comment:SetReplyDataByCacheData()
+    --加载自己的临时缓存
+    --[[for i, v in pairs(self._myReplyCacheData) do
+        if(self._replyDatas[i] == nil)then
+            self._replyDatas[i] = {};
+        end
+        local index = 1;
+        if(self._replyShowDatas[i] == nil)then
+            self._replyShowDatas[i] = {};
+            local num = math.ceil((#v + Comment.REPLY_ALL_MAX_NUM) / Comment.ReplyPagesMaxNum);
+            for i2 = 1, num do
+                self._replyShowDatas[i][i2] = {};
+            end
+        end
+        for i2, v2 in ipairs(v) do
+            if(self._replyDatas[i][v2.id] == nil)then
+                if(self._replyShowDatas[i][index] == nil)then
+                    self._replyShowDatas[i][index] = {};
+                end
+                table.insert(self._replyShowDatas[i][index],v2);
+                self._replyDatas[i][v2.id] = v2;
+                if(i2 % Comment.ReplyPagesMaxNum == 0)then
+                    index = index + 1;
+                end
+            end
+        end
+    end]]--
+
+    --加载自己的回复数据(超过回复上限)
+    for i, v in pairs(self._replyCacheData) do
+        if(self._replyDatas[i] == nil)then
+            self._replyDatas[i] = {};
+        end
+        local index = 1;
+        if(self._replyShowDatas[i] == nil)then
+            self._replyShowDatas[i] = {};
+            local num = math.ceil((#v + Comment.REPLY_ALL_MAX_NUM) / Comment.ReplyPagesMaxNum);
+            for i2 = 1, num do
+                self._replyShowDatas[i][i2] = {};
+            end
+        end
+        for i2, v2 in ipairs(v) do
+            if(self._replyDatas[i][v2.id] == nil)then
+                if(self._replyShowDatas[i][index] == nil)then
+                    self._replyShowDatas[i][index] = {};
+                end
+                table.insert(self._replyShowDatas[i][index],v2);
+                self._replyDatas[i][v2.id] = v2;
+                if(i2 % Comment.ReplyPagesMaxNum == 0)then
+                    index = index + 1;
+                end
+            end
+        end
+    end
+end
+
+function Comment:GetReplyDatasByCid(cid,replyPages)
+    local retArr = {};
+    local isEnd = false;
+    if(self._replyShowDatas[cid] ~= nil)then
+        retArr = self._replyShowDatas[cid][replyPages];
+    end
+    if(replyPages == #self._replyShowDatas[cid] and replyPages > 1)then
+        isEnd = true;
+    end
+    return retArr,isEnd;
+end
+
+function Comment:GetCommentDataById(id)
+    local retData = self._commentData[id];
+    if(retData  == nil)then
+        CS.Logger.LogError("commentData Is Nil  id = "..id);
+    end
+    return retData;
+end
+
+function Comment:GetCommentDataId()
+    local retArr = {};
+    local tempArr = {};
+    for _, v in pairs(self._commentData) do
+        table.insert(tempArr,{id = v.commentid,index = v.index});
+    end
+    table.sort(tempArr,function (a,b)
+        return a.index > b.index;
+    end)
+    for i = 1, self._commentModeData.pages * Comment.OnePageCommentNum do
+        if(tempArr[i] ~= nil)then
+            table.insert(retArr,tempArr[i].id);
+        end
+    end
+    return retArr;
+end
+
+function Comment:NewComment(comment,cid)
+    local retTable;
+    if(comment == nil)then
+        retTable = {
+            comment     = {
+                content = self._sendStr,
+                create_time = CTime:GetServerTime(),
+                playerid = Player:GetId(),
+                name = Player:GetName(),
+                level = Player:GetLevel(),
+            },
+            like_num    = 0,
+            replys      = {},
+            reply_num   = 0,
+            curNum      = 0,
+            commentid   = cid,
+            replyPages  = 1,
+            curReplyPage = 1,
+            isReply     = false,
+        };
+    else
+        if(next(comment.comment) == nil)then
+            AppMgr:LogError("err 无效的评论!!! **path = Comment:NewComment(comment,cid)**");
+            return;
+        end
+        if(comment.replys == nil)then
+            comment.replys = {};
+            comment.reply_num = 0;
+            comment.curNum = 0;
+        else
+            comment.curNum = comment.reply_num;
+            if(self._replyCacheData[comment.commentid] ~= nil)then
+                comment.curNum = comment.reply_num + #self._replyCacheData[comment.commentid];
+                for i, v in ipairs(self._replyCacheData[comment.commentid]) do
+                    comment.replys[i] = v;
+                    if(i >= 2)then
+                        break;
+                    end
+                end
+            end
+        end
+        if(comment.replyPages == nil)then
+            comment.replyPages = 1;
+            comment.curReplyPage = 1;
+        end
+        comment.isReply     = false;
+        retTable = comment;
+    end
+
+    Comment:SetCommentIndex(retTable);
+    return retTable;
+end
+
+function Comment:SetCommentIndex(comment)
+    comment.index = comment.like_num *  10000000000 + comment.comment.create_time;-- + retTable.comment.playerid;
+end
+
+function Comment:NewReply(reply,create_time)
+    local data;
+    if(reply == nil)then
+        if(create_time == nil)then
+            create_time = CTime:GetServerTime();
+        end
+        data = {
+            content = self._sendStr,
+            create_time = create_time,
+            playerid = Player:GetId(),
+            name = Player:GetName(),
+            level = Player:GetLevel(),
+            id = create_time..Player:GetId(),
+            isCache = false,
+        };
+    else
+        data = {
+            content = reply.content,
+            create_time = reply.create_time,
+            playerid = reply.playerid,
+            name = reply.name,
+            level = reply.level,
+            id = reply.create_time..reply.playerid,
+            isCache = false,
+        }
+    end
+    return data;
+end

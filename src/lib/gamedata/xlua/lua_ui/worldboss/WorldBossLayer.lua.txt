@@ -1,0 +1,208 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-20 10:10:27
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WorldBossLayer = class("WorldBossLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnShop = "trans_container/btn_shop",
+	BtnRank = "trans_container/btn_rank",
+	BtnStart = "trans_container/trans_bottom_ui/btn_start",
+	--@ButtonEnd
+}
+--构造函数
+function WorldBossLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiWorldBoss/UI_WorldBossLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.Null,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function WorldBossLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    self:RegisterHandler();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/btn_shop"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/btn_rank"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_right_top_ui"))
+end
+
+--按钮事件
+function WorldBossLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnShop)then 
+	   self:OnBtnShopClick();
+    elseif(itype == BTNS.BtnRank)then 
+	   self:OnBtnRankClick();
+    elseif(itype == BTNS.BtnStart)then 
+	   self:OnBtnStartClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+	
+end
+
+--退出按钮事件
+function WorldBossLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function WorldBossLayer:Init()
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+    WorldBoss:GetRankListReq();
+    self._curChapter = Chapter:GetChapter(WorldBoss:GetOpenChapterId());
+    self._curLevel = Chapter:GetLevel(self._curChapter.levelids[1]);
+    self._characterIcon,self._characterDes = WorldBoss:GetWorldBossFeaturesCfg(self._curChapter.levelids[1]);
+    self._rankData = WorldBoss:GetRankData();
+    self:InitUI();
+end
+
+--初始化UI
+function WorldBossLayer:InitUI()
+
+    self._imgRank = self.layer:GetImageComponent("trans_container/trans_right_top_ui/img_rank");
+    --@ImageEnd
+
+    self._txtGrade = self.layer:GetTextComponent("trans_container/trans_right_top_ui/txt_grade");
+    self._txtOddNum = self.layer:GetTextComponent("trans_container/trans_bottom_ui/trans_odd_ui/txt_odd_num");
+    self._txtBossName2 = self.layer:GetTextComponent("trans_container/trans_boss_info/txt_boss_name_2");
+    self._txtBossName = self.layer:GetTextComponent("trans_container/trans_boss_info/txt_boss_name");
+    self._txtRank = self.layer:GetTextComponent("trans_container/trans_right_top_ui/txt_rank");
+    self._txtCurBossFoible = self.layer:GetTextComponent("trans_container/trans_boss_info/txt_cur_boss_foible");
+    --@TextEnd
+
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    self:SetUI();
+end
+
+--显示UI
+function WorldBossLayer:show()
+    self:showLayer();
+end
+
+--释放
+function WorldBossLayer:onExit()
+
+    self._txtGrade = nil;
+    self._imgRank = nil;
+    self._txtOddNum = nil;
+    self._txtBossName2 = nil;
+    self._txtBossName = nil;
+    self._txtRank = nil;
+    self._txtCurBossFoible = nil;
+    --@CloseEnd
+    WorldBoss:CloseScene();--清空世界Boss场景
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WorldBossLayer:OnBtnShopClick()
+    Operation:OpenOperationMainLayer(nil,Operation.ActivityID.ShopWorldBoss,true);
+ end
+function WorldBossLayer:OnBtnRankClick()
+    core.require("xlua/lua_UI/WorldBoss/WorldBossRankLayer.txt"):new():show();
+ end
+function WorldBossLayer:OnBtnStartClick()
+    if(not CTime:IsOpen(self._curChapter.timeid))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(704021));
+        Groble_UIMgr:ClickOnReturnBtn();
+        return;
+    end
+    if(self._curLevel.remain > 0)then
+        core.require("xlua/lua_UI/WorldBoss/WorldBossLevelLayer.txt"):new():show();
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(704020));
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function WorldBossLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UI_ACTION,EVENT_NAME.BOSS_ANIM_PLAY_OVER,function()
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
+        Groble_UIMgr:ShowBackBtn();
+        Groble_UIMgr:ShowMoneyUI(0.3,0);
+        self:playAni("WorldBossLayerAnim");
+    end);
+    self:addEventListener(EVENT_TYPE.UI_ACTION,EVENT_NAME.WORLD_BOSS_GET_LIST_OVER,function()
+        self:SetUI();
+    end);
+    self:addEventListener(EVENT_TYPE.WORLD_BOSS_UPDATE_DAY,self.__cname,function()
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(704022));
+        self._rankData = WorldBoss:GetRankData();
+        self:SetUI();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WorldBossLayer:SetUI()
+    if(self._curLevel.remain < 0)then
+        self._txtOddNum.text = 0;
+    else
+        self._txtOddNum.text = self._curLevel.remain;--self._level.remain .. "/" .. self._level.fight_count
+    end
+    self._txtGrade.text = self._rankData.value;
+    set_com_enabled(self._imgRank,self._rankData.ranking <= 3 and self._rankData.ranking > 0);
+    set_com_enabled(self._txtRank,self._rankData.ranking > 3 or self._rankData.ranking <= 0);
+    if(self._rankData.ranking <= 0)then
+        self._txtRank.text = "--";
+    elseif(self._rankData.ranking <= 3)then
+        WorldBoss:SetRankIcon(self._imgRank,self._rankData.ranking);
+    else
+        if(self._rankData.ranking <= WorldBoss.MaxRankNum)then
+            self._txtRank.text = self._rankData.ranking;
+        else
+            self._txtRank.text = WorldBoss.MaxRankNum .. "+";
+        end
+    end
+    self._txtCurBossFoible.text = Language:GetTxtBuyId(self._characterDes);
+    local bosscfg = FightModule:GetElementCfg(tonumber(self._curLevel.enemyids));
+    if bosscfg == nil or next(bosscfg) == nil then
+        return
+    end
+    self._txtBossName.text = bosscfg.Name;
+    self._txtBossName2.text = bosscfg.Name;
+end
+
+function WorldBossLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        Guide:ContinueGuideEvent(self.__cname)
+    end
+end
+
+return WorldBossLayer;

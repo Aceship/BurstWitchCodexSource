@@ -1,0 +1,313 @@
+---
+--- @Author:2144
+--- @Create Time:2021-07-15 17:03:12
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FirstPayLayer = class("FirstPayLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBuy = "trans_content/btn_buy",
+	BtnSkillShow = "trans_content/btn_skill_show",
+	BtnSkillHide = "trans_content/btn_skill_hide",
+	--@ButtonEnd
+}
+--构造函数
+function FirstPayLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiFirstPay/UI_FirstPayLayer"
+    };
+    self._topData = {
+        showBtnBack = true,
+        showPlayerInfo = false,
+        showTopInfo = false,
+        topInfo = {}
+    };
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_FIRST_PAY
+    };
+    self._addStack = true;
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function FirstPayLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_content/trans_title"))
+end
+
+--按钮事件
+function FirstPayLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBuy)then 
+	   self:OnBtnBuyClick();
+    elseif(itype == BTNS.BtnSkillShow)then 
+	   self:OnBtnSkillShowClick();
+    elseif(itype == BTNS.BtnSkillHide)then 
+	   self:OnBtnSkillHideClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+end
+
+--初始化
+function FirstPayLayer:Init()
+    self._heroId = 1031;
+    self._firstBuyCfg = Recharge:GetFirstBuyCfg();
+    self._dropCfg = Recharge:GetChargeContinueCfgById(self._firstBuyCfg.cfgid);
+    self:UpdateData();
+    self:InitUI();
+end
+
+function FirstPayLayer:UpdateData()
+    self._serverData = Operation:GetRepeatDataById(self._firstBuyCfg.cfgid);
+    local giftState,canGetNum,getPos = Operation:GetRepeatGetStateById(self._firstBuyCfg.cfgid);
+    self._giftState = giftState;
+    self._getNum = canGetNum;
+    self._getPos = getPos;
+end
+
+--初始化UI
+function FirstPayLayer:InitUI()
+
+	self._imgMask = self.layer:GetImageComponent("img_mask");
+	self._imgRed = self.layer:GetImageComponent("trans_content/img_red");
+	self._imgBuy = self.layer:GetImageComponent("trans_content/btn_buy");
+	--@ImageEnd
+
+	self._txtBuyTitle = self.layer:GetTextComponent("trans_content/btn_buy/txt_buy_title");
+	--@TextEnd
+
+	self._transVideoPlayer = self.layer:Get("trans_video_player");
+	self._transSpine = self.layer:Get("trans_spine");
+	self._transAwardBg = self.layer:Get("trans_content/trans_award_bg");
+	self._transQltySpine = self.layer:Get("trans_content/trans_title/trans_qlty_spine");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objAwardItem = self.layer:Get("trans_content/item_hide/obj_award_item").gameObject; 
+	self._objItem = self.layer:Get("trans_content/item_hide/obj_item").gameObject; 
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+
+    self._transQltySpine:CreateChild("prefab_item_spine/spine_qlty_ssr");
+
+    self:SetUI();
+end
+
+--显示UI
+function FirstPayLayer:show()
+    self:showLayer();
+    self:playAni("FirstPayAni");
+end
+
+--退出按钮事件
+function FirstPayLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function FirstPayLayer:onExit()
+
+    self._transVideoPlayer = nil;
+    self._imgMask = nil;
+    self._transSpine = nil;
+    self._txtBuyTitle = nil;
+    self._transAwardBg = nil;
+    self._objAwardItem = nil;
+    self._objItem = nil;
+    self._awardItems = nil;
+    self.skeletonAni = nil;
+    self._curMoudle:Release();
+    self._curMoudle = nil;
+    self._transQltySpine = nil;
+    self._imgRed = nil;
+	self._imgBuy = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function FirstPayLayer:OnBtnBuyClick()
+    if(self._giftState == Recharge.RepeatState.UnBuy)then
+        Operation:SendMessage(Operation.ActivityID.None,{id = self._firstBuyCfg.cfgid,num = 1});
+    else
+        if(self._getPos ~= self._getNum)then
+            Operation:GetRepeatReq(self._firstBuyCfg.cfgid);
+        else
+            if(self._giftState == Recharge.RepeatState.GetOver)then
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90376));
+            else
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90375));
+            end
+        end
+    end
+end
+function FirstPayLayer:OnBtnSkillShowClick()
+    self:playAni("FirstShowPlayAnim");
+end
+function FirstPayLayer:OnBtnSkillHideClick()
+    self:playAni("FirstHidePlayAnim");
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function FirstPayLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG, self.__cname, function(isDay)
+        self:UpdateData();
+        self:SetUI();
+        self:SetAwardItemUI();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function FirstPayLayer:SetUI()
+    self:SetBuyBtnState();
+    self:LoadSpine();
+end
+
+function FirstPayLayer:SetBuyBtnState()
+    self._imgRed:SetEnabled( self._giftState ~= Recharge.RepeatState.UnBuy and Operation:GetFirstRedState());
+    if(self._giftState == Recharge.RepeatState.UnBuy)then
+        self._imgBuy:LoadAtlasSprite("source_atlas/atlas_operation","Btn_s_MoNvShouCe");
+        local data = Recharge:GetRechargeMoneyCfg(self._firstBuyCfg.chargeMoneyId);
+        self._txtBuyTitle:SetText(string.format(LanguageMgr:GetTextByID(90368),math.floor(data.price)));
+    else
+        if(self._getPos == self._getNum)then
+            self._imgBuy:LoadAtlasSprite("source_atlas/atlas_operation","Btn_s_MoNvShouCe_c");
+            self._txtBuyTitle:SetTextById(90069);
+        else
+            self._imgBuy:LoadAtlasSprite("source_atlas/atlas_operation","Btn_s_MoNvShouCe");
+            self._txtBuyTitle:SetTextById(90026);
+        end
+    end
+end
+
+local MaxAwardItemNum = 3;
+function FirstPayLayer:SetAwardItemUI()
+    if(self._awardItems == nil)then
+        self._awardItems = {};
+    end
+    for i = 1, MaxAwardItemNum do
+        local cls = self._awardItems[i];
+        if(cls == nil)then
+            cls = self:NewAwardItem(self._transAwardBg:AddChild(self._objAwardItem));
+            self._awardItems[i] = cls;
+            self:SetAwardItem(cls,i);
+        end
+        self._awardItems[i].transform:SetScale(0,0,0);
+        self._awardItems[i].transform:DOScale(1,0.1):SetDelay(0.05*i);
+        self:UpdateAwardItemState(cls);
+    end
+end
+
+local MaxItemNum = 2;
+function FirstPayLayer:NewAwardItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgBg = cls.transform:GetComponent("Image");
+    cls.imgNum = cls:GetImageComponent("img_num");
+    cls.txtTitle = cls:GetTextComponent("txt_title");
+    cls.txtDayTitle = cls:GetTextComponent("txt_day_title");
+    cls.transItemBg = cls:Find("trans_item_bg");
+    cls.items = {};
+    for i = 1, MaxItemNum do
+        cls.items[i] = Bag:CtorComSimpleGoodsUi(cls.transItemBg:AddChild(self._objItem));
+        cls.items[i].transGet = cls.items[i]:Find("img_is_get");
+        cls.items[i].id = 0;
+    end
+    return cls;
+end
+
+function FirstPayLayer:SetAwardItem(cls,index)
+    cls.index = index;
+    local dropId = self._dropCfg.dropIds[index];
+    cls.imgNum:LoadAtlasSprite("source_atlas/atlas_first_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
+    cls.imgBg:LoadAtlasSprite("source_atlas/atlas_first_layer", "img_liuyuan_libao_bokuai_01");
+    cls.txtTitle:SetText(LanguageMgr:GetTextByID(90372));
+    cls.txtTitle:SetTextColor(78/255,89/255,106/255,1);
+    cls.txtDayTitle:SetTextColor(90/255,95/255,103/255,1)
+    local drops = Item:GetDrops(dropId);
+    for i = 1, MaxItemNum do
+        cls.items[i]:Visible(drops[i] ~= nil);
+        if(drops[i] ~= nil)then
+            cls.items[i].id = drops[i][2];
+            Bag:SetComSimpleGoodsUi(cls.items[i],drops[i][1],drops[i][2],drops[i][3]);
+        end
+    end
+end
+
+function FirstPayLayer:UpdateAwardItemState(cls)
+    if(self._giftState == Recharge.RepeatState.UnBuy)then
+        return;
+    end
+    if(cls.index <= self._getNum or self._giftState == Recharge.RepeatState.GetOver)then--可领取或已领取
+        if(cls.index <= self._getPos or self._giftState == Recharge.RepeatState.GetOver)then--已领取
+            cls.imgNum:LoadAtlasSprite("source_atlas/atlas_first_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
+            cls.imgBg:LoadAtlasSprite("source_atlas/atlas_first_layer", "img_liuyuan_libao_bokuai_03");
+            cls.imgNum:SetImageColor(1,1,1,100/255);
+            cls.txtTitle:SetText(LanguageMgr:GetTextByID(90374));
+            cls.txtTitle:SetTextColor(77/255,77/255,77/255,1);
+            cls.txtDayTitle:SetTextColor(127/255,136/255,149/255,1);
+        else
+            cls.imgNum:LoadAtlasSprite("source_atlas/atlas_first_layer", string.format("img_liuyuan_libao_yitian_get_0%s",cls.index));
+            cls.imgBg:LoadAtlasSprite("source_atlas/atlas_first_layer", "img_liuyuan_libao_bokuai_02");
+            cls.imgNum:SetImageColor(1,1,1,1);
+            cls.txtTitle:SetText(LanguageMgr:GetTextByID(90373));
+            cls.txtTitle:SetTextColor(1,1,1,1);
+            cls.txtDayTitle:SetTextColor(1,1,1,1);
+        end
+    end
+    for i = 1, MaxItemNum do
+        if(cls.items[i].id > 0)then
+            --更新状态
+            cls.items[i].transGet:SetVisible(cls.index <= self._getPos);
+        end
+    end
+end
+
+----------------spine加载
+function FirstPayLayer:LoadSpine()
+    if(self._curMoudle ~= nil)then
+        return;
+    end
+    Hero:LoadSpineAsync(self.__cname,self._transSpine, self._heroId, Hero.SPINE_FIRST_PAY,
+            function(obj)
+                if obj == nil then
+                    self._curMoudle = nil;
+                else
+                    self._curMoudle = obj;
+                end
+            end)
+    local cfg = Hero:GetCfg(self._heroId);
+    if cfg.SpineFmodPath ~= nil then
+        fmod:preloadSampleData(cfg.SpineFmodPath);
+    end
+end
+
+-------------------------
+
+function FirstPayLayer:KeyFrameCall(intkey)
+    if(intkey == 1)then
+        self:SetAwardItemUI();
+    end
+end
+
+return FirstPayLayer;

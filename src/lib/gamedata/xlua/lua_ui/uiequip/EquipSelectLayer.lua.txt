@@ -1,0 +1,757 @@
+--
+-- author: haosun
+-- date  : 2018-11-22 11:59:14
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EquipSelectLayer = class("EquipSelectLayer", CBaseLayer)
+
+local ROW_NUM   = 5
+local ROW_SEL   = 3
+
+function EquipSelectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEquip/UI_EquipSelectLayer",
+    }
+    self._topData = {};
+    self._addStack = true;
+    self._fading = false;
+
+    self._cellsObj  = {}
+
+    self:onEnter()
+end
+
+function EquipSelectLayer:initObj()
+    self._equipTitleObj     = self.layer:Get("info_title")
+    self._equipInfoObj      = self.layer:Get("equip_info")
+    self._equipPnlObj       = self.layer:Get("equip_pnl")
+    self.img_lock           = self._equipInfoObj:GetImageComponent("button_lock")
+    self.lockTxt            = self._equipInfoObj:GetTextComponent("button_lock/label_title")
+    self.txt_type           = self._equipPnlObj:GetTextComponent("txt_type")
+
+    self.suitInfo           = {}
+    self.equips             = {}
+    self.emptys             = {}
+    self.suitDes            = {}
+    for i = 1, 2 do
+        local _E            = {}
+        _E.attr_obj         = self._equipInfoObj:Get(string.format("prefab_attr_%d", i))
+        _E._attrCObjArr     = CAttr:NewAttrObjArr(_E.attr_obj, 5)
+        _E._templateObj     = self._equipInfoObj:Get(string.format("prefab_equip_%d", i))
+        _E._equipCObj       = Equip:CtorEquipCObj(_E._templateObj, function() end)
+        _E._nameCom         = _E._templateObj:GetTextComponent("text_name")
+        _E._levelCom        = _E._templateObj:GetTextComponent("txt_level")
+        _E._equipedObj      = _E._templateObj:Get("image_cur")
+        _E.imgTag           = _E._templateObj:GetImageComponent("img_tag")
+        _E.txtTag           = _E._templateObj:GetTextComponent("img_tag/txt_tag")
+        self.equips[i]      = _E
+
+        local suit          = {}
+        suit.obj2           = self._equipInfoObj:Get(string.format("obj_suit_2_%d", i))
+        suit.obj4           = self._equipInfoObj:Get(string.format("obj_suit_4_%d", i))
+        suit.objTips        = self._equipInfoObj:Get(string.format("obj_suit_2_%d/obj_tips", i))
+        suit.suitTxt2       = self._equipInfoObj:GetTextComponent(string.format("obj_suit_2_%d/label_title", i))
+        suit.suitTxt4       = self._equipInfoObj:GetTextComponent(string.format("obj_suit_4_%d/label_title", i))
+        -- self._equipInfoObj:GetButtonComponent(string.format("obj_suit_2_%d", i)):AddButtonListener(function()
+            -- self:showSuitTips(i)
+        -- end)
+        self.suitInfo[i]    = suit
+
+        self.emptys[i]      = self._equipInfoObj:Get(string.format("prefab_empty_%d", i))
+        self.suitDes[i]     = self._equipInfoObj:Get(string.format("suitDes%d", i))
+    end
+
+    self._tvController      = UIController:CtorTableView(self.layer.transform:Find("equip_pnl/TableViewController"))
+
+    -- 装备
+    self._equipInfoObj:GetButtonComponent("button_on"):AddButtonListener(function()
+
+        if #self._datas == 0 or not self._datas[self._index].uid then
+            return
+        end
+        if self._datas[self._index].uid == self._hero.equipids[self._equipType] then
+            return
+        end
+        self:onOndressReq()
+    end)
+
+    -- 锁定
+    self._equipInfoObj:GetButtonComponent("button_lock"):AddButtonListener(function()
+        if #self._datas == 0 or not self._datas[self._index].uid then
+            return
+        end
+        Equip:SetEquipLockStartReq(self._datas[self._index].uid)
+    end)
+
+    -- 强化
+    self._equipInfoObj:GetButtonComponent("button_add"):AddButtonListener(function()
+        if #self._datas == 0 or not self._datas[self._index].uid then
+            return
+        end
+
+        local equipuid = self._datas[self._index].uid
+        if not equipuid then
+            return
+        end
+        if equipuid ~= 0 then
+            core.require("xlua/lua_UI/UIEquip/EquipIntensifyLayer.txt"):new(equipuid):show( function()
+                local uid = self._datas[self._index].uid
+                self:onEquipClick(self._index)
+                -- TODO
+                self:refreshData()
+                self:refreshIndex(uid)
+                for _, cls in pairs(self._cellsObj) do
+                    for i = 1, ROW_NUM, 1 do
+                        local index = i + (cls.row - 1) * ROW_NUM
+                        if index <= #self._datas then
+                            Equip:SetEquipCObjByUid(cls.clsEquipArr[i], self._datas[index].uid)
+                            set_com_enabled(cls.clsEquipArr[i].clsbag.checkCom, self._index == index)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+
+    -- 筛选
+    self._equipPnlObj:GetButtonComponent("button_select"):AddButtonListener(function()
+        self:showSelect()
+    end)
+
+    -- 关闭弹窗
+    self.layer:GetButtonComponent("obj_tips_bg"):AddButtonListener(function()
+        self:hideSelect()
+    end)
+
+    -- 关闭信息
+    self._equipInfoObj:GetButtonComponent("button_tip"):AddButtonListener(function()
+        self.menu:setAttrActive(true, true)
+        self:setInfoActive(false, true)
+    end)
+
+    -- 重置
+    self.layer:GetButtonComponent("obj_tips_bg/obj_tips/btn_back"):AddButtonListener(function()
+        self.selectBtnData = {}
+        self.selectData = {}
+        self:refreshData()
+        self:onSelect()
+        self.selectController:Reload(math.ceil(#self.selectCfg / ROW_SEL))
+    end)
+
+    -- 锁定
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.EQUIP_LOCK_START_CHANGE, function()
+        local equip = Equip:GetEquip(self._datas[self._index].uid)
+        local lock = equip.lock ~= 1
+        self.lockTxt:SetTextById(lock and 40037 or 703032)
+        local spr = "btn_fushi_icon_suoding_b"
+        if lock then
+            spr = "btn_fushi_icon_suoding_a"
+        end
+        self.img_lock.sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_equip_layer", spr)
+    end)
+
+    -- 穿装备回包
+    self:addEventListener(EVENT_TYPE.HERO_EQUIP_UI, self.__cname, function(param)
+        -- local index = param.index
+        -- if index then
+        --     self.menu:onEquipOn(index)
+        -- end
+
+        -- self._tvController:Reload(math.ceil(#self._datas / ROW_NUM))
+        -- self:refreshEquip()
+        -- self:refreshAttr()
+        -- self:setSuitNum()
+    end)
+
+end
+
+function EquipSelectLayer:onEnter()
+
+    self:createPnl()
+    self:initObj()
+    self:initSelectObj()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_UPDATE, function()
+        self._tvController:Reload(math.ceil(#self._datas / ROW_NUM))
+        self:refreshAttr()
+        self:setSuitNum()
+        self:refreshEquip()
+        Groble_UIMgr:ClickOnReturnBtn();
+    end)
+
+    CS.UnityHelper.NotchfitY(self.layer, 0, true)
+end
+
+function EquipSelectLayer:onExit()
+
+    self.menu:ShowEquipCircleLayer();
+    self._tvController:Clear()
+    self._tvController = nil
+    self.selectController:Clear()
+    self.selectController = nil
+
+    self._cellsObj  = nil
+    self._datas     = nil
+    self.suitInfo   = nil
+    self.equips     = nil
+    self.emptys     = nil
+    self.suitDes     = nil
+
+    self._equipInfoObj  = nil
+    self._equipPnlObj   = nil
+    self.lockTxt        = nil
+    self.img_lock       = nil
+    self.txt_type       = nil
+
+    self._heorid        = nil
+    self._hero          = nil
+    self._index         = nil
+    self._equipType     = nil
+    self._dataOrg       = nil
+
+    self.sortType           = nil
+    self.selectData         = nil
+    self.selectBtnData      = nil
+    self.selectCfg          = nil
+    self.objSelectBg        = nil
+    self.objSelect          = nil
+    self._cellsSelObj       = nil
+    self.selectController   = nil
+    self.typeTogs           = nil
+
+    self.menu = nil;
+
+    CBaseLayer.onExit(self)
+end
+
+function EquipSelectLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function EquipSelectLayer:show(heroid, menu, param)
+    self._fading        = false
+    self._heorid        = heroid
+    self._hero          = Hero:GetHero(heroid)
+    self._index         = 1
+    self._equipType     = param[1]
+    self._dataOrg       = {}-- param[2]
+    self._datas         = {}
+    self.menu           = menu
+    self:setSelectTag()
+    self:refreshData()
+    self:initTableViewController()
+    self._tvController:ScrollToTop()
+    
+
+    self:showLayer()
+    self:playAni("EquipSelectLayerAni")
+
+    -- 筛选
+    self:initSelectController()
+
+    self:setInfoActive(param[3], true)
+    Timer:AddTimerCall(0.1,function()
+        if #self._datas >= 1 then
+            self:onEquipClick(1)
+        end
+    end)
+end
+
+--已装备的 放到最后
+function EquipSelectLayer:refreshData()
+    local equip
+    local haveSel = self:haveSelect()
+    self._dataOrg = {}
+    if self._equipType == -1 then
+        for i = 1, 6 do
+            local cList = Equip:GetFitEquip(self._hero, i)
+            for k, v in pairs(cList) do
+                table.insert(self._dataOrg, v)
+            end
+        end
+    else
+        local cList = Equip:GetFitEquip(self._hero, self._equipType)
+        for k, v in pairs(cList) do
+            table.insert(self._dataOrg, v)
+        end
+    end
+    self._datas = {}
+    for i =  #self._dataOrg, 1, -1 do
+        local v = self._dataOrg[i]
+        equip = Equip:GetEquip(v.uid)
+        if equip and equip.heroid == 0 then
+            if haveSel and self.selectData[equip.suitid] == true then
+                table.insert(self._datas, v)
+            elseif not haveSel then
+                table.insert(self._datas, v)
+            end
+        end
+    end
+    self:sortData()
+end
+
+function EquipSelectLayer:sortData()
+
+    if #self._datas <= 1 then return end
+
+    table.sort(self._datas, function(a, b)
+        local equipA = Equip:GetEquip(a.uid)
+        local equipB = Equip:GetEquip(b.uid)
+        -- 1 品质降序, 2 等级降序
+        if self.sortType == 1 then
+            if equipA.qlty == equipB.qlty then
+                if equipA.level == equipB.level then
+                    return equipA.cfgid < equipB.cfgid
+                else
+                    return equipA.level > equipB.level
+                end
+            else
+                return equipA.qlty > equipB.qlty
+            end
+        elseif self.sortType == 2 then
+            if equipA.level == equipB.level then
+                if equipA.qlty == equipB.qlty then
+                    return equipA.cfgid < equipB.cfgid
+                else
+                    return equipA.qlty > equipB.qlty
+                end
+            else
+                return equipA.level > equipB.level
+            end
+        end
+    end)
+end
+
+function EquipSelectLayer:initTableViewController()
+    local rows = math.ceil(#self._datas/ROW_NUM)
+    self._tvController:Init(rows, true,
+        function(cell, row, play)
+            self:refreshUnitCell(cell, row+1)
+        end, 0.3, 0.1)
+end
+
+function EquipSelectLayer:newCellObj(cell)
+    local cls       = clsbase:new(cell)
+    cls.clsEquipArr = {}
+    for i = 1, ROW_NUM, 1 do
+        cls.clsEquipArr[i] = Equip:CtorEquipCObj(cell.transform:Find("prefab_" .. i),
+            function()
+                self:onEquipClick((cls.row - 1) * ROW_NUM + i)
+            end)
+        cls.clsEquipArr[i].imgLock = cls.clsEquipArr[i]:Find("img_lock")
+    end
+    cls.row = 0
+    return cls
+end
+
+function EquipSelectLayer:refreshCellObj(cls, row)
+    local index,equip
+    for i = 1, ROW_NUM, 1 do
+        index = i + (row - 1) * ROW_NUM
+        if self._datas[index] ~= nil then
+            equip = Equip:GetEquip(self._datas[index].uid);
+            Equip:SetEquipCObjByUid(cls.clsEquipArr[i], self._datas[index].uid)
+            set_com_enabled(cls.clsEquipArr[i].clsbag.checkCom, self._index == index)
+        end
+        cls.clsEquipArr[i]:Visible(self._datas[index] ~= nil)
+    end
+    cls.row = row
+end
+
+function EquipSelectLayer:refreshUnitCell(cell, row)
+    local cls = self._cellsObj[cell.name]
+    if cls == nil then
+        cls = self:newCellObj(cell)
+        self._cellsObj[cell.name] = cls
+    end
+    self:refreshCellObj(cls, row)
+end
+
+function EquipSelectLayer:onEquipClick(i)
+    self._index = i
+
+    for _, cls in pairs(self._cellsObj) do
+        for i = 1, ROW_NUM, 1 do
+            set_com_enabled(cls.clsEquipArr[i].clsbag.checkCom, self._index == i + (cls.row - 1) * ROW_NUM)
+        end
+    end
+
+    self:setInfoActive(true)
+    self.menu:setAttrActive(false)
+    self:refreshAttr()
+    self:setSuitNum()
+    self:refreshEquip()
+end
+
+function EquipSelectLayer:refreshEquip()
+    -- 1 选中的, 2 是已装备的
+    if #self._datas == 0 then return end
+
+    local uids = self:getEquipUIDs()
+
+    for i = 1, 2 do
+
+        self.emptys[i]:SetVisible(not uids[i])
+        self.suitDes[i]:SetVisible(uids[i])
+
+        self.equips[i].attr_obj:SetVisible(uids[i])
+        self.equips[i]._templateObj:SetVisible(uids[i])
+
+        if uids[i] then
+            local equip = Equip:GetEquip(uids[i])
+            Equip:SetEquipCObjByUid(self.equips[i]._equipCObj, equip.uid)
+            local info                          = Equip:GetNameLvExpInfo(equip)
+            self.equips[i]._nameCom.text        = info.name
+            self.equips[i]._levelCom.text       = info.level
+            -- self.equips[i]._equipedObj:SetVisible(equip.heroid and equip.heroid ~= 0)
+            Equip:SetEquipTag(equip.suitid, self.equips[i].imgTag, self.equips[i].txtTag)
+            
+            local suitNum = math.max(self.suitInfo[i].cur2, self.suitInfo[i].cur4)
+            self:SuitDes(self.suitDes[i]:GetTextComponent("suitDes/txt_des"),equip,suitNum)
+        end
+    end
+
+    if self._datas[self._index].uid then
+        local equip = Equip:GetEquip(self._datas[self._index].uid)
+        local lock = equip.lock ~= 1
+        self.lockTxt:SetTextById(lock and 40037 or 703032)
+        local spr = "btn_fushi_icon_suoding_b"
+        if lock then
+            spr = "btn_fushi_icon_suoding_a"
+        end
+        self.img_lock.sprite = AssetLoader:LoadAtlasSprite("source_atlas/atlas_equip_layer", spr)
+    end
+end
+
+function EquipSelectLayer:SuitDes(textCom,equip, num)
+    local desc = nil
+    local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM) or {}
+    local suitcfg, deskillcfg, tmpdesc
+    local suitnum = 0   -- 已达成的数量
+    for _, v in pairs(suitcfgids) do
+        suitcfg = Equip:GetEquipSuitCfg(v)
+        deskillcfg = Skill:GetCfgByTypeIdStr(suitcfg.skill)
+        if num > 0 then
+            suitnum = num
+        else
+            suitnum = (equip.heroid == 0) and 0 or Hero:EquipSuitExistNum(equip.heroid, equip.suitid)
+            suitnum = lua_math_in_range(suitnum,0,suitcfg.num);
+        end
+        tmpdesc = string.format(LanguageMgr:GetTextByID(99000042), suitnum, suitcfg.num, deskillcfg and deskillcfg.desc or "")
+        if suitnum < suitcfg.num then
+            tmpdesc = string.format(LanguageMgr:GetTextByID(99000043), tmpdesc)
+        end
+        if desc == nil then
+            desc = tmpdesc
+        else
+            desc = desc .. "\n" .. tmpdesc
+        end
+    end
+    textCom.text = lua_color_str(desc)
+end
+
+function EquipSelectLayer:refreshAttr()
+
+    if #self._datas == 0 then return end
+    local uids = self:getEquipUIDs()
+
+    for i = 1, 2 do
+        if uids[i] then
+            local newEquip = Equip:GetEquip(uids[i])
+            Equip:SetEquipAttr(self.equips[i]._attrCObjArr, newEquip , true)
+        end
+    end
+end
+
+function EquipSelectLayer:refreshIndex(_uid)
+    for k, v in pairs(self._datas) do
+        if v.uid == _uid then
+            self._index = k
+        end
+    end
+end
+
+function EquipSelectLayer:setSuitNum()
+    if #self._datas == 0 then return end
+    local uids = self:getEquipUIDs()
+    local suitids = self:getSuits()
+    local txt = {}
+    for i = 1, 2 do
+        if uids[i] then
+            if not txt[i] then
+                txt[i] = {}
+            end
+            local equip = Equip:GetEquip(uids[i])
+            local exist = false
+            exist = equip.suitid ~= Equip.SUIT_NULL
+            self.suitInfo[i].suitTxt2:SetVisible(exist)
+            self.suitInfo[i].suitTxt4:SetVisible(exist)
+
+            if exist then
+                local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM) or {}
+                local suitcfg, deskillcfg, tmpdesc
+                local suitnum = 0   -- 已达成的数量
+
+                for _, v in pairs(suitcfgids) do
+                    suitcfg = Equip:GetEquipSuitCfg(v)
+                    suitnum = (equip.heroid == 0) and 0 or Hero:EquipSuitExistNum(equip.heroid, equip.suitid)
+                    suitnum = lua_math_in_range(suitnum, 0, suitcfg.num)
+                    txt[i][suitcfg.num] = tonumber(suitnum)
+                end
+                local num = 0
+                if suitids[equip.suitid] then
+                    num = suitids[equip.suitid].num
+                end
+                txt[i][2] = math.min(num, 2)
+                txt[i][4] = num
+            end
+        end
+    end
+
+    for i = 1, 2 do
+        self.suitInfo[i].obj2:SetVisible(uids[i])
+        self.suitInfo[i].obj4:SetVisible(uids[i])
+        if uids[i] then
+            if txt[i] then
+                self.suitInfo[i].cur2 = txt[i][2]
+                self.suitInfo[i].cur4 = txt[i][4]
+                self.suitInfo[i].suitTxt2.color = txt[i][2] >= 2 and COLOR_TYPE.EquipSuitOn or COLOR_TYPE.EquipSuitOff
+                self.suitInfo[i].suitTxt4.color = txt[i][4] >= 4 and COLOR_TYPE.EquipSuitOn or COLOR_TYPE.EquipSuitOff
+                self.suitInfo[i].suitTxt2:SetText(string.format("%d/%d", txt[i][2], 2))
+                self.suitInfo[i].suitTxt4:SetText(string.format("%d/%d", txt[i][4], 4))
+            end
+        end
+    end
+
+end
+
+function EquipSelectLayer:showSuitTips(i, num)
+    if #self._datas == 0 then return end
+    local uids = self:getEquipUIDs()
+    local equip = Equip:GetEquip(uids[i])
+    local suitNum = math.max(self.suitInfo[i].cur2, self.suitInfo[i].cur4)
+    core.require("xlua/lua_UI/Witch/SuitTipsLayer.txt"):new():show(self.suitInfo[i].objTips, equip, suitNum)
+end
+
+-- 需要显示的两个装备
+function EquipSelectLayer:getEquipUIDs()
+    local uid = nil
+    local _equipType = self._equipType
+    if self._equipType == -1 then
+        local data = Equip:GetEquip(self._datas[self._index].uid)
+        local db = Equip:GetCfg(data.cfgid)
+        local itype = tonumber(db.Type)
+        _equipType = itype
+    end
+    if self._hero.equipids[_equipType] and self._hero.equipids[_equipType] ~= 0 then
+        uid = self._hero.equipids[_equipType]
+    end
+    return {self._datas[self._index].uid,  uid}
+end
+
+function EquipSelectLayer:onOndressReq()
+    local equipuid = self._datas[self._index].uid
+    local equip = Equip:GetEquip(equipuid)
+    if equip.heroid ~= 0 then
+        local desc_str = ""
+        desc_str = LanguageMgr:GetTextByID(72000076)
+        Groble_UIMgr:ShowMessageBox(true, true, desc_str, function()
+            Equip:OndressReq(self._hero.id, {equipuid})
+        end)
+    else
+        Equip:OndressReq(self._hero.id, {equipuid})
+    end
+end
+
+function EquipSelectLayer:onUndressReq()
+    Equip:UndressReq({self._datas[self._index].uid})
+end
+
+function EquipSelectLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function EquipSelectLayer:setInfoActive(active, force)
+
+    if not force and active == self._infoActive then
+        return
+    end
+
+    self._infoActive = active
+    self._equipTitleObj:SetVisible(self._infoActive)
+    self._equipInfoObj:SetVisible(self._infoActive)
+end
+
+--------------------------------------------------------------------- 筛选
+
+function EquipSelectLayer:initSelectObj()
+    self.sortType           = 1 -- 1 品质升序, 2 等级升序
+    self.selectData         = {}
+    self.selectBtnData      = {}
+    self.selectCfg          = Equip:GetSuitTags()
+    self.objSelectBg        = self.layer:Get("obj_tips_bg")
+    self.objSelect          = self.objSelectBg:Get("obj_tips")
+    self._cellsSelObj       = {}
+    self.selectController   = UIController:CtorTableView(self.objSelect:Get("TableViewController"))
+    self.typeTogs           = {}
+    for i = 1, 2 do
+        self.typeTogs[i]    = {}
+        self.typeTogs[i].tog= self.objSelect:GetMToggleComponent(string.format("obj_tog_bg/show_type_%d", i))
+        self.typeTogs[i].tog.onValueChanged:AddListener(function (isOn)
+            self.sortType = i
+            self:sortData()
+            self:onSelect()
+        end)
+    end
+    self:hideSelect()
+end
+
+function EquipSelectLayer:initSelectController()
+    local rows = math.ceil(#self.selectCfg / ROW_SEL)
+    self.selectController:Init(rows, true, function(cell, row, play)
+        self:refreshUnitSelCell(cell, row + 1)
+    end, 0.3, 0.1)
+end
+
+function EquipSelectLayer:refreshUnitSelCell(cell, row)
+    local cls = self._cellsSelObj[cell.name]
+    if cls == nil then
+        cls = self:newCellSelObj(cell)
+        self._cellsSelObj[cell.name] = cls
+    end
+    self:refreshCellSelObj(cls, row)
+end
+
+function EquipSelectLayer:newCellSelObj(cell)
+
+    local cls       = clsbase:new(cell)
+    cls.types       = {}
+    for i = 1, ROW_SEL, 1 do
+        cls.types[i] = {}
+        cls.types[i].gameObject = cell.transform:Get(string.format("obj_type_%d", i))
+        cls.types[i].txtOnName  = cls.types[i].gameObject:GetTextComponent("obj_on/txt_name")
+        cls.types[i].txtOffName = cls.types[i].gameObject:GetTextComponent("obj_off/txt_name")
+        cls.types[i].objOn      = cls.types[i].gameObject:Get("obj_on")
+        cls.types[i].objOff     = cls.types[i].gameObject:Get("obj_off")
+        cls.types[i].gameObject:GetButtonComponent(""):AddButtonListener(function ()
+            local index = i + (cls.row - 1) * ROW_SEL
+            
+            if self.selectBtnData[index] then
+                self.selectBtnData[index] = false
+            else
+                self.selectBtnData[index] = true
+            end
+            local select = self.selectBtnData[index]
+            cls.types[i].objOn:SetVisible(select)
+            cls.types[i].objOff:SetVisible(not select)
+
+            self:onTypeSlect(self.selectCfg[index].suitid)
+        end)
+    end
+    cls.row = 0
+    return cls
+end
+
+function EquipSelectLayer:refreshCellSelObj(cls, row)
+    local index, equip
+    for i = 1, ROW_SEL, 1 do
+        index = i + (row - 1) * ROW_SEL
+        if self.selectCfg[index] ~= nil then
+            cls.types[i].txtOnName:SetText(self.selectCfg[index].tag)
+            cls.types[i].txtOffName:SetText(self.selectCfg[index].tag)
+            local select = self.selectBtnData[index]
+            cls.types[i].objOn:SetVisible(select)
+            cls.types[i].objOff:SetVisible(not select)
+        end
+        cls.types[i].gameObject:SetVisible(self.selectCfg[index] ~= nil)
+    end
+    cls.row = row
+end
+
+function EquipSelectLayer:haveSelect()
+    for k, v in pairs(self.selectBtnData) do
+        if v then
+            return true
+        end
+    end
+    return false
+end
+
+function EquipSelectLayer:setSelectTag()
+    local str = nil
+    local count = 0
+    for k, v in pairs(self.selectCfg) do
+        if self.selectData[v.suitid] then
+            if str == nil then
+                str = v.tag
+            else
+                str = v.tag .. ", " .. str
+            end
+            count = count + 1
+        end
+        if count == 8 then -- 最多条数没确定
+            break
+        end
+    end
+    if str == nil then
+        str = ""
+    end
+
+    self.txt_type:SetText(str)
+end
+
+function EquipSelectLayer:onTypeSlect(index)
+
+    if self.selectData[index] then
+        self.selectData[index] = false
+    else
+        self.selectData[index] = true
+    end
+
+    self:refreshData()
+
+    self:onSelect()
+end
+
+function EquipSelectLayer:hideSelect()
+    self.objSelectBg:SetVisible(false)
+end
+
+function EquipSelectLayer:showSelect()
+    self.objSelectBg:SetVisible(true)
+    self.selectController:Reload(math.ceil(#self.selectCfg / ROW_SEL))
+end
+
+function EquipSelectLayer:onSelect()
+
+    self._tvController:Reload(math.ceil(#self._datas / ROW_NUM))
+    self._tvController:ScrollToTop()
+
+    
+    self:setSelectTag()
+    self:onEquipClick(1)
+end
+
+function EquipSelectLayer:getSuits()
+    local suits = {}
+    for _, v in ipairs(self._hero.equipids) do
+        if(v ~= 0)then
+            local equip = Equip:GetEquip(v)
+            if equip.suitid > 0 and equip.suitid ~= nil then
+                if suits[equip.suitid] == nil then
+                    suits[equip.suitid] = {}
+                    suits[equip.suitid].num = 1
+                else
+                    suits[equip.suitid].num =  suits[equip.suitid].num + 1
+                end
+            end
+        end
+    end
+    return suits
+end
+
+--------------------------------------------------------------------- 筛选
+
+return EquipSelectLayer
+

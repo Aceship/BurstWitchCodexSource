@@ -1,0 +1,82 @@
+--
+-- author: haosun
+-- date  : 2019-12-09 13:42:34
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LineUpLayer = class("LineUpLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    no      = "container/button_no",
+}
+
+function LineUpLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_LineUpLayer",
+    }
+
+    self:onEnter()
+end
+
+function LineUpLayer:initObj()
+    self._msgCom        = self.layer:GetTextComponent("container/text_desc")
+    self._countdownCom  = self.layer:GetTextComponent("container/text_refresh")
+end
+
+function LineUpLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    self:registerButtonEvent(BUTTON_TYPE)
+end
+
+function LineUpLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.no then
+        NetworkGame:Logout()
+        Login:ClearLineUpLayer()
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
+        self:onPopLayer()
+    end
+end
+
+function LineUpLayer:onUpdate(dt)
+    if self._lineUping then
+        self._dt = self._dt + dt
+        self._sumdt = self._sumdt + dt
+        if self._sumdt > self._lineUpdt then
+            self._sumdt = self._sumdt - self._lineUpdt
+            self._lineUping = false
+            NetworkGame:LineUp()
+            return
+        end
+        if self._dt > 1 then
+            self._dt = self._dt - 1
+            self._countdt = self._countdt - 1
+            self:refreshCountdown()
+        end
+    end
+end
+
+function LineUpLayer:show()
+    self._fading    = true
+    self._lineUpdt  = 5
+
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function LineUpLayer:refreshMsg(msg)
+    self._sumdt     = 0
+    self._dt        = 0
+    self._countdt   = 5
+    self._lineUping = true
+    self:refreshCountdown()
+    self._msgCom.text = msg
+end
+
+function LineUpLayer:refreshCountdown()
+    self._countdownCom.text = string.format(LanguageMgr:GetTextByID(10027), self._countdt)
+end
+
+return LineUpLayer
+

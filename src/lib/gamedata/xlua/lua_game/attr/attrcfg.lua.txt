@@ -1,0 +1,30 @@
+--
+-- author: haosun
+-- date  : 2018-12-20 11:50:21
+-- brief : 
+--
+CAttr = CAttr or {}
+
+function CAttr:_LoadCfg()
+    self._cfg = {}
+    
+    local configs = CfgLoader:LoadCfg("attr_desc")
+    for _, v in pairs(configs) do
+        self._cfg[tonumber(v.id)] = {
+            id = tonumber(v.id),
+            name = Language:GetTxtBuyId(v.name),
+            desc = Language:GetTxtBuyId(v.desc),
+            show_type = tonumber(v.num_type),
+        }
+    end
+end
+
+function CAttr:GetCfg(attrid)
+    attrid = tonumber(attrid)
+    if self._cfg[attrid] ~= nil then
+        return self._cfg[attrid]
+    end
+    CS.Logger.LogError("can't find attr_desc cfg id: {0}", attrid)
+    return {999, "name", "desc"}
+end
+

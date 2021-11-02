@@ -1,0 +1,165 @@
+UI_MessageBox = class("UI_MessageBox")
+
+MAINBOX_ANI = {
+    MainBox_IN = "MessageBoxFadeInAni",
+    MainBox_Out = "MessageBoxFadeOutAni",
+}
+
+function UI_MessageBox:ctor()
+    self.messageLayer = nil;
+    self.messageText = nil;
+    self.message = "";
+    self.sureBtn = nil;
+    self.cancelBtn = nil;
+    self.closeBtn = nil;
+    self.isSelection = false;
+    self.succCallBack = nil;
+    self.cancelCallBack = nil;
+    self.m_CurPlayEvent = "";
+    self.luaInterface = nil;
+    self.isFade = false;
+    self.canFade = true;
+    self.bkBtn = nil;
+    self.noBKTouch = nil;
+
+end
+
+function UI_MessageBox:onEnter()
+    --CS.Logger.LogInfo("UI_MessageBox is onEnter")
+    self:CreatePanel();
+    self:InitBtns();
+    if self.canFade then
+        self:FadeIn();
+    end
+end
+
+function UI_MessageBox:onDestory()
+    CS.UnityEngine.GameObject.Destroy(self.messageLayer.gameObject);
+end
+
+function UI_MessageBox:CreatePanel()
+    self.messageLayer = CanvasMgr:CreateCanvasChild("prefab_comframeWork/UI_MessageBox");
+    self.MainBox = self.messageLayer.gameObject.transform:Find ("MainBox");
+
+    self.luaInterface = self.MainBox.gameObject:AddComponent(typeof(CS.LuaInterface));
+    self.luaInterface:InitHitActor(self)
+
+    self.messageText = self.MainBox:Find ("Message"):GetComponent("Text");
+    self.sureBtn = self.MainBox:Find ("SureButton"):GetComponent("Button");
+    self.sureBtnFX = self.MainBox:Find ("SureButton"):GetComponent("UIButtonSFX");  -- 新添加，音频兼容相关
+    self.cancelBtn = self.MainBox:Find ("CancelButton"):GetComponent("Button");
+    self.cancelBtnFX = self.MainBox:Find ("CancelButton"):GetComponent("UIButtonSFX");  -- 新添加，音频兼容相关
+    self.closeBtn = self.MainBox:Find ("CloseButton"):GetComponent("Button");
+    self.closeBtnFX = self.MainBox:Find ("CloseButton"):GetComponent("UIButtonSFX");  -- 新添加，音频兼容相关
+    self.bkBtn = self.messageLayer.transform:Find ("BK"):GetComponent("Button");
+    self.bkBtnFX = self.messageLayer.transform:Find ("BK"):GetComponent("UIButtonSFX");  -- 新添加，音频兼容相关
+    if self.isSelection then
+        self.closeBtn.gameObject:SetActive(false);
+    else
+        self.sureBtn.gameObject:SetActive(false);
+        self.cancelBtn.gameObject:SetActive(false);
+    end
+    local str = string.format(self.message, "\n","\n");
+
+    self.messageText.text = str;
+end
+
+function UI_MessageBox:InitBtns()
+
+    local function onSureBtn()
+        if self.isFade == false then
+            --CS.Logger.LogInfo("点击 SureBtn");
+            Groble_UIMgr:ResetMsgBox();
+            self:UI_MainBoxFadeOutEnd();
+            if self.succCallBack ~= nil then
+                self.succCallBack();
+            end
+        end
+    end
+
+    local function onCancelBtn()
+        if self.isFade == false then
+            --CS.Logger.LogInfo("点击 CancelBtn");
+            Groble_UIMgr:ResetMsgBox();
+            self:UI_MainBoxFadeOutEnd();
+            if self.cancelCallBack ~= nil then
+                self.cancelCallBack();
+            end
+        end
+    end
+
+    if self.closeBtnFX ~= nil then
+        self.closeBtn.onClick:AddListener(onSureBtn);
+    else
+        self.closeBtn.onClick:AddListener(onSureBtn);
+    end
+    if self.sureBtnFX ~= nil then
+        self.sureBtn.onClick:AddListener(onSureBtn);
+    else
+        self.sureBtn.onClick:AddListener(onSureBtn);
+    end
+    if self.cancelBtnFX ~= nil then
+        self.cancelBtn.onClick:AddListener(onCancelBtn);
+    else
+        self.cancelBtn.onClick:AddListener(onCancelBtn);
+    end
+
+    if self.noBKTouch == nil then
+        if self.isSelection then
+            if self.bkBtnFX ~= nil then
+                self.bkBtn.onClick:AddListener(onCancelBtn);
+            else
+                self.bkBtn.onClick:AddListener(onCancelBtn);
+            end
+        else
+            if self.bkBtnFX ~= nil then
+                self.bkBtn.onClick:AddListener(onSureBtn);
+            else
+                self.bkBtn.onClick:AddListener(onSureBtn);
+            end
+        end
+    end
+
+    -- self.closeBtn.onClick:AddListener(onSureBtn);
+    -- self.sureBtn.onClick:AddListener(onSureBtn);
+    -- self.cancelBtn.onClick:AddListener(onCancelBtn);
+
+    -- if self.noBKTouch == nil then
+        -- if self.isSelection then
+            -- self.bkBtn.onClick:AddListener(onCancelBtn);
+        -- else
+            -- self.bkBtn.onClick:AddListener(onSureBtn);
+        -- end
+    -- end
+
+end
+
+function UI_MessageBox:UI_MainBoxFadeInEnd()
+    --CS.Logger.LogInfo("FadeInEnd");
+    self.isFade = false;
+end
+
+function UI_MessageBox:UI_MainBoxFadeOutEnd()
+    --CS.Logger.LogInfo("FadeOutEnd");
+    self:onDestory();
+    self.isFade = false;
+end
+
+function UI_MessageBox:FadeIn()
+    self.isFade = true;
+    self:PlayAni(MAINBOX_ANI.MainBox_IN);
+end
+
+function UI_MessageBox:FadeOut()
+    self.isFade = true;
+    self:PlayAni(MAINBOX_ANI.MainBox_Out);
+end
+
+function UI_MessageBox:PlayAni(ani)
+    if self.messageLayer == nil then
+        return;
+    end
+    --Groble_UIMgr:PlayAni(self.MainBox,ani)
+    local animator = self.MainBox.gameObject:GetComponent("Animator")
+    Groble_SceneMgr:PlayerAnimator(animator,ani, 0)
+end

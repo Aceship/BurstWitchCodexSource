@@ -1,0 +1,7 @@
+id,付费测试id,充值额度,魔女币返利比,钻石返利比
+id,Groupid,Chargelimit,Pyroxenerebate,Diamondrebate
+number,number,number,number,number
+1,1004,0,120,800
+2,1004,5000,120,800
+3,1005,0,200,0
+4,1005,5000,130,0

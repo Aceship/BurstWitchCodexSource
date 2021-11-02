@@ -1,0 +1,83 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+WorldBoss = WorldBoss or {};
+
+function WorldBoss:GetRankListReq()
+    local isSend = (CTime:GetServerTime() - self._serverData.reqTime) > Rank.REQ_INTERVIAL;
+    if(isSend)then
+        Rank:RankListReq(Rank.TYPE_WORLD_BOSS,self._serverData.rankId);
+    end
+end
+
+function WorldBoss:GetRankListRep(list)
+    self._serverData.rankList = list;
+    table.sort(self._serverData.rankList,function (a,b)
+        return a.score > b.score;
+    end);
+    for i, v in ipairs(self._serverData.rankList) do
+        if(v.id == Player:GetId())then
+            self._serverData.ranking = i;
+            self._onThenList = true;
+        end
+    end
+    self._serverData.reqTime = CTime:GetServerTime();
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION,EVENT_NAME.WORLD_BOSS_GET_LIST_OVER);
+end
+
+function WorldBoss:GetRankingRep(ranking)
+    if self._serverData.value > 0 then
+        self._serverData.ranking = ranking or 6000;
+    else
+        self._serverData.ranking = ranking or 0;
+    end
+end
+
+function WorldBoss:RankChange(rank, score)
+    AppMgr:LogInfo(string.format("深夜排名变化通知 rank = %d, score = %d", self._serverData.ranking, self._serverData.value))
+    self._serverData.ranking = rank;
+    local lastScore = self._serverData.value;
+    self._serverData.value = score;
+
+    if(self._onThenList)then
+        for i, v in ipairs(self._serverData.rankList) do
+            if(v.id == Player:GetId())then
+                v.score = score;
+            end
+        end
+    else
+        local data = {
+            score = self._serverData.value,
+            iconid = Player:GetHeadIcon(),
+            frameid = Player:GetHeadBorder(),
+            name = Player:GetName(),
+            rank = self._serverData.ranking,
+            name = Player:GetName(),
+            id = Player:GetId(),
+        }
+        table.insert(self._serverData.rankList,data);
+    end
+    table.sort(self._serverData.rankList,function (a,b)
+        return a.score > b.score;
+    end);
+    if(#self._serverData.rankList > WorldBoss.MaxShowRank)then
+        self._serverData.rankList[#self._serverData.rankList] = nil;
+    end
+    for i, v in ipairs(self._serverData.rankList) do
+        if(v.id == Player:GetId())then
+            self._serverData.ranking = i;
+            self._onThenList = true;
+        end
+    end
+    UpLoadVideo:SetUpLoadState(false);
+    if rank <= 50 and lastScore < score then
+        --第一,上传战斗数据
+        UpLoadVideo:SetUpLoadState(true);
+        UpLoadVideo:SetCurScore(score);
+        UpLoadVideo:UpLoadDataReq();
+    end
+end
+
+---------------------------注册回调---------------------------
+

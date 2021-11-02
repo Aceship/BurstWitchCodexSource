@@ -1,0 +1,393 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-23 18:25:32
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WhiteNightLayer = class("WhiteNightLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnTips = "trans_container/trans_hero_add/btn_tips",
+	BtnCommon = "trans_container/trans_level_bg/btn_common",
+	BtnHard = "trans_container/trans_level_bg/btn_hard",
+	BtnAward = "trans_container/btn_award",
+	--@ButtonEnd
+}
+
+local DegreeTypes = {Chapter.MODE_WHITER_NIGHT_COMMON,Chapter.MODE_WHITER_NIGHT_HARD};
+local AddHeroNum = 2;
+--构造函数
+function WhiteNightLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_WhiteNightLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self._updateA = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function WhiteNightLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function WhiteNightLayer:onButtonClick(itype)
+    if(self._updateA)then
+        return;
+    end
+    if(itype == BTNS.BtnTips)then
+	   self:OnBtnTipsClick();
+    elseif(itype == BTNS.BtnCommon)then
+        self:CutLevelDegree(Chapter.MODE_WHITER_NIGHT_COMMON);
+    elseif(itype == BTNS.BtnHard)then
+        self:CutLevelDegree(Chapter.MODE_WHITER_NIGHT_HARD);
+    elseif(itype == BTNS.BtnAward)then 
+	   self:OnBtnAwardClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+	
+	
+	
+end
+
+--退出按钮事件
+function WhiteNightLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function WhiteNightLayer:Init()
+    self._levels = {};
+    self._chapters = {};
+    self._levelItems = {};
+    self._curDegree = nil;
+    self._isInit = true;
+    local chapters = Chapter:GetChaptersIdByMainType(Chapter.FIGHT_TYPE_ACTIVITY);
+    for _, v in ipairs(chapters) do
+        local chapter = Chapter:GetChapter(v);
+        if(CTime:IsOpen(chapter.timeid))then
+            self._chapters[chapter.sub_type] = chapter;
+        end
+    end
+    for _, v in pairs(self._chapters) do
+        if(self._levels[v.sub_type] == nil)then
+            self._levels[v.sub_type] = {};
+        end
+        self._levels[v.sub_type] = v.levelids;
+    end
+    Chapter:ClickLevelCall(function (levelId)
+        self:OnBtnLevelClick(levelId);
+    end);
+    self:InitUI();
+end
+
+--初始化UI
+function WhiteNightLayer:InitUI()
+
+    self._imgCommon = self.layer:GetImageComponent("trans_container/trans_level_bg/btn_common");
+    self._imgHard = self.layer:GetImageComponent("trans_container/trans_level_bg/btn_hard");
+    self._imgTitleCommon = self.layer:GetImageComponent("trans_container/trans_level_bg/image_title_common");
+    self._imgTitleHard = self.layer:GetImageComponent("trans_container/trans_level_bg/image_title_hard");
+    self._imgLine = self.layer:GetImageComponent("trans_container/img_line");
+    self._imgRed = self.layer:GetImageComponent("trans_container/btn_award/img_red");
+    --@ImageEnd
+
+    self._txtLevelOverTime = self.layer:GetTextComponent("trans_container/txt_level_over_time");
+    self._txtAwardOverTime = self.layer:GetTextComponent("trans_container/txt_award_over_time");
+    --@TextEnd
+
+    self._transSpine = self.layer:Get("hero_spine");
+    self._transLevelItemParent = self.layer:Get("trans_container/scrollview/viewport/trans_level_item_parent");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+    self._objHardUiEffect = self.layer:Get("trans_container/trans_level_bg/btn_hard/obj_hard_ui_effect").gameObject;
+    self._objLevelDegreePoint = self.layer:Get("trans_container/trans_level_bg/obj_level_degree_point").gameObject;
+    self._objCommonUiEffect = self.layer:Get("trans_container/trans_level_bg/btn_common/obj_common_ui_effect").gameObject;
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    local btnImgs = {self._imgCommon,self._imgHard};
+    local btnTitleImgs = {self._imgTitleCommon,self._imgTitleHard};
+    local openSubId = DegreeTypes[1];
+    for i, v in ipairs(DegreeTypes) do
+        if(self:IsUnLockChapter(v))then
+            openSubId = v;
+            btnImgs[i].material = nil;
+            set_com_enabled(btnTitleImgs[i],true);
+        else
+            btnImgs[i].material = AssetLoader:LoadGrayMaterial();
+            set_com_enabled(btnTitleImgs[i],false);
+        end
+    end
+    set_com_enabled(self._imgRed,Task:GetWhiteNightRedState());
+    self._objHardUiEffect:SetVisible(self:IsUnLockChapter(Chapter.MODE_WHITER_NIGHT_HARD));
+    self:CutLevelDegree(openSubId);
+    self._txtAwardOverTime.text = string.format(LanguageMgr:GetTextByID(130021),CTime:UTime2DTDayStr(CTime:GetCfg(self._chapter.timeid).etime));
+    self._txtLevelOverTime.text = string.format(LanguageMgr:GetTextByID(130020),CTime:UTime2DTDayStr(CTime:GetCfg(self._chapter.timeid).etime));
+    self:InitAddHero();
+end
+
+--显示UI
+function WhiteNightLayer:show()
+    self:showLayer();
+end
+
+--释放
+function WhiteNightLayer:onExit()
+
+    Chapter:SetWhiteNightOpenState(false);
+    self._transSpine = nil;
+    self._objItem = nil;
+    self._txtLevelOverTime = nil;
+    self._txtAwardOverTime = nil;
+    self._transLevelItemParent = nil;
+    self._objHardUiEffect = nil;
+    self._objLevelDegreePoint = nil;
+    self._objCommonUiEffect = nil;
+    self._imgTitleCommon = nil;
+    self._imgTitleHard = nil;
+    self._imgRed = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function WhiteNightLayer:OnBtnTipsClick()
+
+ end
+
+function WhiteNightLayer:OnBtnLevelClick(levelId)
+    if self._fading then return end
+    if self._chapter.timeid ~= 0 then
+        -- 时间检测
+        if not CTime:IsOpen(self._chapter.timeid) then
+            Groble_UIMgr:ShowGameWordTipsLayer(881015)
+            return false
+        end
+    end
+    local unlock, lockstr = Chapter:LevelIsUnlock(levelId)
+    if unlock or self._chapter.levelid == levelId then
+        if self._chapter.fight_count == 0 or self._chapter.fight_count - self._chapter.pass_count > 0 then
+            Chapter:ShowLevelLayer(levelId, 76000051)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        end
+    else
+        Groble_UIMgr:ShowTipsLayer(lockstr)
+    end
+end
+function WhiteNightLayer:OnBtnAwardClick()
+    core.require("xlua/lua_UI/HomeScene/WhiteNightAwardLayer.txt"):new():show();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function WhiteNightLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_RED_POINT_STATE,self.__cname,function()
+        set_com_enabled(self._imgRed,Task:GetWhiteNightRedState());
+    end);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.LEVEL_REWARD_RECVED,
+            function()
+                self:SetLevelItem();
+            end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function WhiteNightLayer:CutLevelDegree(subId)
+    if(self._curDegree == subId)then
+        self:CutLevelDegreeAnim(subId);
+        return;
+    end
+    if(not self:IsUnLockChapter(subId,true))then
+        self:CutLevelDegreeAnim(self._curDegree);
+        return;
+    end
+    self:CutLevelDegreeAnim(subId);
+    self._curDegree = subId;
+    if(subId == Chapter.MODE_WHITER_NIGHT_COMMON)then
+        self._imgLine:DOColor(CS.UnityEngine.Color(1,1,1,63/255),0.3);
+    elseif(subId == Chapter.MODE_WHITER_NIGHT_HARD)then
+        self._imgLine:DOColor(CS.UnityEngine.Color(216/255,0,0,63/255),0.3);
+    end
+    self._chapter = self._chapters[subId];
+    self:LoadSpine();
+    self:SetLevelItem();
+end
+
+function WhiteNightLayer:SetLevelItem()
+    local levelIds = self._levels[self._curDegree];
+    local itemNum = #self._levelItems;
+    if(#levelIds > #self._levelItems)then
+        itemNum = #levelIds;
+    end
+    for i = 1, itemNum do
+        if(self._levelItems[i] == nil)then
+            self._levelItems[i] = Chapter:CtorLevelCObj(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transLevelItemParent));
+            self._levelItems[i].imgBg = self._levelItems[i]:GetImageComponent("img_bg");
+        end
+        self._levelItems[i].obj:SetVisible(levelIds[i] ~= nil);
+        if(levelIds[i] ~= nil)then
+            Chapter:SetLevelCObj(self._levelItems[i], levelIds[i], i);
+            self._levelItems[i].transform:SetScale(1,0,1);
+            self._levelItems[i].transform:DOScale(1, 0.1):SetDelay(0.06 * i);
+            if(self._curDegree == Chapter.MODE_WHITER_NIGHT_COMMON)then
+                self._levelItems[i].imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_white_night", "Img_GuanQia_XuanQuDi");
+            elseif(self._curDegree == Chapter.MODE_WHITER_NIGHT_HARD)then
+                self._levelItems[i].imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_white_night", "Img_GuanQia_XuanQuDi_3");
+            end
+        end
+    end
+end
+
+function WhiteNightLayer:LoadSpine()
+    if self._chapter.spine ~= nil or self._chapter.spine ~= -1 then
+        Hero:LoadSpineAsync(self.__cname,self._transSpine, self._chapter.spine, Hero.SPINE_UI_TYPE_BLOOD, function(obj)
+            self._alpha = -0.1
+            if obj == nil then
+                self._updateA = false
+                self._curMoudle = nil
+            else
+                self._curMoudle = obj
+                self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+                self.aniName = self.skeletonAni.AnimationName
+                self._updateA = true
+                if self._alpha < 1 then
+                    CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 0)
+                else
+                    CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 1)
+                end
+            end
+        end)
+    end
+end
+
+function WhiteNightLayer:onUpdate(dt)
+    if self._updateA then
+        self._alpha = self._alpha + dt * 2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, self._alpha)
+            -- self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+function WhiteNightLayer:CutLevelDegreeAnim(subId)
+    local aniname = "PointButtonAni1"
+    if(self._curDegree == subId or self._isInit)then
+        if(subId == Chapter.MODE_WHITER_NIGHT_COMMON)then
+            aniname = "PointButtonAni1";
+        elseif(subId == Chapter.MODE_WHITER_NIGHT_HARD)then
+            aniname = "PointButtonAni2";
+        end
+        self._isInit = false;
+    else
+        if(subId == Chapter.MODE_WHITER_NIGHT_COMMON)then
+            aniname = "PointButtonAni21";
+        elseif(subId == Chapter.MODE_WHITER_NIGHT_HARD)then
+            aniname = "PointButtonAni12";
+        end
+    end
+    Groble_UIMgr:PlayAni(self._objLevelDegreePoint, aniname);
+end
+
+--判断是否开启难度
+function WhiteNightLayer:IsUnLockChapter(subId,showtip)
+    --[[local sysid
+    if mode == Chapter.MODE_PLOT_D then
+        sysid =  Player.SYS_FUNC.plot_d
+    elseif mode == Chapter.MODE_PLOT_S then
+        sysid =  Player.SYS_FUNC.plot_s
+        return false
+    elseif mode == Chapter.MODE_PLOT_N then
+        sysid =  Player.SYS_FUNC.plot_n
+    end
+    if not Player:IsSysFuncOpen(sysid) then
+        if showtip then
+            Groble_UIMgr:ShowTipsLayer( Player:GetUnlockDesc(sysid))
+            self:onPlayPointButtonAni(self._plotMode, self._plotMode)
+        end
+        return false
+    end]]--
+    local chapter = self._chapters[subId]
+    if Player:GetLevel() < chapter.open_level then
+        if showtip then
+            local str = string.format(LanguageMgr:GetTextByID(20030), chapter.open_level)
+            Groble_UIMgr:ShowTipsLayer(str);
+        end
+        return false
+    end
+    if chapter.open == false then
+        if showtip then
+            local name_temp = "";
+            for _, val in pairs(chapter.prev_ids) do
+                local cfg = Chapter:GetChapter(val[1])
+                if not cfg.pass then
+                    name_temp = name_temp .. cfg.name_simple .." " ;
+                end
+
+            end
+            local str = string.format(LanguageMgr:GetTextByID(20025), name_temp)
+            Groble_UIMgr:ShowTipsLayer(str)
+        end
+        return false
+    end
+    return true
+end
+
+function WhiteNightLayer:InitAddHero()
+    self._addHeros = {};
+    local attrAdd = Player:GetWhiteNightAttrAdd();
+    local itemAdd = Player:GetWhiteNightItemAdd();
+    for i = 1, AddHeroNum do
+        local cls = clsbase:new(self.layer:Get("trans_container/trans_hero_add/obj_hero_"..i));
+        cls.imgIcon = cls:GetImageComponent("img_icon");
+        cls.imgBorder = cls:GetImageComponent("img_border");
+        cls.imgAddIcon = cls:GetImageComponent("img_add_icon");
+        cls.txtAddItemNum = cls:GetTextComponent("txt_item_add_num");
+        cls.txtAttrAdd = cls:GetTextComponent("txt_attr_add");
+        Hero:SetHeroHeadSprite(cls.imgIcon, attrAdd[i][1], false,true, true);
+        Hero:SetBorderUi(cls.imgBorder.transform, Hero:GetCfg(attrAdd[i][1]));
+        Item:SetItemIcon(cls.imgAddIcon, itemAdd[i][3]);
+        cls.txtAddItemNum.text = itemAdd[i][2].."%";
+        local attrName = "";
+        if(attrAdd[i][2] == Hero.ALL_ATTR)then
+            attrName = LanguageMgr:GetTextByID(130022);
+        else
+            local attr = CAttr:GetCfg(attrAdd[i][2]);
+            attrName = attr.name;
+        end
+        cls.txtAttrAdd.text = string.format(LanguageMgr:GetTextByID(130023),attrName,attrAdd[i][3]);
+        self._addHeros[i] = cls;
+    end
+end
+
+return WhiteNightLayer;

@@ -1,0 +1,98 @@
+--
+-- author: haosun
+-- date  : 2019-06-29 12:34:53
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local NoticeLayer = class("NoticeLayer", CBaseLayer)
+
+function NoticeLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_NoticeLayer",
+    }
+    self:onEnter()
+end
+
+function NoticeLayer:onEnter()
+    self:createPnl()
+    self._cls = {}
+    local transform
+    for i = 1, 3, 1 do
+        transform = self.layer:Get("container/info_" .. i)
+        self._cls[i] = {
+            nameTxtCom  = transform:GetTextComponent("txt_name"),
+            nameETxtCom = transform:GetTextComponent("txt_nameE"),
+            selImgCom   = transform:GetImageComponent("img_sel"),
+            button      = transform:GetComponent("Button")
+        }
+        self._cls[i].button:AddButtonListener(
+            function()
+                self:showNotice(i)
+            end)
+    end
+    self._titleTxtCom   = self.layer:GetTextComponent("container/txt_title")
+    self._titleETxtCom  = self.layer:GetTextComponent("container/txt_title_en")
+    self._descTxtCom    = self.layer:GetTextComponent("container/scroll/text")
+    self._scrollCom     = self.layer:GetScrollRectComponent("container/scroll")
+end
+
+function NoticeLayer:onExit()
+    for i, cls in ipairs(self._cls) do
+        cls.button:RemoveButtonAllListener()
+        cls.nameTxtCom  = nil
+        cls.nameETxtCom = nil
+        cls.selImgCom   = nil
+        cls.button      = nil
+    end
+    self._cls           = nil
+    self._titleTxtCom   = nil
+    self._titleETxtCom  = nil
+    self._descTxtCom    = nil
+    self._scrollCom     = nil
+    self._list          = nil
+    CBaseLayer.onExit(self)
+end
+
+function NoticeLayer:show(notice, showIndex)
+    self._list = luajson.decode(notice)
+    self._scrollCom.vertical = false
+    self._aniPanelFadeInEndCallback = function()
+        self._scrollCom.vertical = true
+    end
+    self:initLayer()
+    showIndex = showIndex or 1;
+    self:showNotice(showIndex)
+    self:showLayer()
+
+    self._fading = false
+end
+
+function NoticeLayer:initLayer()
+    for i, cls in ipairs(self._cls) do
+        cls.nameTxtCom.text = self._list[i]["TypeName"]
+        cls.nameETxtCom.text = self._list[i]["TypeNameEx"]
+    end
+end
+
+function NoticeLayer:showNotice(idx)
+    self._scrollCom.verticalNormalizedPosition = 1
+    for i, cls in ipairs(self._cls) do
+        if i == idx then
+            cls.nameTxtCom:SetTextColor(0, 0, 0, 1)
+            cls.nameETxtCom:SetTextColor(0, 0, 0, 1)
+        else
+            cls.nameTxtCom:SetTextColor(1, 1, 1, 1)
+            cls.nameETxtCom:SetTextColor(1, 1, 1, 1)
+        end
+        cls.selImgCom:SetVisible(i == idx)
+    end
+
+    local cfg = self._list[idx]
+    self._titleTxtCom.text  = cfg.Title
+    self._titleETxtCom.text = cfg.TitleEx
+    self._descTxtCom.text   = string.gsub(cfg.NoticeInfo, "n", "\n")
+end
+
+return NoticeLayer
+

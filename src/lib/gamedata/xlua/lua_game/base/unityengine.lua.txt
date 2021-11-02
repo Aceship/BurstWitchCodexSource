@@ -1,0 +1,83 @@
+--
+-- author: haosun
+-- date  : 2019-07-03 11:58:44
+-- brief : 
+--
+
+TextAnchor = {
+    UpperLeft       = 0,
+    UpperCenter     = 1,
+    UpperRight      = 2,
+    MiddleLeft      = 3,
+    MiddleCenter    = 4,
+    MiddleRight     = 5,
+    LowerLeft       = 6,
+    LowerCenter     = 7,
+    LowerRight      = 8
+}
+
+local _screen_scale     = 1
+local _screen_height    = CS.UnityEngine.Screen.height
+local _screen_width     = CS.UnityEngine.Screen.width
+local _design_height    = 1920
+local _design_width     = 1080
+
+function init_screen_scale()
+    local designWidth   = 1080
+    local designHeight  = 1920
+    local designScale   = designHeight / designWidth
+    local scaleRate     = _screen_height / _screen_width
+    if scaleRate > designScale then
+        _screen_scale   = scaleRate / designScale 
+    else
+        _screen_scale   = designScale / scaleRate
+    end
+end
+
+function fixed_screen_height(height)
+    height = height * (_screen_height / _design_height)
+    return height
+end
+
+function fixed_screen_width(width)
+    width = (width / _screen_width) * _screen_width * _screen_scale
+    return width
+end
+
+function fixed_obj_scale(obj)
+    local rect = obj:GetComponent("RectTransform")
+    local sizeDelta = rect.sizeDelta
+  --  local rectRate = sizeDelta.y / sizeDelta.x
+  --  local scaleRate = _screen_height / _screen_width
+
+    if _screen_width > _design_width then
+        rect.localScale = rect.localScale *  (_design_width/sizeDelta.x)
+    else
+        if  _screen_width  > sizeDelta.x then
+            rect.localScale = rect.localScale * _design_width/sizeDelta.x
+        else
+            rect.localScale = rect.localScale * _screen_width/sizeDelta.x * _design_width/_screen_width
+        end
+
+    end
+end
+
+function fixed_obj_scale_by_height(obj)
+    local screenRate = _screen_height / _screen_width
+    local designRate = _design_height / _design_width
+    local scale = 1
+    if(screenRate > designRate) then
+        scale = _design_width / _screen_width
+    else
+        scale = _design_height / _screen_height
+    end
+
+    local rect = obj:GetComponent("RectTransform")
+    local sizeDelta = rect.sizeDelta
+
+    local rate = (_screen_height * scale) / _design_height
+    rect.localScale = CS.UnityEngine.Vector3(rate, rate, 1)
+end
+
+init_screen_scale()
+

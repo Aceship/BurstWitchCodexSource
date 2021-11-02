@@ -1,0 +1,101 @@
+--
+-- author: haosun
+-- date  : 2020-04-24 13:34:03
+-- brief : 
+--
+--
+-- author: haosun
+-- date  : 2018-10-10 13:34:03
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local PcInputLayer = class("PcInputLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    QQLogin = "loginBtnNode/qqLogin",
+    WXLogin = "loginBtnNode/wxLogin",
+    BackBtn = "pcBtnNode/button_back",
+}
+--构造函数
+function PcInputLayer:ctor(super)
+    CBaseLayer.ctor(self)   
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_PcInputLayer",
+    }    
+
+    self:onEnter()
+end
+
+function PcInputLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self._inputAccCom       = self.layer.transform:Find("pcBtnNode/input_acc"):GetComponent("InputField")
+    self._PCLoginNode       = self.layer:Get("pcBtnNode")
+    self._QQWXLoginNode     = self.layer:Get("loginBtnNode")
+end
+
+function PcInputLayer:onExit()
+    self._inputAccCom = nil
+    self._backCall = nil
+    CBaseLayer.onExit(self)
+end
+--type 0:PC 1:QQWX
+function PcInputLayer:show(backCall, type)
+    self._fading    = false
+    self._backCall  = backCall
+    self._showType  = type
+    
+    self:initLayer()
+    self:showLayer()
+end
+
+--初始化界面
+function PcInputLayer:initLayer()
+    self._PCLoginNode:SetVisible(self._showType == 0)
+    self._QQWXLoginNode:SetVisible(self._showType == 1)
+
+    local oldacc = Groble_SceneMgr:PrefsGetString("myaccount")
+    if oldacc == nil then
+        self._inputAccCom.text = ""
+    else
+        self._inputAccCom.text = oldacc
+    end
+end
+
+function PcInputLayer:onBackClick()
+    local acc = self._inputAccCom.text
+    if self._showType == 0 then
+        if acc == "" then
+            Groble_UIMgr:ShowGameWordTipsLayer(10028)
+            return
+        end
+        -- acc is legal
+        if not string.number_or_char(acc) then
+            Groble_UIMgr:ShowTipsLayer("账号只能是数字和字符")
+            return
+        end
+    end
+    self._backCall(acc)
+    self:onPopLayer()
+end
+
+function PcInputLayer:onCloseLayer()
+    self:onPopLayer()
+end
+
+function PcInputLayer:onButtonClick(buttontype)
+    if buttontype == BUTTON_TYPE.QQLogin then    
+        self:ToLogin(1)
+    elseif buttontype == BUTTON_TYPE.WXLogin then
+        self:ToLogin(2)
+    elseif buttontype == BUTTON_TYPE.BackBtn then
+        self:onBackClick()
+    end
+end
+
+function PcInputLayer:ToLogin(type)
+    GameSdkMgr:WriteLoginType(type)
+end
+
+return PcInputLayer
+

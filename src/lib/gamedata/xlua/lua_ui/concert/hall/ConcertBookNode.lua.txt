@@ -1,0 +1,751 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-09-27 10:22:19
+---
+
+local MIN_BOOK_SCALE    = 1
+local MAX_BOOK_SCALE    = 1.1
+
+local offset_y = -300 --乐谱未激活是y轴偏移
+
+ConcertBookNode = class("ConcertBookNode", UIBaseNode)
+--按钮
+local BTNS = {
+    Cancel              = "bottom/obj_info_hero/uibtn_cancel",
+    Study               = "bottom/uibtn_study",
+    Fight               = "bottom/uibtn_fight",
+    ItemAdd             = "bottom/obj_info_drop/uibtn_item_add",
+    ItemMinus           = "bottom/obj_info_drop/uibtn_item_minus",
+    TagClose            = "obj_top/obj_tips_tag/uibtn_tag_close",
+}
+--构造函数
+function ConcertBookNode:ctor(super, nodeGo, parentLayer)
+    UIBaseNode.ctor(self, nodeGo, parentLayer);
+    self:onEnter();
+end
+
+function ConcertBookNode:InitNode(concertBookLayer)
+    self._mainLayer = concertBookLayer;
+    self.bookItems = {}
+    self.rewardItems = {}
+    self.rewardDatas = {}
+    self._bookIndex = 1
+    self._isBookOpen = true
+end
+
+function ConcertBookNode:DoEnterBook(hallId)
+    self._allBookIds = Concert:GetAllConcetBooks()
+    self._hall  = Concert:GetConcertById(hallId);
+
+    self.curBookId = 0
+    if self._hall.curBookId <= 0 then
+        self.curBookId = self._allBookIds[1]
+    else
+        self.curBookId = self._hall.curBookId;
+    end
+
+    self.itemId = self._hall.itemId
+    if self._curBook ~= nil then
+        self._curBook.isSelect = false
+    end
+    self._curBook  = Concert:GetConcertBookById(self.curBookId);
+    self._curBook.isSelect = true
+
+    --self._callBack = callback
+
+    if self._tvTableViewController ~= nil then
+        self:InitTableViewController()
+    end
+    self:IniCommonView();
+    self:onTagClose();
+end
+
+--进入Ui调用一次
+function ConcertBookNode:onEnter()
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertBookNode:onButtonClick(itype)
+    if (itype == BTNS.Cancel) then
+        self:onCancel();
+    elseif (itype == BTNS.Study) then
+        self:onStudy();
+    elseif (itype == BTNS.Fight) then
+        self:onFight();
+    elseif (itype == BTNS.ItemAdd) then
+        self:onItemAdd();
+    elseif (itype == BTNS.ItemMinus) then
+        self:onItemMinus();
+    elseif (itype == BTNS.TagClose) then
+        self:onTagClose();
+    else
+
+    end
+end
+
+--初始化
+function ConcertBookNode:Init()
+    self:InitUI();
+end
+
+--初始化UI
+function ConcertBookNode:InitUI()
+    self._objInfoHero = self.layer:GetRectTransformComponent("bottom/obj_info_hero").gameObject;
+    self._uibtnCancel = self.layer:GetUIButtonComponent("bottom/obj_info_hero/uibtn_cancel");
+    self._cellHeroitem1 = self.layer:GetRectTransformComponent("bottom/obj_info_hero/cell_heroitem_1").gameObject;
+    self._cellHeroitem2 = self.layer:GetRectTransformComponent("bottom/obj_info_hero/cell_heroitem_2").gameObject;
+    self._cellHeroitem3 = self.layer:GetRectTransformComponent("bottom/obj_info_hero/cell_heroitem_3").gameObject;
+    self._cellHeroitem4 = self.layer:GetRectTransformComponent("bottom/obj_info_hero/cell_heroitem_4").gameObject;
+    self._uibtnStudy = self.layer:GetUIButtonComponent("bottom/uibtn_study");
+    self._txtTitleE = self.layer:GetTextComponent("bottom/uibtn_study/txt_title_E");
+    self._txtTitle = self.layer:GetTextComponent("bottom/uibtn_study/txt_title");
+    self._tvTableViewController = UIController:CtorTableView(self.layer:Get("bottom/bottom_pnl/tv_TableViewController"));
+    self._cellPrefab = self.layer:GetRectTransformComponent("bottom/bottom_pnl/tv_TableViewController/cell_prefab").gameObject;
+    self._uibtnFight = self.layer:GetUIButtonComponent("bottom/uibtn_fight");
+    self._txtPower = self.layer:GetTextComponent("bottom/uibtn_fight/txt_power");
+    self._rectInfoBook = self.layer:GetRectTransformComponent("bottom/rect_info_book");
+    self._txtBookDes = self.layer:GetTextComponent("bottom/rect_info_book/txt_book_des");
+    self._txtBookTips = self.layer:GetTextComponent("bottom/rect_info_book/txt_book_tips");
+    self._objInfoDrop = self.layer:GetRectTransformComponent("bottom/obj_info_drop").gameObject;
+    self._objEmptyExtra = self.layer:GetRectTransformComponent("bottom/obj_info_drop/obj_empty_extra").gameObject;
+    self._objContent = self.layer:GetRectTransformComponent("bottom/obj_info_drop/scroll_extra/viewport/obj_content").gameObject;
+    self._txtExpupNum = self.layer:GetTextComponent("bottom/obj_info_drop/level_up/txt_expupNum");
+    self._imgPreScoreLevel = self.layer:GetImageComponent("bottom/obj_info_drop/score_up/img_pre_score_level");
+    self._txtPreScoreNum = self.layer:GetTextComponent("bottom/obj_info_drop/score_up/txt_pre_score_num");
+    self._uibtnItemAdd = self.layer:GetUIButtonComponent("bottom/obj_info_drop/uibtn_item_add");
+    self._imgItemAdd = self.layer:GetImageComponent("bottom/obj_info_drop/uibtn_item_add/img_itemAdd");
+    self._txtItemAddNum = self.layer:GetTextComponent("bottom/obj_info_drop/uibtn_item_add/txt_itemAddNum");
+    self._cellItem = self.layer:GetRectTransformComponent("bottom/obj_info_drop/cell_item").gameObject;
+    self._uibtnItemMinus = self.layer:GetUIButtonComponent("bottom/obj_info_drop/uibtn_item_minus");
+    self._txtTimeNum = self.layer:GetTextComponent("bottom/obj_info_drop/paly_time/txt_time_num");
+    self._objTop = self.layer:GetRectTransformComponent("obj_top").gameObject;
+    self._objMusicTags = self.layer:GetRectTransformComponent("obj_top/music_tags/obj_music_tags").gameObject;
+    self._imgDefficultyNum = self.layer:GetImageComponent("obj_top/info_score/img_defficultyNum");
+    self._objScore = self.layer:GetRectTransformComponent("obj_top/info_score/obj_score").gameObject;
+    self._txtScoreNum = self.layer:GetTextComponent("obj_top/info_score/obj_score/txt_scoreNum");
+    self._imgScoreLevel = self.layer:GetImageComponent("obj_top/info_score/obj_score/img_scoreLevel");
+    self._objNoScore = self.layer:GetRectTransformComponent("obj_top/info_score/obj_noScore").gameObject;
+    self._cellTag = self.layer:GetRectTransformComponent("obj_top/cell_tag").gameObject;
+    self._objTipsTag = self.layer:GetRectTransformComponent("obj_top/obj_tips_tag").gameObject;
+    self._txtTagDes = self.layer:GetTextComponent("obj_top/obj_tips_tag/txt_tag_des");
+    self._txtTagName = self.layer:GetTextComponent("obj_top/obj_tips_tag/txt_tag_name");
+    ---------------------------------------------------------------------
+
+    
+    CS.UnityHelper.NotchfitY(self._objTop);
+    self._musicTags = {}
+    local cls = nil
+    for i = 1, Concert.MUSIC_TAG_NUM do
+        cls =  Concert:CtorHeroMusicTags(self._objMusicTags:AddChild(self._cellTag))
+
+        cls.uiBtn.onClick:AddListener(function()
+            self:btnTagClick(i)
+        end);
+        cls.obj:SetVisible(true)
+        self._musicTags[i] = cls
+    end
+    self._uibtnCancel:SetMonoGameobjectActive(false)
+end
+
+
+--释放
+function ConcertBookNode:onExit()
+    if self._curBook ~= nil then
+        self._curBook.isSelect = false
+        Concert:UpdateConcertBook(self._curBook)
+    end
+    self._curBook = nil
+
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnDestroy();
+    end
+    --------------组件---------------
+    self._objInfoHero = nil;
+    self._uibtnCancel = nil;
+    self._cellHeroitem1 = nil;
+    self._cellHeroitem2 = nil;
+    self._cellHeroitem3 = nil;
+    self._cellHeroitem4 = nil;
+    self._uibtnStudy = nil;
+    self._txtTitleE = nil;
+    self._txtTitle = nil;
+    self._tvTableViewController:Clear();
+    self._tvTableViewController = nil;
+    self._cellPrefab = nil;
+    self._uibtnFight = nil;
+    self._txtPower = nil;
+    self._rectInfoBook = nil;
+    self._txtBookDes = nil;
+    self._txtBookTips = nil;
+    self._objInfoDrop = nil;
+    self._objEmptyExtra = nil;
+    self._objContent = nil;
+    self._txtExpupNum = nil;
+    self._imgPreScoreLevel = nil;
+    self._txtPreScoreNum = nil;
+    self._uibtnItemAdd = nil;
+    self._imgItemAdd = nil;
+    self._txtItemAddNum = nil;
+    self._cellItem = nil;
+    self._uibtnItemMinus = nil;
+    self._txtTimeNum = nil;
+    self._objTop = nil;
+    self._objMusicTags = nil;
+    self._imgDefficultyNum = nil;
+    self._objScore = nil;
+    self._txtScoreNum = nil;
+    self._imgScoreLevel = nil;
+    self._objNoScore = nil;
+    self._cellTag = nil;
+    self._objTipsTag = nil;
+    self._txtTagDes = nil;
+    self._txtTagName = nil;
+
+    --------数据-------------
+    self._hall          = nil;
+    self._fightHeros    = nil;
+    self.rewardDatas    = nil;
+    self._allBookIds    = nil;
+
+    if self._callBack ~= nil then
+        self._callBack = nil
+    end
+
+    if self.bookItems ~= nil then
+        for i, cls in pairs(self.bookItems) do
+            cls:clear()
+        end
+    end
+    self.bookItems      = nil
+
+    if self.rewardItems ~= nil then
+        for i, cls in pairs(self.rewardItems) do
+            cls:clear()
+        end
+    end
+    self.rewardItems = nil
+
+    if self._musicTags ~= nil then
+        for i, cls in pairs(self._musicTags) do
+            cls:clear()
+        end
+    end
+    self._musicTags = nil
+
+    UIBaseNode.onExit(self);
+end
+
+function ConcertBookNode:onFight()
+    local heroNum = Concert:GetFightHeroNum(self._fightHeros)
+    if heroNum <= 0 then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809029))
+        return
+    end
+    local state = self:checkShowState()
+    if state == false then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809020))
+        return
+    end
+
+    local isPower = self:checkPower()
+    if isPower == false then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809019))
+        return
+    end
+
+    local heroIds = {}
+    for i = 1, #self._curBook.musicalPos do
+        if self._fightHeros[i] ~= nil then
+            heroIds[i] = self._fightHeros[i].heroId
+        else
+            heroIds[i] = 0
+        end
+    end
+    Concert:ConcertShowStart_Req(self._hall.id,self._curBook.id,heroIds,self.itemId)
+end
+
+function ConcertBookNode:onStudy()
+    Concert:ShowConcertBookSelectLayer(self.curBookId);
+end
+
+
+function ConcertBookNode:onCancel()
+    self:CancelHeroSelect()
+end
+
+function ConcertBookNode:onItemAdd()
+    Concert:ShowConcertItemSelectLayer(self._fightHeros,self.rewardDatas,function(itemId)
+        self.itemId = itemId
+        self:refreshDropInfo();
+        self:refreshMusicTag();
+    end)
+end
+
+function ConcertBookNode:onItemMinus()
+    self.itemId = 0
+    self:refreshDropInfo();
+    self:refreshMusicTag();
+end
+
+function ConcertBookNode:onTagClose()
+    self._objTipsTag:SetVisible(false)
+end
+
+function ConcertBookNode:onHeroClick(cls)
+    if cls.heroId <= 0 then
+        Concert:OpenWitchesLayer(self._fightHeros,cls.posIndex,self.itemId,function(params)
+            self.curHeroIndex = nil
+            self:TryCancelItemSelect(params.fightids,self._fightHeros);
+            self._fightHeros = params.fightids;
+            local isAllMatch = Concert:IsAllMatchMusicAndHero(self._fightHeros,self._curBook)
+            if isAllMatch == false then
+                self.itemId = 0
+            end
+            self:refreshHeroInfo()
+            self:refreshDropInfo()   --刷新预估得分
+            self:refreshMusicTag()   --匹配度
+        end)
+    elseif cls.heroId > 0 then
+        if self.curSelectHero == nil then
+            self:ConfirmHeroSelect(cls);
+        else
+            if self.curSelectHero.posIndex ~= cls.posIndex then
+                self:SwitchHeroSelect(cls)
+            else
+                self:onCancel()
+            end
+        end
+    end
+end
+
+function ConcertBookNode:onChangeClick(cls)
+    Concert:OpenWitchesLayer(self._fightHeros,cls.posIndex,self.itemId,function(params)
+        self.curHeroIndex = nil
+        self:TryCancelItemSelect(params.fightids,self._fightHeros);
+        self._fightHeros = params.fightids;
+        local isAllMatch = Concert:IsAllMatchMusicAndHero(self._fightHeros,self._curBook)
+        if isAllMatch == false then
+            self.itemId = 0
+        end
+        self:refreshHeroInfo()
+        self:refreshDropInfo()
+        self:refreshMusicTag()   --匹配度
+    end)
+end
+
+function ConcertBookNode:TryCancelItemSelect(data1,data2) 
+    if(not Concert:CompareConcertHeroList(data1,data2)) then
+        self:onItemMinus();
+    end
+end
+
+function ConcertBookNode:btnTagClick(i)
+    local cls = self._musicTags[i]
+    if cls.apprId ~= nil and cls.apprId > 0 then
+        self._objTipsTag:SetVisible(true)
+        local tagCfg = Concert:GetAddTagByCfgId(cls.apprId)
+        self._txtTagName.text = tagCfg.name;
+        self._txtTagDes.text = tagCfg.des;
+    end
+end
+----------------------------- Init ----------------------
+function ConcertBookNode:IniCommonView()
+    self:setBookScroll()
+    self:refreshMusicTag()
+end
+
+function ConcertBookNode:InitHeroSelectController()
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Concert/Hall/ConcertHeroSelectCtrl.txt"):new(self._objInfoHero.transform);
+
+    local heroClick = function(index)
+        self:onHeroClick(index);
+    end;
+
+    local changeClick = function(index)
+        self:onChangeClick(index)
+    end
+
+    self._heroSelectCtrl:InitView(self._fightHeros, heroClick,changeClick);
+    self._heroSelectCtrl:UpdateHeroItem(self._fightHeros);
+end
+
+
+--乐谱列表
+function ConcertBookNode:InitTableViewController()
+    local count = lua_table_len(self._allBookIds)
+
+    self._tvTableViewController:Init(count, true, function(cell, row)
+        self:refreshUnitCell(self._allBookIds,cell, row + 1)
+    end)
+
+    local curIndex = 0
+    if self._hall.curBookId ~= nil and self._hall.curBookId > 0 then
+        curIndex = lua_table_indexof(self._allBookIds,self._hall.curBookId)
+    end
+    self._tvTableViewController:ScrollToRow(curIndex)
+end
+
+---------------------------- Refresh -------------------
+--刷新
+function ConcertBookNode:Refresh()
+
+end
+
+--体力更新
+function ConcertBookNode:RefreshPower()
+    self._txtPower.color = self:GetPowerColor();
+end
+
+--乐器标签更新
+function ConcertBookNode:refreshMusicTag()
+    Concert:SetMusicTags(self._fightHeros,self._musicTags,self.itemId)
+
+    for i = 1, Concert.MUSIC_TAG_NUM do
+        local cls = self._musicTags[i]
+        cls.objMask:SetVisible(false)
+        cls.txtDes:SetMonoGameobjectActive(cls.apprId ~= nil and cls.apprId > 0 )
+        if cls.apprId ~= nil and cls.apprId > 0 then
+            local tagCfg = Concert:GetAddTagByCfgId(cls.apprId)
+            cls.txtDes.text = tagCfg.name;
+        end
+    end
+end
+
+
+--魔女信息
+function ConcertBookNode:refreshHeroInfo()
+    Concert:ClearAllActor()
+
+    local hero
+    for i, v in pairs(self._fightHeros) do
+        if v.heroId > 0 then
+            hero = Hero:GetHero(v.heroId)
+            local isMatch = Concert:IsMatchMusicalAndHero(hero,v.musical)
+            local state;
+            if isMatch == 1 then
+                state = Concert.EConcertPlayState.MainPosPlay;
+            else
+                state = Concert.EConcertPlayState.IdleInMainPos;
+            end
+            Concert:SetActorByIndex(v.pos,hero.skinid,self._curBook.musicalPos[i],state)
+        end
+    end
+
+    if(self._heroSelectCtrl == nil)then
+        self:InitHeroSelectController();
+    else
+        self._heroSelectCtrl:UpdateHeroItem(self._fightHeros);
+        if self.curHeroIndex ~= nil then
+            local cls = self._heroSelectCtrl:GetHeroItem(self.curHeroIndex)
+            self:SwitchHeroSelect(cls)
+        else
+            self:CancelHeroSelect()
+        end
+    end
+end
+
+--掉落信息
+function ConcertBookNode:refreshDropInfo()
+    local allScore = Concert:GetAllHeroScore(self._fightHeros,self._curBook)
+    self._txtPreScoreNum.text = math.ceil(allScore)
+    self._txtExpupNum.text = Concert:GetWitchExp(self._curBook)
+    self._imgPreScoreLevel:LoadAtlasSprite(Concert.ConcertAtlas,Concert:GetScoreLevelPath(self._curBook,allScore))
+    self._uibtnItemMinus.gameObject:SetVisible(self.itemId > 0)
+    if self.itemId <= 0 then
+        self._imgItemAdd:LoadAtlasSprite(Concert.ConcertAtlas,"yyt_monv_add")
+        self._imgItemAdd.transform:SetScale(1,1,1)
+        self._txtItemAddNum.text = LanguageMgr:GetTextByID(809035)
+    else
+        local cfg = Item:GetCfg(self.itemId)
+        self._imgItemAdd.sprite = Item:LoadSprite(cfg.itemPath)
+        self._imgItemAdd.transform:SetScale(0.5,0.5,1)
+
+        local addItem = Concert:GetItemAddByCfgId(self.itemId)
+        local addNum = Concert:GetAddRateId(self._fightHeros,addItem)
+        if addItem.AppearanceGift[1] == Concert.AddType.Rate then
+            self._txtItemAddNum.text = addNum.."%"
+        else
+            self._txtItemAddNum.text = LanguageMgr:GetTextByID(809014)
+        end
+    end
+    self._imgItemAdd:SetNativeSize()
+    self.rewardDatas = Concert:GetRewardItemsByHeros(self._fightHeros,self._curBook,self.itemId)--Concert:GetRewardItemsByBookId(self._curBook.id)
+
+    local dataNum = lua_table_len(self.rewardDatas)
+    local itemNum = lua_table_len(self.rewardItems)
+    self._objContent:SetVisible(dataNum > 0);
+    self._objEmptyExtra:SetVisible(dataNum <= 0)
+    local itemData = {}
+    if(dataNum > 0)then
+        for _, v in ipairs(self.rewardDatas) do
+            local cls = self.rewardItems[_]
+            if cls == nil then
+                cls = Concert:CtorItemCObj(self._objContent:AddChild(self._cellItem))
+                self.rewardItems[_] = cls
+            end
+            cls.obj:SetVisible(true)
+
+            itemData.bagtype = v[1];
+            itemData.cfgid = v[2];
+            itemData.count = v[3]
+            if v[3] == nil then
+                itemData.count = 0
+            end
+            itemData.dropType = v[4];
+            itemData.addItemId = self.itemId
+            Concert:SetItemView(cls,itemData);
+        end
+    end
+    if dataNum < itemNum then
+        for i = dataNum + 1, itemNum do
+            local cls = self.rewardItems[i]
+            cls.obj:SetVisible(false)
+        end
+    end
+end
+
+--乐谱信息
+function ConcertBookNode:refreshCurBookInfo()
+    local book = Item:GetCfg(self._curBook.id)
+
+    self._imgDefficultyNum:LoadAtlasSprite(Concert.ConcertAtlas, "nb_yyt_"..self._curBook.difficulty)
+    self._txtScoreNum.text = self._curBook.score
+    self._txtPower.text = self._curBook.spirit;
+    self._txtPower.color = self:GetPowerColor();
+    self._txtTimeNum.text = math.ceil(self._curBook.duration/3600).."小时";
+    self._txtBookDes.text = book.Name;
+    self._txtBookTips.text = book.itemInfo;
+    self._imgScoreLevel:LoadAtlasSprite(Concert.ConcertAtlas,Concert:GetScoreLevelPath(self._curBook,self._curBook.score))
+
+    self._objScore:SetVisible(self._curBook.isOpen)
+    self._objInfoDrop:SetVisible(self._curBook.isOpen)
+    set_com_enabled(self._imgScoreLevel,self._curBook.score > 0)
+    set_com_enabled(self._txtScoreNum,self._curBook.score > 0)
+    self._objNoScore:SetVisible(self._curBook.score <= 0)
+    self._uibtnFight:SetMonoGameobjectActive(self._curBook.isOpen)
+    self._uibtnStudy:SetMonoGameobjectActive(not self._curBook.isOpen)
+
+    self._objInfoHero:SetVisible(self._curBook.isOpen)
+
+    local anchoredPosition = self._rectInfoBook.anchoredPosition;
+    if not self._curBook.isOpen and self._isBookOpen ~= self._curBook.isOpen then
+        anchoredPosition.y = anchoredPosition.y + offset_y;
+    end
+    if self._curBook.isOpen and self._isBookOpen ~= self._curBook.isOpen then
+        anchoredPosition.y = anchoredPosition.y - offset_y;
+    end
+    self._isBookOpen = self._curBook.isOpen;
+    self._rectInfoBook.anchoredPosition = anchoredPosition
+
+    if lua_table_len(self.tagItems) <= 0 then
+        local cls
+        for i = 1, Concert.MUSIC_TAG_NUM do
+            --cls = clsbase:new(obj)
+        end
+    end
+end
+
+
+function ConcertBookNode:refreshUnitCell(bookList,cell, row)
+    local cls = self.bookItems[cell]
+    if(cls == nil)then
+        cls =  Concert:CtorBookCObj(cell.transform.gameObject);
+        cls.btnItem:AddButtonListener(function()
+            self:onClickBook(cls);
+        end)
+        self.bookItems[cell] = cls
+    end
+    cls.data = Concert:GetConcertBookById(bookList[row])
+    self:setBookItem(cls);
+end
+
+function ConcertBookNode:onClickBook(cls)
+    if self._curBook ~= nil and self._curBook.id == cls.data.id then
+        return
+    end
+    if cls.data.isSelect == false then
+        cls.data.isSelect = true --选中
+    end
+    if self._curBook ~= nil and self._curBook.id ~= cls.data.id then
+        self._curBook.isSelect = false
+        Concert:UpdateConcertBook(self._curBook)
+        Concert:UpdateConcertBook(cls.data)
+        self:ResetItem(self._curBook)
+    end
+    self.itemId = 0
+    self:setBookItem(cls)
+    self:setBookSelectState(cls)
+    self:setBookScroll()
+    self:refreshMusicTag()   --匹配度
+end
+
+function ConcertBookNode:forceRefreshCurSelectBook(cls)
+    
+    if self._curBook.id == cls.data.id then
+        Concert:UpdateConcertBook(cls.data)
+        self:ResetItem(self._curBook)
+    else
+        cls.data.isSelect = true --选中
+        self._curBook.isSelect = false
+        Concert:UpdateConcertBook(self._curBook)
+        Concert:UpdateConcertBook(cls.data)
+        self:ResetItem(self._curBook)
+    end
+
+    self.itemId = 0
+    self:setBookItem(cls)
+    self:setBookSelectState(cls)
+    self:setBookScroll()
+    self:refreshMusicTag()   --匹配度
+end
+
+function ConcertBookNode:GetPowerColor()
+    if self._curBook == nil then
+        return
+    end
+    local need = self._curBook.spirit;
+    local has = Player:GetValue(Player.VALUE_POWER)
+    if has < need then --不足
+        return COLOR_TYPE.Red;
+    else
+        return COLOR_TYPE.White;
+    end
+end
+
+function ConcertBookNode:setBookItem(cls)
+    cls.objLock:SetVisible(not cls.data.isOpen)
+    cls.bookIcon.texture = AssetLoader:LoadTexture("source_icon_new/concert/"..cls.data.icon)
+    if cls.data.isSelect then
+        self:refreshUnitCellScale(cls,MAX_BOOK_SCALE,true)
+        cls.cdAnim:Play()
+    else
+        self:refreshUnitCellScale(cls,MIN_BOOK_SCALE,false)
+        cls.cdAnim:Stop()
+    end
+end
+
+function ConcertBookNode:ResetItem(lastBook)
+    for i, v in pairs(self.bookItems) do
+        if v.data.id == lastBook.id then
+            self:refreshUnitCellScale(v, MIN_BOOK_SCALE, false)
+            v.cdAnim:Stop()
+        end
+    end
+end
+
+
+function ConcertBookNode:setHeroButtonState(cls)
+    if cls.select then
+        self._heroSelectCtrl:EnableItems(cls.posIndex,false)
+    else
+        self._heroSelectCtrl:EnableItems(cls.posIndex,true)
+    end
+end
+
+--获得新的乐谱
+function ConcertBookNode:getNewConcertBook(bookId)
+
+    local curIndex = nil;
+    for index, value in ipairs(self._allBookIds) do
+        if(bookId == value) then
+            curIndex = index;
+        end
+    end
+    if(curIndex == nil) then
+        return ;
+    end
+
+
+    local findCls = nil;
+    for i, v in pairs(self.bookItems) do
+        if v.data.id == bookId then
+            findCls = v;
+            break;
+        end
+    end
+    if(findCls ~= nil)then
+        self:forceRefreshCurSelectBook(findCls);
+    end
+
+    local count = lua_table_len(self._allBookIds)
+
+    self._tvTableViewController:ScrollToRow(curIndex-1);
+    -- self.curBookId = bookId
+    -- self:setBookScroll()
+end
+
+function ConcertBookNode:setBookScroll()
+    self.curHeroIndex = nil
+    self._fightHeros = Concert:GetFightingHeros(self._hall,self.curBookId)
+    self:refreshCurBookInfo()
+    self:refreshHeroInfo()
+    self:refreshDropInfo()
+end
+
+function ConcertBookNode:setBookSelectState(cls)
+    if cls.data.isSelect == true then
+        self.curBookId = cls.data.id
+        self._bookIndex = lua_table_indexof(self._allBookIds,self.curBookId)
+        self._curBook = Concert:GetConcertBookById(self.curBookId)
+    end
+end
+
+function ConcertBookNode:refreshUnitCellScale(cls, scale, isCheck)
+    cls.bookPrefab:SetScale(scale, scale, scale)
+    cls.objSelect:SetVisible(isCheck)
+end
+
+--演奏状态检测
+function ConcertBookNode:checkShowState()
+    if not Concert:IsOverConcertHall(self._hall) then
+        return false
+    end
+    return true
+end
+
+--体力消耗检测
+function ConcertBookNode:checkPower()
+    local curPower = Player:GetValue(Player.VALUE_POWER)
+    local needPower = self._curBook.spirit
+    if curPower < needPower then
+        return false
+    end
+    return true
+end
+
+function ConcertBookNode:CancelHeroSelect()
+    if self.curSelectHero == nil then
+        return
+    end
+    self._heroSelectCtrl:CancelSelectHero(self.curSelectHero.posIndex)
+    self._uibtnCancel:SetMonoGameobjectActive(false)
+    self.curSelectHero.transform:SetScale(Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE)
+    Concert:CancelLookAt();
+    Concert:StopCurInstrumentIdTrack();
+
+    self.curSelectHero = nil
+end
+
+function ConcertBookNode:SwitchHeroSelect(cls)
+    if self.curSelectHero ~= nil then
+        self._heroSelectCtrl:CancelSelectHero(self.curSelectHero.posIndex,Concert.SelectType.Book)
+        self.curSelectHero.transform:SetScale(Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE,Concert.MIN_HERO_SCALE)
+    end
+    self:ConfirmHeroSelect(cls)
+end
+
+function ConcertBookNode:ConfirmHeroSelect(cls)
+    self._heroSelectCtrl:ConfirmSelectHero(cls.posIndex,Concert.SelectType.Book)
+    cls.transform:SetScale(Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE,Concert.MAX_HERO_SCALE)
+    self._uibtnCancel:SetMonoGameobjectActive(true)
+    self.curSelectHero = cls
+    Concert:LookAtIndex(cls.posIndex);
+    local hero = Hero:GetHero(cls.heroId)
+    local isMatch = Concert:IsMatchMusicalAndHero(hero,cls.musicalType)
+    if isMatch == 1 then
+        Concert:ChangeInstrumentTrack(cls.heroId,cls.musicalType)
+    end
+end
+

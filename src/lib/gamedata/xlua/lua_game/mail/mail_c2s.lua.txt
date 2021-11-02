@@ -1,0 +1,178 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 16:05:23
+-- brief :
+--
+Mail = Mail or {}
+
+function Mail:SyncMails(data)
+    if Network:IsNotHandleNotify() then return end
+
+    AppMgr:LogInfo("----------同步邮件数据----------")
+    self._unread = data.unread
+    self._count = data.count
+end
+
+function Mail:_Add(mail)
+    self._mails[mail.id] = mail;
+    self:SortMailItems(mail);
+end
+
+
+
+function Mail:_Sub(mailids)
+    self._count = self._count - 1
+    self._mails[mailids] = nil
+end
+
+function Mail:AddMail(mail)
+    self._unread =  self._unread + 1;
+    self._count  =  self._count + 1;
+    if type(mail) == "table" then
+        self:_Add(mail)
+    end
+    Player:RefreshHomeLayerBtnData(HomeLayerBtnType.Mail)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_MAIL_TIPS)
+end
+
+--邮件列表请求
+function Mail:MailReq()
+    Network:CallServerScript({c2s.MAIL_MAIL_LIST_REQ})
+end
+
+--邮件列表响应
+function Mail:MailRep(mails)
+    for _, v in pairs(mails) do
+        self:_Add(v)
+    end
+    self._hasreq = true
+    self:OpenMailLayer()
+end
+
+-- 读邮件请求
+function Mail:ReadMailReq(mailid)
+    Network:CallServerScript({c2s.MAIL_READ_REQ, mailid})
+end
+-- 读邮件响应
+function Mail:ReadMailRep(mailid)
+    Mail:ReadMail(mailid)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_READ,mailid)
+end
+
+-- 领取附件请求
+function Mail:RecvMailReq(mailid)
+    local cfg = Mail:GetMail(mailid);
+    local isEquip = false;
+    for _, v in ipairs(cfg.units) do
+        if(tonumber(v.u_type) == Bag.TYPE_EQUIP)then
+            isEquip = true;
+            break;
+        end
+    end
+    if(isEquip)then
+        if(Equip:GetEquipNumWhetherMax())then
+            Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+            return;
+        end
+    end
+    Network:CallServerScript({c2s.MAIL_GET_UNIT_REQ, mailid})
+end
+
+-- 领取附件响应
+function Mail:RecvMailRep(mailid)
+    Mail:ReadMail(mailid);
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_GET,mailid)
+end
+
+-- 一键领取附件请求
+function Mail:OnekeyRecvReq()
+    local bexist = false
+    local isEquip = false;
+    for _, v in pairs(self._mails) do
+        if self:CheckMailCanGet(v.id) and not Mail:GetMailIsPastDue(v) then
+            local cfg = Mail:GetMail(v.id);
+            for k, j in ipairs(cfg.units) do
+                if(tonumber(j.u_type) == Bag.TYPE_EQUIP)then
+                    isEquip = true;
+                    break;
+                end
+            end
+            bexist = true;
+            break;
+        end
+    end
+    if(isEquip)then
+        if(Equip:GetEquipNumWhetherMax())then
+            Groble_UIMgr:ShowMessageBox(true, false, LanguageMgr:GetTextByID(880019))
+            return false;
+        end
+    end
+    if bexist then
+        Network:CallServerScript({c2s.MAIL_BATCH_GET_UNIT_REQ})
+    end
+    return bexist
+end
+
+-- 一键领取附件响应
+function Mail:OnekeyRecvRep(mailids)
+    for _, id in pairs(mailids) do
+        Mail:ReadMail(id);
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_ONE_GET, mailids)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_MAIL_TIPS)
+end
+
+-- 删除邮件请求
+function Mail:DeleteMailReq(mailid)
+    Network:CallServerScript({c2s.MAIL_DEL_REQ, mailid})
+end
+
+-- 删除邮件响应
+function Mail:DeleteMailRep(mailid)
+    self:_Sub(mailid)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_DELETE,mailid)
+end
+
+-- 一键删除邮件请求
+function Mail:OnekeyDeleteMailReq()
+    local bexist = false
+    for _, v in pairs(self._mails) do
+        if self:CheckMailCanDelete(v.id) then
+            bexist = true
+        end
+    end
+    if bexist then
+        Network:CallServerScript({c2s.MAIL_BATCH_DEL_REQ})
+    end
+    return bexist
+end
+
+-- 一键删除邮件响应
+function Mail:OnekeyDeleteMailRep(mailids)
+    for _, id in pairs(mailids) do
+        self:_Sub(id)
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_ONE_DELETE,mailids)
+end
+
+-- 服务器主动删除邮件
+function Mail:DeleteSync(mailid, bread)
+    if bread == 0 then
+        self._unread = self._unread -1;
+    end
+    self:_Sub(mailid)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_MAIL_TIPS)
+    GEvent:fireEvent(EVENT_TYPE.DELETE_MAIL);
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.MAIL_DATA_SYNC]                 = {Mail, Mail.SyncMails}
+c2s[c2s.MAIL_MAIL_LIST_RES]             = {Mail, Mail.MailRep}
+c2s[c2s.MAIL_ADD_NTF]                   = {Mail, Mail.AddMail}
+c2s[c2s.MAIL_READ_RES]                  = {Mail, Mail.ReadMailRep}
+c2s[c2s.MAIL_GET_UNIT_RES]              = {Mail, Mail.RecvMailRep}
+c2s[c2s.MAIL_BATCH_GET_UNIT_RES]        = {Mail, Mail.OnekeyRecvRep}
+c2s[c2s.MAIL_DEL_RES]                   = {Mail, Mail.DeleteMailRep}
+c2s[c2s.MAIL_BATCH_DEL_RES]             = {Mail, Mail.OnekeyDeleteMailRep}
+--c2s[c2s.MAIL_DEL_MAIL_NTF]              = {Mail, Mail.DeleteSync}
+

@@ -1,0 +1,549 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-28 13:58:42
+---
+ProtoMgr = class("ProtoMgr")
+
+local pb = require 'pb';
+local protoc = core.require("xlua/lua_Utils/protoc.txt")
+function ProtoMgr:ctor()
+    assert(protoc:load [[
+         message HttpMsgHead
+        {
+            optional Token token    = 1;
+            optional bytes buff     = 2;
+        }
+        message Token
+        {
+            optional string signature   = 1;
+            optional uint64 accid       = 2;
+            optional int32 zone         = 3;
+            optional int32 platform     = 4;
+            optional int32 expirytime   = 5;
+            optional string accname     = 6;
+            optional uint32 state       = 7;    //账号状态类型
+        }
+        message ErrorMsg
+        {
+            optional uint32 err     = 1;
+            optional int64  param1  = 2;
+        }
+        message QueryDiscussReq
+        {
+            optional uint32 moduleid    = 1;
+            optional uint32 entryid     = 2;
+            optional uint32 page        = 3;
+        }
+        message QueryDiscussRep
+        {
+            repeated CommentViewUnit    cvunits     = 1;
+            optional int32              moduleid    = 2;
+            optional int32              entryid     = 3;
+        }
+        message CommentViewUnit
+        {
+            optional bytes  comment     = 1;
+            optional int32  like_num    = 2;
+            repeated bytes  replys      = 3;
+            optional int32  reply_num   = 4;
+            optional int32  commentid   = 5;
+        }
+        message QueryMoreReplyReq
+        {
+            optional uint32 moduleid    = 1;
+            optional uint32 entryid     = 2;
+            optional uint32 cmtid       = 3;
+            optional uint32 startpos    = 4;    //回复列表区间开始位置
+            optional uint32 endpos      = 5;    //回复列表区间结束位置
+        }
+        message QueryMoreReplyRep
+        {
+            repeated bytes              replys      = 1;
+            optional int32              moduleid    = 2;
+            optional int32              entryid     = 3;
+            optional uint32             cmtid       = 4;
+        }
+        message MessageUnit
+        {
+            optional int32  playerid            = 1;
+            optional string name                = 2;
+            optional int32  level               = 3;
+            optional int32  create_time         = 4;
+            optional bytes  content             = 5;
+        }
+        message LoginReq
+        {
+          optional int32 zone         = 1;
+          optional int32 platform     = 2;
+          optional string account     = 3;
+          optional string password    = 4;
+
+        }
+        message LoginRep
+        {
+            optional int32 errcode      = 1;
+            optional Token token        = 2;
+            optional string username    = 3;
+            optional string usertoken   = 4;
+            optional string userid      = 5;
+        }
+        message MdlCmtCountUnit
+        {
+            optional int32  entryid            = 1;
+            optional int32  count              = 3;
+        }
+        message QueryMdlCmtCountReq
+        {
+            optional uint32 moduleid    = 1;
+        }
+        message QueryMdlCmtCountRep
+        {
+            optional uint32 moduleid          = 1;
+            repeated MdlCmtCountUnit units    = 2;
+        }
+        //排行榜类型
+        enum ERankType
+        {
+            RANK_TYPE_SCORE = 1;
+            RANK_TYPE_RIFT = 2;
+            RANK_TYPE_SHENYE = 3;
+            RANK_TYPE_WORLDBOSS = 4;
+        };
+
+        //全局排行榜数据请求
+        message GlobalRankDataReq
+        {
+            optional ERankType  rank_type  = 1;    //榜类型
+            optional uint64     rankid     = 2;    //榜id
+        }
+
+        //玩家排行榜名片
+        message PlayerRankCard
+        {
+            optional uint64  id                 = 1;    //玩家id
+            optional string  name               = 2;    //玩家名称
+            optional uint32  level              = 3;    //玩家等级
+            optional uint32  iconid             = 4;    //头像
+            optional uint32  frameid            = 5;    //头像框
+            optional uint32  rank               = 6;    //排名
+            optional uint64  score              = 7;    //分数
+        }
+
+        //全局排行榜总数据
+        message GlobalRankDataRep
+        {
+            optional ERankType      rank_type          = 1;    //排行榜id
+            optional uint64         rankid             = 2;    //排行榜id
+            repeated PlayerRankCard cards              = 3;    //排行榜数据
+        }
+        //查看玩家排行榜名片 请求
+        message LookRankCardReq
+        {
+            optional uint64     playerid   = 1;    //player id
+            optional string     nickname   = 2;    //player nickname
+        }
+
+        //查看玩家排行榜名片 回复
+        message LookRankCardRep
+        {
+            optional uint64         playerid           = 1;    //player id
+            optional string         nickname           = 2;    //player nickname
+            optional uint32         level              = 3;    //
+            optional uint32         iconid             = 4;    //
+            optional uint32         frameid            = 5;    //
+            optional string         autograph          = 6;    //
+            optional uint64         syscore            = 7;    //
+            optional uint32         riftlv             = 8;    //
+            optional bytes          syhero             = 9;    //
+            optional uint32         trophy             = 10;   // 深夜奖杯
+            optional uint32         glory              = 11;   // 荣耀奖杯
+        }
+        //查看玩家通用名片 请求    [c2s.PLAYERINFO_CARD_DATA_REQ]
+        message LookPlayerCardReq
+        {
+            optional uint64     playerid   = 1;    //player id
+            optional string     nickname   = 2;    //player nickname
+        }
+
+        //查看玩家通用名片 回复
+        message LookPlayerCardRep
+        {
+            optional uint64         playerid            = 1;    //player id
+            optional string         nickname            = 2;    //player nickname
+            optional string         autograph           = 3;    //
+            optional uint32         level               = 4;    //
+            optional uint32         frameid             = 5;    //
+            optional uint32         iconid              = 6;    //
+            optional bytes          carddata            = 7;    //
+            optional uint32         coin                = 8;    //
+            optional uint64         syscore             = 9;    //深夜积分
+            optional uint32         trophy             = 10;   // 深夜奖杯
+            optional uint32         glory              = 11;   // 荣耀奖杯
+        }
+
+         message OneHeroAttr
+            {
+                optional int32 id       = 1;        // 属性id
+                optional float num      = 2;        // 属性值
+            }
+
+            message OneHeroBase
+            {
+                optional Hero hero     = 1;    // 魔女信息
+                repeated OneHeroAttr attrs      = 2;    // 魔女数值
+            }
+
+            message OneBuild
+            {
+                optional int32 b_id         = 1;        // 构筑id
+                optional int32 b_lv         = 2;        // 构筑等级
+            }
+
+            message OneTypeBuilds
+            {
+                optional int32 b_type       = 1;        // 构筑类型
+                repeated OneBuild b_builds  = 2;        // 所有的构筑点等级
+            }
+            message SYRankMedal
+            {
+                optional int32 id           = 1;        // 奖章id
+                optional int32 num          = 2;        // 奖章数量
+            }
+        message CardData
+        {
+            repeated OneHeroBase        heros           = 1;        //魔女所有信息
+            repeated Equip    equips          = 2;        //装备
+            repeated OneTypeBuilds      builds          = 3;        //构筑
+            repeated SYRankMedal        symedals        = 4;        //深夜奖章数据
+        }
+
+         message Skill
+            {
+                optional int32  slot    = 1;    //槽位
+                optional int32  level   = 2;    //技能等级
+            }
+
+            message IntimacyData
+            {
+                optional int32 exp      = 1;    // 好感度经验值
+                optional int32 level    = 2;    // 好感度等级
+         }
+
+            message Hero
+            {
+                 optional int32  id                  = 1;            // configID
+                 optional int32  level               = 2;            // 魔女等级
+                 optional int32  step                = 3;            // 魔女阶级
+                 repeated int32  equipids            = 4;            // 装备
+                 repeated Skill  skills              = 5;            // 魔女技能
+                 optional int32  exp                 = 6;            // 经验
+                 optional int32  star                = 7;           // 魔女星级
+                 optional int32 skinid               = 8;           // 皮肤id（itemid）
+                 optional IntimacyData intimacy_data = 9;           // 好感度
+                 optional int32  star_mark           = 10;           // 星级刻印
+            }
+
+        message HeroData
+        {
+            repeated Hero heros = 1;                                    // 英雄
+        }
+
+                    message MAttrData
+            {
+                optional int32 id       = 1;    // 装备属性表id
+                optional int32 pri_val  = 2;    // 初始属性数值
+            }
+            message ExAttrData
+            {
+                optional int32  id      = 1;    // 装备属性表id
+                optional int32  foster  = 2;    // 培养进度
+                optional int32  all_val = 3;    // 属性总数值
+            }
+
+            message Equip
+            {
+                optional int32      id       = 1;			// 唯一id
+                optional int32      configid = 2;           // 配置id
+                optional int32      level    = 3;           // 强化等级
+                optional int32      exp      = 4;           // 经验
+                optional int32      heroid   = 5;           // 穿戴英雄
+                optional int32      star     = 6;           // 装备升星
+                optional int32      lock     = 7;           // 装备锁定信息 0未锁定 1锁定
+                repeated ExAttrData ex_attrs = 8;           // 额外随机属性
+                optional MAttrData  m_attr   = 9;           // 主属性
+            }
+
+        message Equipdata
+        {
+            optional uint32 genid   = 1;                // 装备id生成器
+            repeated Equip  equips  = 2;		        // 装备数据
+        }
+        //
+        // 账号激活请求
+        //
+        message LoginActivateReq
+        {
+            optional int32 platform     = 1;    // 渠道
+            optional string account     = 2;    // 账号
+            optional string code        = 3;    // 激活码
+        }
+
+        //客户端推送BUG信息
+        message PushBugMessageReq
+        {
+            optional uint32         platform           = 1;    //运营层面的渠道，如2144，小米等
+            optional uint32         device_type        = 2;    //设备类型，手持设备，如手机，平板
+            optional string         device_model       = 3;    //设备型号，如iPhone6,2、Xiaomi MI 5 
+            optional string         device_os          = 4;    //设备操作系统，andriod or IOS or windows   
+            optional string         system_cpu         = 5;    //系统CPU信息
+            optional string         system_graphics    = 6;    //系统显卡信息
+            optional uint32         system_mem         = 7;    //系统内存信息 (GB为单位)
+            optional string         system_os          = 8;    //系统操作系统具体信息，如IOS13，Android 8.0 
+            optional string         message            = 9;    //bug消息内容
+            optional string         happen_tm          = 10;   //bug发生时间
+            optional string         md5                = 11;   //bug消息内容MD5码
+        }
+
+        //客户端推送BUG信息 回复
+        message PushBugMessageRep
+        {
+            optional uint32         result            = 1;      //回复结果 
+        }
+
+//增加vedio次数请求
+message VideoAddCountReq
+{
+    optional string     path    = 1;    //文件路径
+}
+
+//增加vedio次数请求
+message VideoAddCountRep
+{
+
+}
+
+//查询视频播放次数请求
+message WatchVideoCountReq
+{
+    repeated string   paths     = 1;    //文件路径
+}
+
+//查询视频播放次数请求
+message WatchVideoCountRep
+{
+    repeated uint32     counts    = 1;    //播放次数
+}
+
+//排行榜各区间最低排名数据
+message RangeLowestData
+{
+    optional uint32     rank      = 1;    //区间最低排名
+    optional uint64     score     = 2;    //最低排名对应的分数
+}
+
+//排行榜各区间最低分数请求 (目前仅限于深夜)
+message RankRangeLowestReq
+{
+    optional uint64             rankid     = 1;    //榜id
+}
+
+
+//排行榜各区间最低分数回复 (目前仅限于深夜)
+message RankRangeLowestRep
+{
+    optional uint64             rankid     = 1;    //榜id
+    repeated RangeLowestData    datas      = 2;    //数据                     
+}
+
+//
+// 聊天频道类型
+//
+enum EChatChannelType
+{
+    CHANNEL_TYPE_NONE		= 0;    //
+	CHANNEL_TYPE_WORLD		= 1;    //世界频道;分线
+	CHANNEL_TYPE_PRIVATE	= 2;    //私聊频道
+	CHANNEL_TYPE_SYS_CFG	= 3;    //系统频道（获取道具等）
+	CHANNEL_TYPE_SYS_NTF	= 4;    //系统频道（系统通知）
+	CHANNEL_TYPE_MAX		= 5;    //
+}
+
+//
+// chat登录请求
+//
+message ChatLoginReq
+{
+    optional uint32 line    = 1;    //聊天线路
+    optional Token token    = 2;    //验证Token
+}
+
+message ChatContent
+{
+    optional uint64 charid   = 1;
+    optional uint32 frameid  = 2;
+    optional uint32 iconid   = 3;
+    optional string name     = 4;
+    optional string content  = 5;
+    optional uint32 chattime = 6;  //发表时间
+}
+//
+// 服务器推送的聊天消息
+//
+message ChatMsgNotify
+{
+    optional uint32 type  = 1;    //聊天频道(1 世界频道, 2 私人频道, 3 系统配置(获得道具、英雄), 4 系统通知(跑马灯))
+    optional uint32 line  = 2;    //世界频道的分线；私人频道的目标玩家id
+    repeated bytes  msgs  = 3;    //聊天内容相关(对应ChatContent压缩后的序列化数据,可能包含多条)
+}
+
+//
+// chat登录响应
+//
+message ChatLoginRep
+{
+    optional uint32 errcode     = 1;    // 错误码，0为成功
+    optional uint32 line        = 2;    // 返回目标聊天线路
+    optional uint32 num         = 3;    // 本线路当前人数
+}
+//全局排行榜数据请求
+message HistoryRankDataReq
+{
+    optional ERankType      rank_type  = 1;    //榜类型
+    optional uint64         rankid     = 2;    //榜id
+}
+
+
+//全局排行榜数据回复
+message HistoryRankDataRep
+{
+    optional ERankType      rank_type          = 1;    //排行榜type
+    optional uint64         rankid             = 2;    //排行榜id
+    optional bytes          data               = 3;    //排行榜数据
+}
+
+//排行榜玩家对象
+message RankMemb
+{
+    optional int32 rtype        = 1;    //排行type
+    optional int64 rankid       = 2;    //排行gid
+    optional int32 div          = 3;    //排行榜段位
+    optional int32 rank         = 4;    //排行榜排名
+    optional uint64 score        = 5;    //最高分
+    optional uint64 id          = 6;   //玩家id
+    optional string name        = 7;   //玩家昵称
+    optional int32 frameid      = 8;   // 头像框id
+    optional int32 iconid       = 9;   // 玩家头像id
+    optional int32 level        = 10;    //玩家等级
+    optional int32 zoneid       = 11;    //区id
+    optional int32 trophy       = 12;    //奖杯数
+}
+
+//排行榜组信息
+message NewRankGroup
+{
+    repeated RankMemb rankmebs   = 1;    //排行对象列表
+}
+
+//
+// 视频类型
+//
+enum EVideoType
+{
+    VIDEO_TYPE_NONE                        = 0;    //
+        VIDEO_TYPE_WORLD_BOSS        = 1;    //圣光
+        VIDEO_TYPE_MIDNIGHT         = 2;    //深夜
+        VIDEO_TYPE_LEVEL                = 3;    //剧情关卡
+}
+
+//客户端上传视频信息
+message UploadVideoReq
+{
+    optional string     path    = 1;    //文件路径
+    optional bytes      data    = 2;    //vedio数据(数据大小不超过256KB，数据上传前需要压缩)
+    optional uint64                charId  = 3;        //玩家id
+        optional EVideoType        type         = 4;        //视频类型
+}
+
+//客户端上传视频信息
+message UploadVideoRep
+{
+
+}
+
+//获取当前的视频路径
+message GetVideoReq
+{
+    optional uint64                targe  = 1;        //目标玩家
+        optional EVideoType        type         = 2;        //视频类型
+}
+
+//客户端上传视频信息
+message GetVideoRep
+{
+   optional string     path    = 1;    //文件路径
+}
+
+//客户端举报信息
+message ReportVideoReq
+{
+	optional uint64	from = 1;
+	optional uint64	target = 2;
+	optional string	path    = 3;    //文件路径
+}
+
+//客户端上传视频信息
+message ReportVideoRep
+{
+
+}
+
+//客户端举报信息
+message ReportChatReq
+{
+	optional uint64	from = 1;
+	optional uint64	target = 2;
+	optional string	content   = 3;    //聊天内容
+}
+
+//客户端上传视频信息
+message ReportChatRep
+{
+
+}
+    ]]);
+end
+
+
+--加载proto文件
+function ProtoMgr:GetProtoc()
+    return protoc;
+end
+
+--序列化
+--返回一个proto二进制数组
+function ProtoMgr:Encode(name, data)
+    return assert(pb.encode(name, data));
+end
+
+--反序列化
+--返回一个可用的table
+function ProtoMgr:Decode(name, bytes)
+    return assert(pb.decode(name, bytes));
+end
+
+ProtoMgr.Token = "Token";
+ProtoMgr.HttpMsgHead = "HttpMsgHead";
+ProtoMgr.ErrorMsg = "ErrorMsg";
+ProtoMgr.LoginReq = "LoginReq";--登录
+ProtoMgr.LoginRep = "LoginRep";
+ProtoMgr.GlobalRankDataReq = "GlobalRankDataReq";--排行榜名片请求
+ProtoMgr.GlobalRankDataRep = "GlobalRankDataRep";
+ProtoMgr.LoginActivateReq = "LoginActivateReq";--账户激活
+ProtoMgr.RankRangeLowestReq = "RankRangeLowestReq";--请求排行榜分数信息
+ProtoMgr.RankRangeLowestRep = "RankRangeLowestRep";--请求排行榜分数信息
+ProtoMgr.NewRankGroup = "NewRankGroup";--上赛季排行榜数据
+ProtoMgr.HistoryRankDataReq = "HistoryRankDataReq";--上赛季排行榜列表请求
+ProtoMgr.HistoryRankDataRep = "HistoryRankDataRep";--上赛季排行榜列表返回
+
+ProtoMgr.ReportChatReq = "ReportChatReq";--信息举报(聊天)
+ProtoMgr.ReportVideoReq = "ReportVideoReq";-- 排行榜举报

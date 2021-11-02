@@ -1,0 +1,57 @@
+--
+-- author: haosun
+-- date  : 2021-05-18 15:42:25
+-- brief : 
+--
+Stats = Stats or {}
+
+Stats.RESET_TYPE_NIL    = 0
+Stats.RESET_TYPE_DAY    = 1
+Stats.RESET_TYPE_WEEK   = 2
+Stats.RESET_TYPE_MONTH  = 3
+
+Stats.STATS_TYPE_NIL                = 1001
+Stats.STATS_TYPE_PLAYER_LVEL        = 1003      -- 玩家等级>=X级
+Stats.STATS_TYPE_FRIEND_NUM         = 1004      -- 拥有X个好友
+Stats.STATS_TYPE_SKIN_NUM           = 1006      -- 获得皮肤数量
+Stats.STATS_TYPE_HERO_LEVEL         = 2002      -- 魔女等级>=X级的数量
+Stats.STATS_TYPE_X_HERO_LEVEL       = 2003      -- 魔女A的等级为N
+Stats.STATS_TYPE_HERO_QLTY          = 2011      -- 魔女X品质的数量
+Stats.STATS_TYPE_HERO_STAR          = 2024      -- 魔女星数>=X星的数量
+Stats.STATS_TYPE_X_HERO_STAR        = 2025      -- 魔女A的星级为N
+Stats.STATS_TYPE_HERO_SKILL_LV      = 2032      -- 魔女技能>=X级的数量
+Stats.STATS_TYPE_X_HERO_FAVORUP     = 2043      -- 魔女A的升华等级N
+Stats.STATS_TYPE_X_HERO_FAVOR       = 2055      -- 魔女A好感度等级为N
+Stats.STATS_TYPE_HERO_NUMBER        = 2099      -- 魔女个数
+Stats.STATS_TYPE_BUILD_LV           = 2103      -- 法典最大等级
+Stats.STATS_TYPE_BUILD_TYPE_LV      = 2104      -- 法典A类型
+Stats.STATS_TYPE_BUILD_X_DOT_LV     = 2105      -- 法典A类型任意分支最高点数
+Stats.STATS_TYPE_BUILD_ANY_DOT_LV   = 2106      -- 法典任意分支最高点数
+Stats.STATS_TYPE_BUILD_HERO_IN_DOT  = 2107      -- 全部法典类型，上阵A稀有度魔女N个
+Stats.STATS_TYPE_PASS_LEVEL         = 3031      -- 通关X副本
+Stats.STATS_TYPE_LEVEL_STAR         = 3141      -- 剧情获得星数
+Stats.STATS_TYPE_ETHER_CUR_LV       = 3502      -- 以太边境当前总战略等级
+Stats.STATS_TYPE_ETHER              = 3503      -- 以太边境X副本历史最高战略等级数
+Stats.STATS_TYPE_AFFIX_MAX_LV       = 3505      -- 以太X词缀历史最高等级数
+
+Stats.STATS_TYPE_10000              = 10000     -- 分割界限
+
+Stats.STATS_TYPE_DAILY_EXP          = 11098     -- 日常活跃任务
+Stats.STATS_TYPE_NEWER_SCORE        = 11099     -- 目光礼赞积分任务
+Stats.STATS_TYPE_RANK_PASS_LEVEL_1  = 13302     -- 深夜使用必杀次数<X击杀>=Y个BOSS
+Stats.STATS_TYPE_RANK_PASS_LEVEL    = 13303     -- 深夜通关
+Stats.STATS_TYPE_ETHER_PASS_LEVEL   = 13508     -- 以太通关
+
+Stats.STATS_TYPE_SIXTH_SEAL         = 14201     -- 第六封印积分统计
+
+Stats.STATS_TASK_MAX_FIX  = {
+    Stats.STATS_TYPE_PASS_LEVEL,
+}
+
+Stats.STATS_TASK_SHOW_COUNT_FIX  = {
+    Stats.STATS_TYPE_PASS_LEVEL,
+    Stats.STATS_TYPE_ETHER,
+    Stats.STATS_TYPE_RANK_PASS_LEVEL_1,
+    Stats.STATS_TYPE_RANK_PASS_LEVEL,
+    Stats.STATS_TYPE_ETHER_PASS_LEVEL,
+}

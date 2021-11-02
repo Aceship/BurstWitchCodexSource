@@ -1,0 +1,70 @@
+--
+-- author: haosun
+-- date  : 2019-03-21 15:03:35
+-- brief : 
+--
+
+Hero = Hero or {}
+
+function Hero:GetStepUpCost(hero)
+    local coin, items = {0, 0}, {}
+    if self._stepcfg[hero.id] == nil or self._stepcfg[hero.id][hero.step] == nil then
+        return coin, items
+    end
+    local cfg = self._stepcfg[hero.id][hero.step]
+    local coststr = cfg["StepUpCost_1"]
+    local i = 2
+    local key = "StepUpCost_" .. i
+    while cfg[key] ~= nil do
+        if cfg[key] ~= "-1" and cfg[key] ~= "0&0" then
+            coststr = coststr .. "|" .. cfg[key]
+        end
+        i = i + 1
+        key = "StepUpCost_" .. i
+    end
+    return parse_cost_cfg(coststr)
+end
+
+function Hero:GetStepUpLevel(hero)
+    if self._stepcfg[hero.id] == nil then
+        return 99
+    end
+    if self._stepcfg[hero.id][hero.step] == nil then
+        return 99
+    end
+    return tonumber(self._stepcfg[hero.id][hero.step]["Level"])
+end
+
+function Hero:IsPossibleToStepUp(heroid)
+    --未解锁功能不显示红点
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_step) then
+        return false
+    end
+    local hero = self:GetHero(heroid)
+    local ret = hero.step < tonumber(hero.config.MaxStep)
+    if true == ret then
+        ret = hero.level >= Hero:GetStepUpLevel(hero)
+        if true == ret then
+            local coin, tbl = self:GetStepUpCost(hero)
+            for _, v in pairs(tbl) do
+                if v[3] > Item:GetCount(v[2]) then
+                    ret = false
+                    break
+                end
+            end
+        end
+    end
+    return ret
+end
+
+function Hero:IsBatterEquipOper(heroid)
+    --未解锁功能不显示红点
+    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_equip) then
+        return false
+    end
+    local uids = self:GetBetterEquipUid(heroid)
+    if(#uids > 0)then
+        return true
+    end
+    return false
+end

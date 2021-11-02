@@ -1,0 +1,468 @@
+Friend = Friend or {}
+
+--玩家好友信息同步
+-- message PfriendData
+-- {
+--     message PfriendOneData
+--     {
+--         optional uint64 pf_id                   = 1;        //好友id
+--         optional int32 pf_coin_state            = 2;        //友情币接受状态
+--     }
+
+--     repeated PfriendOneData pf_datas            = 1;        //玩家的好友信息
+--     repeated uint64 pf_ids_request              = 2;        //申请玩家id
+--     repeated uint64 p_ids_black                 = 3;        //屏蔽掉的玩家id
+--     repeated uint64 pf_ids_del                  = 4;        //删除玩家的列表
+--     repeated uint64 pf_ids_send_coin            = 5;        //友情币已发送的好友id 列表
+--     optional int32 pf_coins_get                 = 6;        //当日已经接受的好友币数量
+-- }
+function Friend:Data_sync(syncdata)
+    AppMgr:LogInfo("----------好友数据同步----------")
+
+    self._frienddata.number = 0
+    self._frienddata.recv_coin = {}
+    self._frienddata.send_coin = {}
+    self._frienddata.list = {}
+
+    self._recvCoinNumber = syncdata.pf_coins_get
+
+    for playerid, v in pairs(syncdata.pf_datas) do
+        self._frienddata.recv_coin[playerid] = v
+        self._frienddata.player_ids[playerid] = true
+        self._frienddata.number = self._frienddata.number + 1
+    end
+    -- send data
+    for playerid, v in pairs(syncdata.pf_ids_send_coin) do
+        self._sendCoinNumber = self._sendCoinNumber + 1
+        self._frienddata.send_coin[playerid] = 1
+    end
+
+    -- apply ids
+    self:SetApplyNumber(syncdata.pf_ids_request)
+
+    -- black ids
+    for pid, v in pairs(syncdata.p_ids_black) do
+        self:AddBlackList(pid)
+    end
+
+    -- req state
+    self._reqstate = {
+        [Friend.REQ_TYPE_FRIEND_LIST] = {req = false, stime = 0},
+        [Friend.REQ_TYPE_APPLY_LIST]  = {req = false, stime = 0},
+        [Friend.REQ_TYPE_BLACK_LIST]  = {req = false, stime = 0},
+    }
+end
+
+-- 搜索玩家请求
+function Friend:FindFriendReq(id_or_name, looktype)
+    if os.time() - self._lookdata.utctime >= Friend.REQ_LOOK_INTERVAL then
+        Network:CallServerScript({c2s.PFRIEND_GET_FRIEND_DATA_REQ, id_or_name, looktype})
+    end
+end
+
+-- 搜索玩家返回
+function Friend:FindFriendRes(data)
+    self._lookdata.utctime = os.time()
+    if data ~= nil and next(data) ~= nil then
+        -- TODO：搜索缓存        
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FIND_FRIEND, data)
+    else
+        Groble_UIMgr:ShowGameWordTipsLayer(1600074)
+    end
+end
+
+--获得推荐好友请求
+function Friend:GetRecommendListReq()
+    if os.time() - self._recommenddata.utctime >= Friend.REQ_RECOMMED_INTERVAL then
+        Network:CallServerScript({c2s.PFRIEND_GET_RECOMMEND_LIST_REQ})
+    end
+end
+
+--获得推荐好友返回
+function Friend:GetRecommendListRes(recommend_data)
+    self._recommenddata.list = self:RemoveUnUseInfo(recommend_data)
+    for _, v in pairs(self._recommenddata.list) do
+        if v.onlinestate == Friend.STATE_ONLINE then
+            v.offlinetime = CTime:GetServerTime()
+        end
+    end
+    table.sort(self._recommenddata.list, function(a, b)
+        return a.offlinetime > b.offlinetime
+    end)
+    self._recommenddata.utctime = os.time()
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FIND_RECOMMENDFRIEND)
+end
+
+--好友申请
+function Friend:FriendRequestReq(player_id)
+    if player_id == Player:GetId() then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600060)
+        return
+    end
+    if self:GetFriendNumber() >= self._maxcfg.max_friends then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600061)
+        return
+    end
+    if self:IsFriend(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600063)
+        return
+    end
+    if self:IsBlackList(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600062)
+        return
+    end
+    if self._applyed[player_id] then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600057)
+        return
+    end
+    Network:CallServerScript({c2s.PFRIEND_FRIEND_REQUEST_REQ, player_id})
+end
+
+-- 好友申请返回
+function Friend:FriendRequestRes(playerid)
+    self._applyed[playerid] = playerid
+    Groble_UIMgr:ShowGameWordTipsLayer(1600057)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FRIEND_APPLY_SUCC, playerid)
+end
+
+-- 好友申请通知
+function Friend:FriendRequestNotify(Request_data)
+    self:AddApplydata(Request_data)
+end
+
+--
+-- Brief: 请求基本数据
+-- Param: 请求类型
+--
+function Friend:GetFriendInfoReq(reqtype)
+    if not self._reqstate[reqtype].req then
+        Network:CallServerScript({c2s.PFRIEND_GET_CLASS_DATA_REQ, reqtype})
+    end
+end
+
+-- 请求获得玩家好友等数据回调
+function Friend:GetFriendInfoRes(datas, reptype)
+    self._reqstate[reptype].req = true
+    self._reqstate[reptype].stime = os.time()
+    if reptype == Friend.REQ_TYPE_FRIEND_LIST then
+        if(not self._frienddata.isGet)then
+            self._frienddata.isGet = true;
+        end
+        self._frienddata.number = 0
+        for _, v in ipairs(datas) do
+            self:AddFriend(v, false)
+        end
+        self:OnListSort()
+        if(Friend:GetFriendDataLoadState())then
+            Friend:_OnOpenLayer();
+        end
+    elseif reptype == Friend.REQ_TYPE_APPLY_LIST then
+        self:SetApplydata(datas)
+        self:_OnOpenApplyLayer()
+    elseif reptype == Friend.REQ_TYPE_BLACK_LIST then
+        self._blacklist.datas = datas
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_UNFRIEND)
+    end
+end
+--一键同意
+function Friend:FriendRequestOkAllReq(player_id)
+    if self:GetFriendNumber() >= self._maxcfg.max_friends then
+        self:FriendRequestDelALLReq()
+        self._isReqing = true
+        return
+    end
+    if self:IsBlackList(player_id) then
+        self:FriendRequestDelReq(player_id)
+        self._isReqing = true
+        return
+    end
+    self._isReqing = true
+    Network:CallServerScript({c2s.PFRIEND_FRIEND_REQUEST_OK_REQ, player_id})
+end
+
+--发送同意好友请求
+function Friend:FriendRequestOkReq(player_id)
+    if self:GetFriendNumber() >= self._maxcfg.max_friends then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600061)
+        return
+    end
+    if self:IsBlackList(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600062)
+        return
+    end
+    Network:CallServerScript({c2s.PFRIEND_FRIEND_REQUEST_OK_REQ, player_id})
+end
+
+--同意添加好友返回
+function Friend:FriendRequestOkRes(result, playerid)
+    if result == true then
+        self:_OnProgressApply(playerid, true)
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND)
+        self._isReqing = false
+    else
+        if self._isReqing then
+            --一键同意 返回，已满直接移除列表
+           self:FriendRequestDelReq(playerid)
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(1600058)
+        end
+    end
+end
+
+--同意添加好友通知
+function Friend:FriendRequestOkNotify(data)
+    self:AddFriend(data, true)
+    self:_OnProgressApply(data.id, false)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND)
+end
+
+--拒绝添加好友请求
+function Friend:FriendRequestDelReq(player_id)
+    Network:CallServerScript({c2s.PFRIEND_FRIEND_REQUEST_DEL_REQ, player_id})
+end
+
+--拒绝添加好友返回
+function Friend:FriendRequestDelRes(playerid)
+    self:_OnProgressApply(playerid, false)
+    self._isReqing = false
+end
+
+--一键拒绝添加好友请求
+function Friend:FriendRequestDelALLReq()
+    Network:CallServerScript({c2s.PFRIEND_REFUSE_ALLREQ_ONEKEY_REQ})
+end
+
+--一键拒绝添加好友返回
+function Friend:FriendRequestDelALLRes()
+    self._applydata = {
+        number   = 0,
+        ids      = {},
+        datas    = {},
+    }
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_APPLY_LIST, true)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    self._isReqing = false
+    Player:RefreshHomeLayerData(HomeLayerMsgType.FriendApply, self._applydata.number)
+end
+
+--删除好友请求
+function Friend:FriendDelReq(player_id)
+    if player_id == Player:GetId() then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600066)
+        return
+    end
+    if not self:IsFriend(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600067)
+        return
+    end
+    Network:CallServerScript({c2s.PFRIEND_FRIEND_DEL_REQ, player_id})
+end
+
+--删除好友返回
+function Friend:FriendDelRes(result, playerid)
+    if result == true then
+        self:RemoveFriend(playerid)
+    else
+        CS.Logger.LogError("!!!!!!!!!!!!!!!!!!!!!!!!!!! Delete Friend False...")
+    end
+end
+
+--删除好友通知
+function Friend:FriendDelNotify(playerid)
+    self:RemoveFriend(playerid)
+end
+
+--添加黑名单请求
+function Friend:AddUnFriendReq(player_id)
+    if player_id == Player:GetId() then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600068)
+        return
+    end
+    if self:GetBlacklistNumber() >= self._maxcfg.max_black then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600064)
+        return
+    end
+    if self:IsFriend(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600063)
+        return
+    end
+    if self:IsBlackList(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600062)
+        return
+    end
+    Network:CallServerScript({c2s.PFRIEND_UNFRIEND_ADD_REQ, player_id})
+end
+
+--添加黑名单返回
+function Friend:AddUnFriendRes(pdata)
+    -- 检测是否在好友申请列表，存在则删除
+    self:_OnProgressApply(pdata.id, false)
+    self:AddBlackList(pdata.id, pdata)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_UNFRIEND)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_PLAYERINFOFRIEND)
+end
+
+-- 
+-- brief：添加黑名单通知 玩家自己被其他人加到黑名单中，此时只需处理自己的申请列表
+-- 
+function Friend:FriendRequestDelNotify(playerid)
+    self:_OnProgressApply(playerid, false)
+end
+
+--移除黑名单请求
+function Friend:DelUnFriendReq(player_id)
+    if player_id == Player:GetId() then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600068)
+        return
+    end
+    if not self:IsBlackList(player_id) then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600065)
+        return
+    end
+    Network:CallServerScript({c2s.PFRIEND_UNFRIEND_DEL_REQ, player_id})
+end
+
+--移除黑名单返回
+function Friend:DelUnFriendRes(playerid)
+    self:RemoveBlacklist(playerid)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_UNFRIEND)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_PLAYERINFOFRIEND)
+end
+
+--
+-- Brief: 赠送好友币请求
+-- Param: 赠送方式、玩家ID
+--
+function Friend:SendCoinReq(sendtype, playerid)
+    if self._sendCoinNumber >= self._maxcfg.max_send then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600069)
+        return
+    end
+    if sendtype == Friend.SEND_COIN_ONE then
+        if playerid ~= nil then
+            Network:CallServerScript({c2s.PFRIEND_COIN_SEND_REQ, playerid})
+        end
+    elseif sendtype == Friend.SEND_COIN_ALL then
+        Network:CallServerScript({c2s.PFRIEND_COIN_SEND_ONEKEY_REQ})
+    end
+end
+
+-- 发送好友币返回
+function Friend:SendCoinRes(playerid)
+    self:_OnProgressSendRep({playerid})
+end
+
+function Friend:SendAllCoinRes(playerids)
+    self:_OnProgressSendRep(playerids)
+end
+
+function Friend:SendCoinNotify(playerid)
+    self:_OnProgressRecvOrSend({playerid}, Friend.OPER_CAN_RECV)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Friend:_OnProgressSendRep(playerids)
+    if playerids and next(playerids) then
+        self:_OnProgressRecvOrSend(playerids, Friend.OPER_SEND)
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+        Groble_UIMgr:ShowGameWordTipsLayer(1600075)
+    else
+        Groble_UIMgr:ShowGameWordTipsLayer(1600077)
+    end
+end
+
+--
+-- Brief: 领取好友币
+-- Param: 领取方式、玩家ID
+--
+function Friend:RecvCoinReq(recvtype, playerid)
+    if self._recvCoinNumber >= self._maxcfg.max_recv then
+        Groble_UIMgr:ShowGameWordTipsLayer(1600070)
+        return
+    end
+    if recvtype == Friend.RECV_COIN_ONE then
+        if playerid ~= nil then
+            Network:CallServerScript({c2s.PFRIEND_COIN_GET_REQ, playerid})
+        end
+    elseif recvtype == Friend.RECV_COIN_ALL then
+        Network:CallServerScript({c2s.PFRIEND_COIN_GET_ONEKEY_REQ})
+    end
+end
+
+-- 领取好友币返回
+function Friend:GetCoinRes(coin_num, playerid)
+    self:_OnProgressRecvRep(coin_num, {playerid})
+end
+
+-- 一键接受好友币返回
+function Friend:GetAllCoinRes(coin_num, playerids)
+    self:_OnProgressRecvRep(coin_num, playerids)
+end
+
+function Friend:_OnProgressRecvRep(coins, playerids)
+    if coins > 0 then
+        self._recvCoinNumber = self._recvCoinNumber + coins
+        self:_OnProgressRecvOrSend(playerids, Friend.OPER_RECV)
+      
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+        Groble_UIMgr:ShowGameWordTipsLayer(1600076)
+    else
+        Groble_UIMgr:ShowGameWordTipsLayer(1600078)
+    end
+end
+
+function Friend:_OnProgressRecvOrSend(playerids, oper)
+    for _,v in pairs(playerids) do
+        local data = self:GetFriendById(v)
+        if data ~= nil then
+            if oper == Friend.OPER_CAN_RECV then
+                data.recv_state = Friend.COIN_STATE_RECV
+                self._frienddata.recv_coin[v] = Friend.COIN_STATE_RECV
+            elseif oper == Friend.OPER_RECV then
+                data.recv_state = Friend.COIN_STATE_DONE
+                self._frienddata.recv_coin[v] = Friend.COIN_STATE_DONE
+            elseif oper == Friend.OPER_SEND then
+                data.send_state = Friend.COIN_STATE_RECV
+                self._frienddata.send_coin[v] = Friend.COIN_STATE_RECV
+            else
+                --TODO:
+            end
+        end
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_FRIEND, playerids)
+end
+
+--好友上线通知
+function Friend:FriendOnlineNotify(pid)
+    self:UpdateFriend(pid, Friend.STATE_ONLINE)
+end
+
+--好友下线通知
+function Friend:FriendOfflineNotify(pid)
+    self:UpdateFriend(pid, Friend.STATE_OFFLINE)
+end
+
+--------------------------------------------注册回调--------------------------------------------
+c2s[c2s.PFRIEND_DATA_SYNC]                  = {Friend, Friend.Data_sync}
+c2s[c2s.PFRIEND_GET_FRIEND_DATA_RES]        = {Friend, Friend.FindFriendRes}
+c2s[c2s.PFRIEND_GET_RECOMMEND_LIST_RES]     = {Friend, Friend.GetRecommendListRes}
+c2s[c2s.PFRIEND_FRIEND_REQUEST_RES]         = {Friend, Friend.FriendRequestRes}
+c2s[c2s.PFRIEND_FRIEND_REQUEST_NOTIFY]      = {Friend, Friend.FriendRequestNotify}
+c2s[c2s.PFRIEND_GET_CLASS_DATA_RES]         = {Friend, Friend.GetFriendInfoRes}
+c2s[c2s.PFRIEND_FRIEND_REQUEST_OK_RES]      = {Friend, Friend.FriendRequestOkRes}
+c2s[c2s.PFRIEND_FRIEND_REQUEST_OK_NOTIFY]   = {Friend, Friend.FriendRequestOkNotify}
+c2s[c2s.PFRIEND_FRIEND_REQUEST_DEL_RES]     = {Friend, Friend.FriendRequestDelRes}
+c2s[c2s.PFRIEND_UNFRIEND_ADD_NTF]           = {Friend, Friend.FriendRequestDelNotify}
+c2s[c2s.PFRIEND_FRIEND_DEL_RES]             = {Friend, Friend.FriendDelRes}
+c2s[c2s.PFRIEND_FRIEND_DEL_NOTIFY]          = {Friend, Friend.FriendDelNotify}
+c2s[c2s.PFRIEND_UNFRIEND_ADD_RES]           = {Friend, Friend.AddUnFriendRes}
+c2s[c2s.PFRIEND_UNFRIEND_DEL_RES]           = {Friend, Friend.DelUnFriendRes}
+c2s[c2s.PFRIEND_COIN_SEND_RES]              = {Friend, Friend.SendCoinRes}
+c2s[c2s.PFRIEND_COIN_SEND_NOTIFY]           = {Friend, Friend.SendCoinNotify}
+c2s[c2s.PFRIEND_COIN_GET_RES]               = {Friend, Friend.GetCoinRes}
+c2s[c2s.PFRIEND_COIN_SEND_ONEKEY_RES]       = {Friend, Friend.SendAllCoinRes}
+c2s[c2s.PFRIEND_COIN_GET_ONEKEY_RES]        = {Friend, Friend.GetAllCoinRes}
+c2s[c2s.PFRIEND_FRIEND_LOGIN_NTF]           = {Friend, Friend.FriendOnlineNotify}
+c2s[c2s.PFRIEND_FRIEND_LOGOUT_NTF]          = {Friend, Friend.FriendOfflineNotify}
+c2s[c2s.PFRIEND_REFUSE_ALLREQ_ONEKEY_RSP]   = {Friend, Friend.FriendRequestDelALLRes}

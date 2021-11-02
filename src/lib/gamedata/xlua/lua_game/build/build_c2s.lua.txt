@@ -1,0 +1,371 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Build = Build or {}
+
+function Build:GetBuildServerDataByAtkType(atkType)
+    local retData = self._buildServerData[atkType];
+    if(retData == nil)then
+        CS.Logger.LogError("buildServerData is null  atkType = "..atkType);
+    end
+    return retData or {};
+end
+
+function Build:GetDotAddLvById(dotId)
+    local retData = self._dotAddLvData[dotId];
+    if(retData == nil)then
+        CS.Logger.LogError("dotAddLvData is null  dotId = "..dotId);
+    end
+    return retData or {};
+end
+
+function Build:SetAllBuildDotHeroAddLv()
+    for _, atkType in pairs(Hero.BuildAtk) do
+        self:SetBuildDotHeroAddLvByAtkType(atkType);
+    end
+    Build:CloseChangeBuildDotIds();
+end
+
+function Build:SetBuildDotHeroAddLvByAtkType(atkType)
+    local build = self._buildServerData[atkType];
+    for _, heroId in ipairs(build.heroIds) do
+        if(heroId ~= 0)then
+            Build:AddBuildHero(heroId,atkType);
+        end
+    end
+end
+
+function Build:AddBuildHero(heroId,atkType)
+    local hero = Hero:GetHero(heroId);
+    for _, dot in ipairs(hero.sortDots) do
+        if(hero.star >= dot.star)then
+            local dotCfg = Build:GetBuildDotCfgByEffectId(atkType,dot.id);
+            if(dotCfg ~= nil)then
+                local maxLv = 0;
+                for _, num in ipairs(dotCfg.levelGroup) do
+                    maxLv = maxLv + num;
+                end
+                if(self._dotAddLvData[dotCfg.id].heroAddLv == nil)then
+                    self._dotAddLvData[dotCfg.id].heroAddLv = 0;
+                end
+                self._dotAddLvData[dotCfg.id].heroAddLv = self._dotAddLvData[dotCfg.id].heroAddLv + 1;
+                local curLv = self._dotAddLvData[dotCfg.id].heroAddLv + self._dotAddLvData[dotCfg.id].addLv;
+                Build:AddChangeBuildDotId(dotCfg.id,true);
+                if(curLv > maxLv)then
+                    if( self._dotAddLvData[dotCfg.id].addLv > 0)then
+                        self._dotAddLvData[dotCfg.id].addLv = self._dotAddLvData[dotCfg.id].addLv - (curLv - maxLv);
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Build:RemoveBuildHero(heroId,atkType)
+    if(heroId == 0)then
+        return;
+    end
+    local hero = Hero:GetHero(heroId);
+    for _, dot in ipairs(hero.sortDots) do
+        if(hero.star >= dot.star)then
+            local dotCfg = Build:GetBuildDotCfgByEffectId(atkType,dot.id);
+            if(dotCfg ~= nil)then
+                if(self._dotAddLvData[dotCfg.id].heroAddLv > 0)then
+                    self._dotAddLvData[dotCfg.id].heroAddLv = self._dotAddLvData[dotCfg.id].heroAddLv - 1;
+                    Build:AddChangeBuildDotId(dotCfg.id,false);
+                end
+            end
+        end
+    end
+end
+
+function Build:NewBuildLvData(atkType)
+    local attrs = {};
+    for _, v in pairs(Player:GetBuildAttrAddTypeByAtkType(atkType)) do
+        attrs[v] = 0;
+    end
+    local buildTypeCfg = Build:GetAtkTypeCfgById(atkType);
+    local data = {
+        id = 0,
+        lv = 0,
+        atkType = atkType,
+        attrAdds = attrs,
+        attrSortIds = Player:GetBuildAttrAddTypeByAtkType(atkType),
+        pointInFight = 0,
+        pointAdd = buildTypeCfg.initPointNum,
+        des = "",
+        lvMax = false,
+    };
+    return data;
+end
+
+function Build:AddBuildLvData(lvData,lv)
+    if(lvData.lvMax)then
+        CS.Logger.LogError("构筑等级已达最大   atkType = "..lvData.atkType);
+        return;
+    end
+    local cfg = Build:GetBuildLevelUpCfgByLv(lvData.atkType,lv);
+    lvData.id = cfg.id;
+    lvData.lv = cfg.lv;
+    for _, v in ipairs(cfg.pointOutFight) do
+        if(lvData.attrAdds[v[1]] == nil)then
+            table.insert(lvData.attrSortIds,v[1]);
+            lvData.attrAdds[v[1]] = 0;
+        end
+        lvData.attrAdds[v[1]] = lvData.attrAdds[v[1]] + v[2];
+    end
+    lvData.pointInFight = lvData.pointInFight + cfg.pointInFight;
+    lvData.pointAdd = lvData.pointAdd + cfg.pointAdd;
+    if(cfg.des ~= "-1")then
+        lvData.des = cfg.des;
+    end
+    if(lv >= Build.MaxLv)then
+        lvData.lvMax = true;
+    end
+end
+
+
+function Build:GetBuildLvDataByAtkType(atkType)
+    return self._buildLvData[atkType];
+end
+
+--获取角色Id的类型和下标
+function Build:GetHeroIdAtkTypeAndIndex(heroId,curType)
+    local retType,index = 0,0;
+    for atkType, build in pairs(self._buildServerData) do
+        for i, v in ipairs(build.heroIds) do
+            if(curType == nil)then
+                if(v == heroId)then
+                    retType = atkType;
+                    index = i;
+                    break;
+                end
+            else
+                if(curType ~= atkType)then
+                    if(v == heroId)then
+                        retType = atkType;
+                        index = i;
+                        break;
+                    end
+                end
+            end
+        end
+    end
+    return retType,index;
+end
+
+function Build:HeroStarUp(heroId)
+    local atkType = Build:GetHeroIdAtkTypeAndIndex(heroId);
+    if(atkType > 0)then
+        local hero = Hero:GetHero(heroId);
+        for _, dot in ipairs(hero.sortDots) do
+            if(hero.star == dot.star)then
+                local dotCfg = Build:GetBuildDotCfgByEffectId(atkType,dot.id);
+                if(dotCfg ~= nil)then
+                    local maxLv = 0;
+                    for _, num in ipairs(dotCfg.levelGroup) do
+                        maxLv = maxLv + num;
+                    end
+                    if(self._dotAddLvData[dotCfg.id].heroAddLv == nil)then
+                        self._dotAddLvData[dotCfg.id].heroAddLv = 0;
+                    end
+                    self._dotAddLvData[dotCfg.id].heroAddLv = self._dotAddLvData[dotCfg.id].heroAddLv + 1;
+                    local curLv = self._dotAddLvData[dotCfg.id].heroAddLv + self._dotAddLvData[dotCfg.id].addLv;
+                    if(curLv > maxLv)then
+                        self._dotAddLvData[dotCfg.id].addLv = self._dotAddLvData[dotCfg.id].addLv - (curLv - maxLv);
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Build:SyncBuildData(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步构筑数据----------")
+    self._dotAddLvData = {};
+    self._buildServerData = {};
+    self._buildLvData = {};
+    for _, v in ipairs(Hero.BuildAtk) do
+        self._buildServerData[v] = {};
+        local dotIds = Build:GetBuildDotIdsByAtkType(v);
+        -- 代码待优化
+        if(data.dots ~= nil)then            
+            for _, dotId in ipairs(dotIds) do
+                self._dotAddLvData[dotId] = {};
+                self._dotAddLvData[dotId].addLv = data.dots[dotId] or 0;
+                self._dotAddLvData[dotId].heroAddLv = 0;
+                self._buildDotAddNum[dotId] = self._dotAddLvData[dotId].addLv;
+            end
+        else
+            for _, dotId in ipairs(dotIds) do
+                self._dotAddLvData[dotId] = {};
+                self._dotAddLvData[dotId].addLv = 0;
+                self._dotAddLvData[dotId].heroAddLv = 0;
+                self._buildDotAddNum[dotId] = self._dotAddLvData[dotId].addLv;
+            end
+        end
+        self._buildServerData[v].heroIds = {0,0,0}
+        self._buildServerData[v].lv = 0;
+        if(data.builds ~= nil)then
+            if(data.builds[v] ~= nil)then
+                if(next(data.builds[v].hero_ids) == nil)then
+                    self._buildServerData[v].heroIds = {0,0,0};
+                else
+                    self._buildServerData[v].heroIds = data.builds[v].hero_ids;
+                end
+                self._buildServerData[v].lv = data.builds[v].lv or 0;
+            end
+        end
+        self._buildServerData[v].dotIds = dotIds;
+
+        self._buildLvData[v] = Build:NewBuildLvData(v);
+        for i = 1, self._buildServerData[v].lv do
+            local lvData = self._buildLvData[v];
+            Build:AddBuildLvData(lvData,i);
+        end
+    end
+    self:SetBuildGuide(false)
+end
+
+function Build:GetBuildHeroIds()
+    return self._bTypeHeroIds;
+end
+
+function Build:SetBuildHeroReq(lastIds)
+    local ids = Build:GetCurBTypeHeroIds();
+    local isSend = false;
+    for i, v in ipairs(lastIds) do
+        if(ids[i] ~= v)then
+            isSend = true;
+        end
+        self._lastHeroId[i] = v;
+    end
+    if(not isSend)then
+        self._lastHeroId = {0,0,0};
+        return isSend;
+    end
+    local reqIds = {};
+    for i, v in ipairs(ids) do
+        table.insert(reqIds,v);
+    end
+    Network:CallServerScript({c2s.BULLETBUILD_HERO_LIST_CHANGED_REQ,self._curAtkType,reqIds});
+    return true;
+end
+
+function Build:SetBuildHeroRep(bType,ids)
+    Build:CloseChangeBuildDotIds();
+    for i, id in ipairs(ids) do
+        if(id ~= self._lastHeroId[i])then
+            Build:RemoveBuildHero(self._lastHeroId[i],bType);
+            local changeAtkType,changeIndex = Build:GetHeroIdAtkTypeAndIndex(id,self._curAtkType);
+            if(changeAtkType > 0)then--当前魔女是否被使用
+                if(self._curAtkType ~= changeAtkType)then
+                    Build:RemoveBuildHero(id,changeAtkType);--删除该魔女对上一个构筑的加成
+                    self._buildServerData[changeAtkType].heroIds[changeIndex] = 0;
+                end
+            end
+            if(id > 0)then
+                Build:AddBuildHero(id,bType);--添加当前构筑的角色加成
+            end
+            self._buildServerData[self._curAtkType].heroIds[i] = id;
+        end
+    end
+    self._lastHeroId = {0,0,0};
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_BUILD_HERO_IDS);
+    
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_X_DOT_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_ANY_DOT_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_HERO_IN_DOT)
+end
+
+function Build:BuildLevelUpReq(atkType)
+    Network:CallServerScript({c2s.BULLETBUILD_LV_UP_REQ,Build:GetCurSelectAtkType()});
+end
+
+function Build:BuildLevelUpRep(atkType,lvTo)
+    for i = self._buildServerData[atkType].lv + 1, lvTo do
+        local lvData = self._buildLvData[atkType];
+        Build:AddBuildLvData(lvData,i);
+    end
+    self._buildServerData[atkType].lv = lvTo;
+    local heroId = Hero:GetIdsByAtkType(atkType,true);
+    for i, v in pairs(heroId) do
+        local hero = Hero:GetHero(v);
+        Hero:OnCalcAttr(hero);
+    end
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_TYPE_LV)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_BUILD_LV_DATA);
+
+    ThinkingMgr:SendTrack("build_level_up", {
+        build_id = atkType,
+        build_current_level = lvTo
+    })
+
+end
+
+function Build:BuildDotNumChange(dotId,changeType)
+    if(self._dotAddLvData[dotId] == nil)then
+        self._dotAddLvData[dotId] = {};
+        self._dotAddLvData[dotId].addLv = 0;
+        self._dotAddLvData[dotId].heroAddLv = 0;
+    end
+    if(changeType == Build.BodChangeType.Add)then
+        self._dotAddLvData[dotId].addLv = self._dotAddLvData[dotId].addLv + 1;
+    else
+        self._dotAddLvData[dotId].addLv = self._dotAddLvData[dotId].addLv - 1;
+    end
+    GEvent:fireEvent(EVENT_TYPE.BUILD_DOT_LV_CHANGE,{dotId = dotId,changeType = changeType});
+end
+
+function Build:BuildDotNumChangeReq()
+    local sendArr = {};
+    local isSend = false;
+    local dotIds = Build:GetBuildDotIdsByAtkType(Build:GetCurSelectAtkType());
+    for _, id in pairs(dotIds) do
+        if(self._dotAddLvData[id] ~= nil)then
+            sendArr[id] = self._dotAddLvData[id].addLv;
+        else
+            sendArr[id] = 0;
+        end
+        if(self._buildDotAddNum[id] ~= sendArr[id])then
+            isSend = true;
+        end
+    end
+    if(isSend)then
+        Network:CallServerScript({c2s.BULLETBUILD_DOT_NUM_CHANGE_REQ,Build:GetCurSelectAtkType(),sendArr});
+    end
+end
+
+function Build:BuildDotNumChangeRep()
+    local dotIds = Build:GetBuildDotIdsByAtkType(Build:GetCurSelectAtkType());
+    for _, id in pairs(dotIds) do
+        if(self._dotAddLvData[id] ~= nil)then
+            self._buildDotAddNum[id] = self._dotAddLvData[id].addLv;
+        else
+            self._buildDotAddNum[id] = 0;
+        end
+    end
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_X_DOT_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_ANY_DOT_LV)
+    Stats:UpdateStatsCount(Stats.STATS_TYPE_BUILD_HERO_IN_DOT)
+end
+
+function Build:GetBuildNum(hero)
+    local num = 0
+    local dotIds = Build:GetBuildDotIdsByAtkType(hero.atktype);
+    for _, id in pairs(dotIds) do
+        if(self._buildDotAddNum[id] ~= nil)then
+            num = num + self._buildDotAddNum[id]
+        end
+    end
+    return num
+end
+---------------------------注册回调---------------------------
+c2s[c2s.BULLETBUILD_DATA_SYNC]                 = {Build, Build.SyncBuildData}
+c2s[c2s.BULLETBUILD_HERO_LIST_CHANGED_RES]     = {Build, Build.SetBuildHeroRep}
+c2s[c2s.BULLETBUILD_LV_UP_RES]                 = {Build, Build.BuildLevelUpRep}
+c2s[c2s.BULLETBUILD_DOT_NUM_CHANGE_RES]        = {Build, Build.BuildDotNumChangeRep}

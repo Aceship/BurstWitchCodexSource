@@ -1,0 +1,708 @@
+--
+-- author: haosun
+-- date  : 2019-10-14 19:17:26
+-- brief :
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HeroTableViewCtrl = class("HeroTableViewCtrl", CBaseLayer)
+local table_width = 208
+local static_sortstr = "sortdata"
+local MIN_HERO_SCALE    = 1
+local MAX_HERO_SCALE    = 1.1
+local LV_FONT_SIZE = "Lv.<size=32>%s</size>"
+
+function HeroTableViewCtrl:ctor(super, layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_HeroTableViewCtrlLayer",
+        trans = layer,
+        obj = true,
+    }
+    self._curLoadHeroId = 0;
+    self._index = 1
+    self.heroHeads = {}
+
+    self:onEnter()
+end
+
+function HeroTableViewCtrl:initObj()
+    self._objTalk           = self.layer:Get("obj_talk")
+    self._spinePnl          = self.layer:Get("spine_pnl")
+    self._changePs          = self.layer:GetParticleComponent("effect_pnl/Particle_T")
+    self._changePs:Stop()
+    self._tvController      = UIController:CtorTableView(self.layer:Get("bottom_pnl/TableViewController"))
+    self._sortController    = UIController:CtorSortController(self.layer:Get("sort_pnl"))
+	self.soundPlayer 		= self.layer.transform:Find("sound_player"):GetComponent("FmodEmitterLite")
+    self._witchTxt          = self.layer:GetTextComponent("image_text/text")
+    self._txtObj            = self.layer:Get("image_text")
+    self._witchTxt2         = self.layer:GetTextComponent("image_text2/text")
+    self._txtObj2           = self.layer:Get("image_text2")
+    self._gou               = self.layer:Get("btn_red/Gou")
+    self._btnRed            = self.layer:Get("btn_red")
+    self.layer:GetButtonComponent("btn_red"):AddButtonListener(
+        function()
+            self:onRedClick()
+        end)
+    self.layer:GetButtonComponent("graphic_drag"):AddButtonListener(
+        function ()
+            self:WitchTalk()
+        end)
+    self._playingSound = false
+    self._dt = 0
+    self._curTxt = 1
+    self._redOpen = true
+    self._heroRed = Player:GetHeroRedTips()
+    self._showstar = true
+    self._showlv = true
+
+    self.sortDic = {
+        [1] = {
+            sortType = Hero.Select_TYPE_HERO.attri,
+            subType = 0,
+        },
+        [2] = {
+            sortType = Hero.Select_TYPE_HERO.gunType,
+            subType = 0
+        },
+        [3] = {
+            sortType = Hero.Select_TYPE_HERO.sort,
+            subType = 0
+        }
+    }
+end
+
+function HeroTableViewCtrl:WitchTalk()
+    if not self._talk then
+        return
+    end
+    if self._playingSound then
+        return
+    end
+    local dialogue = Hero:GetHeroDialogueRan(self._heroid , Hero.Talk_Type.talk)
+    if dialogue == nil or dialogue == "-1" then
+        return
+    end
+    self.soundPlayer:Stop()
+    local len = #dialogue.dialogue
+    --todo  播放台词
+    if dialogue.void_cn ~= nil then
+        self.soundPlayer.Event = dialogue.void_cn;
+        self.soundPlayer:Play()
+    else
+        self.soundPlayer.Event = ""
+    end
+    --spine
+    --todo
+    self.skeletonAni.state:SetAnimation2(0, dialogue.expression, true, true)
+   -- self.skeletonAni.state:GetCurrent(0).AnimationStart = 0
+    --超过40个字用大框
+    if len >= 120 then
+        self._curTxt = 1
+        self._witchTxt.text = dialogue.dialogue
+        self._txtObj:SetVisible(true)
+        self._txtObj2:SetVisible(false)
+    else
+        self._curTxt = 2
+        self._witchTxt2.text = dialogue.dialogue
+        self._txtObj2:SetVisible(true)
+        self._txtObj:SetVisible(false)
+    end
+    self._playingSound = true
+    self._dt = 0
+end
+
+function HeroTableViewCtrl:onEnter()
+
+    self:createPnl()
+    self:initObj()
+    self:addUpdateDayListener()
+    self:initDrag()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_RED_STATE,
+        function()
+            self._refreshCall(self._heroid)
+            self:refreshHeros()
+        end)
+
+end
+
+function HeroTableViewCtrl:onClickBackParent()
+    if self._heroTalk then
+        self._heroTalk.reset()
+        self._heroTalk.stopTalk()
+        self._heroTalk.hideTalkBox()
+    end
+end
+
+function HeroTableViewCtrl:onExit()
+    if self._heroTalk then
+        self._heroTalk.reset()
+        self._heroTalk.stopTalk()
+        self._heroTalk.hideTalkBox()
+        self._heroTalk:clear()
+    end
+    self._heroTalk = nil
+    self.layer:GetButtonComponent("btn_red"):RemoveButtonAllListener()
+    self.layer:GetButtonComponent("graphic_drag"):RemoveButtonAllListener()
+    if self._sortController ~= nil then
+        self._sortController:Clear()
+        self._sortController = nil
+    end
+    if self._curMoudle ~= nil then
+        self._curMoudle:Release()
+    end
+    self._objTalk       = nil
+    self._curMoudle     = nil
+    self._spinePnl      = nil
+    self._changePs      = nil
+    self.soundPlayer    = nil
+    self._witchTxt      = nil
+    self._txtObj        = nil
+    self._witchTxt2     = nil
+    self._txtObj2       = nil
+    self._gou           = nil
+    self._btnRed        = nil
+    self._ids           = nil
+    if self.heroHeads ~= nil then
+        for i, cls in pairs(self.heroHeads) do
+            cls:clear()
+        end
+    end
+    self.heroHeads      = nil
+    self._heroTalk      = nil
+    self.skeletonAni    = nil
+
+    self._heroRed = nil
+    self._selectHeroItem = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function HeroTableViewCtrl:onUpdate(dt)
+
+    self:onTalkUpdate(dt)
+
+    if self._updateA then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, self._alpha)
+            -- self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+function HeroTableViewCtrl:onTalkUpdate(dt)
+    if not self._heroTalk then
+        return
+    end
+
+    self._heroTalk.update(dt)
+end
+
+function HeroTableViewCtrl:initDrag()
+    InitEventTriggerEx(self.layer:Get("graphic_drag"),
+        function(arg)
+            self._beginPos = arg
+        end,
+        nil,
+        function(arg)
+            self:onEndDrag(arg)
+        end)
+end
+
+function HeroTableViewCtrl:onEndDrag(position)
+    if self._beginPos == nil then
+        return
+    end
+    local disx = position.x - self._beginPos.x
+    if math.abs(disx) < table_width then
+        return
+    end
+    local index = self._index
+    if disx < 0 then
+        index = index + 1
+    else
+        index = index - 1
+    end
+    index = math.max(index, 1)
+    index = math.min(index, #self.selectIds)
+    if self._index ~= index then
+        self:refreshScroll(index, true, true)
+        if #self.selectIds - index >= 5 then
+            self:scrollToIndex(index)
+        end
+    end
+end
+
+--[[
+-- brief:
+-- params:{
+        owner(bool)                 -- 显示拥有的魔女
+        sort                        -- 是否有排序功能
+        sortdata{tag,t1,t2...}      -- 排序数据
+        refreshCall(function)       -- 刷新回调
+        spine(bool)                 -- 是否显示spine
+        sound                       -- 是否播放魔女配音
+        index                       -- 显示层级
+        drag(bool)                  -- 是否滑动切换
+        talk(bool)                  -- 是否点击播放魔女对话
+        sortingOrder(int)                  --sortingOrder层级
+    }
+]]--
+function HeroTableViewCtrl:onInit(params)
+    if(params.pos ~= nil)then
+        local bottomRect = self.layer:GetRectTransformComponent("bottom_pnl")
+        bottomRect.anchoredPosition = params.pos;
+    end
+    if(params.offsetMax ~= nil)then
+        local bottomRect = self.layer:GetRectTransformComponent("bottom_pnl")
+        bottomRect.offsetMax  = params.offsetMax;
+    end
+    if(params.sortposY ~= nil)then
+        local sortRect = self.layer:GetRectTransformComponent("sort_pnl/button_show")
+        local sortRect2 = self.layer:GetRectTransformComponent("sort_pnl/buttons")
+        sortRect.anchoredPosition = CS.UnityEngine.Vector2(sortRect.anchoredPosition.x,sortRect.anchoredPosition.y + params.sortposY);
+        sortRect2.anchoredPosition = CS.UnityEngine.Vector2(sortRect2.anchoredPosition.x,sortRect2.anchoredPosition.y + params.sortposY);
+    end
+    self._alpha = -0.1
+    if params.owner then
+        self._ids = Hero:GetOwnerIds()
+    else
+        self._ids = Hero:GetHeroIds()
+    end
+    local sortLow = {}
+    sortLow.sortType = Hero.Select_TYPE_HERO.sort
+    sortLow.subType = Hero.SORT_TYPE_HERO.default
+    self.selectIds = Hero:SortHeroList(self._ids,sortLow)
+
+    --self.selectIds = self._ids --初始化
+    --设置显示内容
+    if params.type == HeroTable_Type.favour then
+        self._type = HeroTable_Type.favour
+    end
+
+    if not params.sort then
+        self._sortController:Hide()
+        self._sortController = nil
+    else
+        self._sortController:Init(params.sortdata,
+            function(sortdata, refresh)
+                --print("筛选界面参数，大类 ： "..tostring(sortdata.sortType).."  :  子类 ： "..tostring(sortdata.subType))
+                self.sortDic[sortdata.sortType] = sortdata
+                self:GetResultHeros()
+                self._tvController:Reload(#self.selectIds, false);
+                self:UpdateHeroScroll(refresh)
+                self._sortController:SetButtonText(sortdata.sortType,sortdata.subType)
+            end)
+        self:GetResultHeros();
+    end
+    --有排序但不显示排序框
+    if params.hidesort then
+        self._sortController:Hide()
+    end
+
+    self._refreshCall   = params.refreshCall
+    self._showSpine     = params.spine
+    self._sound         = params.sound
+    self._showRedImg    = params.showRed
+    self.layer:Get("graphic_drag"):SetVisible(params.drag)
+
+    if not self._showSpine then
+        self.onUpdate = nil
+    end
+    --使用外部spine
+    if params.spineObj ~= nil then
+        self._spinePnl = params.spineObj
+    end
+    --设置层级
+    if params.index ~= nil then
+        self:SetSiblingIndex(params.index)
+    end
+    self._sortingOrder = params.sortingOrder
+    if params.talk ~= nil then
+        self._talk = params.talk
+    else
+        self._talk = false
+    end
+    if params.showstar ~= nil then
+        self._showstar = params.showstar
+    else
+
+    end
+    if params.showlv ~= nil then
+        self._showlv = params.showlv
+    end
+
+    local index = 1
+    if params.heroid ~= nil and params.heroid ~= 0 then
+        index = lua_table_indexof(self.selectIds, params.heroid)
+    end
+    self:initTableViewController(index)
+    self:refreshScroll(index, false, true)
+    -- local scrollToIdx = index - 1
+    -- scrollToIdx = scrollToIdx >= 1 and scrollToIdx or 1
+    -- self:scrollToIndex(scrollToIdx, true)
+end
+
+--获取筛选后英雄
+function HeroTableViewCtrl:GetResultHeros()
+    local sortAttri = self.sortDic[1]
+    self.selectIds = Hero:SelectHeroList(self._ids,sortAttri)
+    local sortGun = self.sortDic[2]
+    self.selectIds = Hero:SelectHeroList(self.selectIds,sortGun)
+    local sortLow = self.sortDic[3] --降序
+    self.selectIds = Hero:SortHeroList(self.selectIds,sortLow)
+end
+
+function HeroTableViewCtrl:SetSiblingIndex(index)
+    self.layer.transform:SetSiblingIndex(index)
+end
+
+--排序刷新
+function HeroTableViewCtrl:UpdateHeroScroll(refresh)
+    if refresh then
+        self:refreshHeros(self.selectIds)
+        local index = lua_table_indexof(self.selectIds, self._heroid)
+        if index <= 0 then
+            index = 1
+        end
+        self:refreshScroll(index)
+        self:scrollToIndex(index)
+    end
+end
+
+function HeroTableViewCtrl:show(index)
+    if true == alpha then
+        self._alpha = 1
+    end
+    local playSound = index == nil
+
+    if index == nil then
+        index = 1
+        self._tvController:ScrollToTop()
+    else
+        -- 判断Index是否发生改变
+        local tmpid = self._ids[index]
+        if self._ids[index] ~= tmpid then
+            index = lua_table_indexof(self._ids, tmpid)
+        end
+    end
+    self:refreshHeros()
+    self:refreshScroll(index, false, playSound)
+end
+
+function HeroTableViewCtrl:initTableViewController(index)
+    for i = 1, #self._ids, 1 do
+        if i == index then
+            self._tvController:InitCustomRowWidth(i-1, table_width* MAX_HERO_SCALE)
+        else
+            self._tvController:InitCustomRowWidth(i-1, table_width * MIN_HERO_SCALE)
+        end
+    end
+    self._tvController:Init(#self._ids, true,
+        function(cell, row)
+            self:refreshUnitCell(self.selectIds,cell, row + 1)
+        end)
+    if self._sortingOrder ~= nil then
+        self._tvController._controller.gameObject.transform:GetComponent("Canvas").sortingOrder = self._sortingOrder
+    end
+end
+
+function HeroTableViewCtrl:refreshUnitCell(ids,cell, row)
+
+    if(self.heroHeads[cell] == nil)then
+        self.heroHeads[cell] =  Hero:CtorHeroCObj(cell.transform:Find("prefab_hero"));
+        local _transform = self.heroHeads[cell].transform
+
+        self.heroHeads[cell].objCall        = _transform:Get("basic/obj_call")
+        self.heroHeads[cell].imgDark        = _transform:GetImageComponent("basic/img_dark")
+        self.heroHeads[cell].imgFavour      = _transform:GetImageComponent("basic/img_favour")
+        self.heroHeads[cell].textFavour     = _transform:GetTextComponent("basic/img_favour/text_level")        
+        self.heroHeads[cell].imgBorder      = _transform:Find("basic/img_border")
+        self.heroHeads[cell].imgWakeUp      = _transform:GetImageComponent("basic/image_WakeUp")
+        self.heroHeads[cell].wakeUpPrefab   = _transform:Find("basic/image_WakeUp")
+        self.heroHeads[cell].imgRed         = cell.transform:Find("prefab_hero/img_red_tips");
+        self.heroHeads[cell].imgLock        = cell.transform:Find("prefab_hero/image_lock");
+        self.heroHeads[cell].heroPrefab     = cell.transform:Find("prefab_hero");
+        self.heroHeads[cell].heroPrefab:GetComponent("Button"):AddButtonListener(
+            function()
+                if self._index ~= self.heroHeads[cell].index then
+                    self:refreshScroll(self.heroHeads[cell].index, true, true)
+                end
+            end)
+        self.heroHeads[cell].clsbag.isMain = true
+    end
+    self.heroHeads[cell].transform:SetVisible(ids[row] ~= nil)
+    
+    if ids[row] == nil then
+        --print("refreshUnitCell 筛选后英雄个数 ： "..#ids.."  row  : "..row)
+        return
+    end
+    local hero = Hero:GetHero(ids[row])
+
+    self.heroHeads[cell].index = row;
+    Hero:SetHeroCObj(self.heroHeads[cell],hero);
+    self.heroHeads[cell].levelCom.text = string.format(LV_FONT_SIZE,hero.level)
+    self.heroHeads[cell].levelCom:SetVisible(hero.owner and self._showlv);
+    self.heroHeads[cell].clsbag.starCom:SetVisible(hero.owner and self._showstar)
+    self.heroHeads[cell].attrBgCom:SetVisible(hero.owner)
+    self.heroHeads[cell].imgDark:SetVisible(not hero.owner)
+    self.heroHeads[cell].objCall:SetVisible(false)
+    if not hero.owner then
+        local has, cost = Hero:GetHeroChipNumber(hero)
+        if has >= cost then
+            self.heroHeads[cell].objCall:SetVisible(true)
+            if self.heroHeads[cell].objCall.transform.childCount == 0 then
+                self.heroHeads[cell].objCall:CreateChild(Hero.SpineResPath_Call)
+            end
+        end
+    end
+    self.heroHeads[cell].imgLock:SetVisible(not hero.owner)
+    self:setWakeUpSate(self.heroHeads[cell],hero)
+    if row == self._index then
+        self.heroHeads[cell].heroPrefab:SetScale(MAX_HERO_SCALE, MAX_HERO_SCALE, MAX_HERO_SCALE)
+        self.heroHeads[cell].wakeUpPrefab:SetScale(MAX_HERO_SCALE, MAX_HERO_SCALE, MAX_HERO_SCALE)
+        self.heroHeads[cell].checkbg:SetVisible(true)
+    else
+        self.heroHeads[cell].heroPrefab:SetScale(MIN_HERO_SCALE, MIN_HERO_SCALE, MIN_HERO_SCALE)
+        self.heroHeads[cell].checkbg:SetVisible(false)
+        self.heroHeads[cell].wakeUpPrefab:SetScale(MIN_HERO_SCALE, MIN_HERO_SCALE, MIN_HERO_SCALE)
+    end
+    if(self._showRedImg == false)then
+        self.heroHeads[cell].imgRed:SetVisible(false);
+    else
+        if not self._heroRed[hero.id] then
+            self.heroHeads[cell].imgRed:SetVisible(Hero:IsBetterOper(hero.id));
+        else
+            self.heroHeads[cell].imgRed:SetVisible(false);
+        end
+    end
+
+    if self._type == HeroTable_Type.favour then
+        self.heroHeads[cell].attrBgCom:SetVisible(false)
+        self.heroHeads[cell].imgFavour:SetVisible(hero.owner)
+        self.heroHeads[cell].imgRed:SetVisible(Hero:GetAwardBtnShowStateByHeroId(hero.id))        
+        self.heroHeads[cell].textFavour.text = hero.intimacy_data.level
+        self.heroHeads[cell].levelCom:SetVisible(false)
+        self.heroHeads[cell].objCall:SetVisible(false)
+    end
+end
+
+function HeroTableViewCtrl:refreshUnitCellScale(row, scale, isCheck)
+    row = row - 1
+    self._tvController:UpdateCellHeight(row, table_width * scale )
+    local cell = self._tvController:GetCellAtRow(row)
+    self._selectHeroItem = self.heroHeads[cell];
+    if cell ~= nil then
+        self._selectHeroItem = self.heroHeads[cell];
+        if(self.heroHeads[cell] ~= nil)then
+            self.heroHeads[cell].heroPrefab:SetScale(scale, scale, scale)
+            self.heroHeads[cell].wakeUpPrefab:SetScale(scale, scale, scale)
+            self.heroHeads[cell].checkbg:SetVisible(isCheck)
+        end
+    end
+end
+
+function HeroTableViewCtrl:refreshHeros()
+    for row = 1, #self.selectIds do
+        local cell = self._tvController:GetCellAtRow(row-1)
+        if cell ~= nil then
+            self:refreshUnitCell(self.selectIds,cell, row)
+        end
+    end
+end
+
+function HeroTableViewCtrl:UpdateSpine()
+    self:refreshScroll(self._index,true,true);
+end
+
+function HeroTableViewCtrl:refreshScroll(index, showEffect, playSound)
+    if self._showSpine and showEffect then
+        self._changePs:Play()
+        self._alpha = 0
+    end
+    self:refreshUnitCellScale(self._index, MIN_HERO_SCALE, false)
+    self._index = index
+    self:refreshUnitCellScale(self._index, MAX_HERO_SCALE , true)
+    self._heroid = self.selectIds[self._index]
+    --print("当前选中英雄  ： "..self._heroid.."  :  当前索引  ： "..index)
+    local hero = Hero:GetHero(self._heroid)
+    self._btnRed:SetVisible(hero.owner and self._showRedImg)
+
+    if self._showSpine then
+        self:loadHeroSpine()
+    end
+
+    if self._playingSound then
+        self._playingSound = false
+        self._dt = 0
+        if self._curTxt == 1 then
+            self._txtObj:SetVisible(false)
+        elseif  self._curTxt then
+            self._txtObj2:SetVisible(false)
+        end
+    end
+
+	if self.soundPlayer ~= nil and playSound and self._sound then
+		self.soundPlayer:Stop();
+		local cfg = Hero:GetCfg(self._heroid);
+		if cfg.SpineFmodPath ~= nil then
+			self.soundPlayer.Event = cfg.SpineFmodPath;
+			self.soundPlayer:Play();
+		else
+			self.soundPlayer.Event = "";
+		end
+
+	end
+
+    if playSound and self._sound then
+        local inst = {}
+		inst = Hero:PlaySound(self._heroid)
+		local curHero =  Hero:GetHero(self._heroid)
+		fmod:setEventInstanceParam(inst,"intimacyLevel",curHero.intimacy_data.level)
+    end
+    self._gou:SetVisible(not self._heroRed[self._heroid] )
+    self._refreshCall(self._heroid)
+end
+
+function HeroTableViewCtrl:scrollToIndex(index, scrolling)
+    if #self.selectIds <= 4 then return end
+    
+    if index-1 <= 4 then return end
+
+    if scrolling then
+        self._tvController:ScrollToRow(index-1, 0.3)
+    else
+        self._tvController:ScrollToRow(index-1)
+    end
+end
+
+function HeroTableViewCtrl:setCurHeroId(heroid)
+    self._heroid = heroid
+    self:GetResultHeros()
+    self:UpdateHeroScroll(true)
+end
+
+function HeroTableViewCtrl:setWakeUpSate(cls, hero)
+    if hero == nil then return end
+    if Hero:IsHeroWakeUp(hero)  then
+        Hero:SetHeroWakeUpBorder(cls, hero.qlty)
+        cls.imgBorder:SetVisible(false)
+        cls.wakeUpPrefab:SetVisible(true)
+    else
+        cls.imgBorder:SetVisible(true)
+        cls.wakeUpPrefab:SetVisible(false)
+    end
+end
+
+function HeroTableViewCtrl:loadHeroSpine()
+    local curHero = Hero:GetHero(self._heroid);
+    if self._curLoadHeroId == curHero.skinid then
+        return
+    end
+    if(self._selectHeroItem ~= nil)then
+        Hero:SetHeroCObj(self._selectHeroItem ,curHero);
+    end
+    self._curLoadHeroId = self._heroid;
+    Hero:LoadSpineAsync(self.__cname,self._spinePnl, self._heroid, Hero.SPINE_UI_TYPE_WITCH,
+        function(obj)
+            self._alpha = -0.1
+            if obj == nil then
+                self._updateA = false
+                self._curMoudle = nil
+            else
+                self._curMoudle = obj
+                self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+                self.aniName = self.skeletonAni.AnimationName
+                self._updateA = true
+                if self._alpha < 1 then
+                    CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 0)
+                else
+                    CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 1)
+                end
+
+                if self._heroTalk then
+                    self._heroTalk.reset(self._heroid, self.skeletonAni, self.aniName)
+                else
+                    self._heroTalk = Hero:CtorHeroTalk(self._objTalk, self._heroid, self.skeletonAni, self.aniName)
+                end
+            end
+        end)
+	local cfg = Hero:GetCfg(self._heroid)
+	if cfg.SpineFmodPath ~= nil then
+		fmod:preloadSampleData(cfg.SpineFmodPath)
+	end
+end
+
+function HeroTableViewCtrl:refreshHeroTips()
+    local hero
+    for row, v in ipairs(self.selectIds) do
+        local cell = self._tvController:GetCellAtRow(row-1)
+        if cell ~= nil then
+            if(self.heroHeads[cell] ~= nil)then
+                if(self._showRedImg == false)then
+                    self.heroHeads[cell].imgRed:SetVisible(false)
+                else
+                    hero = Hero:GetHero(v)
+                    if hero.showRed then
+                        self.heroHeads[cell].imgRed:SetVisible(Hero:IsBetterOper(v))
+                    else
+                        self.heroHeads[cell].imgRed:SetVisible(false)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function HeroTableViewCtrl:setSpineAlpha(a)
+    CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, a)
+end
+
+function HeroTableViewCtrl:SaveToPrefs()
+    self._sortController:SaveToPrefs()
+end
+
+function HeroTableViewCtrl:hideAct()
+    self._spinePnl:SetVisible(false)
+end
+
+function HeroTableViewCtrl:showAct()
+    self._spinePnl:SetVisible(true)
+end
+function HeroTableViewCtrl:onPerSecondUpdate()
+    if self._playingSound then
+        self._dt = self._dt + 1
+        if self._dt >= 10 then
+            self._playingSound = false
+            self._dt = 0
+            --todo
+            self.skeletonAni.state:SetAnimation2(0, self.aniName, true , true)
+           -- self.skeletonAni.state:GetCurrent(0).AnimationStart = 0
+            if self._curTxt == 1 then
+                self._txtObj:SetVisible(false)
+            elseif  self._curTxt then
+                self._txtObj2:SetVisible(false)
+            end
+        end
+    end
+end
+
+function HeroTableViewCtrl:onRedClick()
+    self._heroRed[self._heroid] = not self._heroRed[self._heroid]
+    self._gou:SetVisible(not self._heroRed[self._heroid])
+    --  c2s
+    Player:ChangeRedStateReq(self._heroid, self._heroRed[self._heroid])
+    -- callback refresh
+end
+
+function HeroTableViewCtrl:onUpdateDay()
+    self:refreshHeroTips();
+end
+
+return HeroTableViewCtrl
+

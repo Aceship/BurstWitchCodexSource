@@ -1,0 +1,60 @@
+--
+-- author: haosun
+-- date  : 2021-08-03 19:05:00
+-- brief : 
+--
+
+UI_TalkSkipLayer = UI_TalkSkipLayer or {}
+
+function UI_TalkSkipLayer:EnterTalkSkipLayer(sampleInfo, backCall, closeCallback)
+    self._newTalkSkipLayer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightTalk/prefab/UI_TalkSkipLayer")
+
+    local content = self._newTalkSkipLayer:Get("container/ScrollView/Viewport/Content")
+    content:GetTextComponent("txt_info"):SetText(FightModule.LanguageTextMsg[sampleInfo])
+    content:SetSizeY(content:Get("txt_info"):GetTextY()+20)
+    local onBack = function()
+        self:ExitTalkSkipLayer(true)
+    end
+    local onSkip = function()
+        self:ExitTalkSkipLayer(false)
+    end
+    self._select = false
+    self._backCall = backCall
+    self._closeCallback = closeCallback
+    self._objselect = self._newTalkSkipLayer:Get("container/img_select")
+    self._objselect:SetVisible(self._select)
+    self._newTalkSkipLayer:GetButtonComponent("button_back"):AddButtonListener(onBack)
+    self._newTalkSkipLayer:GetButtonComponent("container/button_back"):AddButtonListener(onBack)
+    self._newTalkSkipLayer:GetButtonComponent("container/button_skip"):AddButtonListener(onSkip)
+    self._newTalkSkipLayer:GetButtonComponent("container/button_not"):AddButtonListener(
+        function()
+            self._select = not self._select
+            self._objselect:SetVisible(self._select)
+            GTemp:SetSkipFightTalk(self._select)
+        end)
+
+    self._newTalkSkipLayer:Get("container"):SetScale(0, 0, 0)
+    self._newTalkSkipLayer:Get("container"):DOScale(1, 0.2)
+end
+
+function UI_TalkSkipLayer:ExitTalkSkipLayer(autoExit)
+    if not autoExit then
+        if self._backCall ~= nil then
+            self._backCall()
+            self._backCall = nil
+        end
+    else
+        if self._closeCallback ~= nil then
+            self._closeCallback()
+            self._closeCallback = nil
+        end
+    end
+    if self._newTalkSkipLayer ~= nil then
+        self._newTalkSkipLayer:GetButtonComponent("button_back"):RemoveButtonAllListener()
+        self._newTalkSkipLayer:GetButtonComponent("container/button_back"):RemoveButtonAllListener()
+        self._newTalkSkipLayer:GetButtonComponent("container/button_skip"):RemoveButtonAllListener()
+        self._newTalkSkipLayer:GetButtonComponent("container/button_not"):RemoveButtonAllListener()
+        self._newTalkSkipLayer:Release()
+    end    
+    self._newTalkSkipLayer = nil
+end

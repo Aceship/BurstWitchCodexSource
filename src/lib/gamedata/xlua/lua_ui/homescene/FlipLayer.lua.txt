@@ -1,0 +1,225 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-10-26 20:31:08
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FlipLayer = class("FlipLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnConfirm = "trans_container/btn_confirm",
+	--@ButtonEnd
+}
+local GratisItemNum = 5;
+local ExtraItemNum = 3;
+local GratisMaxNum = 3;
+local ExtraMaxNum = 1;
+--构造函数
+function FlipLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_FlipLayer",
+    }
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function FlipLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function FlipLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnConfirm)then 
+	   self:OnBtnConfirmClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function FlipLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function FlipLayer:Init()
+    self._level = Chapter:GetLevel(Chapter:GetCurFightLevelId());
+    self._gratisNum = 0;
+    self._extraNum = 0;
+    self:InitUI();
+end
+
+--初始化UI
+function FlipLayer:InitUI()
+
+	--@ImageEnd
+
+	self._txtGratisSelectNum = self.layer:GetTextComponent("trans_container/trans_gratis_flip/txt_gratis_select_num");
+	self._txtExtraSelectNum = self.layer:GetTextComponent("trans_container/trans_extra_flip/txt_extra_select_num");
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/award_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._gratisItems = {};
+    for i = 1, GratisItemNum do
+        self._gratisItems[i] = self:NewFlipItem(self.layer:Get("trans_container/trans_gratis_flip/item_award_"..i),i,Chapter.FLIP_TYPE_NORMAL);
+    end
+    self._extraItems = {};
+    for i = 1, ExtraItemNum do
+        self._extraItems[i] = self:NewFlipItem(self.layer:Get("trans_container/trans_extra_flip/item_award_"..i),i,Chapter.FLIP_TYPE_GOLD);
+    end
+    self:SetSelectNumText();
+end
+
+--显示UI
+function FlipLayer:show()
+    self:showLayer();
+end
+
+--释放
+function FlipLayer:onExit()
+
+    self._objItem = nil;
+	self._txtGratisSelectNum = nil;
+	self._txtExtraSelectNum = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function FlipLayer:OnBtnConfirmClick()
+    self:onBackClick();
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FLIP_OVER)
+ end
+
+function FlipLayer:OnFlipBtnClick(cls)
+    local isSend = false;
+    if(cls.flipType == Chapter.FLIP_TYPE_GOLD)then
+        if(self._extraNum < ExtraMaxNum)then
+            isSend = true;
+        end
+    else
+        if(self._gratisNum < self._level.has_star)then
+            if(cls.isNotSend)then
+                local cfg = self:GetCfg(tonumber(cls.flipExpend[1]));
+                Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(130037),cfg.name));
+                return;
+            else
+                isSend = true;
+            end
+        end
+    end
+    if(isSend)then
+        Chapter:WhiteNightFlipReq(cls.flipType,cls.index);
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(130038))
+    end
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function FlipLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FLIP_REP,function(tbl)
+        if(tbl.flipType == Chapter.FLIP_TYPE_GOLD)then
+            self._extraNum = self._extraNum + 1;
+            self:SetFlipItem(self._extraItems[tbl.index],tbl.drops);
+        else
+            self._gratisNum = self._gratisNum + 1;
+            self:SetFlipItem(self._gratisItems[tbl.index],tbl.drops);
+        end
+        self:SetSelectNumText();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function FlipLayer:NewFlipItem(trans,index,flipType)
+    local cls = clsbase:new(trans);
+    cls.flipType = flipType;
+    cls.index = index;
+    CS.UnityEngine.GameObject.Instantiate(self._objItem,cls.transform).gameObject.name = "award_item";
+    cls.imgIsGet = cls:GetImageComponent("award_item/img_get");
+    cls.imgBg = cls:GetImageComponent("award_item/img_bg");
+    cls.dtAnim = cls:Find("award_item/img_bg"):GetComponent("DOTweenAnimation");
+    cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("award_item/item"));
+    cls.btn = cls:GetButtonComponent("award_item");
+    cls.objExpend = cls:Find("award_item/obj_expend").gameObject;
+    cls.imgExpendIcon = cls:GetImageComponent("award_item/obj_expend/img_icon");
+    cls.txtExpendNum = cls:GetTextComponent("award_item/obj_expend/txt_num");
+    cls.flipExpend = Player:GetWhiteNightFlipExpend();
+    cls.dtAnim.onComplete:AddListener(function ()
+        cls.item.obj:SetVisible(true);
+        set_com_enabled(cls.imgIsGet,true);
+        local cfg;
+        if(cls.award[1] == Bag.TYPE_EQUIP)then
+            cfg = Equip:GetCfgByUid(cls.award[2]);
+        else
+            cfg = Item:GetCfg(cls.award[2]);
+        end
+        cls.imgIsGet.color = COLOR_QLTY_2[tonumber(cfg.Quality)];
+        if(tonumber(cfg.Quality) == Bag.QLTY_R)then
+
+        elseif(tonumber(cfg.Quality) == Bag.QLTY_SR)then
+
+        elseif(tonumber(cfg.Quality) == Bag.QLTY_SSR)then
+
+        end
+    end);
+    cls.btn.onClick:AddListener(function ()
+        self:OnFlipBtnClick(cls);
+    end);
+    cls.objExpend:SetVisible(flipType == Chapter.FLIP_TYPE_GOLD);
+    if(flipType == Chapter.FLIP_TYPE_GOLD)then
+        Item:SetItemIcon(cls.imgExpendIcon.transform, tonumber(cls.flipExpend[1]));
+        if(Item:GetCount(tonumber(cls.flipExpend[1])) < tonumber(cls.flipExpend[2]))then
+            cls.isNotSend = true;
+            cls.txtExpendNum.color = COLOR_TYPE.Red;
+        else
+            cls.txtExpendNum.color = COLOR_TYPE.White;
+        end
+        cls.txtExpendNum.text = cls.flipExpend[2];
+        cls.imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_white_night", "img_baiye_kapai_2")
+    end
+    cls.item.obj:SetVisible(false);
+    set_com_enabled(cls.imgIsGet,false);
+    return cls;
+end
+
+function FlipLayer:SetFlipItem(cls,itemData)
+    set_com_enabled(cls.btn,false);
+    local tbl = Bag:TableDrops2Array(itemData);
+    cls.dtAnim:DOPlayForward();
+    cls.award = tbl[1];
+    if(cls.flipType == Chapter.FLIP_TYPE_GOLD)then
+        cls.objExpend:SetVisible(false);
+    end
+    if(tbl[1][1] == Bag.TYPE_EQUIP)then
+        cls.item.isUid = true;
+    end
+    Bag:SetComSimpleGoodsUi(cls.item,tbl[1][1],tbl[1][2],tbl[1][3])
+end
+
+function FlipLayer:SetSelectNumText()
+    self._txtExtraSelectNum.text = string.format(LanguageMgr:GetTextByID(130036),ExtraMaxNum - self._extraNum);
+    self._txtGratisSelectNum.text = string.format(LanguageMgr:GetTextByID(130036),GratisMaxNum - self._gratisNum);
+end
+
+return FlipLayer;

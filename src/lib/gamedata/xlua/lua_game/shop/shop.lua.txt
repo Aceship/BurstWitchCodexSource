@@ -1,0 +1,53 @@
+--
+-- author: haosun
+-- date  : 2019-01-08 17:14:29
+-- brief : 
+--
+
+Shop = Shop or {}
+
+function Shop:Ctor()    
+end
+
+function Shop:Clear()
+    for _, v in pairs(self._datas) do
+        v.update        = true
+        v.refresh_count = 0
+        v.next_time     = 0
+        v.record_time   = 0
+        for i, data in pairs(v.items) do
+            data.count = 0
+        end
+    end    
+end
+
+function Shop:CheckItemsByType(shoptype)
+    if self._datas[shoptype].update then
+        return false
+    else
+        return true
+    end
+end
+
+function Shop:OnUpdateDay(week, month)
+    for _, v in pairs(Shop.TYPES) do
+        if v ~= Shop.TYPE_MARKET then
+            self._datas[v].refresh_count = 0
+            for k, data in pairs(self._datas[v].items) do
+                if data.buytype == Shop.BUY_TYPE_DAY then
+                    data.count = 0
+                elseif data.buytype == Shop.BUY_TYPE_WEEK then
+                    if CTime.WeekUpdateType.OneUpdate == week then
+                        data.count = 0
+                    end
+                elseif data.buytype == Shop.BUY_TYPE_MONTH then
+                    if true == month then
+                        data.count = 0
+                    end
+                else
+                    --TODO:
+                end
+            end
+        end
+    end
+end

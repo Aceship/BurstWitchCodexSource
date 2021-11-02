@@ -1,0 +1,220 @@
+--
+-- author: haosun
+-- date  : 2021-01-14 21:42:29
+-- brief : 
+--
+local RankBuffLayer = class("RankBuffLayer")
+
+function RankBuffLayer:ctor()
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_RankBuffLayer")
+    self:initObj()
+    self._items = {}
+    for i = 1, 3, 1 do
+        local _item = self.layer:Get("prefab_" .. i)
+        _item:GetButtonComponent("button_sel").onClick:AddListener(
+            function()
+                self:onExitRankBuffLayer()
+            end)
+        _item:GetComponent("Button").onClick:AddListener(
+            function()
+                self:onBuffClick(i)
+            end)
+        self._items[i] = {
+            transform   = _item,
+            nameTxtCom  = _item:GetTextComponent("txt_name"),
+            descTxtCom  = _item:GetTextComponent("txt_desc"),
+            qltyTxtCom  = _item:GetTextComponent("txt_qlty"),
+            attrTxtCom  = _item:GetTextComponent("txt_attr"),
+            iconImgCom  = _item:GetImageComponent("img_icon"),
+            qltyImgCom  = _item:GetImageComponent("img_qlty"),
+            --attrImgCom  = _item:GetImageComponent("img_attr"),
+            heroesObj   = _item:Get("herosNode"),
+            allObj      = _item:Get("allNode"),
+            selobj      = _item:Get("button_sel"),
+            buffid      = 0,
+        }
+    end
+
+    for i = 1, 3,1 do
+        local heroes = {}
+        for j = 1, 3,1 do
+            local heroItem = self._items[i].heroesObj:Get("item_"..j)
+            heroes[j] =
+            {
+                obj = heroItem,
+                icon = heroItem:GetImageComponent("img_attr")
+            }
+        end
+        self._items[i].heroItems = heroes
+    end
+    self._effect = self.layer:Get("effect")
+    self._effect:SetVisible(false)
+    self._monsterIndex = 1 --怪物
+end
+
+function RankBuffLayer:HideRankBuffLayer()
+    self.layer:SetPositionX(5000, true)
+end
+
+function RankBuffLayer:ExitRankBuffLayer()
+    self._items     = nil
+    self._effect    = nil
+    
+    self.layer:Release()
+    self.layer = nil
+end
+
+function RankBuffLayer:EnterRankBuffLayer(buffs,waveIndex)
+    self.layer:SetPositionX(0, true)
+    self._items[2].transform:SetScale(0, 0, 0)
+    self._items[1].transform:SetScale(0.9, 0.9, 0.9)
+    self._items[1].transform:SetPositionX(-900, true)
+    self._items[3].transform:SetScale(0.9, 0.9, 0.9)
+    self._items[3].transform:SetPositionX(900, true)
+    self._index = 2
+    self._monsterIndex = waveIndex
+    self._effect:SetVisible(false)
+    self:onBuffClick(self._index)
+    for i = 1, 3, 1 do
+        self:_refreshItem(i, buffs[i-1])
+    end
+    self._items[2].transform:DOScale(1.1, 0.3):OnComplete(
+        function()
+            self._effect:SetVisible(true)
+        end)
+    self._items[1].transform:DOLocalMoveX(-390, 0.3)
+    self._items[3].transform:DOLocalMoveX(390, 0.3)
+
+    self:RefershKilled()
+end
+
+local colors = {
+    {0.48, 0.80, 0.89, 1.00},
+    {0.78, 0.46, 0.93, 1.00},
+    {1.00, 0.72, 0.00, 1.00},
+}
+
+--设置魔女头像
+function RankBuffLayer:setHeroIcon(heroItems,heroList)
+    if heroList == nil then
+        return
+    end
+    local hero = nil
+    for i = 1, 3 do
+        hero = heroList[i]
+        heroItems[i].obj:SetVisible(hero ~= nil)
+        if hero ~= nil then
+            heroItems[i].icon:LoadSprite("source_icon/player/player_icon_" ..hero.heroid)
+        end
+    end
+end
+
+
+--设置光暗属性
+function RankBuffLayer:setHeroAttr()
+
+end
+
+function RankBuffLayer:_refreshItem(i, buffid)
+    local cfg = Mystery:GetMysteryBuffCfg(buffid)
+    if cfg == nil then
+        CS.Logger.LogError("RankBuffLayer _refreshItem  can't find MysteryBuff cfg!!! id = {0}", buffid)
+        return
+    end
+    self._items[i].useBuffid = buffid
+    self._items[i].buffid = cfg.buff
+    self._items[i].nameTxtCom.text  = cfg.name
+    self._items[i].nameTxtCom:SetTextColor(colors[cfg.level][1], colors[cfg.level][2], colors[cfg.level][3], colors[cfg.level][4])
+    self._items[i].qltyTxtCom.text  = Mystery.QLTY_WORD[cfg.level]
+    self._items[i].qltyTxtCom:SetTextColor(colors[cfg.level][1], colors[cfg.level][2], colors[cfg.level][3], colors[cfg.level][4])
+    self._items[i].descTxtCom.text  = lua_color_str(cfg.desc)
+    self._items[i].qltyImgCom.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.MYSTERY_SYS, Mystery.QLTY_ICON[cfg.level])
+    self._items[i].iconImgCom:LoadSprite(cfg.icon)
+
+    local targetType = cfg.target[1]
+    local targetValue = cfg.target[2] or 0
+    local bosslist = Rank:GetBossInfoCfg(tonumber(self._chapter.levelids[1]))
+    local monsterAttr = bosslist[self._monsterIndex].attri_type
+    --print("目标类型 ： "..targetType.." : 目标数值 ： "..targetValue.." : 怪物属性 ： "..tostring(monsterAttr))
+    self._items[i].heroesObj:SetVisible(targetType ~= Mystery.BUFF_TARGET_ALL)
+    self._items[i].allObj:SetVisible(targetType == Mystery.BUFF_TARGET_ALL)
+
+    local heroList = {}
+    if targetType == Mystery.BUFF_TARGET_ALL then --全部
+
+    elseif targetType == Mystery.BUFF_TARGET_ATTR then --光暗系
+        heroList = HeroController:GetHeroesByAttr(targetValue)
+    elseif targetType == Mystery.BUFF_TARGET_GUNTYPE then --枪型
+        heroList = HeroController:GetHeroesByGunType(targetValue)
+    elseif targetType == Mystery.BUFF_TARGET_HERO then --指定英雄
+        heroList = HeroController:GetHeroesByHeroId(targetValue)
+    elseif targetType == Mystery.BUFF_TARGET_ONE then --克制关系
+        heroList = HeroController:GetHeroesByFobear(monsterAttr)
+    end
+    --print("英雄数量 ： "..#heroList)
+    self:setHeroIcon(self._items[i].heroItems,heroList)
+--[[
+    self._items[i].attrTxtCom:SetEnabled(cfg.target == Mystery.BUFF_TARGET_ALL)
+    self._items[i].attrImgCom:SetEnabled(cfg.target ~= Mystery.BUFF_TARGET_ALL)
+    if cfg.target ~= Mystery.BUFF_TARGET_ALL then
+        if cfg.target < Mystery.BUFF_TARGET_ONE then
+            self._items[i].attrImgCom.sprite = AtlasMgr:LoadAtlasAttr(cfg.target)
+        else
+            self._items[i].attrImgCom:LoadSprite("source_icon/player/player_icon_" .. cfg.target)
+        end
+    end
+    self._items[i].iconImgCom:LoadSprite(cfg.icon)
+    self._items[i].qltyImgCom.sprite = AtlasMgr:LoadAtlasSprite(AtlasMgr.MYSTERY_SYS, Mystery.QLTY_ICON[cfg.level])
+    ]]--
+end
+
+function RankBuffLayer:onBuffClick(index)
+    self._index = index
+    for i, _item in ipairs(self._items) do
+        if index == i then
+            _item.transform:SetScale(1.1, 1.1, 1.1)
+            _item.transform:SetAsLastSibling()
+            local x = _item.transform.localPosition.x
+            if i == 1 then
+                x = x + 470 * 0.3
+            elseif i == 3 then
+                x = x - 470 * 0.3
+            end
+            self._effect:SetPosition(x, -450, 0, true)
+        else
+            _item.transform:SetScale(0.9, 0.9, 0.9)
+        end
+        _item.selobj:SetVisible(index == i)
+    end
+end
+
+function RankBuffLayer:onExitRankBuffLayer()
+    Rank:AddBuffId(self._items[self._index].useBuffid)
+    FightController:ShenYeBuffLayerCall(self._index, self._items[self._index].buffid)
+end
+
+function RankBuffLayer:initObj()
+    self._topInfo       = self.layer:Get("topInfo")
+    self._buffBtn       = self._topInfo:GetButtonComponent("buffBtn")
+
+    self._buffBtn.onClick:AddListener(function()
+        if self._rankBagLayer then
+            self._rankBagLayer:show()
+        else
+            self._rankBagLayer = core.require("xlua/lua_UI/HomeScene/rankfight/RankBagLayer.txt"):new()
+            self._rankBagLayer:show()
+        end
+    end)
+
+    self._bossInfo      = self.layer:Get("bossInfo")
+    self._bossInfoCom = core.require("xlua/lua_UI/HomeScene/rankfight/RankBossInfo.txt"):new(self._bossInfo)
+    self._bossInfoCom.layer:GetComponent("Canvas").sortingOrder = 4516
+    self._bossInfoCom:show()
+    self._chapter = Chapter:GetShenYeChapter()
+end
+
+function RankBuffLayer:RefershKilled()
+    self._bossInfoCom:RefershKilled()
+end
+
+return RankBuffLayer

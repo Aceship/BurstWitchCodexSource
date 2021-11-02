@@ -1,0 +1,331 @@
+--
+-- author: liangxt
+-- date  : 2019年10月16日11:25:14
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local FetterViewLayer = class("FetterViewLayer", CBaseLayer)
+local Vector3 = CS.UnityEngine.Vector3
+local Positions =
+{
+    left  = Vector3(-1080, 100, 0),
+    mid   = Vector3(0, 100, 0),
+    right = Vector3(1080, 100, 0),
+}
+
+
+local BUTTON_TYPE =
+{
+    tips        = "container/title/btn_tip",
+    btnRight    = "container/btn_right",
+    btnLeft     = "container/btn_left",
+
+}
+function FetterViewLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_FetterViewLayer",
+        trans = parent,
+        obj = true
+    }
+    self._scrolling = false
+    self._dt = 0
+    self._haveColor = CS.UnityEngine.Color(1,1,1,1);
+    self._unHaveColor = CS.UnityEngine.Color(54/255,54/255,54/255,1);
+    self:onEnter()
+end
+
+function FetterViewLayer:onUpdate(dt)
+    if self._scrolling then
+        self._dt = self._dt + dt
+        if self._dt > 0.5 then
+            self._dt = 0
+            self._scrolling = false
+        end
+    end
+end
+
+function FetterViewLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:initFetterObjs()
+    self:initDrag()
+
+end
+
+function FetterViewLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function FetterViewLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.tips then
+
+    elseif itype == BUTTON_TYPE.btnLeft then
+        self:onScroll(false)
+    elseif itype == BUTTON_TYPE.btnRight then
+        self:onScroll(true)
+    end
+end
+
+function FetterViewLayer:initDrag()
+    InitEventTriggerEx(self.layer.transform:Find("container/graphic_drag"),
+            function(arg)
+                self._beginPos = arg
+            end,
+            function(arg)
+                self:onDrag(arg)
+            end,
+            function(arg)
+                self:onEndDrag(arg)
+            end)
+end
+
+function FetterViewLayer:onDrag(pos)
+    local disx = pos.x - self._beginPos.x
+    disx = lua_math_in_range(disx,-1080,1080)
+    local rate = disx/15
+    local rates = {
+        1.2, 2, 1.4, 2.4
+    }
+    for i = 1, 4 do
+        local posx = self._curObj[i].pos.x + rate * rates[i]
+        local posy = self._curObj[i].pos.y
+        self._curObj[i].obj.localPosition = Vector3(posx, posy, 0)
+    end
+end
+
+function FetterViewLayer:recoverUi()
+    for i = 1, 4 do
+        self._curObj[i].obj.localPosition = self._curObj[i].pos
+    end
+end
+
+function FetterViewLayer:onScroll(bnext)
+    if self._scrolling then
+        return
+    end
+    self:recoverUi()
+    local lastindex = self._index
+    if bnext then
+        self._index = self._index + 1
+    else
+        self._index = self._index - 1
+    end
+    self._index = math.max(self._index, 1)
+    self._index = math.min(self._index, self._lenth)
+    if lastindex < self._index then
+        if self._cur == 1 then
+            self:playDoTweenMove(self._content, self._content2, true)
+            self._curObj = self._Objs2
+            self._cur = 2
+        else
+            self:playDoTweenMove(self._content2, self._content, true)
+            self._curObj = self._Objs
+            self._cur = 1
+        end
+    elseif lastindex > self._index then
+        if self._cur == 1 then
+            self:playDoTweenMove(self._content, self._content2, false)
+            self._curObj = self._Objs2
+            self._cur = 2
+        else
+            self:playDoTweenMove(self._content2, self._content, false)
+            self._curObj = self._Objs
+            self._cur = 1
+        end
+    end
+    self:setFetters()
+    self:SetArrowsBtn()
+end
+
+function FetterViewLayer:playDoTweenMove( curObj, nextObj, bnext)
+    self._scrolling = true
+    if bnext then
+        curObj.transform:DOLocalMove(Positions.left,0.5)
+        nextObj.transform.localPosition = Positions.right
+        nextObj.transform:DOLocalMove(Positions.mid,0.5)
+    else
+        curObj.transform:DOLocalMove(Positions.right,0.5)
+        nextObj.transform.localPosition = Positions.left
+        nextObj.transform:DOLocalMove(Positions.mid,0.5)
+    end
+
+end
+
+
+function FetterViewLayer:onEndDrag(pos)
+    if self._scrolling then
+        return
+    end
+    if self._beginPos ~= nil then
+        local disx = pos.x - self._beginPos.x
+        if math.abs(disx) < 200 then
+            self:recoverUi()
+        else
+            self:onScroll(disx < 0)
+        end
+    end
+end
+
+
+function FetterViewLayer:show()
+    self._fading = false
+    self._fetters = Fetter:GetAllFetter()
+    self._lenth = math.ceil(#self._fetters/4)
+    self._index = 1
+    self:initToggles()
+    self:setFetters()
+    self:SetArrowsBtn()
+    self:showLayer()
+end
+
+function FetterViewLayer:showLayer()
+    self:playAni("FetterViewLayerFadeIn")
+    CBaseLayer.showLayer(self);
+end
+
+function FetterViewLayer:initFetterObjs()
+    self._content = self.layer:Get("container/content")
+    self._content2 = self.layer:Get("container/content2")
+    self.leftBtn = self.layer:Get(BUTTON_TYPE.btnLeft);
+    self.rightBtn = self.layer:Get(BUTTON_TYPE.btnRight);
+    self._cur = 1
+    self._Objs  = {}
+    self._Objs2 = {}
+    for i = 1 ,4 do
+        self._Objs[i]  =  self:ctorObjs(self.layer:Get("container/content/prefab_"..i))
+        self._Objs2[i] =  self:ctorObjs(self.layer:Get("container/content2/prefab_"..i))
+    end
+    self._curObj = self._Objs
+end
+
+function FetterViewLayer:ctorObjs(obj)
+    local cls = clsbase:new(obj)
+    cls.imgbg = cls:GetImageComponent("img_bg")
+    cls.hero = {}
+    for i = 1,4 do
+        cls.hero[i] =  cls:GetImageComponent("img_hero"..i)
+    end
+
+    cls.hero1 = cls:GetImageComponent("img_hero1")
+    cls.hero2 = cls:GetImageComponent("img_hero2")
+    cls.hero3 = cls:GetImageComponent("img_hero3")
+    cls.hero4 = cls:GetImageComponent("img_hero4")
+    cls.txtName = cls:GetTextComponent("img_txtbg/txt_name")
+    cls.txtNameEn = cls:GetTextComponent("img_txtbg/txt_name_en")
+    cls.btn = cls:GetButtonComponent("btn_click")
+    cls.pos = cls.obj.localPosition
+    cls.btn.onClick:AddListener(
+            function()
+                core.require("xlua/lua_UI/LibraryScene/FetterInfoLayer.txt"):new():show(cls.fetterid)
+            end)
+    return cls
+end
+
+
+
+function FetterViewLayer:initToggles()
+    local obj = self.layer:Get("container/toggles")
+    if(self.togLayoutGroup == nil)then
+        self.togLayoutGroup = obj:GetComponent("HorizontalLayoutGroup")
+    end
+    self._toggles = {}
+    for i = 1, self._lenth, 1 do
+        local toggle = obj:Get("toggle_" .. i)
+        local toCom
+        if toggle == nil then
+            toggle = Groble_ResMgr:Instantiate(obj:Get("toggle_clone"), obj)
+            toggle.name = "toggle_" .. i
+            local button = toggle:Get("button_click")
+            local UIButtonSFX = button:GetComponent("UIButtonSFX")
+            if UIButtonSFX ~= nil then
+                button:GetComponent("Button").onClick:AddListener(function()
+                            self._index = i
+                            self:setFetters()
+                            self:SetArrowsBtn()
+                        end)
+            else
+                button:GetComponent("Button").onClick:AddListener(function()
+                            self._index = i
+                            self:setFetters()
+                            self:SetArrowsBtn()
+                        end)
+            end
+        end
+        toggle.gameObject:SetVisible(true)
+        toCom = toggle:GetComponent("Toggle")
+        toCom.isOn = false
+        self._toggles[i] = toCom
+    end
+    set_com_enabled(self.togLayoutGroup,true);
+end
+
+function FetterViewLayer:setFetters()
+    local index = self._index
+    local fetter
+    local cur
+    for i =  1 ,4 do
+        cur = i + (index -1) * 4
+        if cur > #self._fetters then
+            fetter = nil
+        else
+            fetter = self._fetters[cur]
+        end
+        self:setFetterUI(self._curObj[i], fetter)
+    end
+    for i =1, self._lenth do
+        self._toggles[i].isOn = self._index == i
+    end
+end
+
+function FetterViewLayer:setFetterUI(cls, fetter)
+    if fetter ~= nil then
+        cls.fetterid = fetter.id
+        cls.obj:SetVisible(true)
+        if fetter.fetter_num == 2 then
+            u3d_set_size(cls.imgbg, 448, 520)
+            cls.imgbg.sprite = AssetLoader:LoadSprite("prefab_uiArchive/Img_TuJian_bg2");
+        else
+            u3d_set_size(cls.imgbg, 496, 796)
+            cls.imgbg.sprite = AssetLoader:LoadSprite("prefab_uiArchive/Img_TuJian_bg1" );
+        end
+        for i = 1, 4 do
+            if i <= fetter.fetter_num then
+                Archive:SetPhotoImage(cls.hero[i] , fetter.fetter_card[i])
+                Archive:SetPhotoPos(cls.hero[i].gameObject.transform, Hero.BOOK_FETTER_OUT,fetter.fetter_card[i], fetter.id )
+                self:SetColor(cls.hero[i] , fetter.fetter_card[i])
+                set_com_enabled(cls.hero[i], true)
+            else
+                set_com_enabled(cls.hero[i], false)
+            end
+
+        end
+
+        cls.txtName.text = fetter.fetter_name
+        cls.txtNameEn.text = fetter.fetter_name_en
+    else
+        cls.obj:SetVisible(false)
+    end
+end
+
+
+function FetterViewLayer:SetArrowsBtn()
+    self.rightBtn:SetVisible(self._index ~= self._lenth)
+    self.leftBtn:SetVisible(self._index ~= 1)
+end
+
+function FetterViewLayer:SetColor(img , heroid)
+    if Hero:GetHero(heroid).owner then
+        img.color = self._haveColor
+    else
+        img.color = self._unHaveColor
+    end
+end
+
+
+function FetterViewLayer:AniFadeIn()
+
+end
+
+return FetterViewLayer
+

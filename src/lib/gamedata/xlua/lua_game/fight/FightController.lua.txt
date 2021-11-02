@@ -1,0 +1,1082 @@
+--
+-- author: haosun
+-- date  : 2020-07-14 21:02:42
+-- brief : 
+--
+
+FightController = FightController or {}
+
+local state_nil     = 0
+local state_talk    = 3
+local state_fight   = 4
+local state_wait    = 5
+local state_guide   = 6
+local state_settle  = 7
+ 
+local _ecsInstance = CS.ECSManager.Instance
+
+BattleState = {
+    Runing  = 0,
+    Win     = 1,
+    Failed  = 2,
+    TimeOut = 300, 
+}
+
+function FightController:initFightData()
+    local posz = 1.85
+    if self._isavoidlevel then
+        posz = 7.3
+    end
+    local data = {
+        levelid         = self._levelid,
+        levelFile       = self._levelFile,
+        heros           = {},
+        nobarrage       = self._isavoidlevel,
+        tutorial        = (true == TutorialController:IsTutorialLevel()),
+        levelMainType   = self._chapter.main_type,
+        levelSubType    = self._chapter.sub_type,
+        gradeArray      = {},
+        battleEffectIds = {},
+        skillDbClick    = PrefsController:IsDoublePlaySkill(),
+        etherBuffLv     = {},
+        autoFight       = false,
+        bossAddAttr     = {},
+        isFailedWim     = self._isranklevel or self._isbosslevel or self._isavoidlevel,
+        isTimeoutWin    = self._isranklevel or self._ishamsterlevel or self._isavoidlevel or self._isbosslevel,
+        isFirstFight    = not self._levelcfg.open,
+        midnightDiv     = 0,
+        isHeroNoDead    = (not self._levelcfg.open) and self._levelid == 100101,
+    }
+    if(Chapter.FIGHT_TYPE_NIGHT == self._chapter.main_type) then
+        data.midnightDiv = MidNight:GetDanId() or 0
+    end
+
+    self._changeSkillLv = {}
+    for gunType = 1, 6 do
+        local cId, cLv, _, _ = Build:GetChangerSkillIdByAtkType(gunType)
+        self._changeSkillLv[gunType] = { id = cId, level = cLv }
+    end
+
+    -- 战斗词条效果
+    if self._isetherlevel then
+        local affixs = Ether:GetAllCurAffixs()
+        for _, v in pairs(affixs) do
+            if v.curIndex ~= 0 and v.buffid ~= 0 then
+                table.insert(data.battleEffectIds, v.buffid)
+            end
+            local cfg = Ether:GetAffixCfgById(v.id)
+            if cfg.isChange then
+                data.etherBuffLv[tostring(v.id)] = v.curIndex
+            end
+        end
+
+        local _lvNumber = Ether:GetLvNumByType(Ether.Affix_Strategy)
+        local _config = Ether:GetBossAddAttrCfgByLv(_lvNumber)
+        for i, v in ipairs(_config or {}) do
+            data.bossAddAttr[tostring(v[1])] = v[2] * 0.01
+        end        
+    end
+    if self._levelcfg.GradeID ~= "-1" then
+        local grade
+        for i, v in ipairs(lua_str_split(self._levelcfg.GradeID, "|", true)) do
+            if v ~= -1 then
+                grade = Chapter:GetDungeonGrade(v)
+                table.insert(data.gradeArray, {
+                        gradeType = grade[1],
+                        default = Chapter:GetDungeonGradeDefaultGet(v) or 0,
+                        param1 = grade[2],
+                        param2 = grade[3],
+                    })
+            end
+        end
+    end
+    -- 关卡三星效果
+    local levelbuff = 0
+    if self._levelcfg.levelbuff ~= -1 and self._levelcfg.has_star == Chapter.LEVEL_STAR_NUM then
+        levelbuff = self._levelcfg.levelbuff
+    end
+    -- 关卡通关效果
+    local battlebuff = 0
+    if self._levelcfg.battlebuff ~= -1 and (self._levelcfg.open or self._levelcfg.pass_count > 0) then
+        battlebuff = self._levelcfg.battlebuff
+    end
+    local world_boss_buffid = 0
+    if self:IsCritWorldBossLevel() then
+        world_boss_buffid = WorldBoss:GetWorldBossBuff()
+    end    
+    
+    local heroids = HeroController:GetHeroIds()
+    for i, hid in ipairs(heroids) do
+        local heroInfo = HeroController:GetHeroById(hid)
+        local hero = Hero:GetHero(hid)
+        local orgHero = hero
+        if(heroInfo.levelid ~= nil) then
+            local cheroes = Chapter:GetChapterHero(heroInfo.levelid)
+            if(#cheroes > 0) then
+                hero = cheroes[heroInfo.index]
+                if(hero.skinid == nil or hero.skinid <= 0) then
+                    hero.skinid = hero.id * 10000 + 1
+                end
+            end
+        end
+
+        local skinid = hero.skinid
+        if hero.skinid == 0 then
+            skinid = hero.skinids[1]
+        end
+        local gunType = hero.atktype
+
+        local tblBuild = nil
+        local buildConvergeLevel = 0
+        if(heroInfo.buildChap == nil) then
+            builds = Build:GetBuildLevelByAtktype(gunType)
+            local build_ids = hero.build_ids
+            tblBuild = {}
+
+            for _, buildid in pairs(build_ids) do
+                local buildcfg = Build:GetBuildDataCfg(buildid)
+                local buildlevel = builds[buildcfg.buildtype] or 0
+                if(buildlevel > buildcfg.maxLevel) then
+                    buildlevel = buildcfg.maxLevel
+                end
+
+                table.insert(tblBuild, { buildId = buildid, buildLevel = buildlevel })
+                if(buildcfg.buildtype == Build.BuildType.Converge) then
+                    buildConvergeLevel = buildlevel
+                end
+            end            
+        else
+            builds = Build:GetBuildLevelByAtktype(gunType)
+            local build_ids = orgHero.build_ids
+            local tbl = {}
+            for _, v in ipairs(build_ids) do
+                tbl[v] = 0
+            end
+            for k, v in pairs(heroInfo.buildChap) do
+                tbl[k] = v
+            end
+
+            tblBuild = {}
+            for k, v in pairs(tbl) do
+                table.insert(tblBuild, { buildId = k, buildLevel = v })
+            end            
+
+            for buildid, v in pairs(heroInfo.buildChap) do
+                local buildcfg = Build:GetBuildDataCfg(buildid)
+                if(buildcfg.buildtype == Build.BuildType.Converge) then
+                    buildConvergeLevel = v
+                    break
+                end
+            end                
+        end
+
+        local _deskills = {}
+        for _, cfgid in pairs(hero.deskills) do
+            table.insert(_deskills, tonumber(cfgid))
+        end
+        if levelbuff ~= 0 then
+            table.insert(_deskills, levelbuff)
+        end
+        if battlebuff ~= 0 then
+            table.insert(_deskills, battlebuff)
+        end
+        if world_boss_buffid ~= 0 then
+            table.insert(_deskills, world_boss_buffid)
+        end
+        local skillLevels = {}
+        for k, v in pairs(hero.skills) do
+            skillLevels[v.slot] = v.level
+        end
+
+        local changeSkill = self._changeSkillLv[gunType]
+        local changeSkillId = changeSkill.id
+        skillLevels[4] = changeSkill.level
+
+        local buildDamageAdd = 0
+        local dat = Build:GetBuildLvDataByAtkType(gunType)
+        if dat ~= nil and dat.pointInFight > 0 then
+            buildDamageAdd = dat.pointInFight
+        end
+
+        local fightBalance = FightModule:GetFightBalance(self:GetChapterSubType(), gunType)
+
+        local function GetAttrValue(attrType)
+            if(fightBalance == nil) then
+                return hero.attrs[attrType]
+            else
+                local index = 1
+                local balance = fightBalance[index]
+                local fixed = balance.fixed[attrType] or 0
+                local rate = balance.rate[attrType] or 1
+                return fixed + hero.attrs[attrType] * rate
+            end
+        end
+
+        table.insert(data.heros, {
+                heroid  = hid,
+                skinid  = skinid,
+                star    = hero.star,
+                hp      = GetAttrValue(CAttr.TYPE_HP),
+                atk     = GetAttrValue(CAttr.TYPE_ATK),
+                def     = GetAttrValue(CAttr.TYPE_DEF),
+                spd     = GetAttrValue(CAttr.TYPE_SPD),
+                hit     = GetAttrValue(CAttr.TYPE_HIT),
+                dmg     = GetAttrValue(CAttr.TYPE_DMG),
+                energy  = hero.attrs[CAttr.TYPE_ENERGY],
+                hit_rate = GetAttrValue(CAttr.TYPE_HIT_RATE),
+                dmg_rate = GetAttrValue(CAttr.TYPE_DMG_RATE),
+                latk    = hero.attrs[CAttr.TYPE_LIGHT_ATK],
+                ldef    = hero.attrs[CAttr.TYPE_LIGHT_DEF],
+                datk    = hero.attrs[CAttr.TYPE_DARK_ATK],
+                ddef    = hero.attrs[CAttr.TYPE_DARK_DEF],
+                catk    = hero.attrs[CAttr.TYPE_CHAOS_ATK],
+                cdef    = hero.attrs[CAttr.TYPE_CHAOS_DEF],
+                gunType = gunType,
+                build   = tblBuild,
+                buildConvergeLevel = buildConvergeLevel,
+                buildDamageAdd = tostring(buildDamageAdd),
+                skillLevels = skillLevels,
+                changeSkillId = changeSkillId,
+                skillEffectList = _deskills,
+                posx    = 35.5,
+                posz    = posz,
+            })
+    end
+    self._showEndSlowCamera = false;
+    _ecsInstance:InitECSWarView(luajson.encode(data))
+end
+
+function FightController:SimpleInitFightController(levelid, midnightLevelId, isTest)
+    local isTuoguan = Chapter:IsAutoFight()
+    if isTuoguan == true then
+        Groble_SceneMgr:SetFrameFps(30)
+    else
+        Groble_SceneMgr:SetFrameFps(PrefsController:GetTargetFrameRate())
+    end
+
+    self._levelid   = levelid
+    self._levelcfg  = Chapter:GetLevel(levelid)
+    self._chapter   = Chapter:GetChapter(self._levelcfg.chapterid)
+    -- 深夜副本
+    self._isranklevel       = Chapter.FIGHT_TYPE_NIGHT == self._chapter.main_type
+    -- 以太副本
+    self._isetherlevel      = Chapter.FIGHT_TYPE_ETHER == self._chapter.main_type
+    -- 世界BOSS
+    self._isbosslevel       = Chapter.FIGHT_TYPE_WORLD_BOSS == self._chapter.main_type
+    -- 骰子副本
+    self._israndomlevel     = Chapter.MODE_HEART == self._chapter.sub_type
+    -- 地鼠副本
+    self._ishamsterlevel    = Chapter.MODE_COIN == self._chapter.sub_type
+    -- 躲避副本
+    self._isavoidlevel      = Chapter.MODE_DRUG == self._chapter.sub_type
+    -- 剧情普通本
+    self._isnormallevel     = self._chapter.sub_type == Chapter.MODE_PLOT_N
+    -- 剧情困难本
+    self._isdifflevel       = self._chapter.sub_type == Chapter.MODE_PLOT_D or self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD
+    -- 符石副本
+    self._isequiplevel      = Chapter.MODE_EQUIP == self._chapter.sub_type 
+    -- 剧情本
+    self._isplotlevel       = self._isnormallevel or self._isdifflevel
+    -- 爽关副本
+    self._isTriggerLevel    = Chapter.FIGHT_TYPE_TRIGGER == self._chapter.main_type
+    -- 第六封印本
+    self._isActivityLevel   = self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_COMMON 
+                                    or self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD or  self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL
+    
+    self._isFirstBoss   = self._isbosslevel or self._israndomlevel or self._isetherlevel or self._ishamsterlevel    
+    self._noauto_move   = self._isranklevel or self._israndomlevel or self._ishamsterlevel or self._isavoidlevel or self._isTriggerLevel
+
+    if(not self._isranklevel) then
+        self._levelFile = "fightdata/level/"..levelid
+    else
+        if(not isTest) then
+            midnightLevelId = MidNight:GetCurLevelId();
+        end
+
+        if(midnightLevelId > 0) then
+            self._levelFile = "fightdata/level/ShenYe/"..midnightLevelId
+        else 
+            self._levelFile = "fightdata/level/"..levelid
+        end
+    end
+    
+    if self._battleData == nil then
+        self._battleData = {
+            star = {false, false, false}
+        }
+    end   
+    self._battleData.settled        = false     -- 是否结算
+    self._battleData.state          = -1
+    self._battleData.score          = 0
+    self._battleData.cadanScore     = 0
+    self._battleData.fightTime      = 0
+    self._battleData.playMustNumber = 0
+    self._battleData.maxSecDps      = 0
+    self._battleData.star[1]        = false
+    self._battleData.star[2]        = false
+    self._battleData.star[3]        = false
+
+    -- self._fightBalance = CfgLoader:LoadCfgTable("FightBalance")
+    -- self:InitFightBalance()
+
+    self._isEeditorTest = isTest
+    if not isTest then
+        _ecsInstance:CreateECSWarView()
+        LuaScriptController:InitLuaScriptController()
+
+        if PlaybackController:IsPlaybackFight() then
+            self._changeSkillLv = PlaybackController:GetChangeSkllLv()
+            PlaybackController:StartPlaybackBattle()
+        else
+            self:initFightData()
+        end
+    end
+
+    self._stoped = false
+    self._bgmpath = ""
+    FightArrController:InitController()
+end
+
+function FightController:SetChangeSkillLv(tbl)
+    self._changeSkillLv = tbl
+end
+
+
+FightController._changeSkillLvFallback = {
+    { id = 600101, level = 1 },
+    { id = 600201, level = 1 },
+    { id = 600301, level = 1 },
+    { id = 600401, level = 1 },
+    { id = 600501, level = 1 },
+    { id = 600601, level = 1 },
+}
+
+function FightController:GetChangeSkllLv(gunType)
+    if(self._changeSkillLv == nil) then
+        self._changeSkillLv = self._changeSkillLvFallback
+    end
+
+    if(self._changeSkillLv[gunType] == nil) then
+        self._changeSkillLv[gunType] = self._changeSkillLvFallback[gunType]
+    end
+
+    return self._changeSkillLv[gunType]
+end
+
+function FightController:AfterInitBattleView()
+    local levelid = self._levelid
+    self:_dataAnalysis(self._levelFile)
+    CameraController:SetCameraForFight(false)
+    TalkController:InitTalkController()
+    CS.LuaLogicStaticCall.SetLuaFeature(self, "LuaTalkModule")
+    FightResController:InitFightResController()
+    FightResController:SetLevelID(levelid)
+    MapEventControllerNew:InitMapEventController()
+    EffectController:InitEffectController()
+    UIController:InitUIController()
+    TestController:InitTestController()
+    FightTipsController:InitFightTipsController()
+    KeyboardController:InitKeyboardController()
+    EventController:InitEventController()
+    ShenYeController:InitShenYeController()
+    self._init = true
+    self._waveIndex = 1
+    self._HeroFlyEnd = false
+
+    self._auto_move = PrefsController:IsAutoMove()
+end
+
+-- 预加载资源完成
+function FightController:BeforeEnter()
+    LandController:OnEnterLand(self._levelid, self._waveIndex)--, TutorialController:IsFirstTutorial())
+    LightController:OnEnterLight()
+    WeatherController:OnEnterWeather()
+    if TutorialController:IsFirstTutorial() then
+        _ecsInstance:StartBattle()
+    end
+end
+
+function FightController:ReallyEnter()
+    self._ready = true
+    if TutorialController:IsFirstTutorial() then
+        -- 战斗引导关
+        AssetLoader:LoadLuaAsset("xlua/lua_UI/GameFightScene/QualitySelectLayer.txt")
+        QualitySelectLayer:EnterQualitySelectLayer()
+    else
+        -- 开场动画
+        if self._isetherlevel then
+            self._etherLayer = core.require("xlua/lua_UI/GameFightScene/EtherFightStartLayer.txt"):new()
+            self._etherLayer:showLayer(function() self:_showStartLayer() end)
+        else
+            self:_showStartLayer()
+        end
+    end
+end
+
+function FightController:FightCGEnd()
+    CS.LuaLogicStaticCall.ShowModelPoint()
+    self:FightLevelWaveChanged(self._waveIndex, self._dialogId)
+    TutorialController:CheckTutorialLevel()
+end
+
+function FightController:onPackageBattleData()
+    if not self._battleData.settled then
+        local data = CS.LuaLogicStaticCall.battleData
+        self._battleData.state           = data.state
+        self._battleData.score           = data.score
+        self._battleData.cadanScore      = data.cadanScore
+        self._battleData.fightTime       = data.fightTime 
+        self._battleData.playMustNumber  = data.playMustNumber
+        self._battleData.timeScore       = data.timeScore
+        self._battleData.maxSecDps       = math.floor(data.maxSecDps or 0)
+        self._battleData.hurtScore       = data.hurtScore        -- 伤害分数
+        self._battleData.killBossScore   = data.killBossScore    -- 击杀BOSS分数
+        self._battleData.killEnemyScore  = data.killEnemyScore   -- 击杀小怪
+        self._battleData.coinScore       = data.coinScore
+        for i = 1, data.achieve.Length, 1 do
+            self._battleData.star[i] = data.achieve[i-1]
+        end
+        self._battleData.settled = true
+    end
+end
+
+function FightController:GetBattleData()
+    return self._battleData
+end
+
+function FightController:EndFightController(settle)
+    self._state = state_settle
+    if settle then
+        self:onPackageBattleData()
+    end
+    self:StopBattle()
+    if settle then
+        FightController:ReallySettleFight()
+    end
+end
+
+function FightController:DoFightEndCamer()
+    self._showEndSlowCamera = true;
+
+    CameraController:OffVignetteV3()
+    CameraController:RecoveryCamera()
+    CameraController:FightEndCameraEffect()
+end
+
+function FightController:ReallySettleFight()
+    self._ready = false
+    self._state = state_nil
+    UIController:FightResultCall()
+end
+
+function FightController:UpdateFightController(dt)
+    if not self._ready then return end
+    if Groble_UIMgr:IsPause() then
+        UI_FightSettingLayer:UpdateFightSettingLayer()
+        return
+    end
+    if self._state == state_guide then
+        -- 新手引导逻辑
+    else 
+        if self._state ~= state_talk then
+            MapEventControllerNew:UpdateLogic(dt)
+            UI_ComboHurtLayer:UpdateComboHurtLayer(dt)
+            CameraController:UpdateVignetteRadius(dt)
+        end
+    end
+    if self._showEndSlowCamera then
+        CameraController:FightEndCameraEffectUpdate(dt)
+    end
+    WeatherController:UpdateWeather(dt)
+end
+
+function FightController:TalkEnd()
+    AppMgr:LogInfo("-------------- 对话结束 --------------")
+    TalkController:ClearLayer()
+    if self._special then
+        -- 特殊视频
+        fmod:StopBgm()
+        WeatherController:StudioEventEmitter(false)
+        UIController:LayerFadeOut()
+        CameraController:SetBlackMask()
+        UI_BossInfoLayer:ExitBossInfoLayer()
+        UI_EffectLayer:Destructor()
+        VideoController:FirstVideoPlay()
+    else
+        if self._state ~= state_guide then
+            CS.LuaLogicStaticCall.LuaTalkEnd();
+        end
+    end
+end
+
+function FightController:EnterTalkLayer(dialogId, special)
+    self._special = special
+    if self._special then
+        CameraController:SetBlackMask()
+        CameraController:UnInitCameraController()
+        self:onPackageBattleData()
+        self:StopBattle()
+    end
+    UIController:HideByTalk()
+    TalkController:BeginTalk(dialogId, self._isFirstDialog)
+    self._isFirstDialog = false
+    self._state = state_talk
+end
+
+function FightController:clearFightController()
+    self._isranklevel       = false
+    self._isetherlevel      = false
+    self._isbosslevel       = false
+    self._israndomlevel     = false
+    self._ishamsterlevel    = false
+    self._isavoidlevel      = false
+    self._isdifflevel       = false
+    
+    self._levelcfg  = nil
+    self._chapter   = nil
+    self._slow_info = nil
+    self._leveldata = nil
+    self._slow_info     = nil
+    self._guide_pause   = nil
+end
+
+function FightController:StopBattle()
+    if not self._stoped then
+        self._stoped = true
+        _ecsInstance:StopBattle()
+    end
+end
+
+function FightController:UnInitFightController()
+    AppMgr:LogInfo("==========FightController:UnInitFightController()==========")
+    self._ready     = false
+    self._state     = state_nil
+    self._init      = false
+    self._showEndSlowCamera = false;
+    self:StopBattle()
+    self:UnInitShenYeLevel()
+    Groble_SceneMgr:SetFrameFps(60)
+    FightTipsController:UnInitFightTipsController()
+    TalkController:UnInitTalkController()
+    LandController:UnInitLandController()
+    EventController:UnInitEventController()
+    WeatherController:UnInitWeatherController()
+    MapEventControllerNew:UnInitMapEventController()
+    LightController:UnInitLightController()
+    CameraController:UnInitCameraController()
+    UIController:UnInitUIController()
+    EffectController:UnInitEffectController()
+    VideoController:UnInitVideoController()
+    self:clearFightController()
+    TestController:UnInitTestController()
+    FightArrController:UnInitController()
+end
+
+function FightController:ReadyForLoadScene(sceneid)
+    if self._init then
+        self:UnInitFightController()
+        FightResController:UnInitFightResController(sceneid)
+    else
+        SceneManager:LoadSceneSingle(sceneid)
+    end
+end
+
+function FightController:_onUpdateDayNight(dt)
+    if self._infoDayNight == nil then return end
+    self._infoDayNight.duration = self._infoDayNight.duration - dt
+    if self._infoDayNight.duration <= 0 then
+        if self._infoDayNight.state == 1 then
+            self._infoDayNight.state = 2
+        else
+            self._infoDayNight.state = 1
+        end
+        self._infoDayNight.duration = Ether:GetEtherLevelLDDur()
+    end
+end
+
+function FightController:_showStartLayer()
+    self._etherLayer = nil
+    core.require("xlua/lua_Game/Fight/ui/StartLayer.txt"):new():show(function()
+            self:startLayerEnd();
+        end)
+end
+
+function FightController:startLayerEnd()
+    WeatherController:PlayFogEffect()
+    CS.LandControllerProxy.OpenMove(self._waveIndex);
+    if not self._isFirstDialog then
+        CameraController:StartFightBcEffect()
+    end
+    -- 通知逻辑开始战斗
+    if self._isEeditorTest then
+        CS.LuaLogicStaticCall.StartBattle()
+    else
+        _ecsInstance:StartBattle()
+    end
+end
+
+function FightController:HeroFlyEnd()
+    if not self._HeroFlyEnd then
+        self._HeroFlyEnd = true
+        UI_ComboWipeNumberLayer:EnterComboWipeNumberLayer()
+        if not self._israndomlevel then
+            self:CheckLevelGuide()
+        end
+    else
+        LuaScriptController:AwakenEjector()
+    end
+end
+
+function FightController:CheckLevelGuide()
+    local rst, respath = false, nil
+    if self:IsDefWorldBossLevel() then
+        -- 世界BOSS防御
+        rst, respath = Guide:IntroduceBattleCheck(Guide.FIRST_FIGHT_BOSS)
+    elseif self._isavoidlevel then
+        -- 躲避玩法
+        rst, respath = Guide:IntroduceBattleCheck(Guide.FIRST_FIGHT_DRUG)
+    elseif self._israndomlevel then
+        -- 骰子玩法
+        rst, respath = Guide:IntroduceBattleCheck(Guide.FIRST_FIGHT_RANDOM)
+    elseif self._ishamsterlevel then
+        -- 金币本
+        rst, respath = Guide:IntroduceBattleCheck(Guide.FIRST_FIGHT_COIN)
+    -- elseif self._isetherlevel then
+    --     -- 以太边界
+    --     rst, respath = Guide:IntroduceBattleCheck(Guide.FIRST_FIGHT_ETHER)
+    end
+    if rst and respath ~= "" then
+        self._state = state_guide
+        LuaScriptController:GamePause(true)
+        self._introLayer = CanvasMgr:CreateCanvasChild("tutorial_dir/tutorial_intro")
+        self._introLayer:GetImageComponent("img_intro"):LoadSprite(respath)
+        self._introLayer:GetComponent("Button"):AddButtonListener(
+            function()
+                self._state = state_fight
+                self._introLayer:Release()
+                self._introLayer = nil
+                LuaScriptController:GamePause(false)
+                TutorialController:IsTutorialTrigger(self._levelid)
+            end)
+        local txt_tips = self._introLayer:GetTextComponent("txt_tips")
+        txt_tips:SetTextColor(1, 1, 1, 0)
+        txt_tips:DOFade(1, 0.8):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+    else
+        TutorialController:IsTutorialTrigger(self._levelid)
+    end
+end
+
+function FightController:EnterGuideState()
+    self._state = state_guide
+end
+
+function FightController:EnterFightState()
+    self._state = state_fight
+end
+
+function FightController:StartBattle()
+    WeatherController:ReloadFogSetting()
+    _ecsInstance:StartBattle()
+end
+
+function FightController:BossEnterEnd()
+    if self._israndomlevel then
+        LuaScriptController:GamePause(true)
+    end
+end
+
+function FightController:FightLevelWaveChanged(waveIndex, dialogId)
+    if not self._ready then
+        self._waveIndex = waveIndex
+        self._dialogId = dialogId
+        return
+    end
+
+    self._waveIndex = waveIndex
+    self._ptr = self._leveldata.waves[waveIndex]
+    if dialogId ~= 0 then
+        if self._isdifflevel then
+            self:TalkEnd()
+        else
+            AppMgr:LogInfo("-------------- 对话开始 --------------")
+            self:EnterTalkLayer(dialogId, false)
+        end
+    else
+        AppMgr:LogInfo("-------------- 下一波战斗 --------------")
+        UIController:ShowByTalk()
+        LandController:LandCheck(waveIndex)
+        self._state = state_fight
+        self:_playBgm(waveIndex)
+        self:doViewCheck()
+    end
+    UI_EffectLayer:AddWaveUIEffect(self._ptr.uiEffect)
+end
+
+function FightController:TutorialEnter()
+    self._state = state_guide
+    CS.LuaLogicStaticCall.TutorialInput(4)
+end
+function FightController:TutorialExit()
+    self._state = state_fight
+    CS.LuaLogicStaticCall.TutorialInput(5)
+end
+
+function FightController:TutorialCatchInput(catchInput)
+    CS.LuaLogicStaticCall.TutorialCatchInput(catchInput)
+end
+
+function FightController:EnterAutoSkillTutorial()
+    CS.LuaLogicStaticCall.TutorialInput(6)
+end
+
+function FightController:EnterSkillTutorial()
+    CS.LuaLogicStaticCall.TutorialInput(7)
+end
+
+function FightController:EnterRestraintTutorial()
+    CS.LuaLogicStaticCall.TutorialInput(8)
+end
+
+function FightController:doViewCheck()
+    if self._ptr ~= nil then
+        CameraController:CheckVignetteV3(self._ptr.viewId)
+    end
+end
+
+function FightController:_dataAnalysis(levelfile)
+
+    -- level data
+    local jsondata  = AssetLoader:LoadTextFromTextAsset(levelfile)
+    self._leveldata = luajson.decode(jsondata)
+    
+    -- 初始化灯光模块
+    LightController:InitLightController()
+    -- 初始化天气模块（雾配置参数、场景特效）
+    WeatherController:InitWeatherController()
+    -- 初始化地图模块（含云）
+    LandController:InitLandController()
+    local FightLandData = FightLandData
+    for i, wave in ipairs(self._leveldata.waves) do
+        local data = FightLandData[wave.landId]
+        if(data == nil) then
+            data = wave
+        end
+
+        -- 场景灯光 -------------------------------------------
+        LightController:AddLightPath(data.lightPath)
+        -- 场景特效 -------------------------------------------        
+        WeatherController:AddWeatherData(data.fogMode, data.fogConfig, data.effectPath)
+
+        -- 地块 -----------------------------------------------
+        CS.LandControllerProxy.AddLandMapByWaveData(i);
+        -- 云
+        CS.LandControllerProxy.AddCloudMapByWaveData(i);
+    end
+    self._ptr = self._leveldata.waves[1]
+
+    self._isFirstDialog = self._ptr.waveType == 1 and self._isnormallevel
+end
+
+function FightController:ReFightLevel(levelid, isrank, isether)
+    if isether then
+        local allAffix = Ether:GetAllCurAffixs()
+        local reqArr = {}
+        for i, v in pairs(allAffix) do
+            if v.curIndex ~= 0 then
+                reqArr[v.id] = v.curIndex
+            end
+        end
+        Ether:SetStartGameState(true)
+        Chapter:ChapterLevelBeginReq(levelid, Ether:GetCurHeroIds(), nil, reqArr)
+    end
+end
+
+-- 进入某一关
+function FightController:GoOnceLevel(levelid, fadecall)
+    FightController:EndFightController(false)
+    UI_Loading:InitLoading(uimgr.MAIN_SCENE_ID)
+    uimgr:onFightScene(fadecall)
+end
+
+---- 关卡配置接口 ----------------------------------------------------------
+function FightController:GetLevelId()
+    return self._levelid
+end
+
+function FightController:GetLevelCfg()
+    return self._levelcfg
+end
+
+function FightController:GetLevelSceneName()
+    return self._chapter.name
+end
+
+function FightController:GetChapterSubType()
+    return self._chapter.sub_type or -1
+end
+
+function FightController:GetChapterId()
+    return self._levelcfg.chapterid
+end
+
+function FightController:WaitBegin()
+    self._last_state = self._state
+    self._state = state_wait
+end
+
+function FightController:WaitEnd()
+    self._state = self._last_state
+end
+
+--------------------------------------------------------
+function FightController:IsRandomLevel()
+    return self._israndomlevel
+end
+
+function FightController:InitRandomLevel()
+    if self._israndomlevel then
+        self._dropEat   = false
+        self._dropHurt  = 1
+        self:SetRandomLevelValue(self:GenRandomLevelValue())
+    end    
+end
+
+function FightController:SetRandomLevel(hurt)
+    self._dropEat   = true
+    self._dropHurt  = hurt
+end
+
+function FightController:GetRandomLevelHurt()
+    local hurt = 1
+    if self._dropEat then
+        self._dropEat = false
+        hurt = self._dropHurt
+        self._dropHurt = 1
+    end
+    return hurt
+end
+
+function FightController:GenRandomLevelValue()
+    return math.random(1, 6)
+end
+
+function FightController:SetRandomLevelValue(value)
+    self._randomlevelvalue = value
+end
+
+function FightController:GetRandomLevelValue()
+    return self._randomlevelvalue
+end
+
+function FightController:JudgeRandomLevelValue(randomvalue)
+    return randomvalue == self._randomlevelvalue
+end
+
+function FightController:IsHamsterLevel()
+    return self._ishamsterlevel
+end
+
+function FightController:IsOnlyAvoidLevel()
+    return self._isavoidlevel    
+end
+
+function FightController:IsWorldBossLevel()
+    return self._isbosslevel
+end
+
+function FightController:IsCritWorldBossLevel()
+    return self:IsWorldBossLevel() and WorldBoss:WorldBossIsCrit(self._levelid)
+end
+
+function FightController:IsDefWorldBossLevel()
+    return self:IsWorldBossLevel() and WorldBoss:WorldBossIsDef(self._levelid)
+end
+
+function FightController:IsRankLevel()
+    return self._isranklevel
+end
+
+function FightController:IsEtherLevel()
+    return self._isetherlevel
+end
+
+--是否显示秒伤信息(关卡类型)
+function FightController:IsEnableSecDps()
+    return true
+end
+
+--是否显示分数等级(配置和关卡类型,世界BOSS不显示)
+function FightController:IsEnableScoreLevel()
+    return self._levelcfg.rewards ~= nil and self._levelcfg.rewards[1] == Chapter.DROP_SCORE and not Chapter:LevelIsWorldBoss(self:GetLevelId())
+end
+
+function FightController:BossEnterEndSpecial()
+    return self._israndomlevel
+end
+
+function FightController:IsPlotLevel()
+    return self._isplotlevel
+end
+
+function FightController:IsTriggerLevel()
+    return self._isTriggerLevel
+end
+
+function FightController:IsActivityLevel()
+    return self._isActivityLevel
+end
+
+function FightController:GetLevelDropType()
+    return self._levelcfg.leveldroptype
+end
+
+function FightController:onInitDayNight()
+    if self._isetherlevel then
+        local dps = Ether:GetEtherLevelLDDps()
+        if dps > 0 then
+            self._infoDayNight = {
+                dps = dps,
+                duration = Ether:GetEtherLevelLDDur(),
+                state = 1,
+            }
+        end
+    end
+end
+
+function FightController:GetDayNightDps()
+    if self._infoDayNight == nil then 
+        return 0
+    end
+    if self._infoDayNight.state == 1 then
+        return self._infoDayNight.dps
+    end
+    return -1 * self._infoDayNight.dps
+end
+
+function FightController:UnInitShenYeLevel()
+    if self._bufflayer ~= nil then
+        self._bufflayer:ExitRankBuffLayer()
+    end
+    self._bufflayer = nil
+end
+
+function FightController:IsBattleFighting()
+    return self._state == state_fight
+end
+
+function FightController:IsFirstBossLevel()
+    return self._isFirstBoss
+end
+
+function FightController:IsNoAutoMove()
+    return self._noauto_move
+end
+
+function FightController:IsAutoMoveOpen()
+    return self._auto_move
+end
+
+function FightController:DoAutoFightMove(value)
+    if value ~= nil then
+        self._auto_move = value
+    else
+        self._auto_move = not self._auto_move
+    end
+    if self._auto_move == false then
+        
+    end
+    PrefsController:SetAutoMove(self._auto_move)
+    return self._auto_move
+end
+
+function FightController:ShowSelectRankBuff(buffIds)
+    if not PlaybackController:IsPlaybackFight() then
+        AppMgr:LogInfo("=============深夜BUFF选择=============")
+        CameraController:SetGaussianBlurAmount(5)
+        if self._bufflayer == nil then
+            self._bufflayer = core.require("xlua/lua_UI/GameFightScene/RankBuffLayer.txt"):new()
+        end
+      self._bufflayer:EnterRankBuffLayer(buffIds,self._waveIndex)
+    end
+end
+
+function FightController:ShenYeBuffLayerCall(index, buffid)
+    self._ready = true
+    CameraController:SetGaussianBlurAmount(0)
+    if self._bufflayer ~= nil then
+        self._bufflayer:HideRankBuffLayer()
+    end
+    AppMgr:LogInfo(string.format("深夜选择了index = %d BUFF = %d", index, tonumber(buffid) or 0))
+    LuaScriptController:SelectRankBuffIndex(index)
+end
+
+function FightController:IsNoTimeOut()
+    return self._leveldata.levelTime <= 0    -- 关卡没有时间限制
+end
+
+function FightController:GetFightConfigTime()
+    return self._leveldata.levelTime
+end
+
+------------------------------------------------------------
+
+function FightController:_playBgm(index)
+    if self._leveldata == nil then
+        return
+    end
+
+    if self._leveldata.waves == nil then
+        return
+    end
+
+    if self._leveldata.waves[index] == nil then
+        return
+    end
+
+    if self._leveldata.waves[index].bgm == nil then
+        return
+    end
+
+    if self._bgmpath ~= self._leveldata.waves[index].bgm then
+        self._bgmpath = self._leveldata.waves[index].bgm
+        if self._bgmpath ~= "" then
+            fmod:PlayBgm(self._bgmpath)
+        end
+    end
+end
+
+function FightController:SetBGMPath(bgmpath)
+    self._bgmpath = bgmpath
+end
+
+function FightController:ExitFightCG()
+    --CameraController:CameraInit()
+    Timer:AddTimerCall(0.05,
+        function()
+            FightController:FightCGEnd()
+            DoubleClickLayer:ExitDoubleClickLayer()
+            LuaScriptController:GamePause(false)
+        end)
+end
+
+-- function FightController:InitFightBalance()
+--     for k, v in pairs(self._fightBalance) do
+--         local ba = v.BalanceAttribute
+--         local fa = v.FormativeAttribute
+
+--         v.fixed = {}
+--         v.rate = {}
+
+--         local tblBa = lua_str_split(ba, "|")
+--         for _, str in pairs(tblBa) do
+--             local tbl = lua_str_split(str, "&", true)
+--             v.fixed[tbl[1]] = tbl[2]
+--         end
+
+--         local tblFa = lua_str_split(fa, "|")
+--         for _, str in pairs(tblFa) do
+--             local tbl = lua_str_split(str, "&", true)
+--             v.rate[tbl[1]] = tbl[2] / 100
+--         end
+--     end
+-- end

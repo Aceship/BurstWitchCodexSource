@@ -1,0 +1,61 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-03 11:11:08
+---
+Comment = Comment or {};
+
+Comment.CommentMod = {
+    MODULE_NONE = 0,
+    MODULE_HERO = 1,
+    MODULE_MUSIC_HERO = 2,
+    MODULE_SKINS = 3,
+    MODULE_RIFT = 4,
+    MODULE_SHYE = 5,
+};
+
+Comment.CommentCacheName = "CommentCache";
+Comment.MyCommentCacheName = "MyCommentCacheName";
+Comment.CommentLikeName ="CommentLikeName";
+Comment.CacheName = "CacheName";
+Comment.ReplyCacheName = "ReplyCacheName";
+Comment.MyReplyCacheName = "MyReplyCacheName";
+
+-- 玩家每周评论上限
+Comment.WEEK_COMMENT_MAX_NUM    = 50
+-- 玩家每日点赞上限
+Comment.DAY_LIKE_MAX_NUM        = 50
+-- 玩家每周回复上限
+Comment.WEEK_REPLY_MAX_NUM      = 20
+-- 全局每单位评论上限
+Comment.COMMENT_ALL_MAX_NUM     = 999
+-- 全局每单位回复上限
+Comment.REPLY_ALL_MAX_NUM       = 300
+
+--每一页回复数上限
+Comment.ReplyPagesMaxNum        = 8;
+
+--一页评论数上限
+Comment.OnePageCommentNum       = 10;
+
+Comment.SendMaxTime             = 30;
+
+--获取评论数量CD
+Comment.CommentNumCD            = 10;
+
+--获取数据CD 600秒
+Comment.GetDataCD_600 =             600;
+
+Comment.LikeCD          = 1     -- 点赞消息发送CD
+
+--测试用
+Comment.Ip = "192.168.21.215";
+Comment.Port = 31700;
+
+--正式用
+--Comment.Ip = "129.211.129.127";
+--Comment.Port = 31700;
+
+function Comment:SetCommentIpPort(ip, port)
+    Comment.Ip = ip-- or Comment.Ip
+    Comment.Port = port-- or Comment.Port
+end

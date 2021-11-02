@@ -1,0 +1,98 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-08 12:01:27
+---
+Archive = Archive or {}
+
+function Archive:SetPhotoImage(img,heroId)
+    if(img == nil or heroId == nil)then
+        CS.Logger.LogError(" img or HeroId is nil!! heroId = " ..heroId);
+    end
+    img.sprite = AssetLoader:LoadSprite("source_avatar/hero_book/body_" .. heroId);
+end
+
+function Archive:NewBuildAddItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.txtTitle = cls:GetTextComponent("txt_title");
+    cls.txtTitleE = cls:GetTextComponent("txt_title_E");
+    cls.txtDes = cls:GetTextComponent("txt_des");
+    return cls;
+end
+
+function Archive:SetBuildAddItemData(cls,atkType,addNum)
+    addNum = addNum / 10;
+    local des = string.format(LanguageMgr:GetTextByID(7120025),addNum);
+    if(addNum == 0)then
+        des = string.format("<color=#5E5E5EFF>%s</color>",des)
+    end
+    des = lua_color_str(des);
+    local titleDes = LanguageMgr:GetTextByID(71200000 + atkType) .. LanguageMgr:GetTextByID(7120023);
+    cls.txtDes.text = des;
+    cls.txtTitle.text = titleDes;
+    cls.txtTitleE:SetTextById(71200010 + atkType);
+    Hero:SetHeroAtkType(cls.imgIcon,atkType);
+end
+
+function Archive:NewAttrAddItems(trans)
+    local attrAddItems = {};
+    for i = 1, 6 do
+        attrAddItems[i] = CAttr:CtorAttrCObj(trans:Find("obj_add_item"..i));
+    end
+    return attrAddItems;
+end
+
+function Archive:SetAttrAddItemsData(attrAddItems)
+    local attrAdd = Archive:GetAttrAdds();
+    local des = "";
+    for i, v in ipairs(attrAddItems) do
+        v.transform.gameObject:SetVisible(attrAdd[i] ~= nil);
+        if(attrAdd[i] ~= nil)then
+            if(attrAdd[i].isPercent)then
+                des = attrAdd[i].addNum / 10 .."%";
+            else
+                des = tostring(attrAdd[i].addNum);
+            end
+            if(attrAdd[i].addNum == 0)then
+                des = string.format("<color=#5E5E5EFF>+ %s</color>",des);
+            else
+                des = string.format("+ %s",des);
+            end
+            CAttr:SetAttrCObj(v,attrAdd[i].id, des,nil, true);
+        end
+    end
+end
+
+function Archive:SetPhotoPos(trans, itype, heroid , fetterid, img)
+    local info
+    if trans == nil or itype == nil or heroid == nil then
+        return
+    end
+    if Hero.BOOK_INFO[heroid] == nil then
+        AppMgr:LogError("=================未找到位置的配置信息=================" .. heroid)
+        return
+    end
+    if itype == Hero.BOOK_HANDBOOK then
+        info = Hero.BOOK_INFO[heroid][itype]
+    else
+        info = Hero.BOOK_INFO[heroid][itype][fetterid]
+    end
+    if info == nil then
+        AppMgr:LogError("=================未找到位置的配置信息=================")
+        return
+    end
+    trans:SetPosition(info.x, info.y, 0, true)
+    if img ~= nil then
+        img.gameObject:SetScale(info.scale, info.scale, info.scale)
+    else
+        trans:SetScale(info.scale, info.scale, info.scale)
+    end
+
+end
+
+function Archive:OpenAddDetailsLayer()
+    if(self._selectHeroId  == nil or self._selectHeroId == 0)then
+        return;
+    end
+    core.require("xlua/lua_UI/Archive/AddDetailsLayer.txt"):new():show();
+end

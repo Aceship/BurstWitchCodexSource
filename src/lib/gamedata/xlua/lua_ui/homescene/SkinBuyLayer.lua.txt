@@ -1,0 +1,165 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-21 19:43:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SkinBuyLayer = class("SkinBuyLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnBuy = "trans_container/btn_buy",
+	--@ButtonEnd
+}
+--构造函数
+function SkinBuyLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_SkinBuyLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = {nil, nil, nil},--货币类型
+    };
+    self._addStack = true
+    self._fading = false;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function SkinBuyLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function SkinBuyLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBuy)then 
+	   self:OnBtnBuyClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function SkinBuyLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function SkinBuyLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function SkinBuyLayer:InitUI()
+
+    self._imgBuyValueIcon = self.layer:GetImageComponent("trans_container/btn_buy/img_buy_value_icon");
+    --@ImageEnd
+
+    self._txtTopTitle = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title");
+    self._txtTopTitleE = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title_E");
+    self._txtDes = self.layer:GetTextComponent("trans_container/txt_des");
+    self._txtBuyValue = self.layer:GetTextComponent("trans_container/btn_buy/txt_buy_value");
+    --@TextEnd
+
+    self._transSpine = self.layer:Get("trans_spine");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function SkinBuyLayer:show(data,callback)
+    self._data = data;
+    self._callback = callback;
+    local cfg = Item:GetCfg(data.cfgid);
+    Hero:LoadSpineAsync(self.__cname,self._transSpine, data.cfgid, Hero.SPINE_UI_TYPE_SKIN,function (obj)
+        self._heroObj = obj;
+        self:showLayer();
+    end)
+    self._txtTopTitle.text = cfg.Name;
+    self._txtTopTitleE.text = cfg.Name2;
+    self._txtDes.text = cfg.itemInfo;
+    self._topData.topInfo        = {nil, nil, data.costcfgid},--货币类型
+    Groble_UIMgr:SetTopData(self._topData);
+    Item:SetItemIcon(self._imgBuyValueIcon, data.costcfgid);
+    self._txtBuyValue.text = data.price
+    if Item:GetCount(data.costcfgid) < data.price then
+        self._txtBuyValue.color = COLOR_TYPE.PaleRed
+    else
+        self._txtBuyValue.color = COLOR_TYPE.Black
+    end
+    Groble_UIMgr:HideMoneyUI(0,0);
+    Groble_UIMgr:ShowMoneyUI(0.3,0.5);
+    self:playAni("SkinBuyLayerAnim");
+    self:showLayer();
+end
+
+--释放
+function SkinBuyLayer:onExit()
+    if self._callback ~= nil then
+        self._callback(false)
+    end
+    if(self._heroObj ~= nil)then
+        CS.UnityEngine.GameObject.Destroy(self._heroObj);
+        self._heroObj = nil;
+    end
+
+    self._txtTopTitle = nil;
+    self._txtTopTitleE = nil;
+    self._txtDes = nil;
+    self._imgBuyValueIcon = nil;
+    self._transSpine = nil;
+    self._txtBuyValue = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function SkinBuyLayer:OnBtnBuyClick()
+    local cfg = Item:GetCfg(self._data.costcfgid);
+    if Item:GetCount(self._data.costcfgid) < self._data.price then
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(880013),cfg.Name));
+    else
+        Groble_UIMgr:ShowMessageBox(true,true,string.format("是否花费%s%s购买%s ?",self._data.price,cfg.Name,self._txtTopTitle.text),function ()
+            play_effect_buy()
+            if self._callback ~= nil then
+                self._callback(true,1)
+            end
+            if(self._heroObj ~= nil)then
+                CS.UnityEngine.GameObject.Destroy(self._heroObj);
+                self._heroObj = nil;
+            end
+            self:onPopLayer();
+        end);
+    end
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function SkinBuyLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+return SkinBuyLayer;

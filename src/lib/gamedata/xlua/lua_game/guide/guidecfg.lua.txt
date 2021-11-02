@@ -1,0 +1,93 @@
+--
+-- author: haosun
+-- date  : 2019-03-13 16:57:11
+-- brief : 
+--
+
+Guide = Guide or {}
+
+function Guide:_LoadCfg()
+    self._guides = {}
+    local cfgs = CfgLoader:LoadCfg("GuideStep")
+    for _, v in pairs(cfgs) do
+        local id = tonumber(v.id)
+        self._guides[id] = {
+            cfgid       = id,
+            gid         = tonumber(v.GroupId),
+            step        = tonumber(v.Step),
+            nextGid     = tonumber(v.NextGroup),
+            operType    = tonumber(v.Type),
+            imgIntro    = v.IntroduceBoard,
+            talk        = Language:GetTxtBuyId(v.Talk),
+            heroid      = tonumber(v.TalkSpine),
+            commitType  = tonumber(v.SubMit),
+            uiname      = v.ButtonName,
+            state       = Guide.STATE_NONE,
+            inSceneId   = tonumber(v.InSceneId),
+            IsSameUI    = tonumber(v.IsSameUI),
+            ExitTo      = tonumber(v.ExitTo),
+            startType   = -1,
+            condition   = 0,
+            offsetx     = 0,
+            offsety     = 0,
+            complete    = {0},
+            dropid      = tonumber(v.GuideStepDrop),
+            click       = tonumber(v.TriggerEvent),
+            jumpHid     = tonumber(v.JumpWitch),        -- 点击魔女跳到指定魔女
+            orderInLayer= tonumber(v.orderInLayer),
+            focusWidth  = 0,
+            focusHeight = 0,
+            isGuidanceRangeDisplay = v.GuidanceRangeDisplay == "1",
+        }
+        if v.OpenCondition ~= "-1" then
+            local tbl = lua_str_split(v.OpenCondition, "&")
+            self._guides[id].startType = tonumber(tbl[1])
+            self._guides[id].condition = tonumber(tbl[2])
+        end
+        if v.FingerPion ~= "-1" then
+            local tbl = lua_str_split(v.FingerPion, "&")
+            self._guides[id].offsetx = tonumber(tbl[1])
+            self._guides[id].offsety = tonumber(tbl[2])
+        end
+        if v.Complete ~= "-1" then
+            local tbl = lua_parse_cfg(v.Complete, true)
+            self._guides[id].complete = tbl[1]
+        end
+        if v.GuidanceRange ~= "-1" then
+            local tbl = lua_str_split(v.GuidanceRange, "&")
+            self._guides[id].focusWidth = tonumber(tbl[1])
+            self._guides[id].focusHeight = tonumber(tbl[2])
+        end
+        if v.GuidanceDeviation ~= "-1" then
+            local tbl = lua_str_split(v.GuidanceDeviation, "&")
+            self._guides[id].focusOffsetX = tonumber(tbl[1])
+            self._guides[id].focusOffsetY = tonumber(tbl[2])
+        else
+            self._guides[id].focusOffsetX = 0
+            self._guides[id].focusOffsetY = 0
+        end
+    end
+    self._list = CfgLoader:GenGroupConfig(self._guides, "gid", "step")
+
+    local nextGid = Guide.GUIDE_BEGIN
+    while true do
+        if self._list[nextGid] ~= nil and self._list[nextGid][1].nextGid ~= 0 then
+            nextGid = self._list[nextGid][1].nextGid
+        else
+            break
+        end
+    end
+    Guide.GUIDE_END = nextGid
+end
+
+function Guide:GetCfgByGid(gid, step)
+    if self._list[gid] == nil then
+        CS.Logger.LogError("can't find guide cfg by gid = {0}", gid)
+        return nil
+    end
+    if self._list[gid][step] == nil then
+        CS.Logger.LogError("can't find guide cfg by gid = {0} step = {1}", gid, step)
+        return nil
+    end
+    return self._list[gid][step]
+end

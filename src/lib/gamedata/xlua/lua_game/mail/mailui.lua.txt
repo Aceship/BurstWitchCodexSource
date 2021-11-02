@@ -1,0 +1,100 @@
+--
+-- author: haosun
+-- date  : 2019-06-06 17:33:50
+-- brief : 
+--
+
+Mail = Mail or {}
+
+function Mail:LoadIconSprite(imageObj, filename)
+    imageObj:GetComponent("Image").sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_label", filename)
+end
+
+function Mail:OpenMailLayer()
+    if not self._hasreq then
+        self:MailReq()
+        return
+    end
+    core.require("xlua/lua_UI/HomeScene/MailLayer.txt"):new()
+end
+
+function Mail:NewMailClsUi(obj, callback)
+    local cls           = clsbase:new(obj)
+    cls.iconImgCom      = cls:GetComponent("mail_icon", "Image")
+    cls.titleTxtCom     = cls:GetComponent("mail_title", "Text")
+    cls.stimeTxtCom     = cls:GetComponent("mail_sendtimes", "Text")
+    cls.deltimeTxtCom   = cls:GetComponent("mail_deltimes", "Text")
+    cls.readedTxtObj    = cls:Find("text_readed")
+    cls.newImgObj       = cls:Find("image_new")
+    local click         = cls:Find("button_click")
+    if click ~= nil then
+        click:GetComponent("Button").onClick:AddListener(
+            function()
+                if callback ~= nil then
+                    callback(cls.mailid)
+                end
+            end)
+    end
+    cls.mailid = 0
+    return cls
+end
+
+function Mail:SetMailClsUi(cls, mail)
+    cls.mail = mail;
+    if mail.bread == Mail.STATE_READ then
+        cls.iconImgCom.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_label", Mail.ICON_READ)
+    else
+        if #mail.units > 0 then
+            cls.iconImgCom.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_label", Mail.ICON_BOX)
+        else
+            cls.iconImgCom.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_common_label", Mail.ICON_UNREAD)
+        end
+    end
+    if(mail.defid <= 0)then
+        if(mail.others ~= nil)then
+            cls.titleTxtCom.text = mail.others.title
+        end
+    else
+        local cfg = Mail:GetMailDefCfgById(mail.defid);
+        cls.titleTxtCom.text = cfg.title
+    end
+    cls.stimeTxtCom.text = CTime:UTime2Str(mail.sendtime)
+
+    Mail:UpdateMailTimeTxt(cls.deltimeTxtCom,mail);
+
+    if cls.readedTxtObj ~= nil then
+        set_obj_active(cls.readedTxtObj, mail.bread == Mail.STATE_READ)
+    end
+    if cls.newImgObj ~= nil then
+        set_obj_active(cls.newImgObj, mail.bread == Mail.STATE_UNREAD)
+    end
+    
+    cls.mailid = mail.id
+end
+
+--更新邮件时间
+--return  邮件是否过期
+function Mail:UpdateMailTimeTxt(txt,mail)
+    if(mail.duration > Mail.DURATION_FOREVER)then--有期限的邮件
+        local interval, showstr = (mail.duration - (CTime:GetServerTime() - mail.sendtime)), ""
+        if(interval <= 0)then--已过期的邮件
+            showstr = LanguageMgr:GetTextByID(150038);
+        else
+            if interval < CTime.HOUR_SEC then
+                showstr = string.format(LanguageMgr:GetTextByID(150025), math.ceil(interval/CTime.MIN_SEC))
+            elseif interval < CTime.DAY_SEC then
+                showstr = string.format(LanguageMgr:GetTextByID(150024), math.ceil(interval/CTime.HOUR_SEC))
+            else
+                showstr = string.format(LanguageMgr:GetTextByID(150023), math.ceil(interval/CTime.DAY_SEC))
+            end
+            --[[if interval > CTime.DAY_SEC then
+                cls.deltimeTxtCom.color = COLOR_TYPE.Gray55
+            else
+                cls.deltimeTxtCom.color = COLOR_TYPE.PaleRed2
+            end]]--
+        end
+        txt:SetText(showstr);
+    else
+        txt:SetText(LanguageMgr:GetTextByID(150037));
+    end
+end

@@ -1,0 +1,120 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Ether = Ether or {};
+
+function Ether:SetServerData(data)
+    Ether:InitLevelData();
+    self:SetLevelData(data.datas);
+    self:SetAffixData(data.words);
+    self._curGetLv = data.last_lv or 0;
+    self._awardIsGet = (data.bgot or 0) ~= 0;
+end
+
+function Ether:InitLevelData()
+    self._levelData = {};
+    local levelIds = Chapter:GetChaptersIdByMainType(Chapter.FIGHT_TYPE_ETHER);
+    for i, v in pairs(levelIds) do
+        self._levelData[v] = self:InitAffixData(v);
+    end
+end
+
+function Ether:InitAffixData(id)
+    local levelData = {
+        id = id,
+        maxLv = 0,
+        curStrategyLv = 0,
+        lastHeroIds = {0,0,0},
+        heroIds = {0,0,0},
+        affixs = {},
+    };
+    local ids = self:GetAffixCfgIdsByChapterId(id);
+    local affixCfg;
+    for i, v in ipairs(ids) do
+        affixCfg = Ether:GetAffixCfgById(v);
+        if(affixCfg.targetType == Ether.Affix_Context)then
+            levelData.affixs[v] = {
+                id = v,
+                index = i,
+                curIndex = 1,
+                maxIndex = 1,
+                maxLv = 1,
+                curLv = 1,
+            };
+
+        else
+            levelData.affixs[v] = {
+                id = v,
+                index = i,
+                curIndex = 0,
+                maxIndex = 0,
+                maxLv = 0,
+                curLv = 0,
+            };
+        end
+    end
+    return levelData;
+end
+
+function Ether:SetLevelData(data)
+    for k, v in pairs(data) do
+        self._levelData[k].id = v.id;
+        if(next(v.hero_ids) ~= nil)then
+            self._levelData[k].heroIds = v.hero_ids;
+        else
+            self._levelData[k].heroIds = {0,0,0};
+        end
+        if(next(v.last_heros) ~= nil)then
+            self._levelData[k].lastHeroIds = v.last_heros;
+        else
+            self._levelData[k].lastHeroIds = {0,0,0};
+        end
+        self._levelData[k].curStrategyLv = v.lv_now or 0;
+        self._levelData[k].maxLv = v.lv_max or 0;
+    end
+end
+
+function Ether:SetAffixData(data)
+    for id, affix in pairs(data) do
+        local affixCfg,levelData;
+        affixCfg = self:GetAffixCfgById(id);
+        levelData = self._levelData[affixCfg.chapterId];
+        levelData.affixs[id].maxLv = tonumber(affixCfg.affixLvs[affix.pos_max]) or 0;
+        levelData.affixs[id].curLv = tonumber(affixCfg.affixLvs[affix.pos_now]) or 0;
+        levelData.affixs[id].curIndex = affix.pos_now;
+        levelData.affixs[id].maxIndex = affix.pos_max;
+    end
+end
+
+function Ether:CloseChapterInfoReq(chapterId)
+    Network:CallServerScript({c2s.DUNGEON_RESET_YITAI_WORDS_REQ, tonumber(chapterId) });
+end
+
+function Ether:CloseChapterInfoRep(chapterId)
+    local curChapter = self._levelData[chapterId];
+    curChapter.curStrategyLv = 0;
+    for _, v in pairs(curChapter.affixs) do
+        v.curIndex = 0;
+        v.curLv = 0;
+    end
+    for i = 1, 3 do
+        curChapter.lastHeroIds[i] = 0;
+        curChapter.heroIds[i] = 0;
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.CHAPTER_ETHER_CLOSE_INFO);
+end
+
+function Ether:GetEtherAwardReq()
+    Network:CallServerScript({c2s.DUNGEON_GET_YT_LV_AWARD_REQ});
+end
+
+function Ether:GetEtherAwardRep()
+    Ether:CloseCurGetLv();
+    self._awardIsGet = true;
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.ETHER_AWARE_GET_RRP);
+end
+
+---------------------------注册回调---------------------------
+c2s[c2s.DUNGEON_RESET_YITAI_WORDS_RES]             = {Ether, Ether.CloseChapterInfoRep}
+c2s[c2s.DUNGEON_GET_YT_LV_AWARD_RES]               = {Ether, Ether.GetEtherAwardRep}

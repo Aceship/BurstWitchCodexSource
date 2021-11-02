@@ -1,0 +1,139 @@
+--
+-- author: haosun
+-- date  : 2020-09-15 15:19:14
+-- brief : 
+--
+Build = Build or {}
+
+--构筑点等级布局类型
+Build.PointLvGroupType = {
+    Twelve = 12,--小于或等于12个点
+    Fourteen = 14,--14个点
+}
+
+--12个点布局参数
+Build.TwelveGroup = {
+    left = 25,
+    right = 25,
+    spacing = 6,
+}
+
+--14个点布局参数
+Build.FourteenGroup = {
+    left = 12,
+    right = 12,
+    spacing = 1.6,
+}
+
+--构筑最大等级
+Build.MaxLv = 80;
+
+
+Build.ShowLayerType =
+{
+    LvUP = 1;
+    BuildDot = 2;
+}
+
+--构筑点变换类型
+Build.BodChangeType = {
+    Minus = 0,--减少
+    Add = 1,--增加
+}
+
+Build.BuildType = {
+    AddBuildBarrage = 1,                --1)    增加单次发射构筑弹幕数量
+    AddSpeed = 2,                       --2)    增加弹幕飞行速度
+    AddShootFreq = 3,                   --3)    增加射速
+    AddScale = 4,                       --4)    增加弹幕体型大小
+    RepeatShoot = 5,                    --5)    增加连发效果
+    Converge = 6,                       --6)    增加聚拢效果
+    Split = 7,                          --7)    增加分裂数量
+    Explosion = 8,                      --8)    增加爆炸范围
+    Catapuit = 9,                       --9)    增加命中后额外效果—反弹
+    CatapuitByEntity = 10,              --10)   增加命中后额外效果—弹射
+    LockHitTarget = 11,                 --11)   增加命中后额外效果—锁定
+    Penetrate = 13,                     --13)   穿透效果
+    ContinuousDamage = 14,              --14)   持续增伤效果
+    Boom = 15,                          --15)   榴弹爆炸效果
+    Funel = 16,                         --16)   光柱浮游炮
+    LesrSub = 17,                       --17)   光柱冲击波(原光柱构筑)
+    Shield = 18,                        --18)   护盾
+    BloodSuck = 19,                     --19)   吸血
+    AtkAddGf = 20,                      --20)   攻击回神火
+    RealAtk = 21,                       --21)   真实伤害
+    LifeShield = 22,                    --22)   生命护盾
+    Slow = 23,                          --23)   减速
+}
+
+Build.BuildConst = {
+	--榴弹原始爆炸
+	HowitzerBoom = 
+    {
+        count           = 1,
+        interval        = 0.3,
+        totalDpsRate    = 1,
+        mainDpsRate     = 1,
+        radius          = 4,
+        subRadiusLow    = 1,
+        subRadiusHigh   = 2,
+--        prefabName      = "",
+    },
+
+    HowitzerBoomPrefabName = {
+        [1020] = "prefab_barrage/playerBarrage_1020/barrage_102001_hit",            --瑞琪儿
+        [1024] = "prefab_barrage/playerBarrage_1024/barrage_102401hit",            --米特拉
+        [1025] = "prefab_barrage/playerBarrage_1025/barrage_102501hit",            --特蕾莎
+        [1042] = "prefab_barrage/playerBarrage_1042/barrage_104201_hit",            --斯露德
+        [1019] = "prefab_barrage/playerBarrage_1019/barrage_101901_hit",            --卡琳娜
+    },
+
+	--霰弹半径缩减速率
+    --第一段多少米
+    GrapeshotResidue1Distance = 5.2,
+    --第一段总共减小
+    GrapeshotResidue1Rate = -0.1,
+    --第二段每米减小
+	GrapeshotScaleResidueRate = -0.7,
+    --伤害保底
+    GrapeshotDamageFloor = 0.8,
+
+    -- --弹射半径
+    -- CatapuitByEntityDistance = {
+    --     5,
+    --     5,
+    --     5,
+    --     5,
+    -- },
+
+    -- --锁定CD
+    -- LockHitTargetCD = {
+    --     5, 
+    --     5, 
+    --     5, 
+    --     5, 
+    -- },
+    -- --大爆炸伤害成长
+    -- BoomDpsChange = {
+    --     1,
+    --     1.3,
+    --     1.6,
+    --     2,
+    -- }
+
+}
+--弹射范围特殊设定，根据魔女id对应的弹射弹生效
+Build.CatapultByEnityDistance = {
+	--[1009] = 0.1,
+}
+
+--光柱枪射速
+Build.LaserSpeed = 2.4
+
+--boss半径（临时）
+Build.BossRadius = 5
+
+--切换技未解锁
+Build.ChangeSkillLock = 1;
+--切换技未已解锁
+Build.ChangeSkillLvUp = 2;

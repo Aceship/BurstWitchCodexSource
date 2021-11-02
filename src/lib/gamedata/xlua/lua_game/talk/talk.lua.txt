@@ -1,0 +1,297 @@
+--
+-- author: haosun
+-- date  : 2019-06-29 14:24:53
+-- brief :
+--
+Talk = Talk or {}
+
+function Talk:Ctor()
+    self._curLine = 0;
+    self._curLineNum = 0;
+    self._sendworldtalktime = 0
+    self._worldtalks = {}
+    self._lotteryResMsg = nil;
+end
+
+function Talk:Clear()
+    self:Ctor()
+end
+
+function Talk:Init(pid)
+    self._uilayer = nil
+    self._interval = {}
+    self._selfid = pid
+    self._talkerlist     = {}
+    self._state_talkers  = {}
+    self._last_talkmsg   = {}
+    self._musicmsg       = {}   -- 好友发来的应援邀请
+    self._talkerfilename = "talkerlist_" .. Login:GetUserUid() .. "_" .. Player:GetLoginServerId()
+    --self:LoadLocalTalker()
+end
+
+-- 加载本地私聊对象
+function Talk:LoadLocalTalker()
+    local talkers = CS.LocalTalkHelper.Instance():LoadText(self._talkerfilename)
+    if talkers ~= nil then
+        for _, v in pairs(talkers) do
+            local tbl = lua_table_unserialize(v)
+            local msgdata = self:LoadLastTalkMsgById(tbl.id)
+            if msgdata~=nil then
+                self._talkerlist[tbl.id] = tbl
+                self._state_talkers[tbl.id] = true
+                self._last_talkmsg[tbl.id] = {msg = msgdata[3], senderid = msgdata[2], utctime = msgdata[4] ,msgtype = msgdata[5], requestid = msgdata[6]}
+            end
+--[[            if tbl.id ~= nil and tbl.id ~= "" then
+                self._talkerlist[tbl.id] = tbl
+                    if msgdata ~= nil then
+                        self._state_talkers[msgdata.talkerid] = true
+                        self._last_talkmsg[msgdata.talkerid] = {msg = msgdata.msg, senderid = msgdata.senderid, msgtype = msgdata.msgtype , requestid = msgdata.requestid}
+                    end
+                end)
+            end]]
+        end
+    end
+end
+
+function Talk:SaveLocalTalker(pid)
+    if not self._state_talkers[pid] then
+        if self._talkerlist[pid] then
+            local str = lua_table_serialize(self._talkerlist[pid])
+            CS.LocalTalkHelper.Instance():AppendText(self._talkerfilename, str)
+            self._state_talkers[pid] = true
+        end
+    end
+end
+
+function Talk:CelarAndSaveNewTalker()
+    CS.LocalTalkHelper.Instance():ClearTalkers(self._talkerfilename)
+    for _, v in pairs(self._talkerlist) do
+        local str = lua_table_serialize(v)
+        self._state_talkers[v.id] = true
+        CS.LocalTalkHelper.Instance():AppendText(self._talkerfilename, str)
+    end
+end
+
+function Talk:LoadLastTalkMsgById(talkerid)
+    local filename = "talkslist_" .. talkerid .. "_" .. Login:GetUserUid() .. "_" .. Player:GetLoginServerId()
+    local lastline = CS.LocalTalkHelper.Instance():LoadLastLineText(filename)
+    if lastline ~= nil and lastline ~= "" then
+        local tbl = lua_table_unserialize(lastline)
+        return tbl
+    else
+        return "", 0
+    end
+end
+
+function Talk:LoadTalkMsgById(talkerid)
+    local filename = "talkslist_" .. talkerid .. "_" .. Login:GetUserUid() .. "_" .. Player:GetLoginServerId()
+    local talks = CS.LocalTalkHelper.Instance():LoadText(filename)
+    local list = {}
+    if talks ~= nil then
+        for _, v in pairs(talks) do
+            local tbl = lua_table_unserialize(v)
+            table.insert(list, tbl)
+        end
+    end
+    return list
+end
+
+function Talk:AddTalkMsg(talkerid, senderid, msgstr, utctime)
+    self._last_talkmsg[talkerid] = {msg = msgstr, senderid = senderid}
+    local tbl = {talkerid, senderid, msgstr, utctime}
+    local str = lua_table_serialize(tbl)
+    if str ~= nil and str ~= "" then
+        local filename = "talkslist_" .. talkerid .. "_" .. Login:GetUserUid() .. "_" .. Player:GetLoginServerId()
+        CS.LocalTalkHelper.Instance():AppendText(filename, str)
+    end
+end
+
+function Talk:AddTalkMsgByYoume(talkerid, senderid, msgstr, utctime ,requestid,audioduration)
+    self._last_talkmsg[talkerid] = self:GetTalkMsgByYoumeObj(talkerid, senderid, msgstr, utctime ,requestid,audioduration)
+    return self._last_talkmsg[talkerid]
+end
+
+function Talk:GetTalkMsgByYoumeObj(talkerid, senderid, msgstr, utctime,requestid,audioduration)
+    local tbl = {msg = msgstr, senderid = senderid, requestid = requestid,audioduration = audioduration , utctime = utctime}
+    return tbl
+end
+
+--当前线路人数
+function Talk:SetCurLineManNum(num)
+    self._curLineNum = num or 0;
+end
+
+function Talk:GetCurLineManNum()
+    return self._curLineNum or 0;
+end
+
+--当前线路
+function Talk:SetCurTalkLine(line)
+    self._curLine = line or 0;
+end
+
+function Talk:GetCurTalkLine()
+    return self._curLine or 0;
+end
+
+function Talk:GetWorldTalk()
+    return self._worldtalks
+end
+
+function Talk:GetSystemTalk()
+    return self._systemtalks
+end
+
+function Talk:GetTalker(talkerid)
+    return self._talkerlist[talkerid]
+end
+
+function Talk:GetTalkerList()
+    local array, info = {}, nil
+    for _, v in pairs(self._talkerlist) do
+        info = self._last_talkmsg[v.id]
+        if info ~= nil then
+            table.insert(array, {talker = v, msg = info.msg, senderid = info.senderid, msgtype=info.msgtype, requestid = info.requestid ,utctime = info.utctime or CTime:GetServerTime() })
+        end
+    end
+    table.sort(array,
+            function ( a,b)
+                return a.utctime > b.utctime
+            end)
+
+    return array
+end
+
+function Talk:GetMusicMsg(pid)
+    return self._musicmsg[pid]
+end
+
+function Talk:AddPrivateTalker(id, name, iconid, frameid)
+    if self._talkerlist[id] == nil then
+        self._talkerlist[id] = {
+            id      = id,
+            name    = name,
+            iconid  = iconid,
+            frameid = frameid,
+        }
+        self:SaveLocalTalker(id)
+    else
+        local lp = self._talkerlist[id]
+        if lp.name ~= name or lp.iconid ~= iconid or lp.frameid ~= frameid then
+            lp.name = name
+            lp.iconid = iconid
+            lp.frameid = frameid
+            self:CelarAndSaveNewTalker()
+        end
+    end
+end
+
+function Talk:RemovePrivateTalker(talkerid)
+    self._talkerlist[talkerid] = nil
+    self._state_talkers[talkerid] = nil
+    self._last_talkmsg[talkerid] = nil
+    local filename = "talkslist_" .. talkerid .. "_" .. Login:GetUserUid() .. "_" .. Player:GetLoginServerId()
+    CS.LocalTalkHelper.Instance():DeleteFile(filename)
+    self:CelarAndSaveNewTalker()
+    if(self._newmsgflag ~= nil)then
+        self._newmsgflag[talkerid] = false
+    end
+end
+
+function Talk:CloseNewMsgFlagById(talkerid)
+    if(self._newmsgflag ~= nil)then
+        self._newmsgflag[talkerid] = false
+    end
+end
+
+function Talk:_OnProgressMsg(showstr, recverid, senderid,requestid,audioduration)
+    local data
+    if senderid == self._selfid then
+        data = Player:GetTalker()
+    else
+        data = self._talkerlist[senderid]
+    end
+    if data == nil then return end
+    local talk_data = {
+        talktype    = Talk.TYPE_PRIVATE,
+        msgstr      = showstr,
+        requestid   = requestid,
+        audioduration = audioduration,
+        utctime     = CTime:GetServerTime(),
+        recverid    = recverid,
+        sender      = {
+            id      = data.id,
+            name    = data.name,
+            iconid  = data.iconid,
+            frameid = data.frameid,
+        }
+    }
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.PRIVATE_TALK_NTF, talk_data)
+end
+
+function Talk:GetSendWorldTalktime()
+    return Talk.WORLD_SEND_INTERVAL - (CTime:GetServerTime() - self._sendworldtalktime)
+end
+
+function Talk:IsExistNewTalkMsg(playerid)
+    return self._newmsgflag[playerid] == true
+end
+
+--获得玩家是否有新聊天消息
+function Talk:HasNewTalk()
+    for _, flag in pairs(self._newmsgflag) do
+        if flag then
+            return true
+        end
+    end
+    return false
+end
+
+function Talk:SetOpenLayer(layer)
+    self._uilayer = layer
+end
+
+function Talk:GetLastWorldMsg()
+    local retData = {};
+    for i=#self._worldtalks, 1, -1 do
+        if(#retData < 2)then
+            if(self._worldtalks[i].talktype ~= Talk.TYPE_CUT_WORLD_LINE)then
+                table.insert(retData,self._worldtalks[i]);
+            end
+        else
+            break;
+        end
+    end
+    return retData;
+end
+--已读消息
+function Talk:setNewMsgFlag(playerid)
+     self._newmsgflag[playerid] = false
+end
+
+function Talk:SetIsLoadSceneOver(isOver)
+    Talk.IsLoadSceneOver = isOver;
+end
+
+function Talk:GetTalkStart()
+    return self._talkStart or 0
+end
+
+function Talk:GetTalkIsForbid()
+    return CTime:GetServerTime() <= Talk:GetTalkStart();
+end
+
+--设置抽奖数据
+function Talk:SetLotteryResMsg(msg)
+    self._lotteryResMsg = msg;
+end
+
+--获取抽奖返回数据
+function Talk:GetLotteryResMsg()
+    return self._lotteryResMsg;
+end
+
+--获取抽奖返回数据
+function Talk:CloseLotteryResMsg()
+    self._lotteryResMsg = nil;
+end

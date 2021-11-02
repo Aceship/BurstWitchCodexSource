@@ -1,0 +1,74 @@
+--
+-- author: haosun
+-- date  : 2020-10-10 15:27:32
+-- brief : 
+--
+UI_RandomLayer = UI_RandomLayer or {}
+
+function UI_RandomLayer:RandomLayerCreator(number)
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/RandomLayer")
+    self._randomkey = number
+    local resPath = string.format("prefab_enemeyModel/M2_Common/M2_fightshazi/M2_fightshazi_0%d", self._randomkey)
+    self._model = SceneManager:CreateChild(resPath)
+    self._model.transform:GetChild(0):AddAnimationBehaviour(self)
+
+    self._keysprite = self.layer:Get("img_bg")
+    self:LoadKeySprite()
+    self._keysprite:SetVisible(false)
+
+    CS.UnityHelper.NotchfitY(self.layer, 50, true)
+end
+
+function UI_RandomLayer:playEffect()
+    local effect = SceneManager:CreateChild(EffectController:GetRandomBlastEffectPath())
+    effect:SetPosition(35.5, 1, 5.8)
+    effect:DelayCall(0.3, function()
+            self._model:Release()
+            self:playFlyEffect()
+        end)
+    effect:DelayCall(1.1, function()
+            effect:Release()
+        end)
+end
+
+function UI_RandomLayer:playFlyEffect()
+    if self._keysprite == nil then return end
+    
+    local effect = SceneManager:CreateChild(EffectController:GetRandomFlyEffectPath())
+    effect:SetPosition(35.5, 1, 5.8)
+
+    local viewPos = CameraController:WorldToViewportPoint(CS.UnityEngine.Vector3(28, 0, 20.8))
+    local camera = CS.UnityEngine.GameObject.Find("UI_Camera"):GetComponent("Camera")    
+    local position = camera:WorldToViewportPoint(self._keysprite.transform.position)
+    viewPos.x = position.x
+    viewPos.y = position.y
+    local vector = CameraController:ViewportToWorldPoint(viewPos)
+    
+    effect.transform:DOMove(vector, 0.5):OnComplete(
+        function()
+            effect:Release()
+            if self._keysprite ~= nil then
+                self._keysprite:SetVisible(true)
+            end
+            LuaScriptController:GamePause(false)
+            FightController:CheckLevelGuide()
+        end)
+end
+
+function UI_RandomLayer:LoadKeySprite()
+    self._keysprite:GetImageComponent("image"):LoadSprite(string.format("source_uiEffect/rc_img/rc_0%d", self._randomkey))
+end
+
+function UI_RandomLayer:ExitRandomLayer()
+    if self.layer ~= nil then
+        self.layer:Release()
+        self.layer = nil
+        self._keysprite = nil
+    end
+end
+
+function UI_RandomLayer:onAnimationEvent(anitype, keyTag)
+    if 6 == anitype then
+        self:playEffect()
+    end
+end

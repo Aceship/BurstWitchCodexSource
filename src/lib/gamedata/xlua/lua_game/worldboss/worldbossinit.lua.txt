@@ -1,0 +1,13 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldboss.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldbossdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldbosscfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldbossui.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldboss_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/WorldBoss/worldbossdata.txt")
+
+WorldBoss:Ctor()
+WorldBoss:LoadCfg();

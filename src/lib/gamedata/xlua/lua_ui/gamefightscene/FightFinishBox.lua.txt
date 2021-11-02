@@ -1,0 +1,195 @@
+--
+-- author: cjj
+-- date  : 2019-03-15 16:04:01
+-- brief :
+--
+FightFinishBox = FightFinishBox or {}
+
+local DROPS_TYPE_NORMAL = 1     -- 普通掉落
+local DROPS_TYPE_FIRST  = 2     -- 首次获得
+local DROPS_TYPE_CG     = 3     -- 每日奖励
+
+function FightFinishBox:FightFinishBoxCreator(data, finishCall)
+    self._showDrops = {}
+    for k,v in pairs(data.drops or {}) do
+        local tempDorps = {};
+        tempDorps.droptype = DROPS_TYPE_NORMAL
+        tempDorps.drops = v;
+        table.insert(self._showDrops,tempDorps);
+    end
+    for k,v in pairs(data.cg_drops or {}) do
+        local tempDorps = {};
+        tempDorps.droptype = DROPS_TYPE_CG
+        tempDorps.drops = v;
+        table.insert(self._showDrops,tempDorps);
+    end
+    for k,v in pairs(data.first_drops or {}) do
+        local tempDorps = {};
+        tempDorps.droptype = DROPS_TYPE_FIRST
+        tempDorps.drops = v;
+        table.insert(self._showDrops,tempDorps);
+    end
+    self._finishCall = finishCall
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiHome/ui_fight/UI_FightFinishBox")
+    self._hasDestoryed = false
+    self:initFightFinishBoxLayer()
+end
+
+function FightFinishBox:FightFinishBoxDestructor()
+    if self._hasDestoryed then return end
+
+    self._hasDestoryed = true
+
+    self.effect = nil
+    self._SkipTips = nil
+    self.btnSkip = nil
+    self.itemPrefab = nil
+    self._finishCall = nil
+    self.cGItem     = nil
+    self.firstItem  = nil
+    self.comItem    = nil
+    if self._awardList ~= nil then
+        for i, v in pairs(self._awardList) do
+            v.cls:clear()
+            v.item = nil
+        end
+    end
+    self._awardList = nil
+    self._showDrops = nil
+
+    if self.layer ~= nil then self.layer:Release() end
+    self.layer = nil
+end
+
+function FightFinishBox:initFightFinishBoxLayer()
+    self.effect = self.layer:Get("effect")
+    self.effect:CreateChild("prefab_uiEffect/uiEffect/UI44_jiesuan")
+    self.effect:SetVisible(false)
+    self._SkipTips = self.layer:Get("skipTips")
+    self._SkipTips:SetVisible(false)
+    
+    self.btnSkip = self.layer:GetButtonComponent("content/SkipBtn")
+    self.btnSkip.interactable = false
+    self.btnSkip:AddButtonListener(
+        function()
+            self:closeLayer()
+        end)
+
+    self.itemPrefab = self.layer:Get("content/item_hide/item").gameObject
+    self.showIndex = 1
+    self:refreshScrollView()
+    self:onFadeInEnd()
+end
+
+function FightFinishBox:closeLayer()
+    self._finishCall()
+
+    self:FightFinishBoxDestructor()
+end
+
+function FightFinishBox:refreshScrollView()
+    self._showTipsFirst = false;
+    self._showTipsCG    = false;
+    self.cGItem = {}
+    self.firstItem = {};
+    self.comItem = {};
+    local itemBg = self.layer:Get("content/item_bg")
+    self._awardList = {};
+    for k,v in pairs(self._showDrops) do
+        local item = itemBg:AddChild(self.itemPrefab).transform;
+        local cls = Bag:CtorGoodsUi(item,nil,true);
+        Bag:SetGoodsUiEx(cls, v.drops[1], v.drops[2], v.drops[3], true)
+        self._awardList[k] = {
+            cls  = cls,
+            item = item,
+            dropType = v.droptype,
+        }
+        if (v.droptype == DROPS_TYPE_NORMAL) then
+            table.insert(self.comItem,self._awardList[k]);
+        elseif (v.droptype == DROPS_TYPE_FIRST) then
+            table.insert(self.firstItem,self._awardList[k]);
+        elseif (v.droptype == DROPS_TYPE_CG) then
+            item:Find("img_new"):SetVisible(true)
+            table.insert(self.cGItem,self._awardList[k]);
+        end
+    end
+end
+
+
+function FightFinishBox:onFadeInEnd()
+    local bgDt = self.layer.transform:GetComponent("Image"):DOColor(CS.UnityEngine.Color(1,1,1,0.8),0.5);
+    bgDt:OnComplete(function ()
+        self.effect:SetVisible(true);
+    end);
+    local dt = self.layer:Get("content/item_bg"):DOScale(1, 0.2):SetDelay(0.8)
+    dt:OnComplete(function ()
+       self:ShowComItems();
+    end);
+end
+
+function FightFinishBox:ShowComItems()
+    if(#self.comItem > 0)then
+        for i, v in ipairs(self.comItem) do
+            if(i == #self.comItem)then
+                local itemDt = v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+                itemDt:OnComplete(function ()
+                    self:ShowFirstItems();
+                end);
+                break;
+            end
+            v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+        end
+    else
+        self:ShowFirstItems();
+    end
+end
+
+function FightFinishBox:ShowFirstItems()
+    if(#self.firstItem > 0)then
+        Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.FIRST_REWARD,function ()
+            for i, v in ipairs(self.firstItem) do
+                if(i == #self.firstItem)then
+                    local itemDt = v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+                    itemDt:OnComplete(function ()
+                        self:ShowCGItems();
+                    end);
+                    break;
+                end
+                v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+            end
+        end);
+    else
+        self:ShowCGItems();
+    end
+end
+
+function FightFinishBox:ShowCGItems()
+    if(#self.cGItem > 0)then
+        Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.CG_REWARD,function ()
+            for i, v in ipairs(self.cGItem) do
+                if(i == #self.cGItem)then
+                    local itemDt = v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+                    itemDt:OnComplete(function ()
+                        self:onAniEnd()
+                    end);
+                    break;
+                end
+                v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+            end
+        end);
+    else
+        self:onAniEnd()
+    end
+end
+
+function FightFinishBox:onAniEnd()
+    if Chapter:IsAutoFight() then
+        self.layer:DelayInvoke(2,
+            function()
+                self:closeLayer()
+            end)
+    else
+        self.btnSkip.interactable = true
+        self._SkipTips:SetVisible(true)
+    end
+end

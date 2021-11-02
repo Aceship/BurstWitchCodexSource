@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2020-08-10 15:06:52
+-- brief : 
+--
+local baseanimation = core.require("xlua/lua_UI/BaseAnimation.txt")
+local StartLayer = class("StartLayer", baseanimation)
+
+function StartLayer:ctor(super)
+    baseanimation.ctor(self)
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/UI_ScreenFade")
+    self.layer:GetTextComponent("FadeName").text = FightController:GetLevelSceneName()
+    self:addBaseAnimationBehaviour(self.layer)
+end
+
+function StartLayer:KeyFrameCall()
+    self._showcall()
+end
+
+function StartLayer:onLayerFadeInEndCall()
+    self:clear()
+    self.layer:Release()
+    self.layer = nil
+end
+
+function StartLayer:show(showcall)
+    self._showcall = showcall
+    self.layer:AnimationPlay("ScreenFadeInOut2")
+end
+
+return StartLayer
+

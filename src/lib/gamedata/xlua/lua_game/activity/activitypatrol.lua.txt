@@ -1,0 +1,55 @@
+--
+-- author: haosun
+-- date  : 2021-09-23 13:35:56
+-- brief : 夜莺巡查活动
+--
+Activity = Activity or {}
+
+function Activity:InitActivityPatrol()
+    self._isEnterActivityPatrol = false
+end
+
+function Activity:SetEnterActivityPatrol()
+    self._isEnterActivityPatrol = true
+end
+
+-- 
+-- brief: 夜莺巡查是否提示点数
+-- 
+function Activity:IsPatrolNumberTips()
+    -- 打开界面后就不再提示
+    if self._isEnterActivityPatrol then return false end
+
+    -- 道具不足
+    if Item:GetCount(Player.ITEM_DICE) == 0 then return false end
+
+    if self:GetChessTurnsIsMax() then return false end
+
+    return true
+end
+
+-- 
+-- brief: 夜莺巡查总入口红点
+-- 
+function Activity:GetChessBoardRed()
+    if self:GetChessTaskRed() then
+        return true
+    end
+    if self:GetTurnsAwardRed() then
+        return true
+    end
+    if self:GetChessWelfareRed() then
+        return true
+    end
+    if self:GetDayFreeDiceRedState() then
+        return true
+    end
+    if self:IsPatrolNumberTips() then
+        return true
+    end
+    return false
+end
+
+function Activity:GetChessTaskRed()
+    return Task:IsSubTaskCanRecv(Task.ChessTask_DayTask)
+end

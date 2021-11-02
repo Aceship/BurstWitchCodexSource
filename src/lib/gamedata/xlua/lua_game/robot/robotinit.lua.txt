@@ -1,0 +1,13 @@
+--
+-- author: lvqiang
+-- date  : 2021-09-06 11:48:49
+-- brief :
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Robot/robot.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Robot/robot_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Robot/robotdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Robot/robotcfg.txt")
+
+Robot:Ctor()
+Robot:LoadCfg()

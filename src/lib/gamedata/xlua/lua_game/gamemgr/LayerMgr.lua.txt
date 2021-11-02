@@ -1,0 +1,50 @@
+--
+-- author: haosun
+-- date  : 2020-05-18 19:53:01
+-- brief : 
+--
+LayerMgr = LayerMgr or {}
+
+local _lists    = {}
+local _doing    = false
+
+local _tipslayer = 1
+local _lvuplayer = 2
+
+function LayerMgr:Clear()
+    _doing  = false
+    _lists  = {}
+end
+
+function LayerMgr:_doNext()
+    if #_lists > 0 then
+        _doing = true
+        local pdata = _lists[1]
+        if pdata[1] == _tipslayer or pdata[1] == _lvuplayer then
+            pdata[2]:show(pdata[3])
+        end
+        table.remove(_lists, 1)
+    else
+        _doing = false
+    end
+end
+
+function LayerMgr:AddGetTipsLayer(clayer, callback)
+    table.insert(_lists, {_tipslayer, clayer, callback})
+    if not _doing then
+        self:_doNext()
+    end
+end
+
+function LayerMgr:AddLvUpLayer(clayer, callback)
+    table.insert(_lists, {_tipslayer, clayer, callback})
+    if not _doing then
+        self:_doNext()
+    end
+end
+
+function LayerMgr:LayerCheck()
+    CS.Logger.LogInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!LayerMgr:LayerCheck()")
+    self._doNext()
+end
+

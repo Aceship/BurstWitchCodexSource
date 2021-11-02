@@ -1,0 +1,75 @@
+--
+-- author: liangxt
+-- date  : 2019年12月3日22:23:20
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local UnlockEffectLayer = class("UnlockEffectLayer", CBaseLayer)
+
+function UnlockEffectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/need_preload/UI_UnlockEffectLayer",
+    }
+    self._uitype = 2
+    
+    self:onEnter()
+end
+
+function UnlockEffectLayer:onEnter()
+    self:createPnl()    
+end
+
+function UnlockEffectLayer:show(sysids,callback)    
+    self._sysids = sysids
+    self._callback = callback
+    self:initData()
+    self:showLayer()
+    --self:playAni("UnlockEffectLayerAni")
+end
+
+function UnlockEffectLayer:initData()
+    local len = math.min(3, #self._sysids)
+    if len > 0 then
+        --最多显示3个功能
+        for i = 1, len do
+            local item = self.layer:Get("content/Function/item"..i)
+            local fuc = Player:GetSysFunc(self._sysids[i])
+            item:SetVisible(true)
+            item:GetTextComponent("text_name"):SetText(fuc.cfg.name)
+            --todo 对应 icon
+            local imgid = self._sysids[i]
+            --章节相同图片做特殊处理
+            if self._sysids[i] >= 888001 and  self._sysids[i] <= 889000 then
+                imgid = 888003
+            end
+            item:GetImageComponent("image_icon"):LoadSprite("source_icon/unlock/" ..imgid);
+        end
+    end
+    --展示过的移除出集合
+    for k,sysid in pairs(self._sysids) do
+        local fuc  =  Player:GetSysFunc(sysid)
+        Player:RemoveUnlockByTypeAndLv(fuc.openType ,fuc.openLv)
+    end
+    --清除sysid集合
+    Player:ClearUnlockSys()
+end
+
+function UnlockEffectLayer:onBackClick()
+    self._fading = true
+    self:playAni("UnlockEffectLayerEndAni")
+end
+
+function UnlockEffectLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+function UnlockEffectLayer:KeyFrameCall()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+return UnlockEffectLayer
+

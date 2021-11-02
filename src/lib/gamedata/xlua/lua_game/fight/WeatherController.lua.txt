@@ -1,0 +1,163 @@
+--
+-- author: haosun
+-- date  : 2020-08-04 11:37:48
+-- brief : 
+--
+
+WeatherController = WeatherController or {}
+
+-- 随机打雷照亮权重
+local Random_Destinty = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+-- 打雷持续时间随机权重
+local Random_Times = {1, 1, 1, 1, 1, 2}
+
+function WeatherController:InitWeatherController()
+    -- 数据存储：雾模式、雾配置、特效
+    self._datas         = {}
+    self._targetFogInfo = {}
+    self._playFogEffect = nil
+    self._curEffectPath = nil
+    self._weatherEffect = nil
+    self._weatherGo     = CS.WeatherMgr.WeatherMgrCreator(self)
+    AppMgr:LogInfo("==========WeatherController:InitWeatherController()==========")
+end
+
+function WeatherController:UnInitWeatherController()
+    self:doClearWeatherEffect()
+    self:LuaOnDestroyWeather()
+    AppMgr:LogInfo("==========WeatherController:UnInitWeatherController()==========")
+end
+
+function WeatherController:LuaOnDestroyWeather()
+    self._datas         = nil
+    self._targetFogInfo = nil
+    self._playFogEffect = nil
+    self._curEffectPath = nil
+    self._weatherEffect = nil
+    self._weatherGo     = nil
+    AppMgr:LogInfo("==========WeatherController:LuaOnDestroyWeather()==========")
+end
+
+function WeatherController:doClearWeatherEffect()
+    if self._weatherEffect ~= nil then
+        self._weatherEffect:Release()
+        self._weatherEffect = nil
+    end
+end
+
+-- 
+-- brief: 天气特效
+-- 
+function WeatherController:effectCreator(data)
+    if data[3] == nil then
+        self:doClearWeatherEffect()
+    else
+        if self._curEffectPath ~= data[3] then
+            self._curEffectPath = data[3]
+            self._weatherEffect = self._weatherGo:CreateChild(self._curEffectPath)
+        end
+    end
+end
+
+-- 
+-- brief: 天气雾
+-- 
+function WeatherController:fogCreator(data)
+    local cfg = lua_str_split(data[2], "|")    
+    RenderSettingsMgr:FogSettings(data[1], tonumber(cfg[1])/255, tonumber(cfg[2])/255, tonumber(cfg[3])/255, 
+        tonumber(cfg[4])/255, tonumber(cfg[5]), tonumber(cfg[6]))
+end
+
+-- public api ----------------------
+
+function WeatherController:AddWeatherData(fogmode, fogdata, effectres)
+    table.insert(self._datas, {fogmode, fogdata, effectres})
+end
+
+function WeatherController:OnEnterWeather()
+    local data = self._datas[1]
+    self:effectCreator(data)
+    local cfg = lua_str_split(data[2], "|")
+    local a = tonumber(cfg[4])/255
+    self._targetFogInfo.mode    = self._datas[1][1]
+    self._targetFogInfo.r       = tonumber(cfg[1])/255;
+    self._targetFogInfo.g       = tonumber(cfg[2])/255;
+    self._targetFogInfo.b       = tonumber(cfg[3])/255;
+    self._targetFogInfo.a       = a
+    self._targetFogInfo.starts  = tonumber(cfg[5]);
+    self._targetFogInfo.ends    = tonumber(cfg[6]);
+
+    self._targetFogInfo.r_s         = 0;
+    self._targetFogInfo.g_s         = 0;
+    self._targetFogInfo.b_s         = 0;
+    self._targetFogInfo.a_s         = 255
+    self._targetFogInfo.a_sSub      = (self._targetFogInfo.a_s - a)
+    self._targetFogInfo.begins_s    = 0
+    self._targetFogInfo.ends_s      = 0;
+    -- 雾参数设置
+    --RenderSettingsMgr:FogSettings(self._datas[1][1], 0, 0, 0, 255, 0, 0)
+    self:ReloadFogSetting()
+    -- 开启天气音效
+    self:StudioEventEmitter(true)
+end
+
+function WeatherController:ReloadFogSetting()
+    RenderSettingsMgr:FogSettings(self._datas[1][1], self._targetFogInfo.r, self._targetFogInfo.g, 
+        self._targetFogInfo.b, self._targetFogInfo.a, self._targetFogInfo.starts, self._targetFogInfo.ends)
+end
+
+function WeatherController:WeatherCreator(index)
+    local data = self._datas[index]
+    if data == nil then return end
+
+    self:effectCreator(data)
+    self:fogCreator(data)
+end
+
+function WeatherController:PlayFogEffect()
+    -- self._playFogEffect = true;
+    -- self._fadeFogTimes  = 2;
+    -- self._curFadeTimes  = 0;
+end
+
+function WeatherController:UpdateWeather(dt)
+   if self._playFogEffect == nil then
+        return;
+    end
+    self._curFadeTimes = self._curFadeTimes + dt;
+    if self._curFadeTimes > self._fadeFogTimes then
+        self._curFadeTimes = self._fadeFogTimes;
+        self._playFogEffect = nil;
+    end
+    local fogTimesRate = self._curFadeTimes/self._fadeFogTimes
+    self._targetFogInfo.r_s = self._targetFogInfo.r * fogTimesRate 
+    self._targetFogInfo.g_s = self._targetFogInfo.g * fogTimesRate 
+    self._targetFogInfo.b_s = self._targetFogInfo.b * fogTimesRate 
+    self._targetFogInfo.a_s = self._targetFogInfo.a_s - (self._targetFogInfo.a_sSub * fogTimesRate )
+    self._targetFogInfo.ends_s = self._targetFogInfo.ends * fogTimesRate
+    self._targetFogInfo.begins_s = self._targetFogInfo.starts * fogTimesRate
+
+    RenderSettingsMgr:SetFogColor(self._targetFogInfo.r_s, self._targetFogInfo.g_s, self._targetFogInfo.b_s, self._targetFogInfo.a_s)
+    RenderSettingsMgr:SetFogDistance(self._targetFogInfo.begins_s, self._targetFogInfo.ends_s)
+end
+
+function WeatherController:StudioEventEmitter(enabled)
+    if self._weatherEffect ~= nil then
+        local RainSoundEmitter = self._weatherEffect:GetComponent("StudioEventEmitter")
+        if RainSoundEmitter ~= nil then
+            RainSoundEmitter.enabled = enabled
+        end
+    end
+end
+
+function WeatherController:RecoveyFogSetting()
+    RenderSettingsMgr:FogSettings(
+        self._targetFogInfo.mode,
+        self._targetFogInfo.r,
+        self._targetFogInfo.g,
+        self._targetFogInfo.b,
+        self._targetFogInfo.a,
+        self._targetFogInfo.starts,
+        self._targetFogInfo.ends)
+end
+

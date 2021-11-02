@@ -1,0 +1,53 @@
+--
+-- author: haosun
+-- date  : 2019-10-25 13:16:33
+-- brief : 
+--
+Login = Login or {}
+
+local function _IpPort(ipport)
+    local arr = lua_str_split(ipport, ":")
+    if #arr == 2 then
+        return arr[1], tonumber(arr[2])
+    else
+        return string.format("%s:%s", arr[1], arr[2]), tonumber(arr[3])
+    end
+end
+-- 
+-- brief : id,区名,开服时间,登录服ip_端口,游戏服ip_端口,httpIp_Port
+-- 
+function Login:SetIpConfig(msg)
+    local cfgs = AnlyAssetText(msg)
+    self._serverlist = {}
+    local zoneid
+    for _, cfg in pairs(cfgs) do
+        zoneid = tonumber(cfg.id)
+        self._serverlist[zoneid] = {
+            zoneid      = zoneid,
+            zonename    = cfg.zonename,
+            date        = cfg.start_time,
+            ip          = "",
+            port        = 0,
+            httpIp      = "",
+            httpPort    = 0,
+            games       = {},
+            chatIp      = "",
+            chatPort    = 0,
+            videoUrl        = "",
+            videoUploadIp   = "",
+            videoUploadPort = 0,
+        }
+        self._serverlist[zoneid].ip, self._serverlist[zoneid].port = _IpPort(cfg.loginIP)
+        self._serverlist[zoneid].httpIp, self._serverlist[zoneid].httpPort = _IpPort(cfg.httpIP)
+        for _, v in ipairs(lua_str_split(cfg.gameIP, "&")) do
+            table.insert(self._serverlist[zoneid].games, {_IpPort(v)})
+        end
+        self._serverlist[zoneid].chatIp, self._serverlist[zoneid].chatPort = _IpPort(cfg.chatIpPort)
+        self._serverlist[zoneid].videoUrl = cfg.videoUrl
+        if not cfg.videoUploadUrl then
+            cfg.videoUploadUrl = cfg["videoUploadUrl\r"]
+        end
+        self._serverlist[zoneid].videoUploadIp, self._serverlist[zoneid].videoUploadPort = _IpPort(cfg.videoUploadUrl)
+    end
+    -- table.sort(self._serverlist, function(a, b) return a.zoneid < b.zoneid end)
+end

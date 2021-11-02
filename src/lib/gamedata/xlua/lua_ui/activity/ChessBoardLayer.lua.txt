@@ -1,0 +1,1081 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-08 17:29:52
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChessBoardLayer = class("ChessBoardLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnAwardTurns = "trans_container/trans_award_info/btn_award_turns",
+	BtnCutDice = "trans_container/trans_dice_bg/btn_cut_dice",
+	BtnSpecialSelect = "trans_container/btn_special_select",
+	BtnSkip = "trans_container/btn_skip",
+	--@ButtonEnd
+}
+local PressCD = 0.7;--长按CD
+
+local SendCD = 0.7;--发送间隔
+
+local SendMaxNum = 10;--发送最大数量
+
+local DiceThrowCD = 0.3;--投掷CD(骰子动画)
+
+--构造函数
+function ChessBoardLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ChessBoardLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo        = {Player.ITEM_VALUE_WITCH_COIN,Player.ITEM_VALUE_MONEY},--货币类型
+    };
+    self._fading = false;
+    self:onEnter();
+end
+
+function ChessBoardLayer:SetParentCom(com)
+    self._parentCom = com
+end
+
+--进入Ui调用一次
+function ChessBoardLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_award_info"))
+end
+
+--按钮事件
+function ChessBoardLayer:onButtonClick(itype)
+    if(not Operation:GetActiveIsOpenByUid(Operation.ActivityID.ChessBoard))then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
+        return;
+    end
+    if(itype == BTNS.BtnAwardTurns)then
+        if(self._isMaskPartBtnClick)then
+            return;
+        end
+	   self:OnBtnAwardTurnsClick();
+    elseif(itype == BTNS.BtnCutDice)then
+        if(self._isMaskPartBtnClick)then
+            return;
+        end
+	   self:OnBtnCutDiceClick();
+    elseif(itype == BTNS.BtnSpecialSelect)then
+	   self:OnBtnSpecialSelectClick();
+    elseif(itype == BTNS.BtnSkip)then
+	   self:OnBtnSkipClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function ChessBoardLayer:Init()
+    AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_uishaizi/M2_uishaizi",
+            function(obj)--此处预加载骰子资源
+            end)
+
+    self._activity = Activity:GetActivityByUId(Operation.ActivityID.ChessBoard).info;
+    self._chessData = Activity:GetAllChessCfg();
+    self._commonDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.Common);
+    self._specialDiceCfg = Player:GetDiceDataByIndex(Activity.DiceType.Special);
+    self._commonDicePag = Recharge:GetData(self._commonDiceCfg[2]);
+    self._specialDicePag = Recharge:GetData(self._specialDiceCfg[2]);
+    self._gridItemHeight = 368;
+    self._gridBgHeight = 0;
+    self._curPosHeight = 184;
+    self._v3Zero = CS.UnityEngine.Vector3.zero;
+    self._leftScale = CS.UnityEngine.Vector3(0.8,0.8,0.8);
+    self._rightScale = CS.UnityEngine.Vector3(-0.8,0.8,0.8);
+    self._curSelectDict = Activity.DiceType.Common;
+    self._curPressCDTime = 0;--当前长按CD时间
+    self._curSendCDTime = 0;--当前发送CD时间
+    self._sendNum = 0;
+    self._isShowSelect = false;--是否显示骰子选择界面
+    self._isDelaySend = false;-- 是否延迟发送
+    self._isMaskPartBtnClick = false;--是否屏蔽部分按钮点击
+    self._dtAnimDelay = 0;-- DT动画延时执行
+    self._isMoveOutSendBtn = false;--是否从发射按钮上移除
+    local serverData = Activity:GetChessServerData();
+    self._curPos = serverData.pos or 1;
+    self._curMaxPos = serverData.pos or 1;
+    self._isDouble = self._chessData[self._curPos].awardType == Activity.ChessBoardGridType.Double;--双倍
+    self._allTurns = serverData.curTurns;
+    self._posData = {};
+    self._moveDices = {};
+    self._dices = {};
+    self._diceCountArr = {};
+    self._curThrowTime = DiceThrowCD;
+    self._allDrop = {};
+    self:UpdateData();
+    self._curTurns = Activity:GetCurTurnsNum();
+    self:InitUI();
+end
+
+function ChessBoardLayer:UpdateData()
+    self._commonDiceNum = Item:GetCount(self._commonDiceCfg[1]);
+    self._specialDiceNum = Item:GetCount(self._specialDiceCfg[1]);
+end
+
+--初始化UI
+function ChessBoardLayer:InitUI()
+
+    self._skeletonAni = self.layer:Get("trans_container/grid_bg/grid_content/trans_cur_pos/trans_spine"):GetComponent("SkeletonGraphic");
+
+	self._imgGetIcon = self.layer:GetImageComponent("trans_container/grid_bg/grid_content/trans_cur_pos/trans_is_get/img_get_icon");
+	self._imgNextAwardIcon = self.layer:GetImageComponent("trans_container/trans_award_info/btn_award_turns/img_next_award_icon");
+    self._imgAwardRed = self.layer:GetImageComponent("trans_container/trans_award_info/btn_award_turns/img_award_red");
+	self._imgExpendIcon = self.layer:GetImageComponent("trans_container/btn_start/trans_expend/img_expend_icon");
+    self._objSendTips   = self.layer:Get("trans_container/btn_start/obj_tips")
+	--@ImageEnd
+
+    self._txtExpendNum = self.layer:GetTextComponent("trans_container/btn_start/trans_expend/txt_expend_num");
+    self._txtCommonDiceNum = self.layer:GetTextComponent("trans_container/trans_dice_bg/btn_common_dice/txt_common_dice_num");
+	self._txtSpecialDiceNum = self.layer:GetTextComponent("trans_container/trans_dice_bg/btn_special_dice/txt_special_dice_num");
+	self._txtPlan = self.layer:GetTextComponent("trans_container/trans_award_info/txt_plan");
+	self._txtPlies = self.layer:GetTextComponent("trans_container/trans_award_info/txt_plies");
+	self._txtThrowNum = self.layer:GetTextComponent("trans_container/trans_throw_num_tips/txt_throw_num");
+	self._txtGetNum = self.layer:GetTextComponent("trans_container/grid_bg/grid_content/trans_cur_pos/trans_is_get/txt_get_num");
+	self._txtNextTrunsNum = self.layer:GetTextComponent("trans_container/trans_award_info/btn_award_turns/txt_next_truns_num");
+	--@TextEnd
+
+	self._transCurPos = self.layer:Get("trans_container/grid_bg/grid_content/trans_cur_pos");
+	self._transSpine = self.layer:Get("trans_container/grid_bg/grid_content/trans_cur_pos/trans_spine");
+	self._transCommonDice = self.layer:Get("trans_container/trans_dice_bg/btn_common_dice");
+	self._transSpecialDice = self.layer:Get("trans_container/trans_dice_bg/btn_special_dice");
+	self._transStart = self.layer:Get("trans_container/btn_start");
+	self._transDouble = self.layer:Get("trans_container/grid_bg/grid_content/trans_cur_pos/trans_double");
+    self._transDouble:SetVisible(false)
+	self._transBottomPos = self.layer:Get("trans_container/trans_bottom_pos");
+	self._transContainer = self.layer:Get("trans_container");
+	self._transEndPos = self.layer:Get("trans_container/trans_end_pos");
+    self._transSpecialSelect = self.layer:Get("trans_container/btn_special_select");
+	self._transSpecialSelectBtn = self.layer:GetButtonComponent("trans_container/btn_special_select");
+    self._transSpecialSelectBtn.interactable = false
+	self._transThrowNumTips = self.layer:Get("trans_container/trans_throw_num_tips");
+	self._transIsGet = self.layer:Get("trans_container/grid_bg/grid_content/trans_cur_pos/trans_is_get");
+	self._transSkip = self.layer:Get("trans_container/btn_skip");
+	self._transDiceCountBg = self.layer:Get("trans_container/trnas_dice_count_bg");
+	self._transMask = self.layer:Get("trans_container/trans_mask");
+	self._transOver = self.layer:Get("trans_container/trans_award_info/btn_award_turns/trans_over");
+	self._transExpend = self.layer:Get("trans_container/btn_start/trans_expend");
+	--@TransformEnd
+
+    self._rectGridContent = self.layer:GetRectTransformComponent("trans_container/grid_bg/grid_content");
+    self._rectContainer = self.layer:GetRectTransformComponent("trans_container");
+    --@RectTransformEnd
+
+    self._objGridItem = self.layer:Get("trans_container/item_hide/obj_grid_item").gameObject;
+    self._objDiceCount = self.layer:Get("trans_container/item_hide/obj_dice_count").gameObject;
+	--@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    self._btnCutDice = self.layer:GetButtonComponent(BTNS.BtnCutDice);
+    self._selectAnim = self._transSpecialSelect:GetComponent("Animation");
+    self._throwNumTipsAnim = self._transThrowNumTips:GetComponent("Animation");
+    self._getItemAnim = self._transIsGet:GetComponent("Animation");
+    self._scrGrid = self.layer:Get("trans_container/grid_bg"):GetComponent("ScrollRect");
+    self._sliderPlan = self.layer:GetSliderComponent("trans_container/trans_award_info/slider_plan");
+    self._specialBtns = {};
+    self._gridBgHeight = self._scrGrid.transform:GetComponent("Image").rectTransform.rect.size.y;
+    self._width = self._rectContainer.rect.size.x * 0.5;
+    self._height = self._rectContainer.rect.size.y * 0.5;
+    self._endPos = self._transEndPos.localPosition;
+    self:InitDice();
+    self:SetGridItem();
+    self._sliderPlan.maxValue = #self._gridItem;
+    self._sliderPlan.minValue = 0;
+    self._transCurPos.position = self._gridItem[self._curPos].transform.position;
+    -- self._transDouble:SetVisible(self._isDouble);
+    self:SetGridContentPos(0);
+    self:SetPliesUI();
+    self:SetPlanUI();
+end
+
+--显示UI
+function ChessBoardLayer:show()
+    self._curTurns = Activity:GetCurTurnsNum();
+    self:UpdateData();
+    self:SetDiceUI(true);
+    self._objSendTips:SetVisible(Activity:IsPatrolNumberTips() and self._curSelectDict == Activity.DiceType.Common);
+    Activity:SetEnterActivityPatrol()
+    self:showLayer();
+end
+
+--退出按钮事件
+function ChessBoardLayer:onBackClick()
+    Activity:SetCurSelectUid();
+    self:onPopLayer();
+end
+
+--释放
+function ChessBoardLayer:onExit()
+
+    self._commonDiceCfg = nil;
+    self._specialDiceCfg = nil ;
+    self._objGridItem = nil;
+	self._txtCommonDiceNum = nil;
+	self._txtSpecialDiceNum = nil;
+	self._txtPlan = nil;
+	self._txtPlies = nil;
+    self._skeletonAni = nil;
+    self._chessData = nil;
+	self._transCurPos = nil;
+	self._transSpine = nil;
+    self._rectGridContent = nil;
+    self._scrGrid = nil;
+    self._gridItem = nil;
+	self._transCommonDice = nil;
+	self._transSpecialDice = nil;
+	self._transStart = nil;
+    self._posData = nil;
+    self._dices = nil;
+    self._allDrop = nil;
+	self._transDouble = nil;
+	self._transBottomPos = nil;
+	self._transContainer = nil;
+	self._rectContainer = nil;
+	self._transEndPos = nil;
+    self._specialBtns = nil;
+	self._transSpecialSelect = nil;
+    self._transSpecialSelectBtn = nil;
+	self._transThrowNumTips = nil;
+	self._txtThrowNum = nil;
+	self._transIsGet = nil;
+	self._imgGetIcon = nil;
+	self._txtGetNum = nil;
+	self._transSkip = nil;
+	self._objDiceCount = nil;
+	self._transDiceCountBg = nil;
+	self._transMask = nil;
+	self._imgNextAwardIcon = nil;
+	self._txtNextTrunsNum = nil;
+	self._transOver = nil;
+	self._transExpend = nil;
+	self._imgExpendIcon = nil;
+    self._txtExpendNum = nil;
+
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ChessBoardLayer:OnBtnAwardTurnsClick()
+    core.require("xlua/lua_UI/Activity/TurnsAwardLayer.txt"):new():show();
+ end
+function ChessBoardLayer:OnBtnCutDiceClick()
+    if(self._curSelectDict ~= Activity.DiceType.Common)then
+        self._fading = true;
+        self._transCommonDice:SetAsLastSibling();
+        self:playAni("CutCommonDiceAnim");
+        self._curSelectDict = Activity.DiceType.Common;
+    elseif(self._curSelectDict ~= Activity.DiceType.Special)then
+        self._fading = true;
+        self._transSpecialDice:SetAsLastSibling();
+        self:playAni("CutSpecialDiceAnim");
+        self._curSelectDict = Activity.DiceType.Special;
+    end
+    if(Activity:GetChessAutoBuyState())then
+        self:SetDiceBuyExpendUI();
+    end
+ end
+function ChessBoardLayer:OnBtnSpecialSelectClick()
+    self._isShowSelect = false;
+    self:SetMaskState(false);
+    self:UpdateData();
+    self:SetDiceSelectUI();
+ end
+function ChessBoardLayer:OnBtnSkipClick()
+    self._transSkip:SetVisible(false);
+    self._btnCutDice.interactable = true;
+    self:SetMaskState(false);
+    self._posData = {};
+    self._curPos = Activity:GetChessCurPos();
+    self._curMaxPos = Activity:GetChessCurPos();
+    self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+    self._transCurPos:SetParent(self._gridItem[self._curPos].transform);
+    self._transCurPos.localPosition = self._v3Zero;
+    self:SetGridContentPos(0.2);
+    self._curTurns = Activity:GetCurTurnsNum();
+    self:SetPliesUI();
+    self:SetPlanUI();
+    if(Activity:GetChessTurnsIsMax())then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90356));
+    end
+    Bag:ShowDrops(self._allDrop,function ()
+        self._allDrop = {};
+    end);
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ChessBoardLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_NAME.GET_TURNS_OF_AWARD,self.__cname,function ()
+        self._imgAwardRed:SetEnabled(Activity:GetTurnsAwardRed());
+        self:UpdateData();
+        self:SetDiceUI();
+    end);
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.THROWING_DICE,function (retData)
+        self:SetMaskState(true);
+        self:UpdateData();
+        self:SetDiceUI();
+        for i, v in pairs(retData[2]) do
+            if(self._allDrop[i] == nil)then
+                self._allDrop[i] = {};
+            end
+            for ii, vv in pairs(v) do
+                if(self._allDrop[i][ii] == nil)then
+                    self._allDrop[i][ii] = 0;
+                end
+                self._allDrop[i][ii] = self._allDrop[i][ii] + vv;
+            end
+        end
+        for _, v in ipairs(retData[1]) do
+            table.insert(self._diceCountArr,v);
+        end
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ChessBoardLayer:SetGridItem()
+    if(self._gridItem == nil)then
+        self._gridItem = {};
+    end
+    for _, v in ipairs(self._chessData) do
+        if(self._gridItem[v.pos] == nil)then
+            self._gridItem[v.pos] = self:NewGridItem(v);
+        end
+        self:SetGridItemData(self._gridItem[v.pos]);
+    end
+end
+
+function ChessBoardLayer:NewGridItem(data)
+    local cls;
+    local parent = self.layer:Get(string.format("trans_container/grid_bg/grid_content/grid_%s",data.pos));
+    cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objGridItem,parent).transform);
+    cls.parent = parent;
+    cls.txtIndex = cls:GetTextComponent("txt_index");
+    cls.txtIndexE = cls:GetTextComponent("txt_index_E");
+    cls.data = data;
+    cls.rect = cls.parent:GetComponent("RectTransform");
+    cls.imgSpecialAwards = cls:GetImageComponent("img_special_awards");
+    cls.btnSpecialAwards = cls:GetButtonComponent("img_special_awards");
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.dajiang = cls.imgBg.gameObject:CreateChild("prefab_item_spine/dajiang")
+    cls.dajiang.name = "dajiang"
+    cls.dajiang:SetVisible(false)
+    cls.dajiangCom = cls.dajiang:GetComponent("SkeletonGraphic")
+    cls.shuangbei = cls.imgBg.gameObject:CreateChild("prefab_item_spine/shuangbei")
+    cls.shuangbei.name = "shuangbei"
+    cls.shuangbei:SetVisible(false)
+    cls.shuangbeiCom = cls.shuangbei:GetComponent("SkeletonGraphic")
+    if(data.awardType == Activity.ChessBoardGridType.Double)then
+        self:addBaseAnimationBehaviour(cls.imgSpecialAwards.gameObject)
+        cls.btnSpecialAwards.onClick:AddListener(function ()
+            core.require("xlua/lua_UI/Activity/BonusTipsLayer.txt"):new():show(cls.btnSpecialAwards.transform,LanguageMgr:GetTextByID(90256));
+        end);
+    elseif(data.awardType == Activity.ChessBoardGridType.Next)then
+        cls.btnSpecialAwards.onClick:AddListener(function ()
+            core.require("xlua/lua_UI/Activity/BonusTipsLayer.txt"):new():show(cls.btnSpecialAwards.transform,LanguageMgr:GetTextByID(90257));
+        end);
+    elseif(data.awardType == Activity.ChessBoardGridType.BigGift)then
+        self:addBaseAnimationBehaviour(cls.imgSpecialAwards.gameObject)
+        cls.btnSpecialAwards.onClick:AddListener(function ()
+            core.require("xlua/lua_UI/Activity/BonusTipsLayer.txt"):new():show(cls.btnSpecialAwards.transform,LanguageMgr:GetTextByID(90258));
+        end);
+    end
+    cls.item = Bag:CtorComSimpleGoodsUi(cls:Find("item"),function ()
+        if(self._isMove)then
+            return;
+        end
+        SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data.item[1][1], cls.data.item[1][2]);
+    end);
+    cls.transform.localPosition = CS.UnityEngine.Vector3.zero;
+    return cls;
+end
+
+function ChessBoardLayer:SetGridItemData(cls)
+    cls.txtIndex.text = cls.data.pos;
+    cls.txtIndexE.text = uistr.com_stepstr[cls.data.pos];
+    cls.imgSpecialAwards:SetEnabled(cls.data.awardType ~= Activity.ChessBoardGridType.Null);
+    if(cls.data.awardType == Activity.ChessBoardGridType.Double)then
+        cls.imgSpecialAwards:LoadSprite("source_common/ImageText/text_double");
+    elseif(cls.data.awardType == Activity.ChessBoardGridType.Next)then
+        cls.imgSpecialAwards:LoadSprite("source_common/ImageText/text_xiayiceng");
+    elseif(cls.data.awardType == Activity.ChessBoardGridType.BigGift)then
+        cls.imgSpecialAwards:LoadSprite("source_common/ImageText/text_bonus_1");
+    end
+    cls.item:Visible(cls.data.item ~= -1 and #cls.data.item == 1);
+    if(cls.data.item ~= -1)then
+        if(#cls.data.item == 1)then
+            Bag:SetComSimpleGoodsUi(cls.item,cls.data.item[1][1],cls.data.item[1][2],cls.data.item[1][3],true);
+        end
+    end
+end
+
+------------------------------------------------------骰子相关-------------------------------
+local DiceCountMaxNum = 6;
+function ChessBoardLayer:InitDice()
+    for i = 1, DiceCountMaxNum do
+        self._specialBtns[i] = self._transSpecialSelect:GetButtonComponent("btn_"..i);
+        self._specialBtns[i].onClick:AddListener(function ()
+            self._isShowSelect = false;
+            self:SetDiceSelectUI()
+            self._sendNum = i;
+            self:SendThrowMessage();
+        end);
+    end
+    self:SetStartBtnClick(self._transStart);
+end
+
+function ChessBoardLayer:SetDiceNum()
+    if(Activity:GetChessTurnsIsMax())then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90355));
+        return;
+    end
+
+    local isThrow = false;
+    if(self._curSelectDict == Activity.DiceType.Common)then
+        if(self._commonDiceNum > 0)then
+            self._commonDiceNum = self._commonDiceNum - 1;
+            isThrow = true;
+        else--判断是否可以购买
+            if(Activity:GetChessAutoBuyState())then
+                if(Item:GetCount(self._commonDicePag.priceId) >= self._commonDicePag.price * self._commonDicePag.discount  * (self._sendNum + 1))then
+                    isThrow = true;
+                else
+                    if(self._sendNum > 0)then
+                        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(90358),Item:GetCfg(self._commonDicePag.priceId).Name));
+                        self._isPress = false;
+                    else
+                        Groble_UIMgr:ShowMessageBox(true, true, string.format(LanguageMgr:GetTextByID(90055),
+                                Item:GetCfg(self._commonDicePag.priceId).Name),
+                                function()
+                                    if(self._commonDicePag.priceId == Player.ITEM_VALUE_WITCH_COIN)then
+                                        Operation:OpenOperationMainLayer(nil,Operation.ActivityID.WitchCoin,false);
+                                    elseif(self._commonDicePag.priceId == Player.ITEM_VALUE_MONEY)then
+                                        Operation:OpenOperationMainLayer(nil,Operation.ActivityID.ShopSundryGoods,false);
+                                    end
+                                end)
+                    end
+                end
+            else
+                self._isPress = false;
+                -- Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90331));
+                self:ShowBuyTips()
+            end
+        end
+    elseif(self._curSelectDict == Activity.DiceType.Special)then
+        if(self._specialDiceNum > 0)then
+            self._specialDiceNum = self._specialDiceNum - 1;
+            isThrow = true;
+        else--判断是否可以购买
+            if(Activity:GetChessAutoBuyState())then
+                if(Item:GetCount(self._specialDicePag.priceId) >= self._specialDicePag.price * self._specialDicePag.discount)then
+                    isThrow = true;
+                else
+                    Groble_UIMgr:ShowMessageBox(true, true, string.format(LanguageMgr:GetTextByID(90055),
+                            Item:GetCfg(self._specialDicePag.priceId).Name),
+                            function()
+                                if(self._specialDicePag.priceId == Player.ITEM_VALUE_WITCH_COIN)then
+                                    Operation:OpenOperationMainLayer(nil,Operation.ActivityID.WitchCoin,false);
+                                elseif(self._specialDicePag.priceId == Player.ITEM_VALUE_MONEY)then
+                                    Operation:OpenOperationMainLayer(nil,Operation.ActivityID.ShopSundryGoods,false);
+                                end
+                            end)
+                end
+            else
+                self._isPress = false;
+                -- Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90331));
+                self:ShowBuyTips()
+            end
+        end
+    end
+    if(isThrow)then
+        if(self._curSelectDict == Activity.DiceType.Common and self._sendNum < SendMaxNum)then
+            self._sendNum = self._sendNum + 1;
+            if(self._sendNum > 0)then
+                self._btnCutDice.interactable = false;
+                self._txtThrowNum:SetText("x"..self._sendNum);
+                self._throwNumTipsAnim:Stop("DiceThrowNumTipsAnim");
+                self._throwNumTipsAnim:Play("DiceThrowNumTipsAnim");
+            end
+        elseif(self._curSelectDict == Activity.DiceType.Special)then
+            self._isShowSelect = true;
+            self:SetDiceSelectUI();
+        end
+        --屏蔽除发射外所有按钮点击
+        self:SetMaskState(true);
+        self._transSkip:SetVisible(false);
+    end
+    --print("更新骰子数量   普通 = "..self._commonDiceNum.."  特殊 = "..self._specialDiceNum);
+end
+
+function ChessBoardLayer:SetMaskState(isShow)
+    self._isMaskPartBtnClick = isShow;
+    self._transMask:SetVisible(isShow);
+    if(isShow)then
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Stop);
+    else
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Normal);
+    end
+end
+
+function ChessBoardLayer:ShowBuyTips()
+    UIMgr:showMsgBy2CallPer(LanguageMgr:GetTextByID(90366),function() end, function()
+        Activity:SetChessAutoBuyState(true)
+        local buyLayer = self._parentCom._layers[Activity.ChessBoardLayerType.Buy]
+        if(buyLayer) then
+            buyLayer._mTogAutoBuy.isOn = true
+        end
+    end, true)
+end
+
+function ChessBoardLayer:SetDiceUI(isInit)
+    self:SetDiceBuyExpendUI();
+    if(isInit)then
+        self._txtCommonDiceNum:SetText(self._commonDiceNum);
+        self._txtSpecialDiceNum:SetText(self._specialDiceNum);
+        --颜色
+        if(self._commonDiceNum <= 0)then
+            self._txtCommonDiceNum:SetTextColor(1,0,0,1);
+        else
+            self._txtCommonDiceNum:SetTextColor(1,1,1,1);
+        end
+        if(self._specialDiceNum <= 0)then
+            self._txtSpecialDiceNum:SetTextColor(1,0,0,1);
+        else
+            self._txtSpecialDiceNum:SetTextColor(1,1,1,1);
+        end
+        --设置消耗Icon
+        if(self._curSelectDict == Activity.DiceType.Common)then
+            if(Activity:GetChessAutoBuyState())then
+                Item:SetItemIcon(self._imgExpendIcon,self._commonDicePag.priceId);
+            end
+        elseif(self._curSelectDict == Activity.DiceType.Special)then
+            if(Activity:GetChessAutoBuyState())then
+                Item:SetItemIcon(self._imgExpendIcon,self._specialDicePag.priceId);
+            end
+        end
+        return;
+    end
+    if(self._curSelectDict == Activity.DiceType.Common)then
+        --设置消耗Icon
+        if(Activity:GetChessAutoBuyState())then
+            Item:SetItemIcon(self._imgExpendIcon,self._commonDicePag.priceId);
+        end
+        --颜色
+        if(self._commonDiceNum <= 0)then
+            self._txtCommonDiceNum:SetTextColor(1,80/255,63/255,1);
+        else
+            self._txtCommonDiceNum:SetTextColor(1,1,1,1);
+        end
+
+        self._txtCommonDiceNum:SetText(self._commonDiceNum);
+        self._objSendTips:SetVisible(Activity:IsPatrolNumberTips())
+
+    elseif(self._curSelectDict == Activity.DiceType.Special)then
+        --设置消耗Icon
+        if(Activity:GetChessAutoBuyState())then
+            Item:SetItemIcon(self._imgExpendIcon,self._specialDicePag.priceId);
+        end
+        --颜色
+        if(self._specialDiceNum <= 0)then
+            self._txtSpecialDiceNum:SetTextColor(1,80/255,63/255,1);
+        else
+            self._txtSpecialDiceNum:SetTextColor(1,1,1,1);
+        end
+        self._txtSpecialDiceNum:SetText(self._specialDiceNum);
+        self._objSendTips:SetVisible(false)
+    end
+end
+
+function ChessBoardLayer:SetDiceSelectUI()
+    if(self._isShowSelect)then
+        self._transSpecialSelectBtn.interactable = true
+        self._selectAnim:Play("DiceSelectInAnim");
+    else
+        self._transSpecialSelectBtn.interactable = false
+        self._selectAnim:Play("DiceSelectOutAnim");
+    end
+end
+
+function ChessBoardLayer:SetDiceBuyExpendUI()
+    local curNum, data = 0,nil;
+    if(self._curSelectDict == Activity.DiceType.Common)then
+        curNum = self._commonDiceNum;
+        data = self._commonDicePag;
+    elseif(self._curSelectDict == Activity.DiceType.Special)then
+        curNum = self._specialDiceNum;
+        data = self._specialDicePag;
+    end
+    if(curNum > 0 or not Activity:GetChessAutoBuyState())then
+        self._transExpend:SetVisible(false);
+        return;
+    end
+    self._transExpend:SetVisible(true);
+    if(Activity:GetChessAutoBuyState())then
+        Item:SetItemIcon(self._imgExpendIcon,data.priceId);
+        if(Item:GetCount(data.priceId) >= data.price * data.discount)then
+            self._txtExpendNum:SetTextColor(1,1,1,1);
+        else
+            self._txtExpendNum:SetTextColor(1,80/255,63/255,1);
+        end
+        self._txtExpendNum:SetText(data.price * data.discount);
+    end
+end
+
+function ChessBoardLayer:SetStartBtnClick(trans)
+    local listener = CS.EventTriggerListener.Get(trans.gameObject);
+    listener.onDown = function()--按下回调
+        self:OnDown();
+    end;
+    listener.onUp = function()--抬起回调
+        self:OnUp();
+    end;
+    listener.onEnter = function ()--进入UI回调
+        self:OnEnter();
+    end;
+    listener.onExit = function ()--退出UI回调
+        self:OnExit();
+    end;
+end
+
+-----------------------------------------------UI 回调-----------------------------------
+function ChessBoardLayer:OnDown()
+    if(self._fading)then
+        return;
+    end
+    if(self._isDelaySend)then
+        self._isDelaySend = false;
+    end
+    if(self._curSelectDict == Activity.DiceType.Common)then
+        self._curPressCDTime = 0;
+        self._isPress = true;
+    end
+end
+
+function ChessBoardLayer:OnUp()
+    if(self._fading)then
+        return;
+    end
+    if(self._isMoveOutSendBtn)then
+        self._sendNum = 0;
+        self:SetMaskState(false);
+        self._btnCutDice.interactable = true;
+        self:UpdateData();
+        self:SetDiceUI();
+        self._isPress = false;
+        self._isMoveOutSendBtn = false;
+        return;
+    end
+    --print(self._isPress)
+    if(self._isPress and self._sendNum < SendMaxNum)then
+        self:SetDiceNum();
+        self:SetDiceUI();
+    end
+    if(self._sendNum > 0)then
+        self._curSendCDTime = 0;
+        self._isDelaySend = true;
+    end
+    if(self._sendNum > SendMaxNum)then
+        return;
+    end
+    if(self._curSelectDict == Activity.DiceType.Common)then
+        self._isPress = false;
+    elseif(self._curSelectDict == Activity.DiceType.Special)then
+        self:SetDiceNum();
+    end
+end
+
+function ChessBoardLayer:OnEnter()
+    if(self._fading or not self._isPress)then
+        return;
+    end
+    self._isMoveOutSendBtn = false;
+end
+
+function ChessBoardLayer:OnExit()
+    if(self._fading or not self._isPress)then
+        return;
+    end
+    self._isMoveOutSendBtn = true;
+end
+
+-------------------------------------------动画回调--------------------------------------
+function ChessBoardLayer:KeyFrameCall(intkey)
+    if(intkey == 0)then
+        self._fading = false;
+    elseif intkey == 11 then
+
+    end
+end
+
+--------------------------------------------Unity函数--------------------------------------
+function ChessBoardLayer:onUpdate(dt)
+    if(self._fading)then
+        return;
+    end
+    if(#self._diceCountArr > 0)then
+        if(self._curThrowTime < DiceThrowCD)then
+            self._curThrowTime = self._curThrowTime + dt;
+        else
+            self._curThrowTime = 0;
+            self:DoDiceAnim();
+        end
+    end
+    if(self._isPress)then--长按
+        if(self._isMoveOutSendBtn)then
+            return;
+        end
+        if(self._sendNum < SendMaxNum)then
+            if(self._curPressCDTime >= PressCD)then
+                self._curPressCDTime = 0;
+                --print("自动投掷")
+                self:SetDiceNum();
+                self:SetDiceUI();
+            else
+                self._curPressCDTime = self._curPressCDTime + dt;
+            end
+        else
+            self._isPress = false;
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90327));
+        end
+    else
+        if(self._isDelaySend)then--延时发送
+            if(self._curSendCDTime >= SendCD)then
+                self:SendThrowMessage();
+            else
+                self._curSendCDTime = self._curSendCDTime + dt;
+            end
+        end
+    end
+end
+
+---------------------------------------人物运动相关--------------------------------------------
+--发送
+function ChessBoardLayer:SendThrowMessage()
+    if(self._sendNum <= 0)then
+        return;
+    end
+    --print("发送投掷请求   "..self._sendNum);
+    if(not Operation:GetActiveIsOpenByUid(Operation.ActivityID.ChessBoard))then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
+        return;
+    end
+    self._isDelaySend = false;
+    Activity:ThrowingDiceReq(self._curSelectDict,self._sendNum);
+    self:SetMaskState(false);
+    self._sendNum = 0;
+end
+
+--移动
+function ChessBoardLayer:DoMoveData()
+    if(not self._isMove)then
+        return;
+    end
+    if(#self._posData <= 0)then--结束
+        self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+        self._isMove = false;
+        self._dtAnimDelay = 0;
+        self._allDrop = {};
+        --[[if(self._allDrop ~= nil and next(self._allDrop))then
+            Bag:ShowDrops(self._allDrop,function ()
+                self._allDrop = {};
+            end);
+        end]]--
+        self._transSkip:SetVisible(false);
+        self:SetMaskState(false);
+        self._btnCutDice.interactable = true;
+        return;
+    end
+    self._curMaxPos = (self._curMaxPos + self._posData[1]) % #self._gridItem;
+    if(self._curMaxPos == 0)then
+        self._curMaxPos = #self._gridItem;
+    end
+    --print(self._posData[1].."          ".." curMaxPos = "..self._curMaxPos);
+    table.remove(self._posData,1);
+    self:SetCurPosUI();
+end
+
+--设置任务位置
+function ChessBoardLayer:SetCurPosUI()
+    self._curPos = (self._curPos + 1) % #self._gridItem;
+    if(self._curPos == 0)then
+        self._curPos = #self._gridItem;
+    end
+    if(self._curPos == 1)then--一圈完成,播放特效
+        self:NextLayer();
+        return;
+    end
+    self._transCurPos:SetParent(self._gridItem[self._curPos].transform);
+
+    local dt = self._transCurPos:DOLocalMove(self._v3Zero,0.3):SetDelay(self._dtAnimDelay);
+    dt:OnStart(function ()
+        self._skeletonAni.AnimationState:SetAnimation(0,"run",true);
+        if(self._curPos == 1)then
+            self._transSpine.localScale = self._rightScale;
+        else
+            if(self._transCurPos.localPosition.x > 0)then
+                self._transSpine.localScale = self._leftScale;
+            else
+                self._transSpine.localScale = self._rightScale;
+            end
+        end
+        self:SetGridContentPos(0.2);
+    end);
+    dt:OnComplete (function()
+        self._dtAnimDelay = 0;
+        if(self._curPos == self._curMaxPos)then--动画结束,判断当前格子类型
+            self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+            if(self._chessData[self._curPos].awardType == Activity.ChessBoardGridType.Next)then--下一层
+                self._isDouble = false;
+                self._curPos = #self._gridItem;
+                self._curMaxPos = 1;
+                self._dtAnimDelay = 0;
+                self._transCurPos:SetParent(self._gridItem[self._curPos].transform);
+                self._transCurPos.localPosition = self._v3Zero;
+                self:SetGridContentPos(0.2);
+                self:SetCurPosUI();
+                --print("下一层");
+                return;
+            elseif(self._chessData[self._curPos].awardType == Activity.ChessBoardGridType.Double)then--双倍
+                self._dtAnimDelay = 3.5;
+                self._isDouble = true;
+                local cls = self._gridItem[self._curPos]
+                Groble_UIMgr:PlayAni(cls.imgSpecialAwards.gameObject, "Item_DoubleAin")
+                cls.shuangbei:SetVisible(true)
+                cls.shuangbeiCom.AnimationState:SetAnimation(0,"idle",false);
+                --print("双倍")
+            elseif(self._chessData[self._curPos].awardType == Activity.ChessBoardGridType.BigGift)then--大礼包
+                self._dtAnimDelay = 3.5;
+                local tbl = {};
+                for _, v in pairs(self._chessData[self._curPos].item) do
+                    if(tbl[v[1]] == nil)then
+                        tbl[v[1]] = {};
+                    end
+                    if(tbl[v[1]][v[2]] == nil)then
+                        tbl[v[1]][v[2]] = 0;
+                    end
+                    tbl[v[1]][v[2]] = tbl[v[1]][v[2]] + v[3];
+                end
+                Bag:ShowDrops(tbl,function ()
+                end,1.5);
+                local cls = self._gridItem[self._curPos]
+                Groble_UIMgr:PlayAni(cls.imgSpecialAwards.gameObject, "Item_DoubleAin")
+                cls.dajiang:SetVisible(true)
+                cls.dajiangCom.AnimationState:SetAnimation(0,"idle",false);
+            else--普通
+                self._dtAnimDelay = 1;
+                if(self._chessData[self._curPos].item ~= -1)then
+                    local num = self._chessData[self._curPos].item[1][3];
+                    if(self._isDouble)then
+                        num = self._chessData[self._curPos].item[1][3] * 2;
+                        --print("获得物品 X 2");
+                    end
+                    Item:SetItemIcon(self._imgGetIcon.transform,self._chessData[self._curPos].item[1][2]);
+                    self._txtGetNum:SetText("+"..num);
+                    self._getItemAnim:Play("ChessEventGetAnim");
+                else
+                    --print("空白向");
+                end
+                self._isDouble = false;
+            end
+            -- self._transDouble:SetVisible(self._isDouble);
+            Timer:AddTimerCall(0.05, function() 
+                self:DoMoveData();
+            end)
+        else
+            self:SetCurPosUI();
+        end
+        self:SetPlanUI();
+    end);
+end
+
+function ChessBoardLayer:NextLayer()
+    self._skeletonAni.AnimationState:SetAnimation(0,"idle",true);
+    Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.ChessBoard,function ()
+        self:AddTurns();
+        self:SetPlanUI();
+        if(Activity:GetChessTurnsIsMax())then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90356));
+        end
+        self._transCurPos:SetParent(self._gridItem[self._curPos].transform);
+        self._transCurPos.localPosition = self._v3Zero;
+        self:SetGridContentPos(0.2,function ()
+            if(self._curPos < self._curMaxPos)then
+                self:SetCurPosUI();
+            else
+                self:DoMoveData();
+            end
+        end);
+        self._transSpine.localScale = self._rightScale;
+    end);
+end
+
+--设置棋盘UI位置
+function ChessBoardLayer:SetGridContentPos(AnimTimer,callback)
+    if(AnimTimer == nil)then
+        AnimTimer = 0;
+    end
+    local posDifValue = self._gridItem[self._curPos].rect.anchoredPosition.y + self._rectGridContent.anchoredPosition.y + self._gridBgHeight - self._curPosHeight * 0.5;
+    local moveValue = self._rectGridContent.anchoredPosition.y;
+    if(posDifValue < 0)then
+        moveValue = self._rectGridContent.anchoredPosition.y - posDifValue + self._gridItemHeight * 0.5;
+        if(moveValue > self._rectGridContent.rect.height - self._gridBgHeight)then
+            moveValue = self._rectGridContent.rect.height - self._gridBgHeight;
+        end
+    elseif(posDifValue > self._gridBgHeight)then
+        moveValue = self._gridBgHeight - posDifValue + self._rectGridContent.anchoredPosition.y - self._curPosHeight;
+        if(moveValue < 0)then
+            moveValue = 0;
+        end
+    end
+    local dt = self._rectGridContent:DOAnchorPosY(moveValue,AnimTimer);
+    if(callback ~= nil)then
+        dt.onComplete = function();
+            callback();
+        end
+    end
+end
+
+------------------------------------------------骰子动画相关-----------------------------------
+
+function ChessBoardLayer:DoDiceAnim()
+    if(#self._diceCountArr <= 0)then
+        return;
+    end
+    if(self._dices[1] == nil)then
+        AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_uishaizi/M2_uishaizi",
+                function(obj)
+                    if obj ~= nil then
+                        local dice = {};
+                        dice.obj = Groble_ResMgr:Instantiate(obj,self._transContainer);
+                        dice.transform = dice.obj.transform;
+                        dice.animator = dice.obj.transform:Find("M2_uishaizi"):GetComponent("Animator");
+                        dice.rect = dice.obj.transform:GetComponent("RectTransform");
+                        table.insert(self._dices,dice);
+                    else
+                        -- load error
+                    end
+                end)
+    end
+    self._dices[1].obj.transform.localPosition = self._transBottomPos.localPosition;
+    self._dices[1].animator:SetInteger("ThrowCount",0);
+    self._dices[1].animIndex = self._diceCountArr[1];
+    self:DoDiceMove(self._dices[1]);
+    table.insert(self._moveDices,self._dices[1]);
+    table.remove(self._diceCountArr,1);
+    table.remove(self._dices,1);
+end
+
+function ChessBoardLayer:DoDiceMove(dice)
+    local posX,posY = 0,0;
+    posX = math.random(math.ceil(-self._width * 0.5),math.ceil(self._width * 0.5));
+    local dt = dice.rect:DOAnchorPos(CS.UnityEngine.Vector2(posX,self._height),0.5):SetEase(CS.DG.Tweening.Ease.Linear);
+    dt:OnComplete(function ()
+        --print(self._height);
+        posY = math.random(math.ceil(-self._height * 0.5),math.ceil(self._height * 0.5));
+        local dt2 = dice.rect:DOAnchorPos(CS.UnityEngine.Vector2(-self._width,posY),0.5):SetEase(CS.DG.Tweening.Ease.Linear);
+        dt2:OnComplete(function ()
+            dice.animator:SetInteger("ThrowCount",dice.animIndex);
+            posX = math.random(math.ceil(-self._width * 0.7),math.ceil(self._width * 0.7));
+            posY = math.random(math.ceil(-self._height * 0.7),math.ceil(self._height * 0.7));
+            local dt3 = dice.rect:DOAnchorPos(CS.UnityEngine.Vector2(posX,posY),0.5):SetEase(CS.DG.Tweening.Ease.Linear);
+            dt3:OnComplete(function ()
+                local dt4 = dice.rect:DOLocalMove(self._endPos,0.2):SetEase(CS.DG.Tweening.Ease.Linear):SetDelay(2);
+                dt4:OnComplete(function ()
+                    dice.transform:SetPositionZ(60,true);
+                    table.insert(self._posData,dice.animIndex);
+                    table.insert(self._dices,dice);
+                    table.remove(self._moveDices,1);
+                    self:SetDiceCount(dice.animIndex);
+                    if(#self._moveDices <= 0)then
+                        --所有骰子动画结束,显示跳过按钮
+                        self._transSkip:SetVisible(true);
+                    end
+                    --print("投掷结束")
+                    if(not self._isMove)then
+                        self._isMove = true;
+                        self:DoMoveData();
+                    end
+                end);
+            end);
+        end);
+    end);
+end
+
+function ChessBoardLayer:SetDiceCount(index)
+    if(self._diceCounts == nil)then
+        self._diceCounts = {};
+    end
+    local item = self._diceCounts[1];
+    if(item == nil)then
+        item = {};
+        item.transform = CS.UnityEngine.GameObject.Instantiate(self._objDiceCount,self._transDiceCountBg).transform;
+        item.img = item.transform:GetComponent("Image");
+        table.insert(self._diceCounts,item);
+    end
+    item.img:SetColorA(1);
+    item.transform:SetAsFirstSibling();
+    item.img:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", "img_putongshaizi_"..index);
+    item.img:DOColor(CS.UnityEngine.Color(1, 1, 1, 0), 0.5):SetDelay(1.5):OnComplete(function ()
+        table.insert(self._diceCounts,item);
+    end);
+    table.remove(self._diceCounts,1);
+end
+
+function ChessBoardLayer:SetPliesUI()
+    self._txtPlies:SetText(string.format(LanguageMgr:GetTextByID(90354),self._curTurns));
+    local cfg = Activity:GetNextTurnsAward(self._curTurns);
+    self._imgNextAwardIcon:SetVisible(cfg ~= nil);
+    self._txtNextTrunsNum:SetEnabled(cfg ~= nil);
+    self._transOver:SetVisible(cfg == nil);
+    self._txtPlan:SetEnabled(cfg ~= nil);
+    self._txtPlies:SetEnabled(cfg ~= nil);
+    self._imgAwardRed:SetEnabled(Activity:GetTurnsAwardRed());
+    if(cfg == nil)then
+        --Max
+        --self._txtNextTrunsNum:SetText(string.format(LanguageMgr:GetTextByID(90354),self._curTurns));
+    else
+        Item:SetItemIcon(self._imgNextAwardIcon.transform,cfg.item[2]);
+        self._txtNextTrunsNum:SetText(string.format(LanguageMgr:GetTextByID(90361),cfg.pos));
+    end
+end
+
+function ChessBoardLayer:AddTurns()
+    self._curTurns = self._curTurns + 1;
+    self:SetPliesUI();
+end
+
+function ChessBoardLayer:SetPlanUI()
+    local cfg = Activity:GetNextTurnsAward(self._curTurns);
+    if(cfg == nil)then
+        self._sliderPlan.value = #self._gridItem;
+    else
+        local num = self._curPos / #self._gridItem;
+        self._sliderPlan.value = self._curPos;
+        self._txtPlan:SetText(math.floor(num * 100) .. "%");
+    end
+end
+
+return ChessBoardLayer;

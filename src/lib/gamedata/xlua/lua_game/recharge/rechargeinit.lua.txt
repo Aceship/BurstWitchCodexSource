@@ -1,0 +1,14 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 14:29:47
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/recharge.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/rechargedata.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/recharge_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/rechargecfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/rechargedef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Recharge/rechargeui.txt")
+
+Recharge:Ctor()
+Recharge:_LoadCfg()

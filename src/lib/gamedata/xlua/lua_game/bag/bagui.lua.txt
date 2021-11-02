@@ -1,0 +1,344 @@
+--
+-- author: haosun
+-- date  : 2018-11-13 11:43:55
+-- brief :
+--
+function Bag:SetGoodsBorder(trans, quality)
+    if trans == nil then
+        return
+    end
+    if quality == nil or tonumber(quality) == 0 then
+        quality = 1
+    end
+    local isSsr = tonumber(quality) == Bag.QLTY_SSR
+    local isUr  = tonumber(quality) == Bag.QLTY_UTR
+    --todo ur spine
+    local image_border = trans:GetImageComponent("image_border")
+    if image_border ~= nil then
+        image_border:SetVisible(not (isSsr or isUr))
+        if not (isSsr or isUr) then
+            image_border.sprite = AtlasMgr:LoadQltyBorder(tonumber(quality))
+        end
+    end
+
+    local spine_bg = trans:Get("spine_bg")
+    if spine_bg ~= nil then
+        spine_bg:SetVisible(false)
+    end
+    local spine_border = trans:Get("spine_border")
+    if spine_border ~= nil then
+        spine_border:SetVisible(isSsr)
+    end
+
+    local spine_bg_ur = trans:Get("spine_bg_ur")
+    if spine_bg_ur ~= nil then
+        spine_bg_ur:SetVisible(false)
+    end
+
+    local spine_border_ur = trans:Get("spine_border_ur")
+    if spine_border_ur ~= nil then
+        spine_border_ur:SetVisible(isUr)
+    end
+
+    local image_select = trans:Get("image_select")
+    if image_select ~= nil then
+        image_select:SetVisible(false)
+    end
+end
+
+function Bag:SetStarSprite(img, star)
+    if img ~= nil then
+      --  img.sprite = AtlasMgr:LoadGoodsStar(star)
+        for i= 1, 6 do
+            if img[i] ~= nil then
+                img[i].gameObject:SetVisible(i <= star)
+            end
+        end
+    end
+end
+
+function Bag:GetQltySp(qlty)
+    qlty = qlty or 1
+    qlty = math.max(qlty, Bag.QLTY_N)
+    qlty = math.min(qlty, Bag.QLTY_UTR)
+    return AtlasMgr:LoadHeroQlty(qlty)
+end
+
+-- items = {{bagtype, id, num}, ...}
+function Bag:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight,hideSkin)
+    local count = math.max(content.childCount, #items)
+    if cls == nil then cls = {} end
+
+    if cls.items == nil then cls.items = {} end
+
+    for i = 1, count do
+        local prefab_item = content:Get("prefab_item" .. i)
+        if prefab_item == nil then
+            local simple = true
+            if items[i]~= nil then
+                simple =  items[i][1] ~= Bag.TYPE_EQUIP
+            end
+            prefab_item = Item:AddNewPrefab(content, 0, 0, scale, "prefab_item" .. i, simple)
+            prefab_item:GetComponent("RectTransform").anchorMin = CS.UnityEngine.Vector2(0, 0.5)
+            prefab_item:GetComponent("RectTransform").anchorMax = CS.UnityEngine.Vector2(0, 0.5)
+            -- refresh pos
+            cls.items[i] = self:CtorGoodsUi(prefab_item,nil,hideSkin);
+        end
+        cls.items[i]:Visible(items[i] ~= nil)
+        if isRight then
+            cls.items[i]:SetPosition(posx - (i - 1) * disx, 0, 0)
+        else
+            cls.items[i]:SetPosition(posx + (i - 1) * disx, 0, 0)
+        end
+        if items[i] ~= nil then
+            self:SetGoodsUiEx(cls.items[i], items[i][1], items[i][2], items[i][3], isuid, items[i][4], showMay)
+        end
+    end
+    return cls
+end
+
+--
+-- Brief: scrollview上显示物品统一加载接口
+-- Param：scrollview: scrollview/viweport/content items：显示的物品 {{itype, id, number}, ... }
+--        max_num: 显示个数(大于该值可滑动) width: content宽度 disx: 间隔
+--        scale: 物品缩小比例 posx: 指定起始位置
+--       showmay 显示可能掉落标识
+--       isRight 是否从右开始,默认从左
+function Bag:SetScrollGoods(cls, scrollview, items, max_num, width, disx, scale, posx, isuid, showMay, isRight,hideSkin)
+    local num = #items
+    if posx == nil then
+        posx = width/2 - (num - 1) * (disx / 2)
+        if num > max_num then
+            posx = width/2 - (max_num - 1) * (disx / 2)
+        end
+    end
+    local content = scrollview:Get("viewport/content")
+    if num > max_num then
+        content:SetSizeX(disx * num)
+    end
+    scrollview:GetComponent("ScrollRect").horizontal = num > max_num
+    scrollview:GetComponent("ScrollRect").horizontalNormalizedPosition = 0
+    cls = self:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight,hideSkin)
+    return cls, posx
+end
+
+function Bag:OpenBagLayer(bagtype)
+    core.require("xlua/lua_UI/HomeScene/BagLayer.txt"):new():show(bagtype)
+end
+
+function Bag:CtorComSimpleGoodsUi(obj, callback,hideSkin)
+    local cls       = clsbase:new(obj)
+    cls.click       = obj:GetComponent("Button")
+    cls.selectImg   = cls:Find("image_check");
+    cls.bgCom       = cls:GetImageComponent("img_bg")
+    cls.borderCom   = cls:GetImageComponent("img_border")
+    cls.iconImg     = cls:GetImageComponent("img_icon")
+    cls.checkCom    = cls:GetImageComponent("img_check")
+    cls.numCom      = cls:GetTextComponent("txt_num")
+    cls.darkCom     = cls:GetImageComponent("img_dark")
+    cls.starCom     = cls:Find("img_star")
+    cls.mayCom      = cls:Find("img_maydrop")
+    cls.mayTxtCom   = cls:GetTextComponent("img_maydrop/txt")
+    cls.fsBorderCom = cls:GetImageComponent("img_fsborder")
+    if cls.click ~= nil then
+        cls.clickCall = callback or function()
+            SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data[1], cls.data[2],cls.isUid,nil,nil,hideSkin);
+        end
+        cls.click.onClick:AddListener(
+            function()
+                cls.clickCall(cls,cls.data[2])
+            end)
+    end
+    cls.data        = {0,0,0}  -- 背包类型,配置ID,数量
+    cls.qlty        = -1       -- 物品品质
+    cls.starChilds     = {}
+    if cls.starCom ~= nil then
+        for i = 1, 6 do
+            cls.starChilds[i] = cls:Find("img_star/img_star"..i)
+        end
+    end
+    return cls
+end
+--iscfg 按配置表
+--isMayDrop 角标掉落类型
+--isDark 忽略數量因素，強制黑掉（盼盼做覺醒時的需求）
+function Bag:SetComSimpleGoodsUi(cls, bagtype, cfgid, count, iscfg, isMayDrop, showMay,isDark)
+    local cfg
+    local hero
+    if cls.fsBorderCom ~= nil then
+        cls.fsBorderCom.enabled = false
+    end
+    if bagtype == Bag.TYPE_ITEM then
+        cfg = Item:GetCfg(cfgid)
+        Item:SetItemIcon(cls.iconImg.transform, cfgid)
+    elseif bagtype == Bag.TYPE_EQUIP then
+        if(cls.isUid)then
+            cfg = Equip:GetCfgByUid(cfgid)
+        else
+            cfg = Equip:GetCfg(cfgid)
+        end
+        Equip:SetIconUi(cls.iconImg.transform, cfg.FSicon)
+        Equip:SetFSBorder(cls.fsBorderCom, cfg.itemPath)
+    elseif bagtype == Bag.TYPE_MUSIC then
+        if(cls.isUid)then
+            cfg = Music:GetMusicCfgByUid(cfgid)
+        else
+            cfg = Music:GetMusicCfg(cfgid)
+        end
+        Music:SetMusicImage(cls.iconImg, cfg.itemPath)
+    elseif bagtype == Bag.TYPE_HERO then
+        local transform = cls.iconImg.transform
+        for i = 1, transform.childCount do
+            transform:GetChild(i - 1):SetVisible(false)
+        end
+        cls.iconImg.enabled = true
+        cfg = Hero:GetCfg(cfgid)
+        hero = Hero:GetHero(cfgid)
+        Hero:SetHeroHeadSprite(cls.iconImg, cfgid,false,iscfg, cls.isMain)
+        if cls.starCom ~= nil and hero.owner then
+            Bag:SetStarSprite(cls.starChilds, hero.star)
+        end
+    else
+        -- do err
+        return false
+    end
+    if cfg == nil then
+        return
+    end
+    cls.data[1] = bagtype
+    cls.data[2] = cfg.id
+    cls.data[3] = count or 0
+    if cls.numCom ~= nil then
+        if cls.data[3] ~= 0 then
+            cls.numCom.text = cls.data[3]
+            cls.numCom:SetVisible(true);
+        else
+            cls.numCom:SetVisible(false);
+        end
+    end
+    if cls.darkCom ~= nil then
+        cls.darkCom:SetVisible(cls.data[3] == 0 or isDark)
+    end
+    local qlty = tonumber(cfg.Quality)
+    --魔女品质可升
+    if  bagtype == Bag.TYPE_HERO  then
+        qlty = hero.qlty
+    end
+    if iscfg then
+        qlty = tonumber(cfg.Quality)
+    end
+    if cls.qlty == qlty then
+        return
+    end
+    cls.qlty = qlty
+    if(cls.borderCom ~= nil)then
+        self:SetGoodsBorderByQlty(cls ,qlty)
+    end
+    if cls.mayCom ~= nil then
+        if isMayDrop ~= nil then
+            set_obj_active(cls.mayCom, isMayDrop > Bag.TYPE_NORMAL and showMay)
+            if isMayDrop == Bag.TYPE_EXDROP then
+                cls.mayTxtCom:SetTextById(881016)
+            end
+        else
+            cls.mayCom:SetVisible(false)
+        end
+    end
+end
+
+function Bag:SetGoodsBorderByQlty(cls ,qlty)
+    if qlty == 0 then
+        qlty = Bag.QLTY_R
+    end
+    -- todo 暂时屏蔽spine
+    local isSsr =  qlty == Bag.QLTY_SSR
+    local isUr = qlty == Bag.QLTY_UTR
+    local isSr = qlty == Bag.QLTY_SR
+
+    if isSsr and cls.spineBorderSGCom == nil then
+        cls.spineBorder = cls.borderCom.transform:CreateChild(Bag.SPINE_BORDER)
+        cls.spineBorderSGCom = cls.spineBorder:GetComponent("SkeletonGraphic")
+    end
+    if isUr and cls.spineBorderSGComUR == nil then
+        cls.spineBorderUR = cls.borderCom.transform:CreateChild(Bag.SPINE_BORDER_UR)
+        cls.spineBorderSGComUR = cls.spineBorderUR:GetComponent("SkeletonGraphic")
+    end
+    if isSr and cls.spineBorderSGComSR == nil then
+        cls.spineBorderSR = cls.borderCom.transform:CreateChild(Bag.SPINE_BORDER_SR)
+        cls.spineBorderSGComSR = cls.spineBorderSR:GetComponent("SkeletonGraphic")
+    end
+    if cls.spineBorderSGCom ~= nil then
+        set_com_enabled(cls.spineBorderSGCom, isSsr )
+    end
+    if cls.spineBorderSGComSR ~= nil then
+        set_com_enabled(cls.spineBorderSGComSR, isSr )
+    end
+    if cls.spineBorderSGComUR ~= nil then
+        set_com_enabled(cls.spineBorderSGComUR, isUr)
+    end
+    if cls.borderCom ~= nil then
+        set_com_enabled(cls.borderCom, qlty < Bag.QLTY_SR )
+        if qlty < Bag.QLTY_SR then
+            cls.borderCom.sprite = AtlasMgr:LoadQltyBorder(qlty)
+        end
+    end
+end
+
+function Bag:CtorGoodsUi(obj, callback,hideSkin)
+    local cls   = Equip:CtorEquipCObj(obj, callback,hideSkin)
+    cls.numCom  = cls:GetTextComponent("txt_num")
+    cls.isUid   = false
+    cls.cfgid   = 0
+    return cls
+end
+
+function Bag:SetGoodsUiEx(cls, bagtype, id, num, isUid, isMayDrop, showMay)
+    cls.cfgid = id
+    cls.isUid = isUid
+    if num == nil then
+        num = 0
+    end
+    if bagtype == Bag.TYPE_HERO then
+        Bag:SetComSimpleGoodsUi(cls.clsbag, bagtype, id, num,true , isMayDrop, showMay)
+        Equip:HideEquipCObj(cls)
+    elseif bagtype == Bag.TYPE_PET then
+        -- TODO
+    elseif bagtype == Bag.TYPE_ITEM then
+        Bag:SetComSimpleGoodsUi(cls.clsbag, bagtype, id, num,nil , isMayDrop, showMay)
+        Equip:HideEquipCObj(cls)
+    elseif bagtype == Bag.TYPE_EQUIP then
+        if isUid then
+            local equipdata = Equip:GetEquip(id)
+            cls.cfgid = equipdata.cfgid
+            Equip:SetEquipCObjByUid(cls, equipdata.uid)
+        else
+            Equip:SetEquipCObjByCfgid(cls, id, isMayDrop, showMay, num)
+        end
+    elseif bagtype == Bag.TYPE_MUSIC then
+        -- TODO
+        if(cls.isUid)then
+            cfg = Music:GetMusicCfgByUid(id)
+        else
+            cfg = Music:GetMusicCfg(id)
+        end
+        Music:SetMusicImage(cls.iconImg, cfg.itemPath)
+    elseif itype == Bag.TYPE_GIFT then
+        -- TODO
+    end
+    if num >= 0 and cls.numCom ~= nil then
+        cls.numCom.text = num
+    end
+end
+
+function Bag:GetGoodsName(itype, id)
+    if itype == Bag.TYPE_HERO then
+        return Hero:GetHero(id).Name
+    elseif itype == Bag.TYPE_PET then
+        return nil
+    elseif itype == Bag.TYPE_EQUIP then
+        return Equip:GetCfg(id).Name
+    elseif itype == Bag.TYPE_ITEM then
+        return Item:GetCfg(id).Name
+    end
+    return nil
+end

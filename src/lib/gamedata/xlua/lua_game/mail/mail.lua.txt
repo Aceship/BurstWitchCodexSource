@@ -1,0 +1,142 @@
+--
+-- author: haosun
+-- date  : 2018-12-28 16:04:25
+-- brief : 
+--
+
+Mail = Mail or {}
+
+function Mail:Ctor()
+    self._mails     = {}
+    self._unread    = 0
+    self._hasreq    = false
+    self._count     = 0
+end
+
+function Mail:Clear()
+    self:Ctor()
+end
+
+function Mail:GetMails()
+    return self._mails
+end
+
+function Mail:GetMailArray()
+    local arr = {}
+    for _, v in pairs(self._mails) do
+        table.insert(arr, v)
+    end
+    return arr
+end
+
+function Mail:GetMailIds()
+    local ret = {}
+    for _, v in pairs(self._mails) do
+        table.insert(ret, v.id)
+    end
+    return ret
+end
+
+function Mail:GetMail(mailid)
+    return self._mails[mailid]
+end
+function Mail:GetUnreadCount()
+    return self._unread;
+end
+function Mail:GetRealCount()
+    return self._count;
+end
+--检测邮件是否存在
+function Mail:CheckMailIsLife(mailid)
+    return self:GetMail(mailid) ~= nil;
+end
+--检测邮件是否存在并且有附件未领取
+function Mail:CheckMailCanGet(mailid)
+    return self:CheckMailIsLife(mailid) and self:GetMail(mailid).bread == 0 and #self:GetMail(mailid).units > 0
+end
+--检测邮件是否存在并且有已读取得邮件
+function Mail:CheckMailCanDelete(mailid)
+    return self:CheckMailIsLife(mailid) and self:GetMail(mailid).bread == 1
+end
+
+function Mail:ReadMail(mailid)
+    local mail = self:GetMail(mailid)
+    if mail ~= nil then
+        if(mail.duration <= Mail.DURATION_FOREVER)then
+            mail.duration = CTime:GetServerTime() - mail.sendtime + Mail.DURATION_FOREVER_GOT;
+        end
+        mail.bread = 1;
+        self._unread = self._unread -1;
+    else
+        CS.Logger.LogError("can't find mailid : {0}", attrid)
+    end
+end
+
+function Mail:GetMailNum()
+    local num = 0;
+    for _, v in pairs(self._mails) do
+        num = num + 1;
+    end
+    return num;
+end
+
+function Mail:GetMailDeleteStart()
+    local bexist = false;
+    for _, v in pairs(self._mails) do
+        if Mail:CheckMailCanDelete(v.id) then
+            bexist = true
+        end
+    end
+    return bexist;
+end
+
+function Mail:GetMailGetStart()
+    local bexist = false
+    for _, v in pairs(self._mails) do
+        if Mail:CheckMailCanGet(v.id) and not Mail:GetMailIsPastDue(v) then
+            bexist = true
+            break
+        end
+    end
+    return bexist;
+end
+
+function Mail:GetMailIsPastDue(mail)
+    if(mail.duration <= Mail.DURATION_FOREVER)then
+        return false;
+    end
+    local interval = (mail.duration - (CTime:GetServerTime() - mail.sendtime))
+    return interval < 0;
+end
+
+function Mail:SortMailItems(mail) 
+    if(mail == nil or mail.units == nil or #mail.units == 0) then
+        return 
+    end
+    local sortWeight1 = 0;
+    local sortWeight2 = 0;
+    local itmeType = 0;
+    local itemCfg = nil;
+    for _, v in ipairs(mail.units) do
+
+        itmeType = tonumber(v.u_type);
+        if(itmeType == Bag.TYPE_HERO) then
+            sortWeight1 = 1;
+        elseif(itmeType == Bag.TYPE_EQUIP) then
+            sortWeight1 = 2;
+        else
+            sortWeight1 = 3;
+        end
+        itemCfg = Item:GetCfg(v.id);
+        if(itemCfg == nil) then
+            sortWeight2 = 0;
+        else
+            sortWeight2 = tonumber(itemCfg.Quality);
+        end
+        --类型 魔女1 物品/装备 2  相同按照稀有度排序
+        v.sortId = sortWeight1*1000 + (100-sortWeight2);
+    end
+    table.sort(mail.units,function (a,b)
+        return a.sortId < b.sortId;
+    end);
+end

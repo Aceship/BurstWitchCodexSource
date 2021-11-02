@@ -1,0 +1,91 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LotteryInfoLayer = class("LotteryInfoLayer", CBaseLayer)
+
+local line_nums = 5
+function LotteryInfoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_LotteryInfoLayer",
+    }
+
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+
+    self._uitype = 2
+    self._fading = false
+
+    self:onEnter()
+end
+
+function LotteryInfoLayer:onEnter()
+
+    self:createPnl()
+    self:initObj()
+end
+
+function LotteryInfoLayer:initObj()
+    self.txt_pro = self.layer:GetTextComponent("container/text_3")
+
+    self._awardInfo = self.layer:Get("container/awardInfo")
+    self._tempAward = self.layer:Get("container/tempAward")
+end
+
+
+function LotteryInfoLayer:show(id)
+    self.lotteryid = id
+    self._fading = false
+    self:showLayer()
+
+    local showData = Lottery:GetLotteryShowCfg(self.lotteryid)
+    local datas = showData.Star_show
+    if not datas or #datas == 0 then
+        return
+    end
+
+    for i = 1,#datas do
+        local prefab = Groble_ResMgr:Instantiate(self._tempAward, self._awardInfo)
+        prefab.name = "award"..i
+        local item = prefab:Get("item1");
+        local itemCls = Bag:CtorComSimpleGoodsUi(item);
+        Bag:SetComSimpleGoodsUi(itemCls, Bag.TYPE_ITEM, datas[i].id);
+    end
+    self._tempAward:SetVisible(false)
+
+    -- 显示保底次数/幸运星次数
+    local cfg = Lottery:GetLotteryTypeCfg(self.lotteryid)
+    if not cfg or not cfg.ctype then
+        self.txt_pro:SetText(string.format(LanguageMgr:GetTextByID(30038), 60))
+        return
+    end
+    local data = Player:GetCardPoolDataByCardId(cfg.ctype)
+    if not data then
+        self.txt_pro:SetText(string.format(LanguageMgr:GetTextByID(30038), 60))
+        return
+    end
+
+    local allNum = data.num + 1 or 60
+    self.txt_pro:SetText(string.format(LanguageMgr:GetTextByID(30038), allNum or 60))
+
+end
+
+function LotteryInfoLayer:clickToHeroDetail(heroID)
+    Hero:OpenWitchHeroSkillLayer(heroID)
+    -- core.require("xlua/lua_UI/Witch/WitchHeroLayer.txt"):new():show(heroID)
+    self:onBackClick()
+end
+
+function LotteryInfoLayer:hideobj()
+
+end
+
+function LotteryInfoLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function LotteryInfoLayer:onExit()
+    CBaseLayer.onExit(self)
+end
+
+return LotteryInfoLayer

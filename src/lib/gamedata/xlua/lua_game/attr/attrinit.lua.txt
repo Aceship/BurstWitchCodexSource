@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2018-11-26 10:21:36
+-- brief : 
+--
+
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Attr/attr.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Attr/attrcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Attr/attrdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Attr/attrui.txt")
+
+CAttr:_LoadCfg()
+

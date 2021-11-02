@@ -1,0 +1,541 @@
+--
+-- author: haosun
+-- date  : 2019-03-13 16:57:04
+-- brief : 
+--
+Guide = Guide or {}
+
+function Guide:GuideCtor()
+    self._onGuide = true
+    self._nGid = -1
+    self._step = 1
+    self._netGid = Guide.GUIDE_BEGIN
+    self._tblSaveGuide = {}
+    self._isGuideExchangeHero = false
+end
+
+function Guide:GuideClear()
+    self:GuideCtor()
+end
+
+-- guides = {key=state, ...}
+function Guide:UpdateGuide(guides)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("-------------同步新手引导-------------")
+    for gid, v in pairs(guides or {}) do
+        self._tblSaveGuide[gid] = v
+    end
+    if(self._tblSaveGuide[self.GUIDE_SKIP] == self.STATE_DONE)then
+        self._tblSaveGuide[self.GUIDE_END] = self.STATE_DONE;
+    end
+    self._jumpHid = 0
+    self._autoGuide = false
+    self._isGuideExchangeHero = false
+end
+
+function Guide:InitGuideGid()
+    self._step = 1
+    self._nGid = -1
+    self._level = Chapter:GetLevel(Guide.GUIDE_LEVEL_ID)
+    if not self._level.open then
+        self._nGid = Guide.GUIDE_BEGIN
+        self:OnGuideTD(0)
+        return
+    end
+    self._nGid = Guide.GUIDE_SECOND
+    for uid, v in pairs(self._tblSaveGuide) do
+        if uid > 10000 then
+            self._nGid = uid
+            self._netGid = uid
+            break
+        end
+    end
+    if self._nGid == 10006 then
+        self._nGid = 10005
+    end
+    if self._nGid ~= Guide.GUIDE_END then
+        self._nGid = Guide.GUIDE_SECOND
+    end
+    if self:GuideIsComplete(Guide.GUIDE_END) then
+        self._nGid = Guide.GUIDE_END
+    end
+    AppMgr:LogInfo("~~~~~~~~~~~~~~~~~~~~~~~doGuide: " .. self._nGid)
+    while self:GuideIsComplete(self._nGid) do
+        local guide = self:GetGuide()
+        self._nGid = guide.nextGid
+        if self._nGid == 0 then
+            break
+        end
+    end
+    AppMgr:LogInfo("~~~~~~~~~~~~~~~~~~~~~~~doGuide: " .. self._nGid)
+end
+
+function Guide:OnGuideTD(state)
+    if self._nGid == 0 then
+        return
+    end
+end
+
+function Guide:GuideIsComplete(id)
+    if self._list[id] == nil then
+        return true
+    else
+        local cfg = self._list[id][1]
+        if cfg == nil then
+            AppMgr:LogError("!!!!!!!!!!!!!!!!can't find cfg. id = " .. id)
+        end
+        if cfg.complete[1] == 0 then
+            return true
+        else
+            local tbl = cfg.complete
+            if tbl[1] == Guide.COMPLETE_FIGHT then
+                local level = Chapter:GetLevel(tbl[2])
+                return level.open
+            elseif tbl[1] == Guide.COMPLETE_SKILL then
+                local hero = Hero:GetHero(tbl[2])
+                local slot = tonumber(tbl[3])
+                return hero.skills[slot].level >1
+            elseif tbl[1] == Guide.COMPLETE_REWARD then
+                local level = Chapter:GetLevel(tbl[2])
+                return level.receive == Chapter.REWARD_STATE_HAS
+            elseif tbl[1] == Guide.COMPLETE_EQUIP then
+                local hero = Hero:GetHero(tbl[2])
+                if hero.equipids[tbl[3]] ~= 0 then
+                    local equip = Equip:GetEquip(hero.equipids[tbl[3]])
+                    return equip.qlty >= tbl[4]
+                else
+                    return false
+                end
+            elseif tbl[1] == Guide.COMPLETE_EQUIP_UP then
+                local hero = Hero:GetHero(tbl[2])
+                if hero.equipids[tbl[3]] ~= 0 then
+                    local equip = Equip:GetEquip(hero.equipids[tbl[3]])
+                    return equip.level > 1 or equip.exp > 0
+                else
+                    return false
+                end
+            elseif tbl[1] == Guide.COMPLETE_LEVEL then
+                local hero = Hero:GetHero(tbl[2])
+                return hero.level > 1
+            elseif tbl[1] == Guide.COMPLETE_LOTTERY then
+                local hero = Hero:GetHero(tbl[2])
+                return hero.owner
+            elseif tbl[1] == Guide.COMPLETE_TEAM_HERO then
+                local ids = Chapter:GetFightHeroIds(tbl[2])
+                local _count = 0
+                for _, v in pairs(ids) do
+                    if v ~= 0 then
+                        _count = _count + 1
+                    end
+                end
+                return _count > 1
+            elseif tbl[1] == Guide.COMPLETE_EQUIP_TOP then
+                local hero = Hero:GetHero(tbl[2])
+                if hero.equipids[tbl[3]] ~= 0 then
+                    local equip = Equip:GetEquip(hero.equipids[tbl[3]])
+                    return equip.star >= tbl[4]
+                else
+                    return false
+                end
+            elseif tbl[1] == Guide.COMPLETE_HERO_TOP then
+                local hero = Hero:GetHero(tbl[2])
+                return hero.star >= tbl[3]
+            end
+        end
+    end
+end
+
+function Guide:OnGuideLayer()
+    if self._onGuide or self._isGmGuiding then
+        if self._nGid ~= 0 then
+            if self._onGuideLayer == nil then
+                self._onGuideLayer = core.require("xlua/lua_UI/Comframework/GuideLayer.txt"):new()
+            end
+            self._onGuideLayer:show()
+            if self._step == 1 then
+                ThinkingMgr:SendGuide(self._nGid, self._step)
+                GZSDKHelper:guideFlowWithPlayerInfo(self._nGid, "新手引导" .. self._nGid)
+            end
+        end
+    end
+end
+
+function Guide:ClearGuideLayer()
+    if self._onGuideLayer ~= nil then
+        self._onGuideLayer:onExit()
+        self._onGuideLayer = nil
+    end
+end
+
+function Guide:ForceClearGuide()
+    CS.Logger.LogError(string.format("--------ForceClearGuide-------- %d %d", self._nGid, self._step))
+    self._nGid = 0
+    self._step = 1
+    self:ClearGuideLayer()
+end
+
+function Guide:EndGuide()
+    self:ClearGuideLayer()
+end
+
+function Guide:GetGuide()
+    if self._nGid == -1 then return nil end
+    if self._list[self._nGid] == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!can't find guide. id = " .. self._nGid)
+        return nil
+    else
+        if self._onGuide or self._isGmGuiding then
+            return self._list[self._nGid][self._step]
+        else
+            return nil
+        end
+    end
+end
+
+function Guide:OnNextStep()
+    -- 当前一组引导结束
+    if self._step == #self._list[self._nGid] then
+        if self._isGmGuiding then
+            self._isGmGuiding = false
+            self:ClearGuideLayer()
+            return
+        end
+        local lastcfg = self:GetGuide()
+        self._nGid = lastcfg.nextGid or 0 
+        self._step = 1
+        AppMgr:LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ new guide id = " .. self._nGid)
+        if self._nGid ~= 0 and self._nGid >= Guide.GUIDE_BEGIN0 then
+            while self:GuideIsComplete(self._nGid) do
+                local guide = self:GetGuide()
+                self._nGid = guide.nextGid                
+                if self._nGid == 0 then
+                    break
+                end
+            end
+        end
+        if self._nGid ~= 0 and lastcfg.IsSameUI ~= 0 then
+            while true do
+                local cfg = self:GetGuide()
+                if cfg ~= nil then
+                    if cfg.IsSameUI ~= lastcfg.IsSameUI then
+                        if cfg.startType == -1 then
+                            self:SetAutoGuide(true)
+                        end
+                        break
+                    end
+                else
+                    self._nGid = 0
+                    self._step = 1
+                    break
+                end
+                self._step = self._step + 1
+            end
+        end
+        self:OnGuideTD(0)
+    else
+        self._step = self._step + 1
+    end
+    
+    AppMgr:LogInfo("calc next guide id = " .. self._nGid .. " step = " .. self._step)
+    if self._nGid == 0 then
+        self:ClearGuideLayer()
+    else
+        GZSDKHelper:guideFlowWithPlayerInfo(self._nGid, "新手引导" .. self._nGid)
+        ThinkingMgr:SendGuide(self._nGid, self._step)
+        local cfg = self:GetGuide()
+        if cfg.inSceneId == uimgr:GetSceneId() then
+            GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.ON_NEXT_GUIDE)
+        else
+            self:ClearGuideLayer()
+        end
+    end
+end
+
+function Guide:OnPrevStep()
+    self._step = self._step - 1
+    if self._step <= 1 then
+        self._step = 1
+    end
+end
+
+function Guide:ForceGuideIsEnd()
+    local bend = true
+    if self._onGuide then
+        bend = self:GuideIsComplete(Guide.GUIDE_END)
+    end
+    return bend
+end
+
+function Guide:IsLevel1GuideEnd()
+    if not self._onGuide then return true end
+    
+    return self:GuideIsComplete(Guide.GUIDE_END)
+end
+
+function Guide:IsLotteryGuideEnd()
+    return self:GuideIsComplete(Guide.GUIDE_LOTTERY)
+end
+
+-- 强制引导第一第二关战斗
+function Guide:IsForceFightGuideEnd()
+    -- if(self._tblSaveGuide[self.GUIDE_SKIP] == self.STATE_DONE)then
+    --     self._nGid = 0;
+    --     return true;
+    -- end
+    -- 未开启引导模式
+    if not self._onGuide then return true end
+
+    self:InitGuideGid()
+    local level = Chapter:GetLevel(Guide.GUIDE_LEVEL_ID)
+    return true == level.open
+end
+
+function Guide:StartGuide()
+    local level = Chapter:GetLevel(Guide.GUIDE_LEVEL_ID)
+    if not level.open then
+        self._initFight = true
+        Chapter:ChapterLevelBeginReq(level.id, {1001, 0, 0})
+    end
+end
+
+function Guide:CheckGuideByLevelId(levelid)
+    if not self._onGuide then return end
+
+    TutorialController:InitTutorialController()
+
+    if lua_value_in_tbl(levelid, Guide.GUIDE_LEVEL_IDS) then
+        if self._tblSaveGuide[Guide.GUIDE_SKIP] == Guide.STATE_DONE then return end
+    else
+        local _config = TutorialController:GetTutorial(levelid)
+        if _config == nil or (not _config.enter_trigger) then return end
+    end
+
+    local level = Chapter:GetLevel(levelid)
+    if level.open then return end
+
+    TutorialController:OnTutorialLevel(levelid)
+
+    if not self._initFight then return end
+
+    self._initFight = false
+    Chapter:GoFight({1001}, levelid)
+end
+
+function Guide:IsCommitGuide(force)
+    if self._isGmGuiding then return end
+    if self._nGid < self._netGid then return end
+    if self._nGid == nil or self._nGid == 0 then return end
+    local guide = self:GetGuide()
+    if guide ~= nil then
+        if force then
+            self:OnGuideTD(1)
+            self:OnGuideCommitReq(guide.cfgid)
+        else
+            if guide.commitType == Guide.COMMIT_TYPE_CLICK then
+                self:OnGuideTD(1)
+                self:OnGuideCommitReq(guide.cfgid)
+            end
+        end
+    end
+end
+
+-- 战斗结算强制提交
+function Guide:FightEndCommit(levelid)
+    if lua_value_in_tbl(levelid, Guide.GUIDE_LEVEL_IDS) then
+        local level = Chapter:GetLevel(levelid)
+        if false == level.open then
+            Guide:IsCommitGuide(true)
+        end
+    end
+end
+
+function Guide:ShowGuideLog()
+    CS.Logger.Log("Guide id = " .. self._nGid .. " step = " .. self._step)
+end
+
+function Guide:ClearFightBackTo()
+    local guide = self:GetGuide()
+    if guide.ExitTo == Guide.FIGHT_BACK_TO_MAIN then
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_HOME)
+        Chapter:ClearJumpChapterLevel()
+        Chapter:SetCurSelectChapterId(0)
+        Chapter:SetLastInFightType(Chapter.SHOW_TYPE_PLOT)
+    elseif guide.ExitTo == Guide.FIGHT_BACK_TO_LIST then
+        -- level list
+        Chapter:OnFixedJumpChapter()
+        Chapter:SetCurSelectChapterId(0)
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+    elseif guide.ExitTo == Guide.FIGHT_BACK_TO_LEVEL then
+        GTemp:SetMainTypeLayer(MAIN_BUTTON_TYPE.TYPE_PLOT)
+    else
+        --TODO:
+    end
+end
+
+function Guide:OnWaitNetMsg(id)
+    self._waiting = id ~= -1
+end
+
+function Guide:RecoverGuide()
+    if self._waiting then
+        self:ContinueGuideEvent()
+    end
+end
+
+function Guide:ContinueGuideEvent(cname)
+    if self._nGid ~= nil and self._nGid ~= 0 then
+        if cname ~= nil then
+            AppMgr:LogInfo("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!continue by cname = " .. cname)
+        end
+        GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.RECOVER_GUIDE)
+    end
+end
+
+function Guide:OpenGuideEvent(gid, auto, force, step)
+    if self._tblSaveGuide[gid] == nil or force then
+        local guide = self:GetCfgByGid(gid, 1)
+        if guide ~= nil then
+            self:OnGuideCommitReq(guide.cfgid)
+            self._tblSaveGuide[gid] = 1
+        end
+        self._nGid = gid
+        self._step = step or 1
+        if self._nGid == Guide.BUILD_GUIDE_ID then
+            Build:SetBuildGuide(true)
+        end
+        AppMgr:LogInfo(string.format("OpenGuideEvent gid = %d step = %d", self._nGid, self._step))
+        self:OnGuideLayer()
+        if true == auto then
+            self:ContinueGuideEvent("Guide:OpenGuideEvent")
+        end
+        return true
+    end
+    return false
+end
+
+function Guide:IntroduceBattleCheck(gid)
+    if not self._onGuide then return false, "" end
+    if self._tblSaveGuide[gid] == nil then
+        local guide = self:GetCfgByGid(gid, 1)
+        if guide ~= nil then
+            self:OnGuideCommitReq(guide.cfgid)
+            self._tblSaveGuide[gid] = 1
+            return true, guide.imgIntro
+        end
+    end
+    return false, ""
+end
+
+function Guide:OnceGuideCheck(gid)
+   if self._tblSaveGuide[gid] == nil then
+        local guide = self:GetCfgByGid(gid, 1)
+        if guide ~= nil then
+            self:OnGuideCommitReq(guide.cfgid)
+            self._tblSaveGuide[gid] = 1
+            return true
+        end
+    end
+    return false 
+end
+
+function Guide:OnGmGuide(gid, step)
+    self._isGmGuiding = true
+    self._nGid = gid
+    self._step = step
+    self:OnGuideLayer()
+end
+
+function Guide:CheckReward()
+    local guide = self:GetCfgByGid(self._nGid, self._step)
+    if guide ~= nil and guide.dropid ~= 0 then
+        self._waiting = true
+        self:OnGuideRewardReq(guide.cfgid)
+    end
+end
+
+function Guide:SetGuideJumpHid(hid)
+    self._jumpHid = hid
+end
+
+function Guide:GetGuideJumpHid()
+    return self._jumpHid
+end
+
+function Guide:SetGuideByPassLevel(levelid)
+    self._levelGuideid = Player:GetGuideIdByLevelid(levelid)
+    if self._levelGuideid ~= nil and self._levelGuideid ~= 0 then
+        if self._tblSaveGuide[self._levelGuideid] == nil then
+            return self:GetCfgByGid(self._levelGuideid, 1) ~= nil
+        end
+    end
+    return false
+end
+
+function Guide:CheckGuideEvent()
+    if self._levelGuideid ~= nil and self._levelGuideid ~= 0 then
+        self:OpenGuideEvent(self._levelGuideid, true)
+        self._levelGuideid = 0
+    end
+end
+
+function Guide:SetAutoGuide(bvalue)
+    self._autoGuide = bvalue
+end
+
+function Guide:GetAutoGuide()
+    return self._autoGuide
+end
+
+function Guide:IsGuiding()
+    if self._nGid ~= 0 then
+        return self:GetGuide() ~= nil
+    end
+    return false
+end
+
+function Guide:IsNormalGuide()
+    return self._nGid ~= 0 and self._nGid < Guide.GUIDE_BEGIN0
+end
+
+function Guide:IsForceGuide()
+    return self._nGid ~= 0 and self._nGid > Guide.GUIDE_BEGIN0
+end
+
+function Guide:CheckLastTutorial()
+    if self._nGid == Guide.GUIDE_END then
+        if self._step ~= Guide.SKIP_STEP then
+            self._step = Guide.SKIP_STEP
+        end
+    end
+end
+
+function Guide:SetGuideExchangeHero()
+    self._isGuideExchangeHero = true
+end
+
+function Guide:ClearGuideExchangeHero()
+    self._isGuideExchangeHero = false
+end
+
+function Guide:IsGuideExchangeHero()
+    if not self._onGuide then return false end
+    return self._isGuideExchangeHero
+end
+
+function Guide:IsExistGuide(guideId)
+    if not self._onGuide then return false end
+    return self._tblSaveGuide[guideId] ~= nil
+end
+
+function Guide:CheckHeroLevelUp(heroId)
+    if 1022 == self._nGid then
+        local hero = Hero:GetHero(heroId)
+        if hero.level > 1 or hero.exp > 0 or Item:GetCount(4200001) == 0 then
+            local len = #self._list[self._nGid]
+            for i = len, 4, -1 do
+                table.remove(self._list[self._nGid], i)
+            end
+        end
+    end
+end

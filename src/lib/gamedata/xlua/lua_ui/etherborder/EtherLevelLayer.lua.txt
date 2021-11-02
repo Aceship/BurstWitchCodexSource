@@ -1,0 +1,718 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-09-17 16:05:08
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local EtherLevelLayer = class("EtherLevelLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnSceneInfo = "trans_container/btn_scene_info",
+	BtnRule = "trans_container/btn_rule",
+	BtnDetails = "trans_container/btn_details",
+	BtnNext = "trans_container/btn_next",
+	BtnFight = "trans_container/btn_fight",
+	BtnAttr = "trans_container/btn_attr",
+	--@ButtonEnd
+}
+
+local affixUnSelectPos = CS.UnityEngine.Vector3(0,10000,0);
+local doV3 = CS.UnityEngine.Vector3(0, 1, 1);
+
+--构造函数
+function EtherLevelLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiEther/UI_EtherLevelLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = false,--顶部货币菜单栏
+        topInfo        = {},--货币类型
+    };
+	self._bgData = {
+		showEffect = true,
+		bgType = BackBgPath.BG_ETHER,
+	}
+	self._updateMaskScale = false;
+    self._addStack = true;
+	self._hideOtherLayer = true;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+
+--进入Ui调用一次
+function EtherLevelLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+	self._KeyFrameCall = function(index)
+		self._updateMaskScale = false;
+		self._uiMask:SetScale();
+	end
+    self:Init();
+    self:onInitEtherLevelTeamCtrl()
+    self.layer:Get("trans_container/hero_select_bg"):SetPositionX(1103, true)
+	CS.UnityHelper.NotchfitY(self.layer:Get("trans_container"), 0, true)
+end
+
+--按钮事件
+function EtherLevelLayer:onButtonClick(itype)
+	if(itype == BTNS.BtnSceneInfo)then
+		self:OnBtnSceneInfoClick();
+	elseif(itype == BTNS.BtnRule)then
+		self:OnBtnRuleClick();
+	elseif(itype == BTNS.BtnDetails)then
+		self:OnBtnDetailsClick();
+	elseif(itype == BTNS.BtnNext)then
+		self:OnBtnNextClick();
+	elseif(itype == BTNS.BtnFight)then
+		self:OnBtnFightClick();
+	elseif(itype == BTNS.BtnAttr)then
+		self:OnBtnAttrClick();
+	else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--退出按钮事件
+function EtherLevelLayer:onBackClick()
+	if(self._curStepType == Ether.Affix_Strategy)then
+		self:onPopLayer();
+	else
+		self:CutStep(Ether.Affix_Strategy);
+	end
+end
+
+--初始化
+function EtherLevelLayer:Init()
+	self._init = true;
+	self._curHeroIds = Ether:GetCurHeroIds();
+	Ether:SetStartGameState(false);
+	self:InitData();
+	self:InitUI();
+end
+
+--初始化UI
+function EtherLevelLayer:InitUI()
+
+	self._imgMonster = self.layer:GetImageComponent("trans_container/trans_boss_info/img_monster_bg/img_monster");
+	self._imgAttr = self.layer:GetImageComponent("trans_container/trans_boss_info/img_attr");
+	self._imgEtherBg = self.layer:GetImageComponent("trans_container/img_ether_bg");
+	self._imgBtnFightIcon = self.layer:GetImageComponent("trans_container/hero_select_bg/rect_hero_select/btn_fight/img_btn_fight_icon");
+	--@ImageEnd
+	self._txtBossName = self.layer:GetTextComponent("trans_container/trans_boss_info/txt_boss_name");
+	self._txtTopTitle = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title");
+	self._txtTopTitleE = self.layer:GetTextComponent("trans_container/trans_top_title/txt_top_title_E");
+	self._txtLvTitle = self.layer:GetTextComponent("trans_container/trans_lv_info/txt_lv_title");
+	self._txtLv = self.layer:GetTextComponent("trans_container/trans_lv_info/txt_lv");
+	self._txtHighLv = self.layer:GetTextComponent("trans_container/trans_lv_info/obj_high_lv/txt_high_lv");
+	self._txtIntroTitle = self.layer:GetTextComponent("trans_container/trans_intro_info/txt_intro_title");
+	self._txtIntroTitleE = self.layer:GetTextComponent("trans_container/trans_intro_info/txt_intro_title_E");
+	--self._txtDetailsTitle = self.layer:GetTextComponent("trans_container/btn_details/txt_details_title");
+	--self._txtDetailsTitleE = self.layer:GetTextComponent("trans_container/btn_details/txt_details_title_E");
+	--self._txtTitle = self.layer:GetTextComponent("trans_container/trans_title/txt_title");
+	--self._txtTitleE = self.layer:GetTextComponent("trans_container/trans_title/txt_title_E");
+	self._txtBtnFightValue = self.layer:GetTextComponent("trans_container/hero_select_bg/rect_hero_select/btn_fight/txt_btn_fight_value");
+	self._txtIntroNullTitle = self.layer:GetTextComponent("trans_container/trans_intro_info/obj_is_null/txt_intro_null_title");
+	self._txtBossAttrAdd1 = self.layer:GetTextComponent("trans_container/trans_boss_add_attr/txt_boss_attr_add_1");
+	self._txtBossAttrAdd2 = self.layer:GetTextComponent("trans_container/trans_boss_add_attr/txt_boss_attr_add_2");
+	--@TextEnd
+
+	self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+	self._transIntroItemBg = self.layer:Get("trans_container/trans_intro_info/trans_intro_bg/trans_intro_item_bg");
+	self._transIntroBg = self.layer:Get("trans_container/trans_intro_info/trans_intro_bg");
+	--@TransformEnd
+
+	self._rectHeroSelect = self.layer:GetRectTransformComponent("trans_container/hero_select_bg/rect_hero_select");
+	self._rectIntroItemBg = self._transIntroItemBg:GetComponent("RectTransform");
+	self._rectBossAttrAdd1 = self.layer:GetRectTransformComponent("trans_container/trans_boss_add_attr/txt_boss_attr_add_1");
+	self._rectBossAttrAdd2 = self.layer:GetRectTransformComponent("trans_container/trans_boss_add_attr/txt_boss_attr_add_2");
+	--@RectTransformEnd
+
+	self._objBtnNext = self.layer:Get(BTNS.BtnNext).gameObject;
+	self._objBtnFight = self.layer:Get(BTNS.BtnFight).gameObject;
+	self._objIntroItem = self.layer:Get("trans_container/trans_intro_info/item_hide/obj_intro_item").gameObject;
+	self._objHighLv = self.layer:Get("trans_container/trans_lv_info/obj_high_lv").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+	self._uiMask = self.layer:Get("trans_container/trans_TableViewController/mask"):GetComponent("UISpriteMaskScale");
+	self:SetBossAttr();
+	self:CutStep(Ether.Affix_Strategy);
+end
+
+--显示UI
+function EtherLevelLayer:show()
+	self:showLayer();
+	self:playAni("EtherLevelLayerAnim");
+end
+
+function EtherLevelLayer:showLayer()
+	self:SetServerData();
+	if(self._curStepType == Ether.Affix_Support)then
+		self:CutStep(Ether.Affix_Support);
+	end
+	self:SetIntro();
+	CBaseLayer.showLayer(self);
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+end
+
+--释放
+function EtherLevelLayer:onExit()
+
+	Ether:CloseAffixData();
+	self._txtTopTitle = nil;
+	self._txtTopTitleE = nil;
+	self._imgAttr = nil;
+	self._txtLvTitle = nil;
+	self._txtHighLv = nil;
+	self._txtIntroTitle = nil;
+	self._txtIntroTitleE = nil;
+	self._txtDetailsTitle = nil;
+	--self._txtTitle = nil;
+	--self._txtTitleE = nil;
+	self._transTableviewcontroller = nil;
+	self._txtLv = nil;
+	self._imgEtherBg = nil;
+	self._objIntroItem = nil;
+	self._transIntroItemBg = nil;
+	self._rectHeroSelect = nil;
+	self._objHighLv = nil;
+	self._imgBtnFightIcon = nil;
+	self._txtBtnFightValue = nil;
+	self._txtIntroNullTitle = nil;
+	self._transIntroBg = nil;
+	if(self._heroSelectCtrl ~= nil)then
+		self._heroSelectCtrl:OnDestroy();
+	end
+	self._heroSelectCtrl = nil;
+	self._txtBossAttrAdd1 = nil;
+	self._txtBossAttrAdd2 = nil;
+	self._rectBossAttrAdd1 = nil;
+	self._rectBossAttrAdd2 = nil;
+	--@CloseEnd
+	CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function EtherLevelLayer:OnBtnSceneInfoClick()
+	core.require("xlua/lua_UI/EtherBorder/EtherSceneInfoLayer.txt"):new():show();
+end
+function EtherLevelLayer:OnBtnRuleClick()
+	Groble_UIMgr:ShowRuleTipsLayer(901)
+end
+function EtherLevelLayer:OnBtnDetailsClick()
+	core.require("xlua/lua_UI/EtherBorder/EtherIntroLayer.txt"):new():show();
+end
+function EtherLevelLayer:OnBtnNextClick()
+	--[[local isSelectHero = false;
+	for i, v in pairs(self._curHeroIds) do
+		if(v ~= nil and v ~= 0)then
+			isSelectHero = true;
+		end
+	end]]--
+	--if(isSelectHero)then
+		self:CutStep(Ether.Affix_Support);
+	--else
+		self._curStepType = Ether.Affix_Support;
+		--core.require("xlua/lua_UI/EtherBorder/EtherHeroSelectLayer.txt"):new():show();
+	--end
+end
+function EtherLevelLayer:OnBtnHeroSelectClick(index)
+	--[[if(cls.isHaveHero)then
+		Ether:CloseCurHeroIdByIndex(cls.index);
+		self:SetHeroData();
+		self:SetIntro();
+	else
+		core.require("xlua/lua_UI/EtherBorder/EtherHeroSelectLayer.txt"):new():show();
+	end]]--
+	core.require("xlua/lua_UI/EtherBorder/EtherHeroSelectLayer.txt"):new():show(index);
+end
+function EtherLevelLayer:OnBtnFightClick()
+	local isSend = false;
+	for i, v in pairs(self._curHeroIds) do
+		if(v ~= nil and v ~= 0)then
+			isSend = true;
+		end
+	end
+	if isSend then
+		local allAffix = Ether:GetAllCurAffixs();
+		local reqArr = {};
+		for i, v in pairs(allAffix) do
+			if(v.curIndex ~= 0)then
+				reqArr[v.id] = v.curIndex;
+			end
+		end
+		Ether:SetStartGameState(true);
+		Chapter:ChapterLevelBeginReq(self._curLevelCfg.id, self._curHeroIds,nil,reqArr);
+	else
+		Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703086))
+	end
+end
+
+function EtherLevelLayer:OnBtnAttrClick()
+	Groble_UIMgr:ShowAttrRuleTipsLayer(self._curLevelCfg.id);
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function EtherLevelLayer:RegisterHandler()
+	--self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+	--end);
+	self:addEventListener(EVENT_NAME.CHAPTER_LEVEL_BEGIN, self.__cname,
+			function(levelid)
+				Chapter:GoFight(Ether:GetCurHeroIds(), levelid)
+			end)
+
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function EtherLevelLayer:InitData()
+	self._curStepType = Ether.Affix_Strategy;
+	self._introItemNum = 0;
+	self:SetServerData();
+	self._curChapterCfg = Chapter:GetChapter(self._curChapter.id);
+	self._curServerData = Ether:GetCurChapter();
+	self._curLevelCfg = Chapter:GetLevel(self._curChapterCfg.levelids[1]);
+end
+
+function EtherLevelLayer:SetServerData()
+	self._curChapter = Ether:GetCurChapter();
+	self:SetCurAffixData();
+end
+
+function EtherLevelLayer:SetCurAffixData()
+	self._curAffixs = Ether:GetCurAffixDataByType(self._curStepType);
+	if(self._introItemNum < #self._curAffixs)then
+		self._introItemNum = #self._curAffixs;
+	end
+end
+
+function EtherLevelLayer:UpdateData()
+	--刷新数据
+	self:SetCurAffixData();
+	--刷新UI
+	self:SetLvInfo();
+	self:SetIntro();
+
+end
+
+function EtherLevelLayer:SetTitle()
+	self._txtTopTitle.text = self._curChapterCfg.name;
+	self._txtTopTitleE.text = self._curChapterCfg.name_en;
+	self._txtLvTitle:SetTextById(7030210 + self._curStepType);
+	self._txtIntroTitle:SetTextById(7030230 + self._curStepType);
+	self._txtIntroTitle:SetTextById(7030240 + self._curStepType);
+	--self._txtTitle:SetTextById(7030260 + self._curStepType);
+	--self._txtTitleE:SetTextById(7030270 + self._curStepType);
+	--self._txtDetailsTitle:SetTextById(7030280 + self._curStepType);
+	--self._txtDetailsTitleE:SetTextById(7030510 + self._curStepType);
+	self._txtIntroNullTitle:SetTextById(7030580 + self._curStepType);
+end
+
+function EtherLevelLayer:SetBossAttr()
+	local bosscfg = FightModule:GetElementCfg(tonumber(self._curLevelCfg.enemyids));
+	Hero:LoadAttrIconSp(self._imgAttr, bosscfg.attri_type)
+	if bosscfg == nil or next(bosscfg) == nil then
+		return
+	end
+	self._txtBossName.text = bosscfg.Name
+	self._imgMonster.sprite = AssetLoader:LoadSprite(bosscfg.BodyAvatar)
+	if self._curLevelCfg.enemy_pos[1] ~= nil then
+		self._imgMonster.transform:SetPosition( self._curLevelCfg.enemy_pos[1][1], self._curLevelCfg.enemy_pos[1][2], 0,true)
+	end
+	if self._curLevelCfg.enemy_pos[2] ~= nil then
+		self._imgMonster.transform:SetScale( self._curLevelCfg.enemy_pos[2][1], self._curLevelCfg.enemy_pos[2][2], 0)
+	end
+end
+
+function EtherLevelLayer:SetLvInfo()
+	self._objHighLv:SetVisible(self._curStepType == Ether.Affix_Strategy);
+	self._lvNum = Ether:GetLvNumByType(self._curStepType);
+	if(self._curStepType == Ether.Affix_Strategy)then
+		self._txtHighLv.text = string.format(LanguageMgr:GetTextByID(703022),self._curServerData.maxLv);
+		self._txtLv.text = math.ceil(self._lvNum);
+		self:SetBossAttrAddUI();
+	else
+		self._txtLv.text = math.ceil(self._lvNum);
+		if(self._lvNum < 0)then--数据重置
+			Ether:CloseAffixLv(self._curAffixs);
+			self:UpdateData();
+			self:SetAffix();
+			Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703057));
+		end
+	end
+end
+
+function EtherLevelLayer:SetIntroNullTitle()
+	self._selectIntroAffixNum = 0;
+	for i, v in ipairs(self._curAffixs) do
+		if(v.curLv > 0)then
+			self._selectIntroAffixNum = self._selectIntroAffixNum + 1;
+		end
+	end
+	self._txtIntroNullTitle.transform.parent.gameObject:SetVisible(self._selectIntroAffixNum == 0);
+	self._transIntroBg.gameObject:SetVisible(self._selectIntroAffixNum > 0);
+end
+
+
+function EtherLevelLayer:SetIntro()
+	if(self._introItems == nil)then
+		self._introItems = {};
+	end
+	for i = 1, self._introItemNum do
+		if(self._introItems[i] == nil)then
+			self._introItems[i] = self:NewIntroItem(CS.UnityEngine.GameObject.Instantiate(self._objIntroItem,self._transIntroItemBg));
+			self._introItems[i].transform.localScale = doV3;
+			self._introItems[i].transform:DOScaleX(1, 0.15):SetDelay(0.05 * i);
+		end
+		self:SetIntroItem(i,true);
+	end
+	self:SetIntroNullTitle();
+end
+
+function EtherLevelLayer:SetIntroItem(index,cutStep)
+	local cls = self._introItems[index];
+	cls.obj:SetVisible(self._curAffixs[index] ~= nil);
+	if(self._curAffixs[index] ~= nil)then
+		local cfg = Ether:GetAffixCfgById(self._curAffixs[index].id);
+		cls.txtName.text = cfg.name;
+		Ether:SetAffixImage(cls.imgIcon,cfg.icon);
+		self:SetIntroItemData(cls,self._curAffixs[index],cutStep);
+	end
+end
+
+function EtherLevelLayer:NewIntroItem(trans)
+	local cls = clsbase:new(trans);
+	cls.imgIcon = cls:GetImageComponent("img_icon");
+	cls.txtName = cls:GetTextComponent("txt_name");
+	cls.txtDes = cls:GetTextComponent("txt_des");
+	cls.rect = cls.transform:GetComponent("RectTransform");
+	return cls;
+end
+
+function EtherLevelLayer:SetIntroItemData(cls,affix,cutStep)
+	if(affix == nil)then
+		cls.obj:SetVisible(false);
+		return;
+	end
+	if(affix.curLv > 0)then
+		cls.obj:SetVisible(true);
+		local cfg = Ether:GetAffixCfgById(affix.id);
+		local str = string.format("<color=#E1503CFF>%s%%</color>",cfg.affixValues[affix.curIndex]);
+		cls.txtDes.text = string.format(cfg.des,str);
+		cls.transform.localScale = doV3;
+		cls.transform:DOScaleX(1, 0.2):SetDelay(0.1);
+	else
+		if(cutStep)then
+			cls.obj:SetVisible(false);
+		else
+			local dt = cls.transform:DOScaleX(0, 0.2):SetDelay(0.1);
+			dt.onComplete = function()
+				cls.obj:SetVisible(false);
+			end;
+		end
+	end
+end
+
+function EtherLevelLayer:SetAffix()
+	if(self._affixItems == nil)then
+		self._affixItems = {};
+		self._tvController = UIController:CtorTableView(self._transTableviewcontroller)
+		self._tvController:Init(#self._curAffixs, false,
+	function(cell, row)
+					self:InitAffixItem(cell, row + 1)
+				end)
+	else
+		self._tvController:Reload(#self._curAffixs)
+		self._tvController:ScrollToTop()
+	end
+end
+
+function EtherLevelLayer:InitAffixItem(cell, row)
+	local cls = self._affixItems[cell];
+	if(cls == nil)then
+		cls = self:NewAffixItem(cell);
+		self._affixItems[cell] = cls;
+	end
+	self:SetAffixItemData(cls,row);
+end
+
+function EtherLevelLayer:NewAffixItem(trans)
+	local cls = clsbase:new(trans);
+	cls.txtName = cls:GetTextComponent("txt_name");
+	cls.objLock = cls:Find("obj_lock").gameObject;
+	cls.txtUnLockCon = cls:GetTextComponent("obj_lock/txt_un_lock_con");
+	cls.transSelect = cls:Find("img_select");
+	cls.transSelect.localPosition = affixUnSelectPos;
+	cls.effect = cls.transSelect:GetComponent("ParticleBehaviour");
+	cls.effect:Play();
+	cls.affixItems = {};
+	for i = 1, 6 do
+		cls.affixItems[i] = clsbase:new(cls:Find("affix_item_bg/item_affix_"..i));
+		cls.affixItems[i].imgIcon = cls.affixItems[i]:GetImageComponent("img_bg/img_icon");
+		cls.affixItems[i].imgBg = cls.affixItems[i]:GetImageComponent("img_bg");
+		cls.affixItems[i].txtIndex = cls.affixItems[i]:GetTextComponent("txt_index");
+		cls.affixItems[i].objLock = cls.affixItems[i]:Find("obj_lock").gameObject;
+		cls.affixItems[i].btn = cls.affixItems[i]:GetButtonComponent("img_bg");
+		cls.affixItems[i].btn.onClick:AddListener(function ()
+			local isReturn = false;
+			if(self._curStepType == Ether.Affix_Support)then
+				local cfg = Ether:GetAffixCfgById(cls.data.id);
+				if(self._lvNum - tonumber(cfg.affixLvs[i]) < 0)then
+					isReturn = true;
+				end
+			end
+			if(cls.affixItems[i].unLock)then
+				if(cls.data.curIndex ~= 0)then
+					if(cls.data.curIndex == i)then--取消选中
+						Ether:SetCurAffixLv(cls.data.id,0);
+						cls.transSelect.localPosition = affixUnSelectPos
+						self._clickId = 0;
+					else--选中
+						if(isReturn)then
+							Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703053));
+							return;
+						end
+						self._clickId = cls.data.id;
+						Ether:SetCurAffixLv(cls.data.id,i);
+						cls.transSelect:SetParent(cls.affixItems[cls.data.curIndex].transform);
+						cls.transSelect.localPosition = CS.UnityEngine.Vector3.zero;
+						cls.transSelect:SetAsFirstSibling();
+					end
+				else--选中
+					if(isReturn)then
+						Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703053));
+						return;
+					end
+					self._clickId = cls.data.id;
+					Ether:SetCurAffixLv(cls.data.id,i);
+					cls.transSelect:SetParent(cls.affixItems[cls.data.curIndex].transform);
+					cls.transSelect.localPosition = CS.UnityEngine.Vector3.zero;
+					cls.transSelect:SetAsFirstSibling();
+				end
+				--刷新数据
+				self:SetCurAffixData();
+				--刷新UI
+				self:SetLvInfo();
+				self:SetIntroItem(cls.dataIndex);
+				self:SetIntroNullTitle();
+				self:SetCurIntroItemPos(cls.dataIndex);
+			else
+				Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(703074));
+			end
+		end);
+	end
+	return cls;
+end
+
+function EtherLevelLayer:SetCurIntroItemPos(index)
+	CS.UIHelpScript.Instance:ForceRebuildLayoutImmediate(self._rectIntroItemBg);
+	local cls = self._introItems[index];
+	local moveY = math.abs(cls.rect.anchoredPosition.y) - 368 + 60;
+	if(moveY < 0)then
+		moveY = 0;
+	end
+	self._rectIntroItemBg:DOAnchorPosY( moveY,0.1);
+end
+
+function EtherLevelLayer:SetAffixItemData(cls,index)
+	local affix = self._curAffixs[index];
+	cls.data = affix;
+	cls.dataIndex = index;
+	local cfg = Ether:GetAffixCfgById(affix.id);
+	cls.txtName.text = cfg.name;
+	local isOpen = false;
+	if(cfg.unLockType == Ether.AffixUnLockType.LvAndLast)then
+		if(Ether:GetCurMaxLvNum() >= cfg.unLockValue)then
+			isOpen = true;
+		end
+		cls.objLock:SetVisible(not isOpen);
+	else
+		cls.objLock:SetVisible(false);
+	end
+	cls.transSelect.localPosition = affixUnSelectPos;
+	for i, v in ipairs(cls.affixItems) do
+		v.obj:SetVisible(cfg.affixLvs[i] ~= nil);
+		v.unLock = false;
+		Ether:SetAffixImage(v.imgIcon,cfg.icon);
+		if(cfg.affixLvs[i] ~= nil)then
+			v.txtIndex.text = cfg.affixLvs[i];
+			if(i == affix.curIndex)then
+				cls.transSelect:SetParent(v.transform);
+				cls.transSelect.localPosition = CS.UnityEngine.Vector3.zero;
+				cls.transSelect:SetAsFirstSibling();
+			end
+			if(cfg.unLockType == Ether.AffixUnLockType.Null)then--无解锁条件
+				v.objLock:SetVisible(false);
+				v.unLock = true;
+				v.imgBg:SetImageColor(44/255,59/255,100/255,1);
+				set_com_enabled(v.imgIcon,true);
+				cls.txtName.color = COLOR_TYPE.White_Gray;
+			elseif(cfg.unLockType == Ether.AffixUnLockType.Last)then--解锁上一个
+				v.objLock:SetVisible(affix.maxIndex + 1 < i);
+				if(affix.maxIndex + 1 < i)then
+					v.imgBg:SetImageColor(88/255,88/255,88/255,1);
+					set_com_enabled(v.imgIcon,false);
+				else
+					v.imgBg:SetImageColor(44/255,59/255,100/255,1);
+					set_com_enabled(v.imgIcon,true);
+					v.unLock = true;
+				end
+				cls.txtName.color = COLOR_TYPE.White_Gray;
+			elseif(cfg.unLockType == Ether.AffixUnLockType.LvAndLast)then
+				if(isOpen)then
+					v.objLock:SetVisible(affix.maxIndex + 1 < i);
+					if(affix.maxIndex + 1 < i)then
+						v.imgBg:SetImageColor(88/255,88/255,88/255,1);
+						set_com_enabled(v.imgIcon,false);
+					else
+						v.imgBg:SetImageColor(44/255,59/255,100/255,1);
+						set_com_enabled(v.imgIcon,true);
+						v.unLock = true;
+					end
+					cls.txtName.color = COLOR_TYPE.White_Gray;
+				else
+					v.imgBg:SetImageColor(88/255,88/255,88/255,1);
+					set_com_enabled(v.imgIcon,false);
+					v.objLock:SetVisible(true);
+					cls.txtUnLockCon.text = string.format(LanguageMgr:GetTextByID(703029),cfg.unLockValue);
+					cls.txtName.color = COLOR_TYPE.TaskDone;
+				end
+			end
+		end
+	end
+end
+
+function EtherLevelLayer:CutStep(stepType)
+	if(stepType ~= nil)then
+		self._curStepType = stepType;
+		Ether:SetCurAffixType(self._curStepType);
+	end
+	self:UpdateData();
+	self:SetTitle();
+	self:SetAffix();
+	self._objBtnFight:SetVisible(self._curStepType == Ether.Affix_Support);
+	self._objBtnNext:SetVisible(self._curStepType == Ether.Affix_Strategy);
+	if(self._curStepType == Ether.Affix_Strategy)then
+		if(not self._init)then
+			self._updateMaskScale = true;
+			self:playAni("EtherHeroSelectAnim_Out");
+		else
+			self._init = false;
+		end
+	else
+		self:SetIntro();
+		self._updateMaskScale = true;
+		self:SetHeroData();
+		self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds);
+		self:playAni("EtherHeroSelectAnim_In");		
+	end
+end
+
+function EtherLevelLayer:onInitEtherLevelTeamCtrl()
+	self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(
+			self.layer:Get("trans_container/hero_select_bg/rect_hero_select/info_self"));
+
+	local btnClick = function(index)
+		self:OnBtnHeroSelectClick(index);
+	end;
+
+	local onEndDrag = function (heroIsNull,heroIds)
+		Ether:SetHeroIds(heroIds);
+		if(heroIsNull)then
+			--self:SetCriteria();
+			self:SetLvInfo();
+		else
+			self:SetHeroData();
+		end
+	end;
+	self._heroSelectCtrl:Init(self._curHeroIds, btnClick, nil, onEndDrag);
+end
+
+function EtherLevelLayer:SetHeroData()
+	self._curHeroIds = Ether:GetCurHeroIds();
+	--self:SetCriteria();
+	self:SetLvInfo();
+end
+
+function EtherLevelLayer:SetCriteria()
+	if(self._criteriaItems == nil)then
+		self._criteriaItems = {};
+	end
+	self._supportConditions = Ether:GetSupportByChapterId(self._curChapter.id) or {};
+	for i = 1, 3 do
+		if(self._criteriaItems[i] == nil)then
+			self._criteriaItems[i] = clsbase:new(self._rectHeroSelect:Find("trans_criteria_"..i));
+			self._criteriaItems[i].txtDes = self._criteriaItems[i]:GetTextComponent("txt_des");
+			self._criteriaItems[i].txtValue = self._criteriaItems[i]:GetTextComponent("txt_value");
+		end
+		self:SetCriteriaItem(self._criteriaItems[i],self._supportConditions[i]);
+	end
+end
+
+function EtherLevelLayer:SetCriteriaItem(cls,cfg)
+	cls.obj:SetVisible(cfg ~= nil);
+	if(cfg ~= nil)then
+		local isOver = Ether:GetSupportPointState(cfg.id);
+		cls.txtDes.text = cfg.condition.name;
+		cls.txtValue.text = "+"..cfg.supPoint;
+		if(isOver)then
+			cls.txtDes.color = COLOR_TYPE.White_Gray;
+			cls.txtValue.color = COLOR_TYPE.White_Gray;
+		else
+			cls.txtDes.color = COLOR_TYPE.Color_Has_Done;
+			cls.txtValue.color = COLOR_TYPE.Color_Has_Done;
+		end
+	end
+end
+
+function EtherLevelLayer:onUpdate(dt)
+	if(self._updateMaskScale)then
+		self._uiMask:SetScale();
+	end
+end
+
+function EtherLevelLayer:KeyFrameCall(intkey)
+	if intkey == 99 then
+		Guide:ContinueGuideEvent(self.__cname)
+	elseif intkey == 0 then
+		Guide:ContinueGuideEvent(self.__cname)
+	end
+end
+
+function EtherLevelLayer:SetBossAttrAddUI()
+	if(self._lvNum <= 0)then
+		self._rectBossAttrAdd1:DOAnchorPosX(-600,0.5);
+		self._rectBossAttrAdd2:DOAnchorPosX(-600,0.5):SetDelay(0.1);
+		return;
+	end
+	local cfg = Ether:GetBossAddAttrCfgByLv(self._lvNum);
+	if(cfg[1] ~= nil)then
+		local attr = CAttr:GetCfg(cfg[1][1]);
+		self._txtBossAttrAdd1.text = string.format(LanguageMgr:GetTextByID(703102),attr.name,cfg[1][2]);
+		self._rectBossAttrAdd1:DOAnchorPosX(0,0.5);
+	end
+	if(cfg[2] ~= nil)then
+		local attr = CAttr:GetCfg(cfg[2][1]);
+		self._txtBossAttrAdd2.text = string.format(LanguageMgr:GetTextByID(703102),attr.name,cfg[2][2]);
+		self._rectBossAttrAdd2:DOAnchorPosX(0,0.5);
+	end
+end
+
+return EtherLevelLayer;

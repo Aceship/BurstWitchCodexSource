@@ -1,0 +1,73 @@
+--
+-- author: haosun
+-- date  : 2019-02-22 13:38:33
+-- brief : 
+--
+UpLoadVideo = UpLoadVideo or {}
+
+function UpLoadVideo:Ctor()
+
+    UpLoadVideo:InitData();
+    self._playNumData = {};
+    self._isUpLoadErr = false;
+    self._isUpLoad = false;
+end
+
+function UpLoadVideo:Clear()
+    self:Ctor()
+end
+
+--添加播放数量
+function UpLoadVideo:AddPlayNumData(path)
+    if(self._playNumData[path] == nil)then
+        self._playNumData[path] = 0;
+    end
+    self._playNumData[path] = self._playNumData[path] + 1;
+end
+
+--更新播放数量
+function UpLoadVideo:UpdatePlayNumData(path,nums)
+    for i, v in ipairs(path) do
+        if(self._playNumData[v] == nil)then
+            self._playNumData[v] = 0;
+        end
+        self._playNumData[v] = nums.counts[i] or 0;
+    end
+end
+
+function UpLoadVideo:GetPlayNumByPlayerId_ShenYe(playerId)
+    playerId = playerId or 0;
+    if(true)then
+        return 0;
+    end
+    if(playerId > 0)then
+        return self._playNumData[UpLoadVideo:GetVideoPath(playerId,UpLoadVideo.VideoType.ShenYe)] or 0;
+    end
+    return 0;
+end
+
+function UpLoadVideo:GetPlayNumStr(num)
+    if(num > 9999)then
+        num = LanguageMgr:GetTextByID(math.floor(num / 1000) / 10);
+        return string.format(LanguageMgr:GetTextByID(121039),num);
+    elseif(num <= 0)then
+        return"";
+    end
+    return string.format(LanguageMgr:GetTextByID(121038),num);
+end
+
+function UpLoadVideo:GetVideoPath(pId,videoType,score)
+    if(pId == nil or pId <= 0 or videoType == nil or videoType == "")then
+        return ""
+    end
+    --字符串格式(玩家Id/视频类型_上传时间_分数_视频版本_战斗时长_玩家等级)
+    return string.format("%s/%s_%s_%s_%s_%s_%s",pId,videoType or "",CTime:GetServerTime(),score or 0,Player:GetUpLoadVideoVersion(),UpLoadVideo:GetVideoTime(),Player:GetLevel());
+end
+
+function UpLoadVideo:SetUpLoadState(isUpLoad)
+    self._isUpLoad = isUpLoad or false;
+end
+
+function UpLoadVideo:GetUpLoadState()
+    return self._isUpLoad;
+end

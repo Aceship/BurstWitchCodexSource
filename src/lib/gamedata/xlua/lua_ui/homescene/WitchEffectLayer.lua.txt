@@ -1,0 +1,114 @@
+--
+-- author: haosun
+-- date  : 2018-12-08 16:04:46
+-- brief : 
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WitchEffectLayer = class("WitchEffectLayer", CBaseLayer)
+
+function WitchEffectLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_witch/UI_WitchEffectLayer",
+    }
+    self._uitype = 2
+
+    self:onEnter()
+end
+
+function WitchEffectLayer:onEnter()
+    self:createPnl()
+    self:addEventListener(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_MOVE_HERO_POS,
+        function()
+            self:onMoveHeroPos()
+        end)
+end
+
+function WitchEffectLayer:onExit()
+    self._istop     = nil
+    self._callback  = nil
+    self._hero      = nil
+    self._oldQlty   = nil
+
+    self._heroSpine:Release()
+    self._heroSpine = nil
+
+    if self._effectGameObj ~= nil then
+        for i, obj in pairs(self._effectGameObj) do
+            obj:Release()            
+        end
+    end
+    self._effectGameObj = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function WitchEffectLayer:doExit()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+
+function WitchEffectLayer:show(heroid, istop, callback, oldQlty)
+    self._istop = istop
+    self._callback = callback
+    self._hero = Hero:GetHero(heroid)
+    self._oldQlty = oldQlty
+    if istop then
+        self.layer:GetTextComponent("content/txt_title"):SetTextById(880014);
+        Hero:LoadSpineAsync(self.__cname,self.layer:Get("canvas_spine"), self._hero.id, Hero.SPINE_UI_TYPE_TOP,
+            function(spine)
+                self._heroSpine = spine
+            end)
+    else
+        self.layer:GetTextComponent("content/txt_title"):SetTextById(EFFECT_TYPE.SUMMON);
+        self:loadEffect()
+        Hero:LoadSpineAsync(self.__cname,self.layer:Get("canvas_spine"), self._hero.id, Hero.SPINE_UI_TYPE_LOTERY,
+            function(spine)
+                self._heroSpine = spine
+            end)
+    end
+    self:showLayer()
+end
+
+function WitchEffectLayer:loadEffect()
+    local container = self.layer:Get("canvas_effect")
+    self._effectGameObj = {}
+    if self._hero.qlty == Bag.QLTY_R then
+        self._effectGameObj[1] = container:CreateChild("prefab_uiEffect/UI07_g01")
+    elseif self._hero.qlty == Bag.QLTY_SR then
+        self._effectGameObj[1] = container:CreateChild("prefab_uiEffect/UI07_g01_h")
+    elseif self._hero.qlty >= Bag.QLTY_SSR then
+        self._effectGameObj[1] = container:CreateChild("prefab_uiEffect/UI07_g01")
+        self._effectGameObj[2] = container:CreateChild("prefab_uiEffect/UI07_g01_h")
+        self._effectGameObj[3] = container:CreateChild("prefab_uiEffect/UI07_g01_c")
+    end
+end
+
+function WitchEffectLayer:onMoveHeroPos()
+    --Groble_UIMgr:PlayAni(self.layer.transform:Find("canvas_spine"), "WitchEffectLayerMoveAni")
+end
+
+function WitchEffectLayer:KeyFrameCall(intkey)
+    if intkey == 99 then
+        if self._istop then
+            if(self.canvasSpine == nil)then
+                self.canvasSpine = self.layer:Get("canvas_spine");
+            end
+            core.require("xlua/lua_UI/HomeScene/WitchTopNewLayer.txt"):new(self.layer):show(self._hero,
+                function()
+                    self:doExit()
+                end,self.canvasSpine)
+        else
+            core.require("xlua/lua_UI/HomeScene/WitchGetLayer.txt"):new(self.layer):show(self._hero,
+                function()
+                    self:doExit()
+                end)
+        end
+    end
+end
+
+return WitchEffectLayer
+

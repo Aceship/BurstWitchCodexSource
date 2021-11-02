@@ -1,0 +1,240 @@
+--
+-- author: cjj
+-- date  : 2018-12-25 18:10:51
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local MailInfoLayer = class("MailInfoLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    get         = "button_get",
+    del         = "button_delete",
+    btnReturn   = "btn_return",
+    btnGot      = "button_got",
+}
+
+function MailInfoLayer:ctor(super, parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_mail/UI_MailInfo",
+        trans = parent,
+        obj = true,
+    }
+
+    self._dropItems = {}
+
+    self:onEnter()
+end
+
+function MailInfoLayer:InitUI()
+
+    local uitextGo = self.layer.transform:Find("scrollviewInfo/viewport/content/mail_info");
+    self._mailMainContentText = uitextGo:GetComponent("SimpleGText");
+
+    self._mailMainContentText:AddClickCallback((function (url)
+        self:onClickMailContent(url);
+    end))
+end
+
+function MailInfoLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_GET, 
+        function(mailid)
+            self:onProcressMailGet(mailid)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MAIL_DELETE, 
+        function(mailid)
+            self:onProcressMailDel(mailid)
+        end)
+    self._aniPanelFadeInEndCallback = function()
+        self:showMailItem();
+    end
+    self:addEventListener(EVENT_TYPE.DELETE_MAIL,self.__cname,function ()
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(99000018))
+        self:onPopLayer()
+    end);
+    self:InitUI();
+end
+
+function MailInfoLayer:onButtonClick(itype)
+    if Mail:CheckMailIsLife(self._mailData.id) == false then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150029))
+        return;
+    end
+    if itype == BUTTON_TYPE.get then
+        if Mail:CheckMailCanGet(self._mailData.id) == false then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150030))
+            return;
+        end
+        if(Mail:GetMailIsPastDue(self._cls.mail))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150038))
+            return;
+        end
+        Mail:RecvMailReq(self._mailData.id);
+    elseif itype == BUTTON_TYPE.del then
+        local isSend = true;
+        if Mail:CheckMailCanDelete(self._mailData.id) == false then
+            if(not self._isPastDue)then
+                isSend = false;
+            end
+        end
+        if(isSend)then
+            Mail:DeleteMailReq(self._mailData.id);
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(150027))
+        end
+    elseif(itype == BUTTON_TYPE.btnReturn)then
+        self:OnRetBtnClick();
+    elseif(itype == BUTTON_TYPE.btnGot)then
+        self:OnRetBtnClick();
+    end
+end
+
+function MailInfoLayer:show(mailid, callback)
+    self._mailData = Mail:GetMail(mailid)
+    self._callback = callback
+    self._mailItem  = {};
+
+    self:initMail()
+    self:showLayer()
+    self:playAni("MailInfoFadeIn")
+end
+
+function MailInfoLayer:initMail()
+    local hasItem = #self._mailData.units > 0;
+    self.layer:Get("mail_items"):SetVisible(hasItem)
+    if hasItem then
+        self.layer.transform:Find("mail_items/mail_ awardTitle"):GetComponent("Text"):SetTextById(150026)
+        self:refreshScrollView();
+    else
+        u3d_set_size(self.layer.transform:Find("scrollviewInfo"), nil, 868)
+    end
+    self._cls = Mail:NewMailClsUi(self.layer)
+    Mail:SetMailClsUi(self._cls, self._mailData)
+
+    local textinfo = "";
+    if(self._mailData.defid <= 0)then
+        if(self._mailData.others ~= nil)then
+            textinfo = Mail:GetMailTextCountById(self._mailData.others.text) or "%s"
+        end
+    else
+        local cfg = Mail:GetMailDefCfgById(self._mailData.defid);
+        local param = lua_str_split(self._mailData.param,"&");
+        textinfo = cfg.text or "%s"
+        if(#param > 0)then
+            textinfo = string.format(textinfo,table.unpack(param));
+        end
+    end
+    if(textinfo == "")then
+        textinfo = "%s";
+    end
+    local uitxt = self.layer:GetTextComponent("scrollviewInfo/viewport/content/mail_info")
+    uitxt.text = textinfo
+    self.layer:Get("scrollviewInfo/viewport/content"):SetSizeY(uitxt.preferredHeight + 30)
+
+    self._isPastDue = Mail:GetMailIsPastDue(self._mailData);
+    self.layer:Get("button_get"):SetVisible(self._mailData.bread == Mail.STATE_UNREAD and hasItem == true and not self._isPastDue);
+    self.layer:Get("button_delete"):SetVisible(self._mailData.bread == Mail.STATE_READ or hasItem == false or self._isPastDue);
+    self.layer:Get("button_got"):SetVisible(self._mailData.bread == Mail.STATE_READ or hasItem == false or self._isPastDue);
+
+    if(self._dropItems.items ~= nil)then
+        for i, v in pairs(self._dropItems.items) do
+            v.transform:Get("img_get"):SetVisible(self._mailData.bread == Mail.STATE_READ);
+        end
+    end
+end
+
+function MailInfoLayer:refreshScrollView()
+    self._showIndex = 0;
+    local itemdatas = {}
+    for i, v in ipairs(self._mailData.units) do
+        table.insert(itemdatas, {v.u_type, v.id, v.count})
+    end
+    local scrollview = self.layer.transform:Find("mail_items/scrollview")
+    self._dropItems = Bag:SetScrollGoods(self._dropItems ,scrollview, itemdatas, 4, 800, 200, 0.65,nil,nil,nil,nil,true)
+    local num = #itemdatas
+    for i = 1, num do
+        local item = scrollview:Get("viewport/content/prefab_item"..i)
+        table.insert(self._mailItem, item)
+        item:SetScale(0, 0, 0)
+    end
+end
+
+function MailInfoLayer:showMailItem()
+    for i, trans in ipairs(self._mailItem) do
+        trans:DOScale(0.65, 0.067):SetDelay((i-1)*0.067/4)
+    end    
+end
+
+function MailInfoLayer:onProcressMailGet(mailid)
+    self.layer:Get("button_get"):SetVisible(false)
+    self.layer:Get("button_delete"):SetVisible(true)
+    self.layer:Get("button_got"):SetVisible(true);
+    for i, v in pairs(self._dropItems.items) do
+        v.transform:Find("img_get").gameObject:SetVisible(true);
+    end
+    Mail:LoadIconSprite(self.layer.transform:Find("mail_icon"), Mail.ICON_READ)
+    if self._callback ~= nil then
+        self._callback(mailid, Mail.OPER_GET)
+    end
+end
+
+function MailInfoLayer:onProcressMailDel(mailid)
+    if self._callback ~= nil then
+        self._callback(mailid, Mail.OPER_DEL)
+    end
+    self:onPopLayer()
+end
+
+function MailInfoLayer:OnRetBtnClick()
+    self:onBackClick();
+end
+
+--退出按钮事件
+function MailInfoLayer:onBackClick()
+    self:onPopLayer();
+end
+
+function MailInfoLayer:onClickMailContent(url)
+    if(url == nil) then
+        return ;
+    end
+    local dataArray = lua_str_split(url,"|")
+    local mailRewardId = dataArray[2];
+    if(mailRewardId ~= nil) then
+        local intId = tonumber(mailRewardId);
+        if(intId>0) then
+            Player:GetUrlGift(intId);
+        end
+    end
+    Groble_SceneMgr:OpenUrl(dataArray[1]);
+end
+
+function MailInfoLayer:onPerSecondUpdate()
+    if(self._cls == nil)then
+        return;
+    end
+    if(self._cls.mail.duration > Mail.DURATION_FOREVER)then--有时限邮件
+        if(not self._isPastDue)then--未过期的邮件
+            self._isPastDue = Mail:GetMailIsPastDue(self._cls.mail);
+            if(self._isPastDue)then
+                self.layer:Get("button_get"):SetVisible(false)
+                self.layer:Get("button_delete"):SetVisible(true)
+                self.layer:Get("button_got"):SetVisible(true);
+            end
+            Mail:UpdateMailTimeTxt(self._cls.deltimeTxtCom, self._cls.mail);
+        end
+    end
+end
+
+function MailInfoLayer:onExit()
+
+    self._mailMainContentText:Clear();
+    self._mailMainContentText = nil;
+    self._cls:clear();
+    self._mailData = nil;
+    CBaseLayer.onExit(self);
+end
+
+return MailInfoLayer

@@ -1,0 +1,439 @@
+
+Fly_nikoulasihunsha.png
+size: 2048,2048
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+biyan
+  rotate: true
+  xy: 1981, 1401
+  size: 89, 39
+  orig: 89, 39
+  offset: 0, 0
+  index: -1
+bq_fennu_mei
+  rotate: true
+  xy: 1981, 1820
+  size: 82, 65
+  orig: 82, 65
+  offset: 0, 0
+  index: -1
+bq_fennu_yan
+  rotate: true
+  xy: 1981, 1130
+  size: 83, 33
+  orig: 83, 33
+  offset: 0, 0
+  index: -1
+bq_gaoxing_yan
+  rotate: false
+  xy: 428, 17
+  size: 83, 32
+  orig: 83, 32
+  offset: 0, 0
+  index: -1
+bq_jingya_yan
+  rotate: false
+  xy: 1298, 8
+  size: 82, 29
+  orig: 82, 29
+  offset: 0, 0
+  index: -1
+bq_nanshou_mei
+  rotate: true
+  xy: 1981, 1742
+  size: 76, 65
+  orig: 76, 65
+  offset: 0, 0
+  index: -1
+bq_nanshou_yan
+  rotate: true
+  xy: 2016, 1131
+  size: 82, 30
+  orig: 82, 30
+  offset: 0, 0
+  index: -1
+bq_shiluo_yan
+  rotate: false
+  xy: 513, 18
+  size: 83, 31
+  orig: 83, 31
+  offset: 0, 0
+  index: -1
+bq_yansu_yan
+  rotate: false
+  xy: 1928, 2
+  size: 83, 33
+  orig: 83, 33
+  offset: 0, 0
+  index: -1
+renwu1
+  rotate: true
+  xy: 1403, 1123
+  size: 918, 576
+  orig: 982, 577
+  offset: 0, 0
+  index: -1
+renwu10
+  rotate: false
+  xy: 1981, 1336
+  size: 39, 63
+  orig: 39, 63
+  offset: 0, 0
+  index: -1
+renwu14
+  rotate: true
+  xy: 1928, 37
+  size: 56, 112
+  orig: 56, 112
+  offset: 0, 0
+  index: -1
+renwu15
+  rotate: true
+  xy: 1833, 587
+  size: 240, 206
+  orig: 240, 206
+  offset: 0, 0
+  index: -1
+renwu17
+  rotate: true
+  xy: 1069, 14
+  size: 38, 227
+  orig: 38, 227
+  offset: 0, 0
+  index: -1
+renwu2
+  rotate: false
+  xy: 1981, 1904
+  size: 62, 137
+  orig: 62, 137
+  offset: 0, 0
+  index: -1
+renwu20
+  rotate: true
+  xy: 625, 9
+  size: 259, 442
+  orig: 270, 442
+  offset: 0, 0
+  index: -1
+renwu22
+  rotate: true
+  xy: 2, 155
+  size: 575, 621
+  orig: 575, 621
+  offset: 0, 0
+  index: -1
+renwu23
+  rotate: true
+  xy: 2, 17
+  size: 136, 424
+  orig: 136, 424
+  offset: 0, 0
+  index: -1
+renwu24
+  rotate: true
+  xy: 625, 270
+  size: 460, 750
+  orig: 460, 750
+  offset: 0, 0
+  index: -1
+renwu25
+  rotate: false
+  xy: 1069, 54
+  size: 234, 214
+  orig: 234, 214
+  offset: 0, 0
+  index: -1
+renwu27
+  rotate: false
+  xy: 1981, 1215
+  size: 36, 119
+  orig: 36, 119
+  offset: 0, 0
+  index: -1
+renwu29
+  rotate: true
+  xy: 1981, 1570
+  size: 92, 57
+  orig: 92, 57
+  offset: 0, 0
+  index: -1
+renwu30
+  rotate: true
+  xy: 2019, 1253
+  size: 81, 26
+  orig: 83, 31
+  offset: 1, 4
+  index: -1
+renwu31
+  rotate: true
+  xy: 1981, 1664
+  size: 76, 59
+  orig: 76, 59
+  offset: 0, 0
+  index: -1
+renwu32
+  rotate: false
+  xy: 1833, 9
+  size: 93, 84
+  orig: 95, 93
+  offset: 0, 3
+  index: -1
+renwu34
+  rotate: true
+  xy: 1403, 16
+  size: 1105, 428
+  orig: 1105, 428
+  offset: 0, 0
+  index: -1
+renwu36
+  rotate: true
+  xy: 1305, 39
+  size: 229, 92
+  orig: 229, 92
+  offset: 0, 0
+  index: -1
+renwu39
+  rotate: false
+  xy: 1833, 165
+  size: 122, 170
+  orig: 122, 170
+  offset: 0, 0
+  index: -1
+renwu40
+  rotate: false
+  xy: 1957, 168
+  size: 68, 167
+  orig: 68, 167
+  offset: 0, 0
+  index: -1
+renwu41
+  rotate: false
+  xy: 2, 732
+  size: 1399, 1309
+  orig: 1399, 1309
+  offset: 0, 0
+  index: -1
+renwu42
+  rotate: true
+  xy: 1833, 95
+  size: 68, 197
+  orig: 68, 197
+  offset: 0, 0
+  index: -1
+renwu43
+  rotate: false
+  xy: 428, 51
+  size: 180, 102
+  orig: 180, 102
+  offset: 0, 0
+  index: -1
+renwu6
+  rotate: false
+  xy: 1981, 1492
+  size: 41, 76
+  orig: 41, 76
+  offset: 0, 0
+  index: -1
+renwu8
+  rotate: false
+  xy: 1833, 829
+  size: 209, 292
+  orig: 209, 292
+  offset: 0, 0
+  index: -1
+renwu9
+  rotate: true
+  xy: 1833, 337
+  size: 248, 189
+  orig: 248, 189
+  offset: 0, 0
+  index: -1
+xinxing
+  rotate: false
+  xy: 2013, 4
+  size: 30, 31
+  orig: 30, 31
+  offset: 0, 0
+  index: -1
+
+Fly_nikoulasihunsha2.png
+size: 2048,2048
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+44
+  rotate: false
+  xy: 1036, 100
+  size: 142, 114
+  orig: 142, 114
+  offset: 0, 0
+  index: -1
+45
+  rotate: false
+  xy: 1900, 1561
+  size: 80, 75
+  orig: 81, 75
+  offset: 0, 0
+  index: -1
+46
+  rotate: false
+  xy: 929, 4
+  size: 78, 71
+  orig: 79, 71
+  offset: 1, 0
+  index: -1
+47
+  rotate: false
+  xy: 1660, 1316
+  size: 116, 108
+  orig: 116, 108
+  offset: 0, 0
+  index: -1
+88
+  rotate: false
+  xy: 1409, 1395
+  size: 78, 98
+  orig: 78, 99
+  offset: 0, 0
+  index: -1
+bq_gaoxing_mei
+  rotate: false
+  xy: 2, 3
+  size: 79, 67
+  orig: 79, 67
+  offset: 0, 0
+  index: -1
+bq_jingya_mei
+  rotate: false
+  xy: 1116, 1180
+  size: 79, 70
+  orig: 79, 70
+  offset: 0, 0
+  index: -1
+bq_shiluo_mei
+  rotate: false
+  xy: 849, 2
+  size: 78, 73
+  orig: 78, 73
+  offset: 0, 0
+  index: -1
+bq_yansu_mei
+  rotate: false
+  xy: 1180, 144
+  size: 82, 70
+  orig: 82, 70
+  offset: 0, 0
+  index: -1
+renwu11
+  rotate: false
+  xy: 743, 2
+  size: 104, 73
+  orig: 104, 73
+  offset: 0, 0
+  index: -1
+renwu12
+  rotate: false
+  xy: 1900, 1638
+  size: 111, 163
+  orig: 111, 163
+  offset: 0, 0
+  index: -1
+renwu13
+  rotate: true
+  xy: 1036, 216
+  size: 358, 241
+  orig: 358, 241
+  offset: 0, 0
+  index: -1
+renwu16
+  rotate: true
+  xy: 743, 77
+  size: 497, 291
+  orig: 497, 291
+  offset: 0, 0
+  index: -1
+renwu18
+  rotate: false
+  xy: 959, 1170
+  size: 79, 80
+  orig: 79, 80
+  offset: 0, 0
+  index: -1
+renwu19
+  rotate: true
+  xy: 1489, 1426
+  size: 124, 344
+  orig: 124, 344
+  offset: 0, 0
+  index: -1
+renwu2-1
+  rotate: false
+  xy: 1040, 1174
+  size: 74, 76
+  orig: 74, 111
+  offset: 0, 35
+  index: -1
+renwu21
+  rotate: false
+  xy: 959, 1495
+  size: 528, 551
+  orig: 528, 551
+  offset: 0, 0
+  index: -1
+renwu26
+  rotate: false
+  xy: 2, 576
+  size: 1199, 567
+  orig: 1266, 642
+  offset: 36, 33
+  index: -1
+renwu3
+  rotate: false
+  xy: 1524, 1306
+  size: 134, 118
+  orig: 134, 118
+  offset: 0, 0
+  index: -1
+renwu33
+  rotate: false
+  xy: 2, 72
+  size: 739, 502
+  orig: 739, 502
+  offset: 0, 0
+  index: -1
+renwu35
+  rotate: true
+  xy: 1489, 1552
+  size: 249, 409
+  orig: 249, 409
+  offset: 0, 0
+  index: -1
+renwu37
+  rotate: false
+  xy: 2, 1145
+  size: 955, 901
+  orig: 955, 920
+  offset: 0, 0
+  index: -1
+renwu38
+  rotate: false
+  xy: 1489, 1803
+  size: 551, 243
+  orig: 551, 243
+  offset: 0, 0
+  index: -1
+renwu4
+  rotate: true
+  xy: 959, 1252
+  size: 241, 448
+  orig: 241, 448
+  offset: 0, 0
+  index: -1
+renwu7
+  rotate: false
+  xy: 1409, 1256
+  size: 113, 137
+  orig: 113, 137
+  offset: 0, 0
+  index: -1

@@ -1,0 +1,93 @@
+--
+-- author: haosun
+-- date  : 2019-10-16 12:29:28
+-- brief : 
+--
+clsbase = class("clsbase")
+
+function clsbase:ctor(super, obj)
+    self.obj        = obj
+    self.transform  = obj.transform
+    -- self._helper    = CS.ComponentHelper(obj)
+end
+
+function clsbase:Visible(value)
+    self.obj:SetVisible(value)
+end
+
+function clsbase:Find(name)
+    return self.transform:Find(name)
+end
+
+function clsbase:GetComponent(name, com)
+    local obj = self:Find(name)
+    if obj ~= nil then
+        return obj:GetComponent(com)
+    end
+    return nil
+end
+
+function clsbase:GetTextComponent(name)
+    return self.transform:GetTextComponent(name)
+end
+
+function clsbase:GetImageComponent(name)
+    return self.transform:GetImageComponent(name)
+end
+
+function clsbase:GetButtonComponent(name)
+    return self.transform:GetButtonComponent(name)
+end
+
+function clsbase:GetSliderComponent(name)
+    return self.transform:GetSliderComponent(name)
+end
+
+function clsbase:GetLineRendererComponent(name)
+    return self:GetComponent(name, "LineRenderer")
+end
+
+function clsbase:GetRectTransformComponent(name)
+    return self.transform:GetRectTransformComponent(name)
+end
+
+function clsbase:GetMToggleComponent(name)
+    return self.transform:GetMToggleComponent(name)
+end
+
+function clsbase:SetPosition(x, y, z)
+    self.transform:SetPosition(x or 0, y or 0, z or 0, true)
+end
+
+function clsbase:clear()
+    for k, v in pairs(self) do
+        self[k] = nil
+    end
+    self = nil
+end
+
+clearbase = class("clearbase")
+
+function clearbase:clear()
+    for k, v in pairs(self) do
+        self[k] = nil
+    end
+    self = nil
+end
+
+function DoClassClear(cls)
+    if cls ~= nil then
+        cls:clear()
+    end
+    cls = nil
+end
+
+function DoArrayClassClear(clsArr)
+    if clsArr ~= nil then
+        for _, cls in pairs(clsArr) do
+            cls:clear()
+        end
+    end
+    clsArr = nil
+end
+

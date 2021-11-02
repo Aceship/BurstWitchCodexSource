@@ -1,0 +1,723 @@
+
+---魔女手册
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BloodCycleLayer = class("BloodCycleLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    BtnBuy = "container/img_hint_bg/buy_btn",
+    BtnCloseLvUp = "container/trans_lv_up",
+    BtnTaskTo = "container/trans_lv_up/img_bg/btn_task_to",
+    BtnBuyLv = "container/trans_lv_up/img_bg/btn_buy_lv",
+    BtnGetAll = "container/btn_get_all",
+}
+--构造函数
+function BloodCycleLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_BloodCycleLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.ACTIVITY_BLOOD,
+    }
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self._addStack = true;
+    self._init = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function BloodCycleLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:RegisterHandler();
+    self:Init();
+end
+
+function BloodCycleLayer:onExit()
+    self._chargeCfg = nil
+    self._chargeMoneyCfg = nil
+    
+    self._objDiscount = nil
+    
+    CBaseLayer.onExit(self)
+end
+
+--按钮事件
+function BloodCycleLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnBuy)then
+        self:OnBuyBtnClick();
+    elseif(itype == BTNS.BtnCloseLvUp)then
+        self._mTogLvUp.isOn = false;
+    elseif(itype == BTNS.BtnTaskTo)then
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Normal);
+        JumpMgr:JumpCheck({JumpMgr.Jump_Task,Task.TYPE_WEEKLY});
+    elseif(itype == BTNS.BtnBuyLv)then
+        self:OnBuyExpBtnClick(self.cfgDatas[self.Lv + 1])
+    elseif(itype == BTNS.BtnGetAll)then
+        self:OnBtnGetAllClick();
+    else--@ButtonCallBackEnd
+    end--RemoveEnd
+end
+
+function BloodCycleLayer:onBackClick()
+    if(self._mTogLvUp.isOn)then
+        self._mTogLvUp.isOn = false;
+    else
+        self:onPopLayer();
+    end
+end
+
+--初始化
+function BloodCycleLayer:Init()
+    self:UpdateData();
+    self._alpha = 1;
+    self._lvUpExpendExp = 0;
+    self._curCutIndex = 0;
+    self.cells = {};
+    self.curTime = 0;
+    for i, v in ipairs(self.specials) do
+        if(self.handBook.sids[v.id] == nil or self.handBook.nids[v.id] == nil)then
+            self._curHighIndex = i;
+            break;
+        end
+    end
+    if(self._curHighIndex == nil)then
+        self._curHighIndex = #self.specials;
+    end
+    self:InitUI();
+end
+
+function BloodCycleLayer:UpdateData()
+    self.UID = Operation:GetOpenBloodCycleId();
+    self._cfg = Operation:GetActiveCfgByUID(self.UID);
+    self.bagId = Operation:GetGiftBagBoughtNum(self._cfg.charges[1]);
+    self.handBook = Operation:GetHandBookById(self._cfg.charges[1]);
+    self.cfgDatas = Operation:GetWitchBookIdsById(self._cfg.charges[1]);
+    self.specials = Operation:GetBloodCycleSpecialById(self._cfg.charges[1]);
+    self._chargeCfg = Recharge:GetData(self._cfg.charges[1]);
+    if self._chargeCfg.chargeMoneyId ~= -1 then
+        self._chargeMoneyCfg = Recharge:GetRechargeMoneyCfg(self._chargeCfg.chargeMoneyId)
+    end
+end
+
+--显示UI
+function BloodCycleLayer:show()
+    if(self.bagId <= 0)then
+        self:playAni("Blood_NotBuyOpenAnim");
+    else
+        self:playAni("Blood_buyOpenAnim");
+    end
+    self:showLayer();
+end
+
+function BloodCycleLayer:showLayer()
+    if(self._init)then
+        self._init = false;
+    else
+        self:UpdateData();
+        self:SetUI();
+    end
+    CBaseLayer.showLayer(self);
+end
+
+--初始化
+function BloodCycleLayer:InitUI()
+    self.buyBtn = self.layer:Get("container/img_hint_bg/buy_btn");
+    self._btnGetAll = self.layer:GetButtonComponent("container/btn_get_all");
+    self.txtRmbNum = self.buyBtn:GetTextComponent("rmb_txt");
+    self.imgPriceIcon = self.buyBtn:GetImageComponent("img_rmb_title");
+    self.slider = self.layer:GetSliderComponent("container/slider");
+    self.txtRankIndex = self.layer:GetTextComponent("container/txt_rank_index");
+    self.txtRankExp = self.layer:GetTextComponent("container/txt_rank_exp");
+    self.txtCountDown = self.layer:GetTextComponent("container/obj_time/txt_count_down");
+    self._objTime = self.layer:Get("container/obj_time").gameObject;
+    self.itemParent = self.layer:Get("container/TableViewController/TableView/Content");
+    self.specialBg = self.layer:Get("container/img_hint_bg/show_special_reward_bg");
+    self.specialItems = {};
+    for i = 1, 4 do
+        local itemTran = self.layer.transform:Get("container/img_hint_bg/show_special_reward_bg/"..i)
+        local item = Bag:CtorComSimpleGoodsUi(itemTran);
+        self.specialItems[i] = item;
+    end
+    self.titleItem = {};
+    self.titleItem.transform = self.layer:Get("container/TableViewController/title_item");
+    self.titleItem.lockIcon = self.titleItem.transform:Get("img_icon");
+    self.imgBg = self.layer:GetComponent("Image");
+    self._highAward = self:InitCellItem(self.layer:Get("container/TableViewController/trans_high_award"));
+    self._txtCostPrice = self.layer:GetTextComponent("container/img_hint_bg/buy_btn/txt_cost_price");
+    self._transSpineBg = self.layer:Get("spine_bg");
+    self._imgADTxt1 = self.layer:GetImageComponent("container/img_ad_txt_1");
+    self.rectADTxt1 = self.layer:GetRectTransformComponent("container/img_ad_txt_1");
+    self._imgADTxt2 = self.layer:GetImageComponent("container/img_ad_txt_2");
+    self.rectADTxt2 = self.layer:GetRectTransformComponent("container/img_ad_txt_2");
+    self._imgBg = self.layer:GetComponent("Image");
+
+    --升级相关
+    self._transLvUp = self.layer:Get(BTNS.BtnCloseLvUp);
+    self._txtAllTaskExp = self._transLvUp:GetTextComponent("img_bg/txt_all_task_exp");
+    self._txtTaskMaxNum = self._transLvUp:GetTextComponent("img_bg/txt_task_max_num");
+    self._txtBuyLvNum = self._transLvUp:GetTextComponent("img_bg/btn_buy_lv/txt_buy_lv_num");
+    self._txtLvMax = self._transLvUp:GetTextComponent("img_bg/btn_buy_lv/txt_lv_max");
+    self._btnBuyLv = self._transLvUp:GetButtonComponent("img_bg/btn_buy_lv");
+    self._imgBuyIcon = self._transLvUp:GetImageComponent("img_bg/btn_buy_lv/img_buy_icon");
+    self._mTogLvUp = self.layer:GetMToggleComponent("container/tog_lv_up");
+    self._sliderTask = self._transLvUp:GetSliderComponent("img_bg/slider_task");
+
+    self._objDiscount = self.layer:Get("container/img_hint_bg/buy_btn/img_icon")
+
+    self._mTogLvUp.onValueChanged:AddListener(function (isOn)
+        self:OnMTogLvUpClick(isOn);
+    end);
+    self:SetUI();
+end
+
+-------------------------------------------------MTogOnClick---------------------------------------
+function BloodCycleLayer:OnMTogLvUpClick(isOn)
+    self._transLvUp:SetVisible(isOn);
+    if(isOn)then
+        self:SetUnLockUI();
+        self:playAni("Blood_OpenLvUpAnim");
+    end
+end
+-----------------------------------------OnBtnClick------------------------------------------
+function BloodCycleLayer:OnBtnGetAllClick()
+    local unBuyIds,buyIds = Operation:GetCanReceiveWitchBookIds(self._chargeCfg.cfgid);
+    if(self.bagId <= 0)then
+        buyIds = {};
+    end
+    if(((unBuyIds == nil) or (#unBuyIds == 0)) and ((buyIds == nil) or (#buyIds == 0)))then
+        UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90110))
+        return;
+    end
+    local data = {id = self._chargeCfg.cfgid,ids = unBuyIds or {},buyIds = buyIds or {}};
+    Operation:SendMessage(self.UID,data,c2s.CHARGE_GET_HB_LV_GIFT_REQ);
+end
+---------------------------------------------------------------------------------------------
+
+
+function BloodCycleLayer:SetUI()
+    self:UpdateLvText();
+    self:LoadHeroSpine(self._cfg.spine[1],self._cfg);
+    if(self.bagId <= 0)then--是否购买精英手册
+        local _price
+        local _discount
+        if -1 == self._chargeCfg.chargeMoneyId then
+            self.imgPriceIcon:SetEnabled(true)
+            self.imgPriceIcon:LoadSprite(Item:GetItemIconPathByName(self._chargeCfg.priceId))
+            _price = self._chargeCfg.price
+            _discount = self._chargeCfg.discount
+        else
+            self.imgPriceIcon:SetEnabled(false)
+            _price = self._chargeMoneyCfg.price
+            _discount = self._chargeMoneyCfg.discount
+        end        
+        self._txtCostPrice:SetVisible(_discount < 1);
+        if _discount < 1 then
+            self._txtCostPrice.text = _discount
+            self._objDiscount:GetTextComponent("txt_2zhe"):SetText(
+                string.format(LanguageMgr:GetTextByID(90248), math.ceil(_discount * 10)))
+        end
+        local costPrice = _price * _discount
+        if -1 == self._chargeCfg.chargeMoneyId then            
+            self.txtRmbNum:SetText(math.ceil(costPrice));
+        else
+            self.txtRmbNum:SetText(uistr.com_rmb .. math.ceil(costPrice));
+        end
+        self._objDiscount:SetVisible(_discount < 1)
+        self.titleItem.lockIcon:SetVisible(true)
+    else
+        self.titleItem.lockIcon:SetVisible(false);
+    end
+    self._objTime:SetVisible(self._cfg.openConditions ~= -1);
+    if(self._cfg.openConditions ~= -1)then
+        self.curTime = CTime:GetRemainTime(self._cfg.openConditions[1][2]);
+        self:SetCountDownTxt();--设置倒计时
+    end
+
+    set_obj_active(self.txtRmbNum,self.bagId <= 0)
+    set_obj_active(self.imgPriceIcon,self.bagId <= 0)
+    self:SetBuyBtnState();
+
+
+    --设置广告图
+    Operation:SetOperationImage(self._imgBg,self._cfg.Picture,Operation.BG_IMAGE_FILE);--加载背景图片
+    if(self._cfg.ad_Image ~= nil)then
+        -- Operation:SetOperationImage(self._imgADTxt2,self._cfg.ad_Image[1],Operation.AD_IMAGE_FILE);
+        local tempV;
+        if(self._cfg.ad_Image[4] == nil)then
+            tempV = CS.UnityEngine.Vector2(0.5, 1);
+        else
+            tempV = CS.UnityEngine.Vector2(tonumber(self._cfg.ad_Image[4]), tonumber(self._cfg.ad_Image[5]));
+        end
+        self.rectADTxt2.anchorMax = tempV;
+        self.rectADTxt2.anchorMin = tempV;
+        self.rectADTxt2.pivot = tempV;
+        -- self._imgADTxt2:SetAnchoredPosition(tonumber(self._cfg.ad_Image[2]),tonumber(self._cfg.ad_Image[3]))
+    end
+
+    if(self._cfg.txtWord ~= nil)then
+        self._imgADTxt1:LoadSprite("source_common/ImageText/" .. self._cfg.txtWord[1][1])
+        -- Operation:SetOperationImage(self._imgADTxt1,self._cfg.txtWord[1][1],Operation.AD_IMAGE_FILE);
+        --[[local tempV;
+        if(self._cfg.txtWord[1][4] == nil)then
+            tempV = CS.UnityEngine.Vector2(0.5, 1);
+        else
+            tempV = CS.UnityEngine.Vector2(tonumber(self._cfg.txtWord[1][4]), tonumber(self._cfg.txtWord[1][5]));
+        end
+        self.rectADTxt1.anchorMax = tempV;
+        self.rectADTxt1.anchorMin = tempV;
+        self.rectADTxt1.pivot = tempV;
+        self._imgADTxt1:SetAnchoredPosition(tonumber(self._cfg.txtWord[1][2]),tonumber(self._cfg.txtWord[1][3]))]]--
+    end
+
+    self:SetHighAwardItem();
+
+    self:SetTaskUI();
+
+    self:SetTBView();
+
+end
+
+function BloodCycleLayer:SetTBView()
+    local rows = #self.cfgDatas;
+    local curId = rows - Operation:GetCurCycleIndex(self._chargeCfg.cfgid,self.Lv)
+    if(curId == 0)then
+        curId = rows - 1
+    end
+    local time = (rows - curId) * 0.05 < 0.5 and (rows - curId) * 0.05 or 0.5;
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self.layer:Get("container/TableViewController"))
+        self._tvController:Init(rows, false,
+                function(cell, row)
+                    self:UpdateCellData(cell, row)
+                end)
+        self._tvController:ScrollToBottom();
+    else
+        self._tvController:Reload(rows);
+    end
+    if(rows - curId > lua_table_len(self.cells))then--不在底部附近,定位加动画
+        self._tvController:ScrollToRow(curId,time);
+    else
+        self._tvController:ScrollToBottom();
+    end
+end
+
+function BloodCycleLayer:SetBuyBtnState()
+    local isGet = false;
+    local unBuyIds,buyIds = Operation:GetCanReceiveWitchBookIds(self._chargeCfg.cfgid);
+    if(self.bagId > 0)then
+        if(#buyIds ~= 0)then
+            isGet = true;
+        end
+    end
+    if(#unBuyIds ~= 0)then
+        isGet = true;
+    end
+    self._btnGetAll.interactable = isGet;
+end
+
+function BloodCycleLayer:UpdateCellData(cell, row)
+    if(self.cells == nil)then
+        self.cells = {};
+    end
+    if(self.cells[cell] == nil)then
+        self.cells[cell] = {};
+        self.cells[cell].item = self:InitCellItem(cell.transform);
+    end
+    self:SetItemData(self.cells[cell],#self.cfgDatas - row);
+end
+
+function BloodCycleLayer:InitCellItem(transform)
+    local item = {};
+    item.transform = transform:Get("item");
+    item.leftBg = transform:GetImageComponent("item/left_bg");
+    item.leftBtn = item.leftBg.transform:GetComponent("Button");
+    item.imgLeftLock = transform:GetImageComponent("item/left_bg/img_lock");
+    item.leftBtnClick = item.leftBg.transform:GetButtonComponent("btn_click");
+    item.txtIndex = transform:GetTextComponent("item/txt_index");
+    item.txtUnit = transform:GetTextComponent("item/txt_unit");
+    item.imgBg = transform:GetImageComponent("item/img_bg");
+    item.leftItems = {};
+    for j = 1, 2 do
+        local leftItem = Bag:CtorComSimpleGoodsUi(transform:Get("item/left_bg/left_item_bg/"..j),function ()
+            SingletonMgr:ShowItemTipsLayer(transform:Get("item/left_bg/left_item_bg/"..j), item.data.buyAward[j][1], item.data.buyAward[j][2], false);
+        end);
+        leftItem.isGet = leftItem.transform:Get("img_get_bg");
+        leftItem.isMask = leftItem.transform:Get("img_mask");
+        item.leftItems[j] = leftItem;
+    end
+    item.rightBg = transform:GetImageComponent("item/right_bg");
+    item.rightBtnClick = item.rightBg.transform:GetButtonComponent("btn_click");
+    item.rightItem = Bag:CtorComSimpleGoodsUi(transform:Get("item/right_bg/right_item"),function()
+        SingletonMgr:ShowItemTipsLayer(transform:Get("item/right_bg/right_item"), item.data.freeAward[1][1], item.data.freeAward[1][2], false);
+    end);
+    item.rightItem.isGet = item.rightItem.transform:Get("img_get_bg");
+    item.rightItem.isMask = item.rightItem.transform:Get("img_mask");
+
+    if(item.leftBtnClick ~= nil)then
+        item.leftBtnClick.onClick:AddListener(function ()
+            self:OnItemBtnClick(item.data.id,Operation.HandBookType.buy);
+        end);
+    end
+    if(item.rightBtnClick ~= nil)then
+        item.rightBtnClick.onClick:AddListener(function ()
+            self:OnItemBtnClick(item.data.id,Operation.HandBookType.Unbuy);
+        end);
+    end
+    return item;
+end
+
+--领取手册奖励按钮回调
+function BloodCycleLayer:OnItemBtnClick(id, itype)
+    local data;
+    if(itype == Operation.HandBookType.buy)then
+        if(self.bagId <= 0)then
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90109));
+            return;
+        end
+        data = {id = self._chargeCfg.cfgid,ids = {},buyIds = {id}};
+    else
+        data = {id = self._chargeCfg.cfgid,ids = {id},buyIds = {}};
+    end
+    Operation:SendMessage(self.UID,data,c2s.CHARGE_GET_HB_LV_GIFT_REQ);
+end
+
+--购买精英手册按钮回调
+function BloodCycleLayer:OnBuyBtnClick()
+    self._isBuy = true;
+    core.require("xlua/lua_UI/UIOperation/BuyHighAwardTipsLayer.txt"):new():show(self._cfg);
+end
+
+--购买经验按钮点击
+function BloodCycleLayer:OnBuyExpBtnClick(data)
+    if(Item:GetCount(data.unLock[1][1]) < data.unLock[1][2])then
+        Groble_UIMgr:ShowMessageBox(true, true, string.format(LanguageMgr:GetTextByID(90055),
+                Item:GetCfg(Player.ITEM_VALUE_MONEY).Name),
+                function()
+                    Operation:OpenOperationMainLayer(nil,Operation.ActivityID.ShopSundryGoods,false);
+                end)
+    else
+        Groble_UIMgr:ShowMessageBox(true, true,string.format(LanguageMgr:GetTextByID(90057),data.unLock[1][2],Item:GetCfg(Player.ITEM_VALUE_MONEY).Name) ,
+                function()
+                    Operation:AddHandBookExpReq(data.id);
+                end)
+    end
+end
+
+--设置item数据
+function BloodCycleLayer:SetItemData(cell, index)
+    local item = cell.item
+    item.index = index;
+    item.data = self.cfgDatas[index];
+    item.txtIndex.text = index;
+    if(self._curCutIndex > index)then--向下的数据
+        if(self._curHighIndex > 1)then
+            if(index <= self.specials[self._curHighIndex - 1].index - lua_table_len(self.cells))then--当高级奖励在显示时不切换
+                self._curHighIndex = self._curHighIndex - 1;
+                --高级奖励已领取,不设置高级奖励的UI
+                if(self.handBook.sids[self.specials[self._curHighIndex].id] == nil or self.handBook.nids[self.specials[self._curHighIndex].id] == nil)then
+                    self:SetHighAwardItem();
+                end
+            end
+        end
+    elseif(self._curCutIndex < index)then--向上
+        if(self._curHighIndex < #self.specials)then
+            if(index >= self.specials[self._curHighIndex].index)then
+                self._curHighIndex = self._curHighIndex + 1;
+                --高级奖励已领取,不设置高级奖励的UI
+                if(self.handBook.sids[self.specials[self._curHighIndex].id] == nil or self.handBook.nids[self.specials[self._curHighIndex].id] == nil)then
+                    self:SetHighAwardItem();
+                end
+            end
+        end
+    end
+    self._curCutIndex = index;
+    for i = 1, 2 do
+        set_obj_active(item.leftItems[i].transform,self.cfgDatas[index].buyAward[i] ~= nil);
+        if(self.cfgDatas[index].buyAward[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(item.leftItems[i],self.cfgDatas[index].buyAward[i][1],self.cfgDatas[index].buyAward[i][2],self.cfgDatas[index].buyAward[i][3],true);
+        end
+    end
+    --见习手册奖励
+    set_obj_active(item.rightItem.transform,self.cfgDatas[index].freeAward ~= -1);
+    if(self.cfgDatas[index].freeAward ~= -1)then
+        Bag:SetComSimpleGoodsUi(item.rightItem,self.cfgDatas[index].freeAward[1][1],self.cfgDatas[index].freeAward[1][2],self.cfgDatas[index].freeAward[1][3],true);
+    end
+    self:UpdateItemStart(cell.item,index,self.Lv >= index);--满足升级条件,激活对应等级的奖励
+end
+
+--更新item状态
+--        cls.iconCom.color = COLOR_TYPE.White
+function BloodCycleLayer:UpdateItemStart(item, index, isGet)
+    item.imgLeftLock:SetVisible(self.bagId <= 0 and self.handBook.sids[self.cfgDatas[index].id] == nil);
+    if(isGet)then--激活奖励显示
+        item.txtIndex.color = COLOR_TYPE.White;
+        item.imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_operation","Img_BG_MoNvShouCe_Level");
+        item.txtUnit.color = COLOR_TYPE.White;
+        item.leftBg.color = COLOR_TYPE.White
+        item.rightBg.color = COLOR_TYPE.White
+        if(self.bagId <= 0)then--未购买精英手册,关闭精英手册奖励
+            item.leftBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_1");
+            item.imgLeftLock:LoadAtlasSprite("source_atlas/atlas_operation","btn_zhanling_icon_suo_3");
+            item.leftBtn.interactable = true;
+            set_obj_active(item.leftBtnClick.transform,false);
+            for i, v in ipairs(item.leftItems) do
+                set_obj_active(v.isGet,false);
+                set_obj_active(v.isMask,true);
+            end
+        else
+            --购买精英手册
+            if(self.handBook.sids[self.cfgDatas[index].id] == nil)then--礼包未领取,激活精英手册奖励
+                item.leftBtn.interactable = true;
+                item.leftBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_1");
+                item.imgLeftLock:LoadAtlasSprite("source_atlas/atlas_operation","btn_zhanling_icon_suo_3");
+
+                set_obj_active(item.leftBtnClick.transform,true);
+                for i, v in ipairs(item.leftItems) do
+                    set_obj_active(v.isGet,false);
+                    set_obj_active(v.isMask,false);
+                end
+            else
+                item.leftBtn.interactable = false;
+                item.leftBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_3");
+                item.imgLeftLock:LoadAtlasSprite("source_atlas/atlas_operation","btn_zhanling_icon_suo_1");
+
+                set_obj_active(item.leftBtnClick.transform,false);--已领取,关闭精英手册奖励
+                for i, v in ipairs(item.leftItems) do
+                    set_obj_active(v.isGet,true);
+                    set_obj_active(v.isMask,true);
+                end
+            end
+        end
+        --设置见习手册奖励,逻辑同精英手册
+        if(self.handBook.nids[self.cfgDatas[index].id] == nil and self.cfgDatas[index].freeAward ~= -1)then
+            item.rightBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_4");
+
+            set_obj_active(item.rightBtnClick.transform,true);
+            set_obj_active(item.rightItem.isGet,false);
+            set_obj_active(item.rightItem.isMask,false)
+        else
+            set_obj_active(item.rightBtnClick.transform,false);
+            item.rightBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_6");
+            set_obj_active(item.rightItem.isGet,true);
+            set_obj_active(item.rightItem.isMask,true)
+        end
+    else
+        --未满足等级,关闭所有奖励
+        item.leftBtn.interactable = false;
+        item.leftBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_3");
+        item.imgLeftLock:LoadAtlasSprite("source_atlas/atlas_operation","btn_zhanling_icon_suo_1");
+        item.rightBg:LoadAtlasSprite("source_atlas/atlas_operation","Img_bg_zhanling_mokuai_6");
+        item.txtIndex.color = COLOR_TYPE.GrayBlack;
+        item.txtUnit.color = COLOR_TYPE.GrayBlack;
+        item.leftBg.color = COLOR_TYPE.MaskReceiveColor
+        item.rightBg.color = COLOR_TYPE.MaskReceiveColor
+
+        item.imgBg.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_operation","Img_BG_MoNvShouCe_Level_2");
+        set_obj_active(item.leftBtnClick.transform,false);
+        set_obj_active(item.rightBtnClick.transform,false);
+        set_obj_active(item.rightItem.isGet,false);
+        set_obj_active(item.rightItem.isMask,true);
+
+        for i, v in ipairs(item.leftItems) do
+            set_obj_active(v.isGet,false);
+            set_obj_active(v.isMask,true);
+        end
+    end
+end
+
+--设置倒计时显示
+function BloodCycleLayer:SetCountDownTxt()
+    if(self.curTime > 0)then
+        self.txtCountDown:SetText(CTime:Time2Str_2(self.curTime));
+    else
+        self.txtCountDown.text = string.format(LanguageMgr:GetTextByID(50027),0);
+    end
+end
+
+--秒更新
+function BloodCycleLayer:onPerSecondUpdate()
+    self.curTime = self.curTime - 1;
+    if(self.curTime > 0)then
+        self:SetCountDownTxt()
+    else
+        self:onPopLayer();
+    end
+end
+
+
+function BloodCycleLayer:UpdateLvText()
+    local tempExp = Player:GetValue(Player.VALUE_HANDBOOK_EXP);
+    self.Lv = 0;
+    local newLv = Operation:GetBloodCycleLv()
+    if newLv > Operation._lastBloodCycleLv then
+        Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.BLOODWHILE,nil)
+        Operation:InitLastBloodCycleLv()
+    end
+    for _, v in ipairs(self.cfgDatas) do
+        if(self._lvUpExpendExp <= 0 and v.exp > 0)then
+            self._lvUpExpendExp = v.exp;
+        end
+        if(tempExp >= v.exp)then--计算等级以及经验
+            self.Lv = self.Lv + 1;
+        end
+    end
+    self.txtRankIndex.text = LanguageMgr:GetTextByID(90080) ..self.Lv;
+    if(self.Lv == #self.cfgDatas)then
+        self.slider.maxValue = self.cfgDatas[self.Lv].exp;
+        self.slider.value = self.cfgDatas[self.Lv].exp;
+        self.txtRankExp:SetTextById(90108);
+    else
+        if(self.Lv > #self.cfgDatas)then
+            self.slider.maxValue = self._lvUpExpendExp;
+            self.slider.value = self._lvUpExpendExp;
+            self.txtRankExp.text = string.format(LanguageMgr:GetTextByID(90081),tempExp,self._lvUpExpendExp);
+        else
+            local exp = 0;
+            exp = tempExp - self.cfgDatas[self.Lv].exp;
+            self.slider.maxValue = self._lvUpExpendExp;
+            self.slider.value = exp;
+            self.txtRankExp.text = string.format(LanguageMgr:GetTextByID(90081),exp,self._lvUpExpendExp);
+        end
+    end
+    self:UpdateSpecialItems();
+end
+
+function BloodCycleLayer:UpdateSpecialItems()
+    for i, v in pairs(self.specialItems) do
+        set_obj_active(v.transform,self._chargeCfg.goods[i] ~= nil);
+        if(self._chargeCfg.goods[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(v,self._chargeCfg.goods[i][1],self._chargeCfg.goods[i][2],self._chargeCfg.goods[i][3],true);
+        end
+    end
+end
+--注册
+function BloodCycleLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function(isUpdateDay)
+        if(self._isBuy and not isUpdateDay)then
+            self:playAni("Blood_BuyHighAwardAnim");
+            self._isBuy = false;
+        end
+        self:UpdateData();
+        self:SetUI();
+    end);
+    self:addEventListener(EVENT_TYPE.GET_HAND_BOOK,self.__cname,function(id)
+        self:UpdateData();
+
+        local isGetAll = true;
+        for _, v in ipairs(self.specials) do
+            if(self.handBook.sids[v.id] == nil or self.handBook.nids[v.id] == nil)then
+                isGetAll = false;
+            end
+        end
+        if(isGetAll)then
+            self._curHighIndex = #self.specials;
+        end
+
+        self:SetUI();
+        if(id ~= nil)then
+            self:SetUnLockUI();
+            UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90105));
+        end
+    end );
+end
+
+function BloodCycleLayer:SetHighAwardItem()
+    local item = self._highAward;
+    local data = self.specials[self._curHighIndex];
+    item.data = data;
+    item.txtIndex.text = data.index;
+    item.imgLeftLock:SetEnabled(self.bagId <= 0);
+    for i = 1, 2 do
+        item.leftItems[i].transform:SetVisible(data.buyAward[i] ~= nil);
+        if(data.buyAward[i] ~= nil)then
+            Bag:SetComSimpleGoodsUi(item.leftItems[i],data.buyAward[i][1],data.buyAward[i][2],data.buyAward[i][3],true);
+            item.leftItems[i].isGet:SetVisible(self.handBook.sids[data.id] ~= nil);
+        end
+    end
+    --见习手册奖励
+    item.rightItem.transform:SetVisible(data.freeAward ~= -1);
+    if(data.freeAward ~= -1)then
+        item.rightItem.isGet:SetVisible(self.handBook.nids[data.id] ~= nil);
+        Bag:SetComSimpleGoodsUi(item.rightItem,data.freeAward[1][1],data.freeAward[1][2],data.freeAward[1][3],true);
+    end
+end
+
+--加载英雄spine
+function BloodCycleLayer:LoadHeroSpine(heroId,cfg)
+    Hero:LoadSpineAsync(self.__cname,self._transSpineBg, tonumber(heroId), Hero.SPINE_UI_TYPE_BLOOD,
+            function(obj)
+                if obj == nil then
+                    self._alpha = 1;
+                else
+                    self._curMoudle = obj
+                    self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+                    self._curMoudle.transform.localPosition = CS.UnityEngine.Vector3(cfg.spinePos[1][1],cfg.spinePos[1][2],cfg.spinePos[1][3]);
+                    self._curMoudle.transform.localScale = CS.UnityEngine.Vector3(cfg.spineScale[1][1],cfg.spineScale[1][2],cfg.spineScale[1][3]);
+                    self._alpha = 0;
+                end
+            end)
+    if(self._curMoudle ~= nil)then
+        self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+        self._curMoudle.transform.localPosition = CS.UnityEngine.Vector3(cfg.spinePos[1][1],cfg.spinePos[1][2],cfg.spinePos[1][3]);
+        self._curMoudle.transform.localScale = CS.UnityEngine.Vector3(cfg.spineScale[1][1],cfg.spineScale[1][2],cfg.spineScale[1][3]);
+    else
+        self._alpha = 1;
+    end
+end
+
+function BloodCycleLayer:onUpdate(dt)
+    if(self._curMoudle == nil)then
+        return;
+    end
+    if self._alpha < 1 then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+        end
+        if self._alpha > 0 then
+            self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+function BloodCycleLayer:SetTaskUI()
+    local allIds = Task:GetSubTasks(Task.TYPE_WEEKLY);
+    local tempValue,maxValue = 0,0;
+    for _, v in pairs(allIds) do
+        local task = Task:GetTask(v);
+        for k, vv in pairs(task.ExpRewards) do
+            if(task.state == Task.STATE_HAS_RECV)then
+                tempValue = tempValue + vv[2];
+            end
+            if(vv[1] == Player.ITEM_VALUE_HANDBOOK_EXP)then
+                maxValue = maxValue + vv[2];
+            end
+        end
+    end
+    self._sliderTask.maxValue = maxValue;
+    self._sliderTask.minValue = 0;
+    self._sliderTask.value = tempValue;
+    self._txtTaskMaxNum:SetText(string.format(LanguageMgr:GetTextByID(90363),tempValue,maxValue));
+    self._txtAllTaskExp:SetText(math.floor(maxValue / self._lvUpExpendExp));
+end
+
+function BloodCycleLayer:SetUnLockUI()
+    local data;
+    data = self.cfgDatas[self.Lv + 1];
+    self._imgBuyIcon:SetEnabled(data ~= nil);
+    self._txtBuyLvNum:SetEnabled(data ~= nil);
+    self._txtLvMax:SetEnabled(data == nil);
+    self._btnBuyLv.interactable = data ~= nil;
+    if(data ~= nil)then
+        self._imgBuyIcon.sprite = Item:LoadSprite(data.unLock[1][1]);
+        self._txtBuyLvNum:SetText(data.unLock[1][2]);
+    end
+end
+
+return BloodCycleLayer;

@@ -1,0 +1,295 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-13 10:52:34
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local DialLayer = class("DialLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    Shop        = "container/btn_bg/btn_shop",
+    Award       = "container/btn_bg/btn_award",
+    One         = "container/btn_bg/btn_one",
+    ten         = "container/btn_bg/btn_ten",
+}
+
+--转盘开始次数类型
+local StartNumType = {
+    one = 1,
+    ten = 10,
+}
+
+--构造函数
+function DialLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_DialLayer",
+        trans = parent,
+        obj = true
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = {}
+    }
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self._addStack = true;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function DialLayer:onEnter()
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.UPDATE_CYCLE_AWARD,function ()
+        self:SetCycleBtnUI();
+    end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.START_DIAL,function (retdata)
+        self._drop = retdata.drop;
+        self._awardArr = {};
+        for i, v in ipairs(retdata.ids) do
+            self._awardArr[i] = self._dialCfgs[tonumber(v)].rewardPos;
+        end
+        if(#self._awardArr > 1)then
+            self._isOne = false;
+            self._animTime = 0.02;
+            self._dialNum = 1 * self._awardNum + self._awardNum - (self._selectItemIndex - self._awardArr[1]);
+        else
+            self._isOne = true;
+            self._dialNum = 2 * self._awardNum + self._awardNum - (self._selectItemIndex - self._awardArr[1]);
+            self._animTime = 0.02;
+        end
+        self._currIndex = self._selectItemIndex;
+        Groble_UIMgr:SetBackBtnState(BackBtnState.Stop);
+        self._isMove = true;
+        self:UpdateSelectAwardList();
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_CURRENCY)
+    end);
+    self:Init();
+end
+
+--按钮事件
+function DialLayer:onButtonClick(itype)
+    if(self._isMove)then
+        return;
+    end
+    if(itype == BTNS.Shop)then
+        core.require("xlua/lua_UI/Activity/CycleShopLayer.txt"):new():show();
+    elseif(itype == BTNS.Award)then
+        core.require("xlua/lua_UI/Activity/CycleLayer.txt"):new():show();
+    elseif(itype == BTNS.One)then
+        if(Item:GetCount(Player.ITEM_TURNTABLE) >= StartNumType.one)then
+            local cfg = Activity:GetActivityByUId(Operation.ActivityID.Dial).info;
+            if(Activity:GetDialStartNum() + StartNumType.one) > tonumber(cfg.minor_cyc_num) then
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90154));
+                return;
+            end
+            Activity:StartDialReq(StartNumType.one);
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90155));
+        end
+    elseif(itype == BTNS.ten)then
+        if(Item:GetCount(Player.ITEM_TURNTABLE) >= StartNumType.ten)then
+            local cfg = Activity:GetActivityByUId(Operation.ActivityID.Dial).info;
+            if(Activity:GetDialStartNum() + StartNumType.ten) > tonumber(cfg.minor_cyc_num) then
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90154));
+                return;
+            end
+            Activity:StartDialReq(StartNumType.ten);
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90155));
+        end
+    end
+end
+
+--退出按钮事件
+function DialLayer:onBackClick()
+    Activity:SetDialItemIndex(self._selectItemIndex);
+    Activity:SetCurSelectUid();
+    self:onPopLayer();
+end
+
+--初始化
+function DialLayer:Init()
+    self._awardItems = {};
+    self._animTime = 0.2;
+    self._openTime = 0;
+    self._selectItemIndex = Activity:GetDialItemIndex();
+    self._currIndex = 1;
+    self._currAwardItems = {};
+    self._dialNum = 0;
+    self._isMove = false;
+    self._openTime = 0;
+    self._openColor = CS.UnityEngine.Color(235/255,235/255,235/255,1);
+    self._unOpenColor = CS.UnityEngine.Color(103/255,103/255,103/255,1);
+    self._dialCfgs = Activity:GetAllDialCfgs();
+    self._sortDialCfgIds = {};
+    for _, v in pairs(self._dialCfgs) do
+        table.insert(self._sortDialCfgIds,v);
+    end
+    table.sort(self._sortDialCfgIds,function (a,b)
+        return a.rewardPos< b.rewardPos;
+    end);
+    self._awardNum = #self._sortDialCfgIds;
+    self._transStart = self.layer.transform:Find("container/img_start");
+    self:InitUI();
+end
+
+--初始化
+function DialLayer:InitUI()
+    self._imgOneIcon = self.layer:GetImageComponent("container/btn_bg/btn_one/img_one_icon");
+    Item:SetItemIcon(self._imgOneIcon.transform,Player.ITEM_TURNTABLE);
+	self._imgTenIcon = self.layer:GetImageComponent("container/btn_bg/btn_ten/img_ten_icon");
+    Item:SetItemIcon(self._imgTenIcon.transform,Player.ITEM_TURNTABLE);
+	--@ImageEnd
+
+    self._txtTitle = self.layer:GetTextComponent("container/btn_bg/btn_award/txt_title");
+	self._txtTitleE = self.layer:GetTextComponent("container/btn_bg/btn_award/txt_title_E");
+	self._txtOpenTime = self.layer:GetTextComponent("container/btn_bg/btn_award/txt_open_time");
+	--@TextEnd
+
+    self._transDTAnim = self.layer:Get("trans_dt_anim");
+    --@TransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+    local tempItem;
+    local tempcfg;
+    for i = 1, self._awardNum do
+        tempcfg = self._sortDialCfgIds[i];
+        if(self._awardItems[i] == nil)then
+            tempItem = clsbase:new(self.layer.transform:Find("container/item_bg/item_"..i));
+            tempItem.item = Bag:CtorComSimpleGoodsUi(self.layer.transform:Find("container/item_bg/item_"..i.."/item"));
+            tempItem.imgSelect = tempItem:GetImageComponent("img_select");
+            set_com_enabled(tempItem.imgSelect,false);
+            self._awardItems[i] = tempItem;
+        end
+        Bag:SetComSimpleGoodsUi(self._awardItems[i].item,tonumber(tempcfg.items[1]), tonumber(tempcfg.items[2]),tonumber(tempcfg.items[3]),true);
+    end
+    self._transStart.position = self._awardItems[self._selectItemIndex].transform.position;
+    self:SetCycleBtnUI();
+end
+
+--显示UI
+function DialLayer:show()
+    self:showLayer();
+    self:SetItemAnim();
+    self:playAni("DialLayerAnim");
+end
+
+function DialLayer:StartDial()
+    local dt;
+    --print("self._animTime  = "..self._animTime.."    "..self._currIndex.."         "..self._selectItemIndex)
+    if(self._dialNum >= 10)then
+        self._currIndex = self._currIndex + 1;
+        if(self._currIndex > self._awardNum)then
+            self._currIndex = 1;
+        end
+        dt = self._transStart:DOMove(self._awardItems[self._currIndex].transform.position,0):SetDelay(self._animTime)
+        dt.onComplete = function()
+            self:StartDial();
+        end
+        self._dialNum = self._dialNum - 1;
+    else
+        if(self._isOne)then
+            self._animTime = self._animTime + self._animTime * 0.4
+        end
+        if(self._currIndex ~= self._selectItemIndex)then
+            self._currIndex = self._currIndex + 1;
+            if(self._currIndex > self._awardNum)then
+                self._currIndex = 1;
+            end
+            dt = self._transStart:DOMove(self._awardItems[self._currIndex].transform.position,0):SetDelay(self._animTime)
+            dt.onComplete = function()
+                self:StartDial();
+            end
+        else
+            table.insert(self._currAwardItems,self._awardItems[self._currIndex]);
+            dt = self._transStart:DOMove(self._awardItems[self._currIndex].transform.position,0.2):SetDelay(self._animTime)
+            if(self._awardArr[1] ~= nil)then
+                dt.onComplete = function()
+                    set_com_enabled(self._awardItems[self._currIndex].imgSelect,true);
+                    self._transDTAnim.localScale = CS.UnityEngine.Vector3.zero;
+                    local tempDt = self._transDTAnim:DOScale(1.1,0.5);
+                    tempDt.onComplete = function()
+                        self:UpdateSelectAwardList();
+                    end;
+                end
+            else
+                set_com_enabled(self._awardItems[self._currIndex].imgSelect,true);
+                self._transDTAnim.localScale = CS.UnityEngine.Vector3.zero;
+                local tempDt = self._transDTAnim:DOScale(1.1,0);
+                tempDt.onComplete = function()
+                    self:UpdateSelectAwardList();
+                end;
+            end
+        end
+    end
+end
+
+function DialLayer:UpdateSelectAwardList()
+    if(self._awardArr[1] ~= nil)then
+        self._selectItemIndex = self._awardArr[1];
+        if(self._selectItemIndex > self._awardNum)then
+            self._selectItemIndex = self._selectItemIndex - self._awardNum;
+        end
+        if(not self._isOne)then
+            self._dialNum = 1 * self._awardNum + self._awardArr[1];
+        end
+        table.remove(self._awardArr,1);
+        self:StartDial();
+    else
+        if(self._drop ~= nil)then
+            Activity:SetMainLayerTogClickState(true);
+            Bag:ShowDrops(self._drop,function ()
+                self._isMove = false;
+                Groble_UIMgr:SetBackBtnState(BackBtnState.Normal);
+                for _, v in pairs(self._currAwardItems) do
+                    set_com_enabled(v.imgSelect,false);
+                end
+                self._currAwardItems = {};
+            end);
+            self._drop = nil;
+        end
+    end
+end
+
+function DialLayer:onPerSecondUpdate()
+    if(self._openTime <= 0)then
+        return;
+    end
+    self._openTime = self._openTime - 1;
+    if(self._openTime > 0)then
+        self._txtOpenTime.text = string.format(LanguageMgr:GetTextByID(90159),CTime:Time2Str(CTime.MIN_SEC * 30 - self._openTime, CTime.SHOW_TYPE_HOUR));
+    end
+end
+
+function DialLayer:SetCycleBtnUI()
+    local timeId = tonumber(Activity:GetActivityByUId(Operation.ActivityID.Dial).info.Time);
+    local isOpen = CTime:IsOpen(timeId);
+    set_com_enabled(self._txtOpenTime,not isOpen);
+    if(isOpen)then
+        self._txtTitle.color = self._openColor;
+        self._txtTitleE.color = self._openColor;
+    else
+        self._txtTitle.color = self._unOpenColor;
+        self._txtTitleE.color = self._unOpenColor;
+        local cfg = CTime:GetCfg(timeId);
+        self._openTime = CTime:GetServerTime() - cfg.stime;
+        self._txtOpenTime.text = string.format(LanguageMgr:GetTextByID(90159),CTime:Time2Str(CTime.MIN_SEC * 30 - self._openTime, CTime.SHOW_TYPE_HOUR));
+    end
+end
+
+function DialLayer:SetItemAnim()
+    for i, v in ipairs(self._awardItems) do
+        v.transform.localScale = CS.UnityEngine.Vector3.zero;
+        v.transform:DOScale(1,0.1):SetDelay(0.02 * i);
+    end
+end
+
+return DialLayer;

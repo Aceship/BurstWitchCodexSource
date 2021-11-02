@@ -1,0 +1,326 @@
+--
+-- author: haosun
+-- date  : 2019-01-14 14:02:18
+-- brief : 
+--
+
+Rank = Rank or {}
+
+function Rank:__OnPlayerCard(carddata)
+
+    local data = {
+        id          = carddata.playerid,
+        name        = carddata.nickname,
+        iconid      = carddata.iconid,
+        frameid     = carddata.frameid,
+        level       = carddata.level,
+        sy_score    = carddata.syscore,
+        sy_ranking  = 0,
+        trophy = carddata.trophy or 0,--基础奖杯
+        glory = carddata.glory or 0,--荣耀奖杯
+        autograph  = carddata.autograph,
+        heroes = {0, 0, 0}
+    }
+
+    for i, v in pairs(carddata.syhero.heros or {}) do
+        data.heroes[i] = Hero:OtherPlayerHero(v.hero, carddata.syhero.equips, v.attrs, carddata.syhero.builds )
+    end
+    return data
+end
+
+-- 排行榜数据同步 new
+function Rank:RankDataNewSync(data, bsettlings,bigSettleStates)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------新同步排行数据----------")
+    self:ClearVar()
+    MidNight:SetHistoryScore(data.history_score or 0);
+    for rtype, v in pairs(data.ranks or {}) do
+        if Rank.TYPE_NIGHT == rtype then
+            MidNight:UpdateServerData(v);
+            MidNight:GetRankingReq();
+        elseif(rtype == Rank.TYPE_WORLD_BOSS)then
+            WorldBoss:SetRankData(v);
+        end
+    end
+    for rtype, v in pairs(data.last_ranks or {}) do
+        if Rank.TYPE_NIGHT == rtype then
+            MidNight:SetLastServerData(v);
+        end
+    end
+    self._revise    = false
+    for k, v in pairs(bsettlings) do
+        if(v == Rank.SETTLE_STATE_NONE)then
+            self._clearingStates[k]  = false;
+        else
+            self._clearingStates[k]  = true;
+        end
+    end
+    if(bigSettleStates ~= nil)then
+        for k, v in pairs(bigSettleStates) do
+            if(k == Rank.TYPE_NIGHT)then
+                MidNight:SetHonorTrophyState(v);
+            end
+        end
+    end
+end
+
+-- 排行榜列表请求
+function Rank:RankListReq(ranktype,rankid)
+    self._reqRankType = ranktype
+    local data = {
+        rank_type   = ranktype,
+        rankid     = rankid or 0,
+    }
+    local bytes = ProtoMgr:Encode(ProtoMgr.GlobalRankDataReq,data);
+    Network:SendHttp(Rank.Ip,Rank.Port,Http.QUERY_GLOBAL_RANK_DATA_REQ,bytes,function(id,bytes)
+        Rank:RankListRep(id,bytes)
+    end);
+end
+
+-- 排行榜列表响应, p1: 数据列表 {key1=value, key2=value, ...}
+function Rank:RankListRep(id, bytes)
+    local temp = ProtoMgr:Decode(ProtoMgr.GlobalRankDataRep,bytes);
+    local list = temp.cards or {};
+    if self._reqRankType == Rank.TYPE_NIGHT then
+        MidNight:GetRankListRep(list);
+    elseif self._reqRankType == Rank.TYPE_MYSTERY then
+        Mystery:MysteryRankListRes(list)
+    elseif(self._reqRankType == Rank.TYPE_WORLD_BOSS)then
+        WorldBoss:GetRankListRep(list);
+    end
+end
+
+-- 排行名片请求 p1: playerid
+function Rank:RankCardReq(playerid)
+    if(playerid == Player:GetId())then
+        return;
+    end
+    local pdata;
+    if Robot:IsRobot(playerid) then
+        pdata = Robot:GetRobotDataById(playerid);
+    else
+        pdata = self:GetPlayerCardCacheData(playerid)
+    end
+    if pdata ~= nil then
+        Player:SetPlayerCardType(Player.CardType_Rank);
+        self:ShowPlayerCardLayer(pdata,false)
+        return;
+    end
+    local data = {
+        playerid    = playerid,
+        nickname     = "",
+    }
+    local bytes = ProtoMgr:Encode(Rank.LookRankCardReq,data);
+    Network:SendHttp(Rank.Ip,Rank.Port,Http.LOOK_RANK_CARD_REQ,bytes,function(id,bytes)
+        Rank:RankCardRep(id,bytes)
+    end);
+end
+
+-- 排行名片响应
+function Rank:RankCardRep(id, bytes)
+    local cardinfo = ProtoMgr:Decode(Rank.LookRankCardRep,bytes);
+    local syhero = Player:DecodeHeroData(cardinfo.syhero);
+    cardinfo.syhero = syhero;
+    if  type(cardinfo) == "table" then
+        --[[if(Robot:IsRobot(cardinfo.playerid))then
+            local robotData = Robot:GetRobotBaseDataById(cardinfo.playerid);
+            cardinfo.frameid = robotData.frameid;
+            cardinfo.iconid = robotData.iconid;
+            cardinfo.level = robotData.level;
+            cardinfo.nickname = robotData.name;
+            cardinfo.syscore = robotData.score;
+        end]]--
+        local data = self:__OnPlayerCard(cardinfo)
+        self:SetPlayerCardCacheData(cardinfo.playerid, data)
+        Player:SetPlayerCardType(Player.CardType_Rank);
+        self:ShowPlayerCardLayer(data,true);
+    end
+end
+
+function Rank:RankSettleRankingNotify( rankType, ranking, score,data)
+    --TODO 赛季结算时用于同步排名分数, 暂无用处
+    --[[if(rankType == Rank.TYPE_NIGHT)then
+
+    end]]--
+end
+
+--小赛季结算通知
+function Rank:RankSettleNotify(rankType,ranking,score,data)
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:SettleNotify(MidNight.SettleType_SmallStage,{ranking = ranking,score = score,data = data});
+    end
+    self._clearingStates[rankType] = false;
+end
+
+function Rank:RankBeginSettleNotify(rankType)
+    self._clearingStates[rankType] = true;
+end
+
+-- 排行币结算请求
+function Rank:RankCoinSettleReq(rankType)
+    if not self._isReqCoin then
+        self._isReqCoin = true
+        Network:CallServerScript({c2s.RANK_SETTLE_SCOIN_REQ, rankType})
+    end
+end
+
+-- 排行币结算响应 p1:coin
+function Rank:RankCoinSettleRep(rankType,data)
+    self._isReqCoin = false
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:DayAwardGetRep(data);
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+-- 每日竞技币结算通知 p1:coin
+function Rank:RankCoinNotify(rankType,rankId,awardData)
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:SettleNotify(MidNight.SettleType_Day,awardData);
+    end
+end
+
+function Rank:RankLotteryBoxRecvReq(slot)
+    Network:CallServerScript({c2s.SHOP_GET_RANK_SHOP_GIFT_REQ, slot})
+end
+
+function Rank:RankLotteryBoxRecvRep(slot, cfgid, num)
+    self._rankshopdata.gifts[slot] = true
+    local heroid = Hero:SetHeroSecretMap(cfgid, num)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.RANK_SHOP_BOX_RECV, heroid)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Rank:GetRankingReq(ranktype)
+    Network:CallServerScript({c2s.RANK_GET_REQ, ranktype})
+end
+
+function Rank:GetRankingRes(ranktype, ranking)
+    if ranktype == Rank.TYPE_NIGHT then
+        MidNight:GetRankingRep(ranking);
+    elseif ranktype == Rank.TYPE_MYSTERY then
+        Mystery:MysteryRankingRes(ranking)
+    elseif(ranktype == Rank.TYPE_WORLD_BOSS)then
+        WorldBoss:GetRankingRep(ranking);
+    end
+end
+--赛季开始时请求分组
+function Rank:RankIdReq(ranktype)
+    Network:CallServerScript({c2s.WRANK_ENROLL_REQ, ranktype})
+end
+
+function Rank:RankIdRes(data)
+    if(data.rank_type == Rank.TYPE_NIGHT)then
+        MidNight:RankRegisterRep(data);
+    end
+end
+
+function Rank:RankFriendListReq(ranktype)
+    Network:CallServerScript({c2s.WRANK_FRIEND_REQ, ranktype, 1})
+end
+function Rank:RankFriendListRes(list)
+    MidNight:SetMidnightFriendList(list)
+end
+--排名变化通知
+function Rank:RankScoreChange(ranktype, rankid, rank, score)
+    AppMgr:LogInfo(string.format("排名变化通知 ranktype = %d, rankid = %d, rank = %d, score = %d", ranktype, rankid, rank, score))
+    if(ranktype == Rank.TYPE_NIGHT)then
+    elseif(ranktype == Rank.TYPE_WORLD_BOSS)then
+        WorldBoss:RankChange(rank, score);
+    end
+end
+--赛季领奖请求
+function Rank:GetSmallStageAwardReq(rankType)
+    Network:CallServerScript({c2s.WRANK_SEASON_REWARD_REQ, rankType})
+end
+
+--小赛季领奖返回
+function Rank:GetSmallStageAwardRep(rankType,data)
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:GetSmallStageAwardRep(data);
+    end
+end
+
+--获得大赛暨结算奖励
+function Rank:GetBigSettleAwardReq(rankType)
+    Network:CallServerScript({c2s.WRANK_BIGSEASON_REWARD_REQ, rankType})
+end
+
+--获得大赛暨结算奖励返回
+function Rank:GetBigSettleAwardRep(rankType,data)
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:GetHonorTrophyRep(data);
+    end
+end
+
+--获得排行榜历史排名
+function Rank:GetLastRankListReq(ranktype,rankId)
+    local data = {
+        rank_type   = ranktype,
+        rankid     = rankId or 0,
+    }
+    local bytes = ProtoMgr:Encode(ProtoMgr.HistoryRankDataReq,data);
+    Network:SendHttp(Rank.Ip,Rank.Port,Http.QUERY_HISTORY_RANK_DATA_REQ,bytes,function(id,bytes)
+        Rank:GetLastRankListRep(id,bytes)
+    end);
+end
+
+--获得排行榜历史排名返回
+function Rank:GetLastRankListRep(id,bytes)
+    local temp = ProtoMgr:Decode(ProtoMgr.HistoryRankDataRep,bytes);
+    local list = ProtoMgr:Decode(ProtoMgr.NewRankGroup,temp.data) or {};
+    local rankType = temp.rank_type;
+    if(type(rankType) == "string")then
+        if(rankType == "RANK_TYPE_SCORE")then
+            rankType = 1;
+        elseif(rankType == "RANK_TYPE_RIFT")then
+            rankType = 2;
+        elseif(rankType == "RANK_TYPE_SHENYE")then
+            rankType = 3;
+        elseif(rankType == "RANK_TYPE_WORLDBOSS")then
+            rankType = 4;
+        end
+    end
+    if(rankType == Rank.TYPE_NIGHT)then
+        MidNight:GetLastRankRep(list);
+    end
+end
+
+--修正排行榜数据(应对服务器错误导致的排行榜数据异常)
+function Rank:AmendRankDataReq(rankType)
+    Network:CallServerScript({c2s.RANK_MODIFY_RANK_REQ, rankType});
+end
+
+--修正排行榜数据返回(应对服务器错误导致的排行榜数据异常)
+function Rank:AmendRankDataRep(ranks)
+    for rtype, v in pairs(ranks or {}) do
+        if Rank.TYPE_NIGHT == rtype then
+            MidNight:AmendRankDataRep(v);
+        elseif(rtype == Rank.TYPE_WORLD_BOSS)then
+            WorldBoss:SetRankData(v);
+        end
+    end
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.RANK_SETTLE_SCOIN_RES]          = {Rank, Rank.RankCoinSettleRep}
+c2s[c2s.RANK_SETTLE_SCOIN_NTF]          = {Rank, Rank.RankCoinNotify}
+c2s[c2s.SHOP_GET_RANK_SHOP_GIFT_RES]    = {Rank, Rank.RankLotteryBoxRecvRep}
+c2s[c2s.RANK_SETTLE_FINISH_NTF]         = {Rank, Rank.RankSettleNotify}
+c2s[c2s.RANK_SETTLE_START_NTF]          = {Rank, Rank.RankBeginSettleNotify}
+c2s[c2s.RANK_GET_RES]                   = {Rank, Rank.GetRankingRes}
+c2s[c2s.RANK_SETTLE_RANKING_NTF]        = {Rank, Rank.RankSettleRankingNotify}
+
+
+c2s[c2s.WRANK_DATA_SYNC]                = {Rank, Rank.RankDataNewSync}
+c2s[c2s.WRANK_ENROLL_RSP]               = {Rank, Rank.RankIdRes}
+c2s[c2s.WRANK_LIST_RSP]                 = {Rank, Rank.RankListRep}
+c2s[c2s.WRANK_CARD_RSP]                 = {Rank, Rank.RankCardRep}
+c2s[c2s.WRANK_FRIEND_RSP]               = {Rank, Rank.RankFriendListRes}
+c2s[c2s.WRANK_CHANGE_NTF]               = {Rank, Rank.RankScoreChange}
+c2s[c2s.WRANK_SEASON_REWARD_RSP]        = {Rank, Rank.GetSmallStageAwardRep}
+c2s[c2s.WRANK_BIGSEASON_REWARD_RSP]     = {Rank, Rank.GetBigSettleAwardRep}
+c2s[c2s.RANK_MODIFY_RANK_RES]           = {Rank, Rank.AmendRankDataRep}
+
+

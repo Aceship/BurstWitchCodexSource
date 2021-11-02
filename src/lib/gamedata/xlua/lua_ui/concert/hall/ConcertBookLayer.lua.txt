@@ -1,0 +1,239 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-08-16 20:23:10
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ConcertBookLayer = class("ConcertBookLayer", CBaseLayer)
+
+--按钮
+local BTNS = {
+
+}
+--构造函数
+function ConcertBookLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_ui/concert/UI_ConcertBookLayer",
+    }
+
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo        = Player.CURRENCY_Concert,
+    };
+
+    --背景设置
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_HOME,
+    }
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._fading = false;
+
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ConcertBookLayer:onEnter()
+    self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ConcertBookLayer:onButtonClick(itype)
+
+end
+
+
+--初始化
+function ConcertBookLayer:Init()
+    self:InitUI();
+    self:InitSelfData();
+end
+
+--初始化UI
+function ConcertBookLayer:InitUI()
+	local NODE_CLASS = {
+	    HallMain            = ConcertHallNode,
+        BookContainer       = ConcertBookNode,
+	};
+    self._texBg = self.layer:GetRawImageComponent("tex_bg");
+    self._nodeHallMain = self.layer:GetRectTransformComponent("node_hallMain").gameObject;
+    self._hallMainNode = self:CreateNode(self._nodeHallMain, NODE_CLASS.HallMain);
+    self._nodeBookContainer = self.layer:GetRectTransformComponent("node_book_container").gameObject;
+    self._bookContainerNode = self:CreateNode(self._nodeBookContainer, NODE_CLASS.BookContainer);
+
+    self._hallMainNode:InitNode(self);
+    self._bookContainerNode:InitNode(self);
+end
+
+--显示UI
+function ConcertBookLayer:show()
+    self:showLayer();
+    self._fading = false;
+    self:EnterHall();
+    Concert:SetRtBg(self._texBg);
+end
+
+function ConcertBookLayer:onUpdateRedTips()
+    print("红点刷新")
+    self._hallMainNode:FlushConcertAllRedTips()
+end
+
+function ConcertBookLayer:onUpdateCurrency()
+    self._bookContainerNode:RefreshPower();
+    if self._topData ~= nil then
+        Groble_UIMgr:SetTopData(self._topData);
+    end
+end
+
+
+function ConcertBookLayer:EnterBookLayer(hallId,callback)
+    self._isInHall = false;
+
+    self._curHallId = hallId
+    self._callBack = callback
+    self:FlashCurMainState();
+    Concert:EnterHeroSelect();
+end
+
+function ConcertBookLayer:showLayer()
+    CBaseLayer.showLayer(self)
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+end
+
+--释放
+function ConcertBookLayer:onExit()
+    --选中数据清空
+    --TODO
+
+    Concert:ExitHeroSelect();
+    self:ClearSelf();
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+
+end
+
+function ConcertBookLayer:ClearViewState()
+    self.curHeroIndex = nil
+end
+
+function ConcertBookLayer:onPerSecondUpdate()
+    if(self._isInHall and (self._showHeroPreview == false)) then
+        self._hallMainNode:DoTick();
+    end
+end
+
+function ConcertBookLayer:ClearSelf()
+
+    ------------------
+    self._texBg = nil;
+    self._hallMainNode:onExit();
+    self._hallMainNode = nil;
+    self._nodeHallMain = nil;
+    self._bookContainerNode:onExit();
+    self._bookContainerNode = nil;
+    self._nodeBookContainer = nil;
+
+    ---场景调用
+    Concert:ExitConcert();
+
+    --------------数据--------------
+
+end
+
+function ConcertBookLayer:RegisterHandler()
+
+    self:addEventListener(EVENT_TYPE.CONCERT_REQ_PLAY_SUCCESS,self.__cname,function ()
+        self:onStartShowCallback();
+    end);
+
+    self:addEventListener(EVENT_TYPE.CONCERT_ENDPLAY_SUCCESS, self.__cname, function(hId)
+        self._hallMainNode:OnPlayFinish(hId)
+    end)
+
+    --
+    self:addEventListener(EVENT_TYPE.CONCERT_COMPOS_BOOK_SUCCESS, self.__cname, function(bookId)
+        -- if self._isInHall then
+        --     return
+        -- end
+        --self._bookContainerNode:getNewConcertBook(bookId)
+    end)
+
+    self:addEventListener(EVENT_TYPE.CONCERT_CLOSE_HERO_PREVIEW_WIN, self.__cname, function()
+        self._showHeroPreview = false;
+        self._hallMainNode:OnCloseHeroPreview();
+    end)
+
+    
+    self:addEventListener(EVENT_TYPE.CONCERT_OPEN_HERO_PREVIEW, self.__cname, function()
+        self._showHeroPreview = true;
+    end)
+
+    self:addEventListener(EVENT_TYPE.CONCERT_CLOSE_BOOK_PREVIEW_WIN, self.__cname, function(newBookId)
+        if(self._isInHall) then
+
+        else
+            if(newBookId ~= nil) then
+                self._bookContainerNode:getNewConcertBook(newBookId)
+            end
+        end
+    end)
+
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:_onUpdateCurrency()
+    end)
+end
+
+-----------------------eventCallback--------------------------------
+
+function ConcertBookLayer:onStartShowCallback()
+    self:EnterHall();
+end
+
+---------------------------------------------------------BtnClick-----------------------------------------------------------------------
+
+
+---------------------------------------------------------private-------------------------------
+
+function ConcertBookLayer:onBackClick()
+    if(self._isInHall) then
+        self:onPopLayer();
+    else
+        self:EnterHall();
+    end
+end
+
+--进入大厅
+function ConcertBookLayer:EnterHall()
+    self._isInHall = true;
+    self:FlashCurMainState();
+end
+
+function ConcertBookLayer:InitSelfData()
+    self._isInHall = true;
+    self._showHeroPreview = false;
+end
+
+function ConcertBookLayer:FlashCurMainState()
+    local isInHall = self._isInHall;
+
+    self._bookContainerNode:SetVisible(not isInHall)
+    self._hallMainNode:SetVisible(isInHall);
+    if isInHall then
+        Concert:CancelLookAt();
+        self._hallMainNode:DoEnterHall();
+    else
+        self._bookContainerNode:DoEnterBook(self._curHallId);
+    end
+end
+
+
+return ConcertBookLayer;

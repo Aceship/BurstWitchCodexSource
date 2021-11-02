@@ -1,0 +1,100 @@
+唯一ID,施法特效挂载路径
+id,playpath
+number,sarray_|
+1,model/gaiyafa_attack_4
+2,model/gaiyafa_attack_4
+3,-1
+4,model/gaiyafa_attack_2
+5,-1
+6,-1
+7,model/skill01effect
+8,model/point2/effects/skill02effect
+9,model/Bip001/skill03effect
+10,model/Bip001/skill04effect
+11,model/YanMo_Skill01_Modle|model/point1/YanMo_Skill01_Bone129|model/Bone006/YanMo_Skill01_Bone006
+12,model/YanMo_Skill03_Modle
+13,-1
+14,model/Bip001 L Hand/Tibilue_Skill01_LHand_1|model/Bip001 R Hand/Tibilue_Skill01_RHand_1|model/Bip001 Spine2/Tibilue_Skill_01_Spine2_1|model/Bip001 Spine2/Tibilue_Skill_01_Spine2_2|model/Tibilue_Skill01_Model_1
+15,model/Bip001 R Hand/Tibilue_Skill02_RHand_1|model/Tibilue_Skill02_Model_1
+16,model/Bip001 R Hand/Tibilue_Skill03_RHand_1
+17,model/Bip001 R Hand/Tibilue_Skill04_RHand_1|model/Tibilue_Skill04_Model_1|model/Bip001 L Hand/Tibilue_Skill04_LHand_1
+10040101,model/point1/Haiyinlixi_Attack_01_point1
+10040102,model/point1/Haiyinlixi_Skill01_point1|model/Haiyinlixi_Skill01_model|model/Haiyinlixi_Skill01_Sheld_model
+10040103,model/Bone012/Haiyinlixi_Skill02_Bone012|model/point1/Haiyinlixi_Skill02_point1
+10040104,model/Bip001 Prop1/Haiyinlixi2_Attack01_Prop1|model/Bip001 Spine1/Haiyinlixi2_Attack01_Spine1|model/Haiyinlixi2_Attack01_model
+10040105,model/Bip001 Prop1/Haiyinlixi2_Skill01_Prop1|model/Haiyinlixi2_Skill01_model
+10070201,model/Bip001 R Hand/LuoDeLiGe_Attack01_RHand
+10090101,model/point1/Duerlahan_Skill01_point1|model/Bip001 Spine1/Duerlahan_Skill01_Spine1
+10090102,model/point1/Duerlahan_Skill02_point1|model/Bip001 R Hand/Duerlahan_Skill02_RHand
+10090103,model/Duerlahan_Skill03_model
+10090104,model/point1/Duerlahan_Skill01_point1|model/Bip001 Spine1/Duerlahan_Skill01_Spine1|model/point1/Duerlahan_Skill02_point1|model/Bip001 R Hand/Duerlahan_Skill02_Rhand|model/Duerlahan_Skill03_model
+10090105,model/Duerlahan_step01_model
+10090106,model/Duerlahan_Skill04_model
+10090107,model/Duerlahan_Skill05_model|model/Bone64/Duerlahan_Skill05_Bone64
+29,model/skill01effect
+30,model/point2/effects/skill02effect
+31,model/Bip001/skill03effect
+32,model/Bip001/skill04effect
+33,model/skill01effect
+34,model/point2/effects/skill02effect
+35,model/Bip001/skill03effect
+36,model/Bip001/skill04effect
+37,model/Dantalin_Attack02_model_1|model/Dantalin_Attack02_model_2
+38,model/Dantalin_Attack03_model
+39,model/Bip001 Prop1/Dantalin_Skill01_Prop1_1|model/Bip001 Prop1/Dantalin_Skill01_Prop1_2|model/Bip001 R Finger22/Dantalin_Skill01_R Finger22
+10060101,model/Bone146/Kalinna_Attack01_Bone146
+10060102,model/Kalinna_Attack02_model
+10060103,model/Bone146/Kalinna_Skill01_Bone146
+10060104,model/Bone146/Kalinna_Attack01_Bone146|model/Kalinna_Attack02_model|model/Bone146/Kalinna_Skill01_Bone146
+10060105,model/Bip001 L Hand/Kalinna_A_Skill01_L Hand
+10060106,model/Kalinna_A_Skill02_model|model/Bip001 L Hand/Kalinna_A_Skill02_L Hand|model/Bip001 Spine1/Kalinna_A_Skill02_Spine1
+10100101,model/Minuosi_attack01_Model
+50,model/YanMo_Skill01_Modle|model/point1/YanMo_Skill01_Bone129|model/Bone006/YanMo_Skill01_Bone006
+51,model/YanMo_Skill03_Modle
+52,model/point1/Duerlahan_Skill01_point1|model/Bip001 Spine1/Duerlahan_Skill01_Spine1
+53,model/point1/Duerlahan_Skill02_point1|model/Bip001 R Hand/Duerlahan_Skill02_RHand
+54,model/Duerlahan_Skill03_model
+55,model/Duerlahan_Skill04_model
+56,model/Duerlahan_Skill05_model|model/Bone64/Duerlahan_Skill05_Bone64
+57,model/Minuosi_Skill02_Model
+58,model/Minuosi_attack02_Model
+59,model/Minuosi_attack01_Model
+60,model/Minuosi_Skill01_Model
+61,model/Dantalin_Attack02_model_1|model/Dantalin_Attack02_model_2
+62,model/Dantalin_Attack03_model
+63,model/Bip001 Prop1/Dantalin_Skill01_Prop1_1|model/Bip001 Prop1/Dantalin_Skill01_Prop1_2|model/Bip001 R Finger22/Dantalin_Skill01_R Finger22
+64,model/skill01effect
+65,model/point2/effects/skill02effect
+66,model/Bip001/skill03effect
+67,model/Bip001/skill04effect
+68,model/Bip001/skill04effect
+69,model/gaiyafa_attack_4
+70,model/gaiyafa_attack_4
+71,-1
+72,model/gaiyafa_attack_2
+73,-1
+74,-1
+75,model/Bone146/Kalinna_Attack01_Bone146
+76,model/Kalinna_Attack02_model
+77,model/Bone146/Kalinna_Skill01_Bone146
+78,model/Bip001 R Hand/LuoDeLiGe_Attack01_RHand
+79,-1
+80,model/Bip001 L Hand/Tibilue_Skill01_LHand_1|model/Bip001 R Hand/Tibilue_Skill01_RHand_1|model/Bip001 Spine2/Tibilue_Skill_01_Spine2_1|model/Bip001 Spine2/Tibilue_Skill_01_Spine2_2|model/Tibilue_Skill01_Model_1
+81,model/Bip001 R Hand/Tibilue_Skill02_RHand_1|model/Tibilue_Skill02_Model_1
+82,model/Bip001 R Hand/Tibilue_Skill03_RHand_1
+83,model/Bip001 R Hand/Tibilue_Skill04_RHand_1|model/Tibilue_Skill04_Model_1|model/Bip001 L Hand/Tibilue_Skill04_LHand_1
+84,-1
+85,model/Bip001 L Hand/Kalinna_A_Skill01_L Hand
+86,model/Kalinna_A_Skill02_model|model/Bip001 L Hand/Kalinna_A_Skill02_L Hand|model/Bip001 Spine1/Kalinna_A_Skill02_Spine1
+87,model/point1/Haiyinlixi_Attack_01_point1
+88,model/point1/Haiyinlixi_Skill01_point1|model/Haiyinlixi_Skill01_model|model/Haiyinlixi_Skill01_Sheld_model
+89,model/Bone012/Haiyinlixi_Skill02_Bone012|model/point1/Haiyinlixi_Skill02_point1
+90,model/Bip001 Prop1/Haiyinlixi2_Attack01_Prop1|model/Bip001 Spine1/Haiyinlixi2_Attack01_Spine1|model/Haiyinlixi2_Attack01_model
+91,model/Bip001 Prop1/Haiyinlixi2_Skill01_Prop1|model/Haiyinlixi2_Skill01_model
+1001,skilleffect_play
+1004,deadeffect
+10010101,model/point1/effects1/destoryeffect
+10010102,model/point2/effects2/destoryeffect
+16010101,model/Bip001/Bip001 Pelvis/Bip001 Spine/Bip001 Spine1/Bip001 Spine2/Bip001 Neck/Bip001 L Clavicle/Bip001 L UpperArm/Bip001 L Forearm/Bip001 L Hand/Xueyue_Skill03_LHand
+16010102,model/Bip001/Bip001 Pelvis/Bip001 Spine/Bip001 Spine1/Bip001 Spine2/Bip001 Neck/Bip001 R Clavicle/Bip001 R UpperArm/Bip001 R Forearm/Bip001 R Hand/Xueyue_Skill02_RHand_1
+16010103,model/Bip001/Bip001 Pelvis/Bip001 Spine/Bip001 Spine1/Xueyue_Skill03_Spine1

@@ -1,0 +1,333 @@
+---
+--- @Author:2144
+--- @Create Time:2021-05-08 13:59:37
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ChessBoardMainLayer = class("ChessBoardMainLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnTips = "trans_container/btn_tips",
+	--@ButtonEnd
+}
+
+--构造函数
+function ChessBoardMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ChessBoardMainLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        --topInfo        = Player.CURRENCY_MAIL,--货币类型
+    };
+
+    --背景设置
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.Null,
+    }
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self._isShowSpineAnim = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ChessBoardMainLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/trans_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("trans_container/btn_tips"))
+    
+    CameraController:HideUICameraBg();
+end
+
+--按钮事件
+function ChessBoardMainLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnTips)then 
+	   self:OnBtnTipsClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function ChessBoardMainLayer:Init()
+    self._curLayerType = -1;
+    self._updateA = false;
+    self._alpha = 0;
+    self._curRemainTime = Activity:GetChessBoardOverTime();
+    self._curTimer = 0;
+    self._layers = {};
+    self:InitUI();
+end
+
+--初始化UI
+function ChessBoardMainLayer:InitUI()
+
+	self._imgTaskRed = self.layer:GetImageComponent("trans_container/trans_tog_bg/tog_task/img_task_red");
+	self._imgBuyRed = self.layer:GetImageComponent("trans_container/trans_tog_bg/tog_buy/img_buy_red");
+	self._imgWelfareRed = self.layer:GetImageComponent("trans_container/trans_tog_bg/tog_welfare/img_welfare_red");
+	--@ImageEnd
+
+	self._txtTime = self.layer:GetTextComponent("trans_container/trans_title/txt_time");
+	--@TextEnd
+
+    self._transBg = self.layer:Get("trans_container/trans_bg");
+
+    self._transUIParent = self.layer:Get("trans_container/trans_ui_parent");
+    self._transSpine = self.layer:Get("trans_container/trans_spine");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	self._mTogTask = self.layer:GetMToggleComponent("trans_container/trans_tog_bg/tog_task");
+	self._mTogBuy = self.layer:GetMToggleComponent("trans_container/trans_tog_bg/tog_buy");
+	self._mTogWelfare = self.layer:GetMToggleComponent("trans_container/trans_tog_bg/tog_welfare");
+	--@MToggleEnd
+
+	self._mTogTask.onValueChanged:AddListener(function (isOn)
+	   self:OnTogTaskClick(isOn);
+   end);
+	self._mTogBuy.onValueChanged:AddListener(function (isOn)
+	   self:OnTogBuyClick(isOn);
+   end);
+	self._mTogWelfare.onValueChanged:AddListener(function (isOn)
+	   self:OnTogWelfareClick(isOn);
+   end);
+	--@MToggleCallBackEnd
+    self._togs = {};--tog统一管理
+    self._togs[Activity.ChessBoardLayerType.Task] = self._mTogTask;
+    self._togs[Activity.ChessBoardLayerType.Buy] = self._mTogBuy;
+    self._togs[Activity.ChessBoardLayerType.Welfare] = self._mTogWelfare;
+    self:LoadHeroSpine();
+    self:UpdateRed();
+    self:SetTimerUI();
+end
+
+--显示UI
+function ChessBoardMainLayer:show()
+    if(Activity:GetCurChessBoardLayerType() == Activity.ChessBoardLayerType.Main)then--投掷界面无tog,直接打开
+        self:CutCurShowLayer();
+    else
+        --其他界面统一使用tog打开
+        self._togs[Activity:GetCurChessBoardLayerType()].isOn = true;
+    end
+    self:playAni("ChessBoardMainLayerAnim");
+    self:showLayer();
+end
+
+--退出按钮事件
+function ChessBoardMainLayer:onBackClick()
+    if(self._curLayerType == Activity.ChessBoardLayerType.Main)then
+        self:onPopLayer();
+    else
+        --关闭选中Tog
+        self._togs[self._curLayerType].isOn = false;
+        Activity:SetCurChessBoardLayerType(Activity.ChessBoardLayerType.Main);
+        self:CutCurShowLayer();
+    end
+end
+
+--释放
+function ChessBoardMainLayer:onExit()
+    if(self._layers ~= nil)then
+        for _, layer in ipairs(self._layers) do
+            layer:onBackClick();
+        end
+    end
+    self._layers = nil;
+    self._transSpine = nil;
+    self._mTogTask = nil;
+    self._mTogBuy = nil;
+    self._mTogWelfare = nil;
+    self._imgTaskRed = nil;
+    self._imgBuyRed = nil;
+    self._imgWelfareRed = nil;
+    self._togs = nil;
+    self.skeletonAni = nil;
+    self._curMoudle = nil;
+    self._transBg = nil;
+	self._txtTime = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ChessBoardMainLayer:OnBtnTipsClick()
+    core.require("xlua/lua_UI/Activity/ChessRuleTipsLayer.txt"):new():show();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function ChessBoardMainLayer:OnTogTaskClick(isOn)
+    if(isOn)then
+        Activity:SetCurChessBoardLayerType(Activity.ChessBoardLayerType.Task);
+        self:CutCurShowLayer();
+    end
+ end
+function ChessBoardMainLayer:OnTogBuyClick(isOn)
+    if(isOn)then
+        Activity:SetCurChessBoardLayerType(Activity.ChessBoardLayerType.Buy);
+        self:CutCurShowLayer();
+    end
+ end
+function ChessBoardMainLayer:OnTogWelfareClick(isOn)
+    if(isOn)then
+        Activity:SetCurChessBoardLayerType(Activity.ChessBoardLayerType.Welfare);
+        self:CutCurShowLayer();
+    end
+ end
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ChessBoardMainLayer:RegisterHandler()
+    self:addEventListener( EVENT_TYPE.UPDATE_TIPS,self.__cname,
+            function()
+                self:UpdateRed();
+            end)
+    self:addEventListener(EVENT_TYPE.UTIME_ACTION, self.__cname,
+            function()
+                local activity = Activity:GetActivityByUId(Operation.ActivityID.ChessBoard).info;
+                self._curRemainTime = Activity:GetChessBoardOverTime() - CTime:GetServerTime();
+                if(not CTime:IsOpen(activity.Time))then
+                    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90099));
+                    self:onPopLayer();
+                end
+            end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ChessBoardMainLayer:CutCurShowLayer()
+    local layerType = Activity:GetCurChessBoardLayerType();
+    if(self._curLayerType == layerType)then
+        return;
+    end
+    self._transSpine:SetVisible(layerType ~= Activity.ChessBoardLayerType.Main);
+    self._transBg:SetVisible(layerType ~= Activity.ChessBoardLayerType.Main);
+    if(layerType ~= Activity.ChessBoardLayerType.Main)then
+        if(self._isShowSpineAnim)then
+            self:playAni("ChessBoardMainLayerSpineAnim");
+            self._isShowSpineAnim = false;
+        end
+    else
+        self._isShowSpineAnim = true;
+    end
+    if(self._layers[layerType] == nil)then
+        if(layerType ~= Activity.ChessBoardLayerType.Main)then
+            if(not Operation:GetActiveIsOpenByUid(Operation.ActivityID.ChessBoard))then
+                UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
+                return;
+            end
+        end
+        if(layerType == Activity.ChessBoardLayerType.Main)then
+            if(self._layers[layerType] == nil)then
+                self._layers[layerType] = core.require("xlua/lua_UI/Activity/ChessBoardLayer.txt"):new(self._transUIParent);
+                self._layers[layerType]:SetParentCom(self)
+                --print("打开巡查界面");
+            end
+        elseif(layerType == Activity.ChessBoardLayerType.Task)then
+            if(self._layers[layerType] == nil)then
+                self._layers[layerType] = core.require("xlua/lua_UI/Activity/DiceTaskLayer.txt"):new(self._transUIParent);
+                --print("打开巡查任务界面");
+            end
+        elseif(layerType == Activity.ChessBoardLayerType.Buy)then
+            if(self._layers[layerType] == nil)then
+                self._layers[layerType] = core.require("xlua/lua_UI/Activity/DiceBuyLayer.txt"):new(self._transUIParent);
+                --print("打开巡查购买界面");
+            end
+        elseif(layerType == Activity.ChessBoardLayerType.Welfare)then
+            if(self._layers[layerType] == nil)then
+                self._layers[layerType] = core.require("xlua/lua_UI/Activity/DiceWelfareLayer.txt"):new(self._transUIParent);
+                --print("打开巡查福利界面");
+            end
+        end
+    end
+    if(self._layers[self._curLayerType] ~= nil)then
+        self._layers[self._curLayerType]:hideLayer();
+    end
+    self._curLayerType = layerType;
+    if(self._layers[layerType] ~= nil)then
+        self._layers[layerType]:show();
+    end
+end
+
+--加载英雄spine
+function ChessBoardMainLayer:LoadHeroSpine()
+    Hero:LoadSpineAsync(self.__cname,self._transSpine, 1008, Hero.SPINE_UI_TYPE_WITCH,
+            function(obj)
+                self._alpha = -0.1
+                self._curMoudle = obj
+                self:_refreshSpineInfo()
+            end)
+end
+
+function ChessBoardMainLayer:_refreshSpineInfo()
+    if self._curMoudle ~= nil then
+        self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+        --self.skeletonAni:GetComponent("MeshRenderer").sortingOrder = Operation.SPINE_ORDER;
+        self._curMoudle.transform:SetPosition(87,-688,0, true);
+        self._curMoudle.transform:SetScale(110,110,110);
+        self._updateA = true
+        if self._alpha < 1 then
+            self.skeletonAni.Skeleton.A = 0
+        else
+            self.skeletonAni.Skeleton.A = 1
+        end
+    else
+        self._updateA = false
+    end
+end
+
+local maxTimer = 1;
+function ChessBoardMainLayer:onUpdate(dt)
+    if(self._curTimer < maxTimer)then
+        self._curTimer = self._curTimer + dt;
+    else
+        self._curRemainTime = self._curRemainTime - 1;
+        self._curTimer = 0;
+        self:SetTimerUI();
+    end
+    if(self._curMoudle == nil)then
+        return;
+    end
+    if self._updateA then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+function ChessBoardMainLayer:SetTimerUI()
+    if(self._curRemainTime >= 0)then
+        local str = CTime:Time2Str(self._curRemainTime, CTime.SHOW_TYPE_DAY);
+        self._txtTime:SetText(string.format(LanguageMgr:GetTextByID(90364),str));
+    else
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90099));
+        self:onPopLayer();
+    end
+end
+
+function ChessBoardMainLayer:UpdateRed()
+    self._imgTaskRed:SetEnabled(Activity:GetChessTaskRed());
+    self._imgWelfareRed:SetEnabled(Activity:GetChessWelfareRed());
+    self._imgBuyRed:SetEnabled(Activity:GetDayFreeDiceRedState());
+end
+
+return ChessBoardMainLayer;

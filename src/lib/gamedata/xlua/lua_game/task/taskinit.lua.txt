@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 14:24:06
+-- brief : 
+--
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Task/task.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Task/task_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Task/taskcfg.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Task/taskdef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Task/taskui.txt")
+
+Task:Ctor()
+Task:_LoadCfg()

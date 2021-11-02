@@ -1,0 +1,58 @@
+--
+-- author: haosun
+-- date  : 2018-12-11 22:13:47
+-- brief : 
+--
+
+CTime = CTime or {}
+
+CTime.STATE_CLOSE   = 0
+CTime.STATE_OPEN    = 1
+
+CTime.DAY_SEC       = 86400     -- 一天的秒数
+CTime.HOUR_SEC      = 3600      -- 一小时的秒数
+CTime.MIN_SEC       = 60        -- 一分钟的秒数
+CTime.SEC           = 1         -- 一秒
+
+CTime.TYPE_DATE_TIME        = 1     -- 年月日 时分秒
+CTime.TYPE_DATE             = 2     -- 年月日
+CTime.TYPE_TIME             = 3     -- 时分秒 
+
+CTime.SHOW_TYPE_NIL         = 0
+CTime.SHOW_TYPE_DAY         = 1
+CTime.SHOW_TYPE_HOUR        = 2
+
+CTime.OFFSET                = 11    --时间偏移系数(小时)
+CTime.OFFSET_HOUR           = 5     -- 时间偏移小时（每日刷新）
+CTime.OFFSET_MIN            = 300   -- 时间偏移分钟（每日刷新）
+CTime.OFFSET_SEC            = 18000 -- 时间偏移秒数（每日刷新）
+
+CTime.DAY_HOUS              = 24
+
+CTime.delayTime             = 0.1;  --界面黑屏
+
+CTime.EVENT_ID_DIAL         = 500002--转盘活动
+
+
+CTime.WeekTab = {
+    ["0"] = 1,
+    ["1"] = 2,
+    ["2"] = 3,
+    ["3"] = 4,
+    ["4"] = 5,
+    ["5"] = 6,
+    ["6"] = 7,
+}
+
+--周刷新类型
+CTime.WeekUpdateType =
+{
+   NotUpdate = 0,-- 为刷新
+   OneUpdate = 1,--单周刷新(7天)
+   DoubleUpdate = 2,--双周刷新(14天);
+}
+--符石本timeid
+CTime.DayUpdateTimeId =
+{
+ 60001, 60002, 60003, 60004, 60005, 60006, 60007
+}

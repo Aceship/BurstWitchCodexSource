@@ -1,0 +1,66 @@
+--
+-- author: haosun
+-- date  : 2019-06-18 21:38:34
+-- brief : 
+--
+Hero = Hero or {}
+
+function Hero:GetHeroChipNumber(hero)
+    local cfg = self:GetCfg(hero.id)
+    if cfg == nil then
+        return 0, 99
+    end
+    if hero.owner then
+        return Item:GetCount(cfg.StarItemID), self._markUpCost[hero.id][hero.star][1]
+    else
+        return Item:GetCount(cfg.StarItemID), tonumber(cfg.PatchCompose)
+    end
+end
+--获得溢出的碎片
+-- bagtype, cfgid, count
+function Hero:GetHeroPieceTbl()
+    local tbl = {}
+    local totalnum = 0
+    for _,hero in pairs(self._heroes) do
+        if hero.owner and hero.star == Hero.MAX_STAR_NUM then
+            local pieceNum = Item:GetCount(hero.config.StarItemID)
+            local qlty = tonumber(hero.config.Quality)
+            local changeNum = self:GetPieceChangNum(qlty , pieceNum)
+            if pieceNum > 0 then
+                table.insert(tbl, {Bag.TYPE_ITEM, tonumber(hero.config.StarItemID), pieceNum, qlty, changeNum})
+                totalnum = totalnum + changeNum
+            end
+        end
+    end
+    return tbl,totalnum
+end
+
+
+--
+-- 是否可以召唤或者升星
+--
+function Hero:CanCallOrStarUp(id)
+    local hero = self:GetHero(id)
+    if(hero.star >= hero.maxStar)then
+        return false;
+    end
+    if hero.owner then
+        if  not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_top) then
+            return false
+        end
+    end
+    local has, cost = self:GetHeroChipNumber(hero)
+    return has >= cost
+end
+
+--计算转换后的数量
+-- v[1] 品质  v[2]数量
+function Hero:GetPieceChangNum( qlty,pieceNum)
+    for _, v in pairs(Player.PIECE_SHOP_NUM) do
+        if qlty == v[1] then
+            pieceNum = pieceNum * v[2]
+            break
+        end
+    end
+    return pieceNum
+end

@@ -1,0 +1,319 @@
+---
+--- @Author:Misaka
+--- @Create Time:2021-07-16 19:49:33
+---
+---
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityPushLayer = class("ActivityPushLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+
+local RewardItemNum = 2
+--构造函数
+function ActivityPushLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ActivityPushLayer",
+    }
+    self._topData = {
+        showBtnBack     = false,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        --topInfo        = Player.CURRENCY_MAIN,
+    };
+    self._addStack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActivityPushLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+function ActivityPushLayer:onExit()
+    self._spine = nil
+    self._imgMask = nil
+    self._beginTime = nil
+    self._endTime = nil
+    self._spineParent = nil
+    self._moonImg = nil
+    self._moonTrans = nil
+    self._titleImg = nil
+    self._titleTrans = nil
+    self._nameImg = nil
+    self._maskImg = nil
+    self._chargeObj = nil
+    self._fightObj = nil
+    self._transparent = nil
+    self._transQltySpine = nil
+    self._push_1 = nil
+    self._push_2 = nil
+    self._stepUpItems = nil
+    self._button_close = nil
+    self._jumpBtn = nil
+    if self._curMoudle ~= nil then
+        self._curMoudle:Release()
+    end
+    CBaseLayer.onExit(self)
+
+end
+
+--按钮事件
+function ActivityPushLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ActivityPushLayer:Init()
+    self:InitUI();
+end
+
+--初始化UI
+function ActivityPushLayer:InitUI()
+    self._imgMask = self.layer:GetImageComponent("container/img_mask")
+    self._beginTime = self.layer:GetTextComponent("container/open_time/txt_begin")
+    self._endTime   = self.layer:GetTextComponent("container/open_time/txt_end")
+    self._checkObj  = self.layer:Get("container/toggle_sel/Background/Checkmark")
+    self._spine = self.layer:Get("spine/spine")
+    self._spineParent = self.layer:Get("spine")
+    self._moonImg = self.layer:GetImageComponent("img_moon")
+    self._moonTrans = self.layer:Get("img_moon")
+    self._titleImg = self.layer:GetImageComponent("container/img_title")
+    self._titleTrans = self.layer:Get("container/img_title")
+    self._nameImg = self.layer:GetImageComponent("container/img_name")
+    self._maskImg = self.layer:GetImageComponent("container/img_mask")
+    self._chargeObj = self.layer:Get("container/push_2/txt_charge")
+    self._fightObj = self.layer:Get("container/push_2/img_tiaozhan")
+    self._transparent = self.layer:Get("container/trans_qlty_spine");
+    self._transQltySpine = self.layer:Get("container/trans_qlty_spine/trans_qlty");
+    self._transQltySpine:CreateChild("prefab_item_spine/spine_qlty_ssr");
+    self._gunType   = self.layer:GetTextComponent("container/push_1/txt_gun")
+    self._gunIcon = self.layer:GetImageComponent("container/push_1/logo")
+    --@ImageEnd
+
+	--@TextEnd
+
+    self._push_1 = self.layer:Get("container/push_1")
+    self._push_2 = self.layer:Get("container/push_2")
+
+    if(self._stepUpItems == nil)then
+        self._stepUpItems = {};
+        for i = 1, RewardItemNum do
+            local cls = Bag:CtorGoodsUi(self.layer.transform:Find("container/push_2/layout/prefab_" .. i))
+            cls.btn = cls:GetComponent("button_click", "Button");
+            cls.btn.onClick:AddListener( function()
+                --self:onItemClick(cls.index)
+                --self._selectData = self._datas[cls.index]
+            end)
+            self._stepUpItems[i] = cls;
+        end
+    end
+	--@MToggleCallBackEnd
+
+    self._button_close   = self.layer:GetButtonComponent("button_mask");
+    self._button_close:AddButtonListener(function ()
+        --print("点击关闭")
+        if #self.m_PopupList <= 0 then
+            self:onPopLayer()
+            uimgr:CheckTodoList()
+        else
+            self:RefreshView()
+        end
+    end);
+
+    self._jumpBtn = self.layer:GetButtonComponent("container/img_mask")
+    self._jumpBtn:AddButtonListener(function ()
+        if  self.m_CurData ~= nil then
+            local jumpData = self.m_CurData.jumpTo
+            if jumpData ~= nil then
+                if jumpData[1] == 0 then
+                    self:RefreshView()
+                else
+                    JumpMgr:JumpCheck(jumpData)
+                end
+            end
+        end
+    end);
+
+    local button = self.layer.transform:Find("container/toggle_sel")
+    local UIButtonSFX = button:GetComponent("UIButtonSFX")
+    if UIButtonSFX ~= nil then
+        button:GetComponent("Toggle").onValueChanged:AddListener(function(bcheck)
+            self:onValueChanged(bcheck)
+        end)
+    else
+        button:GetComponent("Toggle").onValueChanged:AddListener(function(bcheck)
+            self:onValueChanged(bcheck)
+        end)
+    end
+    local isPush = GTemp:GetPushActivityState()
+    self._checkObj:SetVisible(isPush == "true")
+end
+
+--显示UI
+function ActivityPushLayer:show(params)
+    self.m_PopupList = params
+    --print("当前活动数量  ： "..#self.m_PopupList)
+    self:showLayer();
+    self:RefreshView()
+end
+
+--退出按钮事件
+function ActivityPushLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function ActivityPushLayer:Close()
+    self._imgMask = nil
+    --@CloseEnd
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+function ActivityPushLayer:onValueChanged(bcheck)
+    GTemp:SetPushActivityState(bcheck)
+    self._checkObj:SetVisible(bcheck)
+end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityPushLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function ActivityPushLayer:RefreshView()
+    if #self.m_PopupList == 0 then return end
+    self.m_CurData = self.m_PopupList[1]
+
+    table.remove(self.m_PopupList, 1)
+
+    if self.m_CurData ~= nil then
+        local isHero = self.m_CurData.picture ~= nil and self.m_CurData.picture > 0;
+        --加载spine
+        self._spine:SetVisible(isHero);
+        if isHero then
+            local heroId = tonumber(self.m_CurData.picture)
+            Hero:LoadSpineAsync(self.__cname,self._spine, heroId,Hero.SPINE_NEWUP,
+            function(obj)
+                self._curMoudle = obj
+            end,true)
+            local spinePos = self.m_CurData.spinePos
+            self._spine:SetPosition(spinePos[1],spinePos[2], 0,true);
+            self._spineParent:SetScale(self.m_CurData.spinePos[3],self.m_CurData.spinePos[3],1)
+        else
+
+        end
+        --设置item
+        local itemShowType = Activity:GetPushViewType(self.m_CurData);
+        self._push_1:SetVisible(itemShowType == Activity.PushType.Picture and isHero);
+        self._push_2:SetVisible(itemShowType == Activity.PushType.PictureItems);
+        if(itemShowType == Activity.PushType.PictureItems)then
+            self:SetPicItemView();
+        end
+    end
+    self:SetCommonInfo()
+    --print("当前页面  id ： "..self.m_CurData.id)
+end
+
+function ActivityPushLayer:SetPicItemView()
+    local items = self.m_CurData.items
+    local data
+    for i = 1, #self._stepUpItems do
+        data = items[i]
+        self._stepUpItems[i].obj:SetVisible(data ~= nil)
+        local itemType;
+        local itemId;
+        if data ~= nil then
+            itemType = data[1]
+            itemId = data[2]
+            Bag:SetGoodsUiEx(self._stepUpItems[i], itemType,itemId , 0, false, false, false)
+        end
+    end
+end
+
+function ActivityPushLayer:SetCommonInfo()
+    local beginTime =  Lib:Str2Time(self.m_CurData.beginTime)
+    local endTime = Lib:Str2Time(self.m_CurData.endTime)
+
+    local beginDate = lua_str_split(os.date("%m-%d", beginTime), "-")
+    local endDate = lua_str_split(os.date("%m-%d", endTime), "-")
+
+    self._beginTime.text = string.format("%s.%s",beginDate[1], beginDate[2])
+    self._endTime.text = string.format("%s.%s",endDate[1], endDate[2])
+
+    local moonPath = self.m_CurData.moonPath
+    local moonPos = self.m_CurData.moonPos
+    self._moonImg:LoadSprite(moonPath)
+    self._moonImg:SetNativeSize()
+    self._moonTrans:SetPosition(moonPos[1], moonPos[2], 0, true)
+    self._moonTrans:SetScale(self.m_CurData.moonPos[3],self.m_CurData.moonPos[3],1)
+
+    self._titleImg:SetEnabled(self.m_CurData.titlePath ~= nil);
+    if(self.m_CurData.titlePath ~= nil)then
+        self._titleImg:LoadSprite(self.m_CurData.titlePath);
+        self._titleImg:SetNativeSize()
+        self._titleTrans:SetPosition(self.m_CurData.namePos[1], self.m_CurData.namePos[2], 0, true)
+    end
+
+
+    --nameImage
+    self._nameImg:SetEnabled(self.m_CurData.namePath ~= nil);
+    if self.m_CurData.namePath ~= nil then
+        self._nameImg:LoadSprite(self.m_CurData.namePath);
+        self._nameImg:SetNativeSize()
+    end
+
+    --MaskBg
+    self._maskImg:SetEnabled(self.m_CurData.maskPath ~= nil);
+    if(self.m_CurData.maskPath ~= nil)then
+        self._maskImg:LoadSprite(self.m_CurData.maskPath)
+        self._maskImg:SetNativeSize()
+    end
+
+    set_obj_active(self._fightObj,self.m_CurData.activityType == 3)
+    set_obj_active(self._chargeObj,self.m_CurData.activityType == 2)
+    set_obj_active(self._transQltySpine,self.m_CurData.activityType == 1)
+    self._transQltySpine:SetPosition(self.m_CurData.qltyPos[1],self.m_CurData.qltyPos[2],0,true)
+
+    if(self.m_CurData.picture ~= nil and self.m_CurData.picture > 0)then
+        local heroCfg = Hero:GetCfg(self.m_CurData.picture)
+        self._gunType:SetText(heroCfg.Name_UP) --枪型文字
+        Hero:SetHeroAtkType(self._gunIcon,tonumber(heroCfg.AtkType));
+        local path = self:GetGunIconPath(tonumber(heroCfg.AtkType))
+        if path ~= "" then
+            self._gunIcon.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
+        end
+        self._gunIcon:SetNativeSize()
+    end
+    --print("槍型 ： "..tonumber(heroCfg.AtkType))
+end
+
+function ActivityPushLayer:GetGunIconPath(AtkType)
+    local str = ""
+    if AtkType == 4 then
+        str = "img_shilian_tankuang_baodan"
+    elseif AtkType == 5 then
+        str = "img_shilian_tankuang_sandan"
+    elseif AtkType == 6 then
+        str = "img_shilian_tankuang_ziju"
+    end
+    return str
+end
+
+return ActivityPushLayer;

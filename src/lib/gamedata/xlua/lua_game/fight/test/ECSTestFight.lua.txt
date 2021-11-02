@@ -1,0 +1,69 @@
+
+local function prloadscript()
+    AssetLoader:LoadAllLuaScript()
+end
+
+function start(levelid, waveindex, infos, build)
+    math.randomseed(os.time())
+    math.random(1, os.time())
+
+    CS.AssetLoader.Instance:LoadLuaAsset("xlua/lua_Game/Base/AssetLoader.txt")
+    AssetLoader:LoadLuaAsset("xlua/luaCommon.txt")
+    prloadscript()
+
+    CanvasMgr:SetCanvas()
+    -- 测试魔女数据    
+    AssetLoader:LoadLuaAsset("xlua/lua_Game/Hero/herotest.txt")
+    AssetLoader:LoadLuaAsset("xlua/lua_Game/Player/playertest.txt")
+    Player:InitTestForFight()
+    local heroids = {0, 0, 0}
+    local c = 1
+    for _, v in pairs(infos) do
+        local data = luajson.decode(v)
+        heroids[c] = data.heroid
+        HeroTest:HeroTestData(data)
+        c = c + 1
+    end
+
+    --解析编辑器设置的构筑等级并覆盖读取构筑等级的函数
+    Build.fakeLevel = luajson.decode(build)
+    Build.GetBuildLevelByAtktype = function(self, atkType)
+        return Build.fakeLevel[atkType]
+    end
+
+    Build:SyncBuildData({})
+    Buff:BuffSync({buffs = {}, sy_buffs_xl = {}, sy_buffs_get = {}, rift_buffs = {}})
+
+    Chapter:SetCurFightLevelId(levelid)
+    HeroController:InitHeroController(heroids)--, levelid)
+    CameraController:InitCameraController()
+
+    UI_Loading:InitLoading(uimgr.FIGHT_SCENE_ID)
+    UI_Loading:EnterLoading()
+
+    ShenYeController:InitShenYeController()
+end
+
+
+function start2(levelid, midnightLevelId, changeSkill)
+    LuaScriptController:InitLuaScriptController()
+    FightController:SimpleInitFightController(levelid, midnightLevelId, true)
+    local tblChangeSkill = luajson.decode(changeSkill)
+    FightController:SetChangeSkillLv(tblChangeSkill)
+end
+
+--游戏更新
+function update(dt)
+    UI_Loading:UpdateLoading(dt)
+    FightController:UpdateFightController(dt)
+end
+
+function fiexdStatic(dt)
+end
+
+--游戏释放
+function destroy(dt)    
+    CanvasMgr:ClearCanvas()
+    AssetLoader:UnloadAsset()
+    --CS.Logger.LogInfo("luaOnDestroy")
+end

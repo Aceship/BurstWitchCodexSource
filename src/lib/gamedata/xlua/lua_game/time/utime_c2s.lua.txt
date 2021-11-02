@@ -1,0 +1,92 @@
+--
+-- author: haosun
+-- date  : 2018-12-14 10:54:08
+-- brief : 
+--
+
+CTime = CTime or {}
+
+function CTime:SyncTime(datas)
+    AppMgr:LogInfo("----------同步时间数据----------")
+    for _, v in pairs(datas) do
+        self:_Add(v)
+    end
+    --Chapter:_LoadChapterMode()
+    CTime:FindNextDayTimeId()
+end
+
+function CTime:_Add(data)
+    if data.time_point ~= nil then
+        local tmp = {
+            id      = data.id,
+            remain  = data.time_point == 0 and 0 or data.time_point - CTime:GetServerTime(),
+            state   = data.state,
+            stime   = os.time(),
+        }
+        self._datas[data.id] = tmp
+    end
+end
+
+function CTime:_Update(data)
+    local _data = self._datas[data.id]
+    if _data ~= nil and data.time_point ~= nil then
+        _data.state = data.state
+        _data.remain = data.time_point == 0 and 0 or data.time_point - CTime:GetServerTime()
+        _data.stime = os.time()
+    else
+        self:_Add(data)
+    end
+end
+
+function CTime:UpdateTime(datas)
+    for _, v in pairs(datas) do
+        self:_Update(v)
+        if v.id ==  self._nextDayId then
+            --Chapter:_LoadChapterMode()
+            GEvent:fireEvent(EVENT_TYPE.UTIME_UPDATEDAY, {})
+            self:FindNextDayTimeId()
+        end
+        Stats:UpdateStatsTimeListener(v.id)
+        CTime:SendMessage(v);
+        GEvent:fireEvent(EVENT_TYPE.UPDATE_TIME,v);
+    end
+    GEvent:fireEvent(EVENT_TYPE.UTIME_ACTION)
+end
+
+function CTime:UpdateDay(isMonthChange,isWeekChanged)
+    local _isWeekChanged = isWeekChanged ~= 0
+    local onWeekUpdate = isWeekChanged == CTime.WeekUpdateType.OneUpdate;
+    local changeInfo = {
+        week    = _isWeekChanged,
+        month   = isMonthChange
+    }
+    Player:OnUpdateDay()
+    Stats:OnUpdateStateDay(_isWeekChanged, isMonthChange)
+    --Tower:OnUpdateTowerDay(_isWeekChanged)
+    MidNight:OnUpdateRankDay(_isWeekChanged, isMonthChange);
+    Chapter:OnUpdateChapterDay()
+    Friend:OnUpdateDay()
+    Shop:OnUpdateDay(isWeekChanged, isMonthChange)
+    Activity:onChangeDay(isMonthChange,isWeekChanged)
+    Mystery:OnUpdateMysteryDay()
+    Comment:OnUpdateCommentDay(_isWeekChanged);
+    Operation:OnUpdateOperationDay(isMonthChange,isWeekChanged);
+    WorldBoss:OnUpdateDay();
+    Ether:OnUpdateDay();
+    Hero:OnUpdateDay();
+    GEvent:fireEvent(EVENT_TYPE.UTIME_UPDATEDAY, changeInfo)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    if isMonthChange then
+        GEvent:fireEvent(EVENT_TYPE.UTIME_UPDATE_MONTH)
+    end
+end
+
+function CTime:SyncServerTime(servertime)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.TIME_DATA_SYNC]                 = {CTime, CTime.SyncTime}
+c2s[c2s.TIME_DATA_UPDATE]               = {CTime, CTime.UpdateTime}
+c2s[c2s.DAILY_REFRESH_NTF]              = {CTime, CTime.UpdateDay}
+c2s[c2s.SERVER_TIME_REFRESH_NTF]        = {CTime, CTime.SyncServerTime}
+

@@ -1,0 +1,969 @@
+--
+-- author: haosun
+-- date  : 2019-07-03 10:43:42
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TalkLayer = class("TalkLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    send        = "input_ui/button_send",
+    voice       = "input_ui/button_voice",
+    voicesend   = "input_ui/button_voicesend",
+    tovoice     = "input_ui/button_tovoice",
+    tokey       = "voice_ui/button_tokey",
+    BtnWorldUnread = "tb_world/btn_world_unread",
+    BtnInputMask = "input_ui/btn_input_mask",
+    btn_test = "btn_test",
+    btn_test_sys = "btn_test_sys",
+    btn_test_pri = "btn_test_pri",
+}
+
+local SHOW_TYPE = {
+    World       = 1,
+    PrivateList = 2,
+    Private     = 3,
+    System      = 4,
+}
+local TOGGLE_TYPE = {
+    World       = 1,
+    PrivateList = 2,
+    System      = 4,
+}
+
+function TalkLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiTalk/UI_TalkLayer",
+    }
+
+    self._draging   = false
+    self._timer     = {}
+    self._onVoideing = false
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._topData = {
+    showBtnBack     = true,
+    showPlayerInfo  = false,
+    showTopInfo     = false,
+
+    }
+    self._bgData = {
+    showEffect = true,
+    bgType = BackBgPath.BG_DEF,
+    }
+    self._curTaskIndex = 1;
+    self._fading = false;
+    self:onEnter()
+end
+
+function TalkLayer:initObj()
+    self._contentObj        = self.layer:Get("scroll_private/Viewport/Content")
+    self._worldObj          = self.layer:Get("tb_world");
+    self._worldContentObj   = self.layer:Get("tb_world/TableView/Content")
+    self._systemObj         = self.layer:Get("tb_system")
+    self._inputObj          = self.layer:Get("input_ui")
+    self._inputCom          = self.layer:Get("input_ui/input"):GetComponent("InputField")
+    self._btn1 = self.layer:Get("button_1")
+    self._btn2 = self.layer:Get("button_2")
+    self._btn3 = self.layer:Get("button_3")
+    self._scrList = self.layer:Get("scroll_list")
+    self._scrPrivate = self.layer:Get("scroll_private")
+    self._scrPrivateCom = self.layer:Get("scroll_private"):GetComponent("ScrollRect")
+
+    self._inputCutLine = self.layer:Get("tb_world/input_cut_line"):GetComponent("InputField");
+    self._txtPlaceholder = self.layer:GetTextComponent("tb_world/input_cut_line/txt_Placeholder")
+    self._txtCurTalkName = self.layer:GetTextComponent("scroll_private/txt_cur_talk_name");
+    self._rectWorldContent = self._worldContentObj:GetComponent("RectTransform");
+    self._worldTbHigh = self.layer:Get("tb_world").rect.height;
+
+    self._btn3Red = self.layer:Get("obj_tog_bg/show_type_2/image_red_tips")
+    self._content =  self.layer:Get("scroll_list/Viewport/Content")
+
+    self._button_voice          = self.layer:Get("input_ui/button_voice")
+    self._button_voicesend      = self.layer:Get("input_ui/button_voicesend")
+    self._imgEmpty              = self.layer:Get("image_empty")
+
+    self._transWorldUnread      = self.layer:Get(BUTTON_TYPE.BtnWorldUnread);
+    self._txtWorldUnreadNum     = self._transWorldUnread:GetTextComponent("txt_world_unread_num");
+
+    self._transInputMask = self.layer:Get("input_ui/btn_input_mask");
+    self._txtTalkPlaceholder = self.layer:GetTextComponent("input_ui/input/Placeholder");
+    self:SetLockState();
+    self._button_voice:SetVisible(false)
+    self._button_voicesend:SetVisible(false)
+    self._items = {}
+    self.newMsgSender = {} -- 解决私聊列表界面收到消息, 私聊界面没有实时更新的bug
+    self._toggles = {}
+    for _, v in pairs(TOGGLE_TYPE) do
+        self._toggles[v] = self.layer:GetMToggleComponent("obj_tog_bg/show_type_" .. v)
+        self._toggles[v].onValueChanged:AddListener(
+                function(isOn)
+                    if self._fading then
+                        return
+                    end
+                    self:onToggleClick(isOn,v)
+                end)
+    end
+    self._txtTitle = self.layer:GetTextComponent("info_title/txt_title")
+    self._txtTitleE = self.layer:GetTextComponent("info_title/txt_title_E")
+
+    self._inputCutLine.onEndEdit:AddListener(function (value)
+        if(value == nil or value == "")then
+            value = -1;
+        end
+        value = tonumber(value);
+        if(value > Talk.TalkLineMaxNum)then
+            value = Talk.TalkLineMaxNum;
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(32035));
+        end
+        if((value < 0) or (value == Talk:GetCurTalkLine()))then
+            self._inputCutLine.text = "";
+            self._txtPlaceholder:SetText(string.format(LanguageMgr:GetTextByID(32026),Talk:GetCurTalkLine(),Talk.TalkLineMaxNum));
+            return;
+        end
+        Network:SwitchChatLine(value);
+    end);
+
+    InitEventTriggerEx(self.layer:Get("voice_ui/graphic_drag"),
+    function(arg)
+                self._voiceDrag = true
+                self._beginPos = arg
+            end,
+    nil,
+    function(arg)
+                self._voiceDrag = false
+                self:onVoiceDragEnd(arg)
+            end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("info_title"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("tb_world"),0,true);
+    CS.UnityHelper.NotchfitY(self.layer:Get("scroll_private"),0,true)
+
+
+end
+
+function TalkLayer:onVoiceDragEnd(endPos)
+    if self._beginPos == nil then
+        return
+    end
+    local disy = endPos.y - self._beginPos.y
+    if disy >= Talk.VOICE_CANCEL_DIS then
+        -- cancel
+    else
+        -- send
+    end
+
+end
+
+function TalkLayer:onToggleClick(isOn,showtype)
+    if(not isOn)then
+        return;
+    end
+    self:SetShowType(showtype);
+end
+
+function TalkLayer:SetShowType(showType)
+    if self._showtype == showType then
+        return
+    end
+    self._showtype = showType
+
+    -- sys
+    self._systemObj:SetVisible(self._showtype == SHOW_TYPE.System)
+    -- world
+    self._worldObj:SetVisible(self._showtype == SHOW_TYPE.World)
+    -- private
+    self._scrList:SetVisible(self._showtype == SHOW_TYPE.PrivateList)
+    local input = (self._showtype == SHOW_TYPE.Private) or (self._showtype == SHOW_TYPE.World)
+    self._inputObj:SetVisible(input)
+    self._scrPrivate:SetVisible(self._showtype == SHOW_TYPE.Private)
+    self._txtTitle:SetVisible(self._showtype ~= SHOW_TYPE.Private);
+    self._txtTitleE:SetVisible(self._showtype ~= SHOW_TYPE.Private);
+
+    if showType == SHOW_TYPE.World then
+        self._txtTitle:SetTextById(32011)
+        self._txtTitleE:SetTextById(32012)
+        self:playAni("TalkLayerWorldAnim")
+        self:setWorldTableView();
+    elseif showType == SHOW_TYPE.PrivateList then
+        self._txtTitle:SetTextById(32015)
+        self._txtTitleE:SetTextById(32016)
+        self:playAni("TalkLayerTitleAnim")
+        self:initTalkerList()
+    elseif showType == SHOW_TYPE.System then
+        self._txtTitle:SetTextById(32013)
+        self._txtTitleE:SetTextById(32014)
+        --self:playAni("TalkLayerTitleAnim")
+        self:setSystemTableView()
+    elseif self._showtype == SHOW_TYPE.Private then
+        self:playAni("TalkLayerPrivateAnim")
+        self:initPrivateMsgList()
+    end
+    self:refreshEmpty()
+end
+
+
+function TalkLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    --Player:SetPlayerCardType(Player.CardType_Talk);--设置玩家名片类型
+    self:registerButtonEvent(BUTTON_TYPE)
+    if(not Friend:GetFriendDataLoadState())then--未获取好友数据,从服务器拉取
+        Friend:GetFriendInfoReq(Friend.REQ_TYPE_FRIEND_LIST);
+    end
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_WORLD_TALKS,
+            function(data)
+                if(data == nil)then
+                    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(32032));
+                    self._inputCutLine.text = "";
+                    self._txtPlaceholder:SetText(string.format(LanguageMgr:GetTextByID(32026),Talk:GetCurTalkLine(),Talk.TalkLineMaxNum));
+                    return;
+                end
+                local isBottom = self._curTaskIndex == #self._worldDatas;
+                table.insert(self._worldDatas,data);
+                data.notLook = true;
+                --Table View   Bug 会有4个像素的误差
+                --self._rectWorldContent:GetSizeY() - (self._rectWorldContent:GetAnchoredPositionY() + self._worldTbHigh) - 4 <= 0.5;
+                --自己发言或是切换线路, 直接置底
+                if(data.sender.id == Player:GetId() or data.talktype == Talk.TYPE_CUT_WORLD_LINE or isBottom)then
+                    isBottom = true;
+                    self._worldUnreadNum = 1;
+                    if(data.talktype == Talk.TYPE_CUT_WORLD_LINE)then
+                        self._inputCutLine.text = "";
+                        self._txtPlaceholder:SetText(string.format(LanguageMgr:GetTextByID(32026),Talk:GetCurTalkLine(),Talk.TalkLineMaxNum));
+                    end
+                else
+                    if(data.notLook)then
+                        self._worldUnreadNum = self._worldUnreadNum + 1;
+                        self:SetWorldUnreadNumUI();
+                    end
+                end
+                self:setWorldTableView();
+                self:refreshEmpty()
+                if(isBottom)then
+                    self._worldTBCtrl:ScrollToBottom(0);
+                end
+            end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.PRIVATE_TALK_NTF, function(data)
+        self:onProgressNotify(data)
+        self:refreshRedTip()
+        self:refreshEmpty()
+    end)
+
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_SYSTEM_TALKS,
+            function(data)
+                self:setSystemTableView();
+                self:refreshEmpty()
+            end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TALK_FORBID,
+
+            function()
+                self:SetLockState();
+            end)
+    CS.UnityHelper.NotchfitY(self.layer:Get("tb_world"), 0, true)
+    CS.UnityHelper.NotchfitY(self.layer:Get("info_title"), 0, true)
+
+end
+
+function TalkLayer:onExit()
+    for id, v in pairs(self._timer) do
+        Timer:RemoveTimerCall(id)
+    end
+    if(self._worldTBCtrl ~= nil)then
+        self._worldTBCtrl:Clear()
+        self._worldTBCtrl = nil
+    end
+    self._timer = nil
+    self._talkers = nil
+    Talk:SetOpenLayer()
+    self._toggles = nil;
+    --Player:ClosePlayerCardType();
+    CBaseLayer.onExit(self)
+end
+
+function TalkLayer:onBackClick()
+    self:refreshRedTip()
+    if self._showtype == SHOW_TYPE.Private then
+        if self._onlyback then
+            if self._callback ~= nil then
+                self._callback()
+            end
+            self:onPopLayer()
+        else
+            Talk:CloseNewMsgFlagById(self._talkerid);
+            self:refreshRedTip();
+            self._talkerid = nil
+            self:SetShowType(TOGGLE_TYPE.PrivateList);
+        end
+    else
+        if self._callback ~= nil then
+            self._callback()
+        end
+        self:onPopLayer()
+    end
+end
+
+
+
+function TalkLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.world then
+        -- self:showType(SHOW_TYPE.World)
+        elseif itype == BUTTON_TYPE.private then
+        --  self:showType(SHOW_TYPE.PrivateList)
+        elseif itype == BUTTON_TYPE.system then
+        --   self:showType(SHOW_TYPE.System)
+        elseif itype == BUTTON_TYPE.send then
+        self:onProgressMsg()
+        elseif itype == BUTTON_TYPE.voice then
+        self:onProgressVoice()
+        elseif itype == BUTTON_TYPE.voicesend then
+        self:onProgressVoiceSend()
+        elseif itype == BUTTON_TYPE.BtnWorldUnread then
+        self._worldUnreadNum = 1;
+        -- TODO 此处定位时不知为何会修改UI高度, 导致UI定位不准确,但重新定位一次就不会有这个問題
+        self._worldTBCtrl:ScrollToBottom(0.2);
+        elseif(itype == BUTTON_TYPE.BtnInputMask)then
+        if(Talk:GetTalkIsForbid())then
+            Talk:ShowForbidTalkUI();
+            return;
+    end
+    Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(32033),Player:GetTalkUnlockLv()));
+
+    elseif(itype == BUTTON_TYPE.btn_test)then
+        if(self._testNum == nil)then
+            self._testNum = 0;
+        end
+        self._testNum = self._testNum + 1;
+        local msg = {
+        msgstr = tostring(self._testNum),
+        talktype = 1,
+        utctime = 0,
+        sender = {
+        frameid = 0,
+        iconid = 11002001,
+        id = 30000006,
+        name = "测试_World",
+        },
+        }
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.REFRESH_WORLD_TALKS, msg)
+        elseif(itype == BUTTON_TYPE.btn_test_sys)then
+        if(self._testNum_sys == nil)then
+            self._testNum_sys = 0;
+            self._testNum_sys = self._testNum_sys + 1;
+            Talk:TalkNotifyByParam(3, 0, {text_id = "100002",words = "测试_Sys&10050013"..self._testNum_sys});
+        elseif(itype == BUTTON_TYPE.btn_test_pri)then
+            if(self._testNum_pri == nil)then
+                self._testNum_pri = 0;
+            end
+            self._testNum_pri = self._testNum_pri + 1;
+            local msg = {
+        line = 30000112,
+        words_data = {
+        pt_words = self._testNum_pri,
+        pt_time = CTime:GetServerTime(),
+        },
+        player_data = {
+        id = 30000112,
+        frameid = 0,
+        name = "私聊测试3",
+        iconid = 10010001,
+        },
+        }
+            Talk:TalkNotify(Talk.TYPE_PRIVATE,msg);
+        end
+    end
+end
+
+function TalkLayer:show(showType, talkerid, callback)
+    self._onlyback = talkerid ~= nil
+    self._callback = callback
+    self._worldUnreadNum = 0;
+
+    if showType then
+        self._toggles[showType].isOn = true;
+    else
+        self:showAgain(talkerid)
+    end
+    self:setWorldTableView();
+    self:SetWorldUnreadNumUI();
+    self._txtPlaceholder:SetText(string.format(LanguageMgr:GetTextByID(32026),Talk:GetCurTalkLine(),Talk.TalkLineMaxNum));
+    Talk:SetOpenLayer(self)
+
+    self:showLayer()
+
+    self._fading = true;
+    self:playAni("TalkLayerAni")
+
+    self:refreshRedTip()
+
+    Player:IgnoreHomeLayerInfo(HomeLayerMsgType.ChatPrivate)
+end
+
+function TalkLayer:showAgain(talkerid)
+    if talkerid ~= nil then
+        self._talkerid = talkerid
+        self._toggles[TOGGLE_TYPE.PrivateList].isOn = true;
+        self:SetShowType(SHOW_TYPE.Private)
+    else
+        self._toggles[TOGGLE_TYPE.World].isOn = true;
+    end
+end
+
+function TalkLayer:showType(showtype)
+    if self._showtype == showtype then
+        return
+    end
+    self._showtype = showtype
+    -- sys
+
+    self._systemObj:SetVisible(self._showtype == SHOW_TYPE.System)
+    set_com_title(self._btn1, self._showtype ~= SHOW_TYPE.System)
+
+    -- world
+    self._worldObj:SetVisible(self._showtype == SHOW_TYPE.World)
+    set_com_title(self._btn2 , self._showtype ~= SHOW_TYPE.World)
+
+    -- private
+    self._scrList:SetVisible(self._showtype == SHOW_TYPE.PrivateList)
+    set_com_title(self._btn3, self._showtype ~= SHOW_TYPE.PrivateList)
+
+    local input = (self._showtype == SHOW_TYPE.Private) or (self._showtype == SHOW_TYPE.World)
+    self._inputObj:SetVisible(input)
+    self._btn1:SetVisible(self._showtype ~= SHOW_TYPE.Private)
+    self._btn2:SetVisible(self._showtype ~= SHOW_TYPE.Private)
+    self._btn3:SetVisible(self._showtype ~= SHOW_TYPE.Private)
+    self._scrPrivate:SetVisible(self._showtype == SHOW_TYPE.Private)
+
+    local talker = Talk:GetTalker(self._talkerid)
+    if self._showtype == SHOW_TYPE.PrivateList then
+        self:initTalkerList()
+    end
+    if self._showtype == SHOW_TYPE.Private then
+        self:initPrivateMsgList()
+    end
+    if self._showtype == SHOW_TYPE.System then
+        self:setSystemTableView()
+    end
+end
+
+function TalkLayer:onProgressVoice()
+    if not self._onVoideing then
+        self._onVoideing = not self._onVoideing
+        self._button_voice:SetVisible(false)
+        self._button_voicesend:SetVisible(true)
+    end
+end
+
+function TalkLayer:onProgressVoiceSend()
+    if self._onVoideing then
+        self._onVoideing = not self._onVoideing
+        self._button_voice:SetVisible(true)
+        self._button_voicesend:SetVisible(false)
+    end
+end
+
+function TalkLayer:onProgressMsg()
+    if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_chat)then
+        return
+    end
+    local sendstr =  self._inputCom.text
+    if self._showtype == SHOW_TYPE.World then
+        if(not Talk:GetTalkIsForbid())then
+            if sendstr == "" then
+                UIMgr:ShowGameWordTipsLayer(1800067)
+            else
+                if Talk:GetSendWorldTalktime() > 0 then
+                    UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(1600081), Talk:GetSendWorldTalktime()))
+                else
+                    Talk._sendworldtalktime = CTime:GetServerTime()
+                    Talk:SendTalkReq(sendstr, Talk.TYPE_WORLD)
+                    self._inputCom.text = ""
+                end
+            end
+        else
+            Talk:ShowForbidTalkUI();
+        end
+    elseif self._showtype == SHOW_TYPE.Private then
+        --禁言 私聊不能私聊好友
+--[[        if(Friend:IsFriend(self._talkerid))then
+            if sendstr == "" then
+                UIMgr:ShowGameWordTipsLayer(1800067)
+            else
+                if self._talkerid ~= nil then
+                    Talk:SendTalkReq(sendstr, Talk.TYPE_PRIVATE, self._talkerid)
+                    self._inputCom.text = ""
+                end
+            end
+            return;
+        end]]
+        if(not Talk:GetTalkIsForbid())then
+            if sendstr == "" then
+                UIMgr:ShowGameWordTipsLayer(1800067)
+            else
+                if self._talkerid ~= nil then
+                    Talk:SendTalkReq(sendstr, Talk.TYPE_PRIVATE, self._talkerid)
+                    self._inputCom.text = ""
+                end
+            end
+        else
+            Talk:ShowForbidTalkUI();
+        end
+    end
+end
+
+function TalkLayer:insertTalkScroll(info)
+    local prefab
+    if info.talktype == Talk.TYPE_WORLD or info.talktype == Talk.TYPE_SYSTEM_CFG then
+        prefab = Groble_ResMgr:Instantiate("prefab_uiTalk/prefab_talk", self._worldContentObj)
+        prefab:Get("trans_player/button_click"):GetComponent("Button").onClick:AddListener(function()
+            Player:LookInfoReq(info.sender.id)
+        end)
+    end
+
+    if info.talktype == Talk.TYPE_WORLD or info.talktype == Talk.TYPE_PRIVATE then
+        self:initTalkerMsgObj(prefab, info.msgstr, info.sender)
+    else
+        self:initTalkerMsgObj(prefab, info.msgstr)
+    end
+end
+
+function TalkLayer:initTalkerMsgObj(prefab, msgstr, sender)
+    if sender ~= nil then
+        local cls = Player:CtorPlayerIconBorder(prefab:Get("prefab_player"),function (cls)
+            self:OnPlayerCardClick(cls);
+        end);
+        cls.talkStr = msgstr
+        Player:SetPlayerIconBorderObj(cls, sender.iconid, sender.frameid,sender.id)
+        prefab:Get("text_name"):GetComponent("Text").text = sender.name
+    end
+    local talktext = prefab:Get("text_msg"):GetComponent("Text")
+    talktext.text = msgstr
+    local w, h = talktext.preferredWidth, talktext.preferredHeight
+    u3d_set_size(prefab:Get("msg_bg"), math.min(w, Talk.TEXT_MAX_WIDTH) + 60, h + 34)
+    if w >= Talk.TEXT_MAX_WIDTH then
+        talktext.alignment = TextAnchor.UpperLeft
+    end
+    if h + 84 > Talk.BG_MIN_HEIGHT then
+        h = h + 84 - Talk.BG_MIN_HEIGHT + Talk.CELL_MIN_HEIGHT
+        u3d_set_size(prefab, nil, h)
+    end
+
+end
+
+
+---------------------------------------------------世界聊天------------------------------------------------------
+function TalkLayer:setWorldTableView()
+    if self._showtype ~= SHOW_TYPE.World then
+        return;
+    end
+    if(self._worldDatas == nil)then
+        self._worldDatas = lua_deep_copy(Talk:GetWorldTalk());
+    end
+    local row = #self._worldDatas;
+    if(self._worldTBCtrl == nil)then
+        self._worldTBCtrl = UIController:CtorTableView(self.layer:Get("tb_world"));
+        self._worldTBCtrl:Init(row, false,
+                function(cell, row)
+                    self:SetWorldCell(cell,row + 1);
+                end)
+        self._worldTBCtrl:ScrollToBottom();
+
+        self._rectWorldContent:DOAnchorPosY(math.max(0,self._rectWorldContent:GetSizeY() -  self._worldTbHigh),0):OnComplete(function ()
+            self._rectWorldContent:DOAnchorPosY(math.max(0,self._rectWorldContent:GetSizeY() -  self._worldTbHigh),0.05)
+        end);
+    else
+        self._worldTBCtrl:Reload(row);
+    end
+end
+
+function TalkLayer:SetWorldCell(cell,row)
+    if(self._worldCell == nil)then
+        self._worldCell = {};
+    end
+    local cls = self._worldCell[cell];
+    if(cls == nil)then
+        cls = self:NewTalkItem(cell);
+        self._worldCell[cell] = cls;
+    end
+    if(self._worldDatas[row].notLook)then
+        self._worldDatas[row].notLook = false;
+        if(self._worldUnreadNum > 0)then
+            self._worldUnreadNum = self._worldUnreadNum - 1;
+            self:SetWorldUnreadNumUI();
+        end
+    end
+    local h = self:SetTalkItem(cls,self._worldDatas[row]) or 0;
+    if h + 84 > Talk.BG_MIN_HEIGHT then
+        h = h + 84 - Talk.BG_MIN_HEIGHT + Talk.CELL_MIN_HEIGHT
+        self._worldTBCtrl:UpdateCellHeight(row - 1,h);
+    end
+    self._curTaskIndex = row;
+end
+
+function TalkLayer:SetWorldUnreadNumUI()
+    self._transWorldUnread:SetVisible(self._worldUnreadNum > 0);
+    if(self._worldUnreadNum > 0)then
+        local str = self._worldUnreadNum;
+        if(self._worldUnreadNum >= 100)then
+            str = "99+";
+        end
+        self._txtWorldUnreadNum:SetText(string.format(LanguageMgr:GetTextByID(32020),str));
+    end
+end
+
+-------------------------------------------------系统通知--------------------------------------------------------------
+
+function TalkLayer:setSystemTableView()
+    if self._showtype ~= SHOW_TYPE.System then
+        return;
+    end
+    self._systemDatas = Talk:GetSystemTalk();
+    local row = #self._systemDatas;
+    if(self._systemTBCtrl == nil)then
+        self._systemTBCtrl = UIController:CtorTableView(self.layer:Get("tb_system"));
+        self._systemTBCtrl:Init(row, false,
+                function(cell, row)
+                    self:SetSystemCell(cell,row + 1);
+                end)
+    else
+        self._systemTBCtrl:Reload(row);
+    end
+    self._systemTBCtrl:ScrollToBottom();
+end
+
+function TalkLayer:SetSystemCell(cell,row)
+    if(self._systemCell == nil)then
+        self._systemCell = {};
+    end
+    local cls = self._systemCell[cell];
+    if(cls == nil)then
+        cls = self:NewSysItem(cell);
+        self._systemCell[cell] = cls;
+    end
+    self:SetSysItem(cls,self._systemDatas[row],row);
+end
+
+--初始化系统聊天Item
+function TalkLayer:NewSysItem(trans)
+    local cls = clsbase:new(trans);
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.txtName = cls:GetTextComponent("txt_name");
+    cls.txtMsg = cls:GetTextComponent("txt_msg");
+    cls.infoSystem = cls:Find("info_system");
+    return cls;
+end
+
+--设置系统聊天Item
+function TalkLayer:SetSysItem(cls,data,row)
+    local h = 0;
+    cls.txtMsg:SetText(data.msgstr);
+    cls.txtName:SetText(data.sender.name);
+    local w = cls.txtMsg.preferredWidth;
+    h = cls.txtMsg.preferredHeight;
+    cls.imgBg:SetSize(math.min(w, Talk.TEXT_MAX_WIDTH) + 60, h + 34);
+    if w >= Talk.TEXT_MAX_WIDTH then
+        cls.txtMsg.alignment = TextAnchor.UpperLeft
+    end
+    if h + 84 > Talk.BG_MIN_HEIGHT then
+        h = h + 84 - Talk.BG_MIN_HEIGHT + Talk.CELL_MIN_HEIGHT
+        self._systemTBCtrl:UpdateCellHeight(row - 1,h);
+    end
+end
+
+-----------------------------------------------------------------------------------------------------------------------
+
+function TalkLayer:refreshTalkerObj(cls, recverid, msgstr, senderid,msgtype)
+    local newmsg = Talk:IsExistNewTalkMsg(recverid)
+    cls.redTipsObj:SetVisible(newmsg)
+    local _name = ""
+    if senderid == Player:GetId() then
+        _name = Player:GetName()
+    else
+        if self._talkers[senderid] ~= nil then
+            _name = self._talkers[senderid].name
+        end
+    end
+    msgstr = msgstr or ""
+    cls.txtMsgCom.text = _name .. ":" .. msgstr
+end
+
+function TalkLayer:addTalkerObj(talkerid, name, iconid, frameid)
+    local cls = self._items[talkerid]
+    local item
+    if cls == nil then
+        --E44E40FF  91B6FAFF BEBEBEFF
+        item = Groble_ResMgr:Instantiate("prefab_uiTalk/prefab_talklist",   self._content)
+        cls = clsbase:new(item)
+        cls.redTipsObj = cls:Find("image_red_tips")
+        cls.txtMsgCom  = cls:GetTextComponent("text_msg")
+        item.name = "item_" .. talkerid
+        item:Get("button_delete"):GetComponent("Button").onClick:AddListener(function()
+            self:removeTalkerObj(talkerid)
+            self._oldTalker = 0
+            self:refreshEmpty()
+        end)
+        item.transform:GetComponent("Button").onClick:AddListener(function()
+            self._talkerid = talkerid
+            self:SetShowType(SHOW_TYPE.Private)
+            --点击刷新红点
+            Talk:setNewMsgFlag(talkerid)
+            cls.redTipsObj:SetVisible(Talk:IsExistNewTalkMsg(talkerid))
+            self:refreshRedTip()
+        end)
+        item:Get("text_name"):GetComponent("Text").text = name
+        cls.txtStateInfo = item:GetTextComponent("text_name/txt_state_info");
+        if(Friend:IsFriend(talkerid))then
+            local friend = Friend:GetFriendById(talkerid);
+            local state = friend.onlinestate;
+            if(state == Friend.STATE_ONLINE)then
+                cls.txtStateInfo:SetTextById(32029);
+            else
+                cls.txtStateInfo:SetTextById(32030);
+            end
+        else
+            cls.txtStateInfo:SetTextById(32028);
+        end
+        cls.player = Player:CtorPlayerIconBorder(item:Get("prefab_player"))
+        Player:SetPlayerIconBorderObj(cls.player, iconid, frameid,talkerid)
+        self._items[talkerid] = cls
+    end
+    return cls
+end
+
+function TalkLayer:removeTalkerObj(talkerid)
+    local cls = self._items[talkerid]
+    if cls ~= nil then
+        u3d_destory_obj(cls.obj)
+        self._items[talkerid] = nil
+    end
+    Talk:RemovePrivateTalker(talkerid)
+    self:refreshRedTip()
+end
+
+function TalkLayer:initTalkerList()
+    --if self._talkers == nil then
+    self._talkers = Talk:GetTalkerList()
+    for _, v in ipairs(self._talkers) do
+        local item = self:addTalkerObj(v.talker.id, v.talker.name, v.talker.iconid, v.talker.frameid,v.msgtype,v.requestid)
+        self:refreshTalkerObj(item, v.talker.id, v.msg, v.senderid,v.msgtype,v.requestid)
+        item.transform:SetScaleY(0);
+        item.transform:DOScaleY(1, 0.12):SetDelay(0.08 * _);
+    end
+    self._imgEmpty:SetVisible(lua_table_len(self._talkers) == 0)
+end
+
+--
+-- Param: {talktype, msgstr, utctime, sender = {id, name, iconid, frameid}}
+--
+function TalkLayer:onProgressNotify(talk_data)
+    if self._showtype == SHOW_TYPE.Private then
+        if self._talkerid == talk_data.sender.id or self._talkerid == talk_data.recverid then
+            self:addPrivateMsg(talk_data.msgstr, talk_data.sender,talk_data.msgtype,talk_data.requestid,talk_data.audioduration)
+            local id = Timer:AddTimerCall(0.26,
+                    function(rst)
+                        self._timer[rst] = nil
+                        self:onPivateScrollBottom()
+                    end)
+            self._timer[id] = 1
+        end
+
+        Player:ReduceHomeLayerData(HomeLayerMsgType.ChatPrivate);
+        Talk:CloseNewMsgFlagById(self._oldTalker)
+    elseif self._showtype == SHOW_TYPE.PrivateList then
+        self.newMsgSender[talk_data.sender.id] = true
+        local item
+        item = self:addTalkerObj(talk_data.sender.id,talk_data.sender.name,talk_data.sender.iconid,talk_data.sender.frameid)
+        self:refreshTalkerObj(item, talk_data.sender.id, talk_data.msgstr, talk_data.sender.id)
+    end
+
+end
+
+function TalkLayer:initPrivateMsgList()
+    --相同聊天记录 不重复加载
+    local haveNew = self.newMsgSender[self._talkerid]
+    self.newMsgSender[self._talkerid] = nil
+    if self._talkerid ~= self._oldTalker or haveNew then
+        clear_obj_children(self._contentObj)
+        local msglist = Talk:LoadTalkMsgById(self._talkerid)
+        if msglist == nil and lua_table_len(msglist) == 0 then
+            return
+        end
+        local selfer = Player:GetTalker()
+        local talker = Talk:GetTalker(self._talkerid)
+        self._txtCurTalkName:SetText(string.format(LanguageMgr:GetTextByID(32031),talker.name));
+        for _, v in ipairs(msglist) do
+            if v[2] == self._talkerid then
+                self:addPrivateMsg(v[3], talker,v.msgtype,v.requestid,v.audioduration)
+            else
+                self:addPrivateMsg(v[3], selfer,v.msgtype,v.requestid,v.audioduration)
+            end
+        end
+        local msgdata = Talk:GetMusicMsg(talker.id)
+        if msgdata ~= nil then
+            local prefab = Groble_ResMgr:Instantiate("prefab_uiTalk/prefab_music", self._contentObj)
+            self:initTalkerMsgObj(prefab, msgdata.msgstr, talker)
+        end
+        local id = Timer:AddTimerCall(0.26,
+                function(rst)
+                    self._timer[rst] = nil
+                    self:onPivateScrollBottom()
+                end)
+        self._timer[id] = 1
+        self._oldTalker = self._talkerid
+    else
+        self._scrPrivateCom.verticalNormalizedPosition = 0
+    end
+end
+
+function TalkLayer:addPrivateMsg(msgstr, sender,msgtype,requestid,audioduration)
+    local prefab
+    if sender.id == Player:GetId() then
+        prefab = Groble_ResMgr:Instantiate("prefab_uiTalk/prefab_self", self._contentObj)
+    else
+        prefab = Groble_ResMgr:Instantiate("prefab_uiTalk/prefab_target", self._contentObj)
+    end
+    -- prefab.transform:SetAsFirstSibling()
+    self:initTalkerMsgObj(prefab, msgstr, sender)
+end
+
+function TalkLayer:onPivateScrollBottom()
+    self._scrPrivateCom:DOVerticalNormalizedPos(0, 0.25)
+end
+
+function TalkLayer:refreshRedTip()
+    if Talk:HasNewTalk() then
+        self._btn3Red:SetVisible(true)
+    else
+        self._btn3Red:SetVisible(false)
+    end
+end
+
+function TalkLayer:refreshEmpty()
+    if self._showtype == SHOW_TYPE.World then
+        local datas = Talk:GetWorldTalk()
+        self._imgEmpty:SetVisible(lua_table_len(datas) == 0)
+    end
+    if self._showtype == SHOW_TYPE.System then
+        local datas = Talk:GetSystemTalk()
+        self._imgEmpty:SetVisible(lua_table_len(datas) == 0)
+    end
+    if self._showtype == SHOW_TYPE.PrivateList then
+        local datas = Talk:GetTalkerList()
+        self._imgEmpty:SetVisible(lua_table_len(datas) == 0)
+    end
+    if self._showtype == SHOW_TYPE.Private then
+        self._imgEmpty:SetVisible(false)
+    end
+end
+
+
+---------------------------------------------------聊天Item--------------------------
+function TalkLayer:OnPlayerCardClick(cls)
+    if cls.pid ~= Player:GetId() then
+        Player:SetReportStr(cls.talkStr);
+        Player:LookInfoReq(cls.player.pid);
+    end
+end
+
+--初始化聊天Item
+function TalkLayer:NewTalkItem(trans)
+    local cls = clsbase:new(trans);
+    cls.player = Player:CtorPlayerIconBorder(cls:Find("trans_player"),function()
+        self:OnPlayerCardClick(cls);
+    end);
+    cls.imgBg = cls:GetImageComponent("img_bg");
+    cls.txtName = cls:GetTextComponent("txt_name");
+    cls.txtMsg = cls:GetTextComponent("txt_msg");
+    cls.infoSystem = cls:Find("info_system");
+
+    cls.selfPlayer = Player:CtorPlayerIconBorder(cls:Find("self_trans_player"));
+    cls.selfImgBg = cls:GetImageComponent("self_img_bg");
+    cls.selfTxtName = cls:GetTextComponent("self_txt_name");
+    cls.selfTxtMsg = cls:GetTextComponent("self_txt_msg");
+
+    cls.imgCutLineBg = cls:GetImageComponent("img_cut_line_bg");
+    cls.txtLineInfo = cls:GetTextComponent("txt_line_info");
+    return cls;
+    end
+
+--设置聊天Item
+function TalkLayer:SetTalkItem(cls,data)
+    local playerId = data.sender.id;
+    local isCurWorldLine = data.talktype == Talk.TYPE_CUT_WORLD_LINE;--是否是切换线路
+    cls.imgCutLineBg:SetEnabled(isCurWorldLine);
+    cls.txtLineInfo:SetEnabled(isCurWorldLine);
+
+    cls.player:Visible(playerId ~= Player:GetId() and not isCurWorldLine);
+    cls.imgBg:SetEnabled(playerId ~= Player:GetId() and not isCurWorldLine);
+    cls.txtName:SetEnabled(playerId ~= Player:GetId() and not isCurWorldLine);
+    cls.txtMsg:SetEnabled(playerId ~= Player:GetId() and not isCurWorldLine);
+    --cls.infoSystem:SetVisible();
+
+    cls.selfPlayer:Visible(playerId == Player:GetId() and not isCurWorldLine);
+    cls.selfImgBg:SetEnabled(playerId == Player:GetId() and not isCurWorldLine);
+    cls.selfTxtName:SetEnabled(playerId == Player:GetId() and not isCurWorldLine);
+    cls.selfTxtMsg:SetEnabled(playerId == Player:GetId() and not isCurWorldLine);
+    if(isCurWorldLine)then--切换线路UI
+        cls.imgCutLineBg:LoadAtlasSprite("source_atlas/atlas_chat_layer", "img_shijie_liaotian_0" .. data.sender.lintState)
+        cls.txtLineInfo:SetText(string.format(LanguageMgr:GetTextByID(32025),data.sender.line,LanguageMgr:GetTextByID(32020 + data.sender.lintState)));
+        return;
+    end
+
+    local h = 0;
+    if(playerId == Player:GetId())then
+        Player:SetPlayerIconBorderObj(cls.selfPlayer, data.sender.iconid, data.sender.frameid,playerId);
+        cls.selfTxtMsg:SetText(data.msgstr);
+        cls.selfTxtName:SetText(data.sender.name);
+        local w = cls.selfTxtMsg.preferredWidth;
+        h = cls.selfTxtMsg.preferredHeight;
+        cls.selfImgBg:SetSize(math.min(w, Talk.TEXT_MAX_WIDTH) + 60, h + 34);
+        if w >= Talk.TEXT_MAX_WIDTH then
+            cls.selfTxtMsg.alignment = TextAnchor.UpperLeft
+        else
+            cls.selfTxtMsg.alignment = TextAnchor.UpperRight
+        end
+    else
+        Player:SetPlayerIconBorderObj(cls.player, data.sender.iconid, data.sender.frameid,playerId);
+        cls.txtMsg:SetText(data.msgstr);
+        cls.talkStr = data.msgstr;
+        cls.txtName:SetText(data.sender.name);
+        local w = cls.txtMsg.preferredWidth;
+        h = cls.txtMsg.preferredHeight;
+        cls.imgBg:SetSize(math.min(w, Talk.TEXT_MAX_WIDTH) + 60, h + 34);
+    end
+    return h;
+end
+
+
+function TalkLayer:onPerSecondUpdate()
+    if(self._isLvLock)then
+        return;
+    end
+    if(self._isLock)then
+
+        self:SetLockState();
+    end
+end
+
+function TalkLayer:SetLockState()
+    self._isLvLock = Player:GetLevel() < Player:GetTalkUnlockLv();
+    self._isLock = self._isLvLock or Talk:GetTalkIsForbid()
+    self._transInputMask:SetVisible(self._isLock or Talk:GetTalkIsForbid());
+    self._inputCom.interactable = not Talk:GetTalkIsForbid();
+    if(Talk:GetTalkIsForbid())then
+        self._txtTalkPlaceholder:SetTextById(32034);
+    else
+        self._txtTalkPlaceholder:SetTextById(32010);
+    end
+end
+
+function TalkLayer:KeyFrameCall(intkey)
+    if intkey == 1 then
+        self._fading = false;
+        --self:playAni("TalkLayerTitleAnim")
+        --self:setSystemTableView()
+    end
+end
+
+return TalkLayer
+

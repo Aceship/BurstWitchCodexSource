@@ -1,0 +1,355 @@
+--
+-- author: cjj
+-- date  : 2019-02-26 17:04:01
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LotteryEffect = class("LotteryEffect", CBaseLayer)
+
+local BUTTON_TYPE = {
+    NextSkip2       = "btn_skip_2",
+    BtnBack         = "btn_back",
+}
+
+function LotteryEffect:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_home/UI_LotteryEffect",
+    }
+    self._fading = false;
+    self._uitype = 2
+    self._lotterying = false
+    self:onEnter()
+end
+
+function LotteryEffect:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE);
+    self._objTips = self.layer:Get("obj_tips").gameObject;
+    self.skipTips = self.layer:Get("skipTips")
+
+    self.skipBtn2 = self.layer:Get(BUTTON_TYPE.NextSkip2);
+    self._transBtnBack = self.layer:Get(BUTTON_TYPE.BtnBack);
+    self.skipTips:SetVisible(false);
+    self.skipBtn2:SetVisible(false);
+    self._transBtnBack:SetVisible(false);
+    self:addEventListener(EVENT_NAME.LOTTRY_RESULT,self.__cname,
+        function(drops)
+            self._drops = drops;
+            local max_qlty = self:GetLotteryMaxQlty(drops)
+            self._effectLevel = LOTTERY_EFFECT.EFFECT_LEVEL1
+            if max_qlty == Bag.QLTY_SSR then
+                self._effectLevel = LOTTERY_EFFECT.EFFECT_LEVEL3
+            elseif max_qlty == Bag.QLTY_SR then
+                self._effectLevel = LOTTERY_EFFECT.EFFECT_LEVEL2
+            end
+            AssetAsyncLoader:LoadResourceAsync(string.format("prefab_uiEffect/M2_lotteryScene/Effect_%s",self._effectLevel),function(obj)
+                if(obj ~= nil)then
+                    self._effect = self._LotteryScene:AddChild(obj);
+                    self._effect:SetVisible(false);
+                end
+                self._canDarg = false;
+                if Guide:IsGuiding() then
+                    self.skipBtn2:SetVisible(false);
+                else
+                    self.skipBtn2:SetVisible(true);
+                end
+                self._transBtnBack:SetVisible(false);
+                self._prefab1:SetVisible(true);
+                self._prefab2:SetVisible(false);
+                Groble_UIMgr:PlayAni(self._camera.gameObject,"cm_Animation_"..self._effectLevel)
+                self._curtainAnimator:SetInteger("quality", self._effectLevel);
+                self._effect:SetVisible(true);
+                self.P_star:SetVisible(false);
+                self.soundPlayer.enabled = false;
+                self._P_l:SetVisible(true);
+            end);
+        end)
+    self:initDrag()
+end
+
+function LotteryEffect:init_scene(showCall)
+    self._lightdir       = self._LotteryScene:Get("M2_Lottery_Light/Character_Light")
+    self._lightdir.transform.rotation = CS.UnityEngine.Quaternion.Euler(0,0,0)
+    self._M2_Lottery_diaoxiang = self._LotteryScene:Get("M2_Lottery_diaoxiang")
+    self._M2_Lottery_diaoxiang:SetVisible(false);
+    AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_lotteryScene/Lottery_enter",
+        function(obj)
+            if obj ~= nil then
+                self._enter_prefab = self._LotteryScene:AddChild(obj);
+                self._enter_prefab:Get("Camera"):AddAnimationBehaviour(self)
+                if showCall ~= nil then
+                    showCall();
+                end
+            else
+                -- load error
+            end
+        end)
+
+    AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_lotteryScene/lottery_star", 
+        function(obj)
+            if obj ~= nil then
+                self._lottery_star = self._LotteryScene:AddChild(obj)
+                self._star_ani     = self._lottery_star:GetComponent("Animation");
+                self.P_star        = self._lottery_star.transform:Find("P_star")
+                self._P_l = self._lottery_star.transform:Find("P_l")
+                self._lottery_star:SetVisible(false);
+            else
+                -- load error
+            end
+        end)
+
+    AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_lotteryScene/Lottery_1", 
+        function(obj)
+            self._newLotteryPrefab = self._LotteryScene:AddChild(obj)
+            self:initNewLottery(self._newLotteryPrefab);
+            self._newLotteryPrefab:SetVisible(false);
+            self.soundPlayer = self._newLotteryPrefab.transform:GetComponent("FmodEmitterLite")
+            --CS.Logger.LogInfo(self._newLotteryPrefab.transform.name.."准备")
+        end)
+
+    self:showLayer()
+end
+
+function LotteryEffect:onExit()
+    if self._newLotteryPrefab ~= nil then
+        self._newLotteryPrefab:Release()
+        self._newLotteryPrefab = nil
+    end
+    
+    self._P_l = nil
+    self.P_star = nil
+    self._star_ani = nil
+    if self._lottery_star ~= nil then
+        self._lottery_star:Release()
+        self._lottery_star = nil
+    end
+    if self._LotteryScene ~= nil then
+        self._LotteryScene:Release()
+        self._LotteryScene = nil
+    end
+    self._finishCall    = nil
+	self.soundPlayer:Stop();
+	self.soundPlayer = nil;
+    self._returnCall = nil;
+    if self.sequence then
+        self.sequence:Kill(false)
+    end
+    self.obj_effect = nil
+    if(self._curtainAnimator ~= nil)then
+        self._curtainAnimator:SetInteger("quality", 0)
+        self._curtainAnimator = nil;
+    end
+    self._effect = nil
+    self._objTips = nil
+    self.skipTips = nil
+    self.skipBtn2 = nil
+    self._transBtnBack = nil
+	--CS.Logger.LogInfo("现在销毁")
+    CBaseLayer.onExit(self)
+end
+
+function LotteryEffect:show(data, showCall, backCall,returnCall)
+
+    self._data = data;
+    self._finishCall = backCall;
+    self._returnCall = returnCall;
+    AssetAsyncLoader:LoadResourceAsync("prefab_uiEffect/M2_lotteryScene/ThatCardInterface",
+        function(obj)
+            if obj ~= nil then
+                self._LotteryScene = Groble_ResMgr:Instantiate(obj);
+                self:init_scene(showCall);
+            else
+                -- load error
+            end
+        end)
+end
+
+function LotteryEffect:initDrag()
+    self.followDrag = false
+    self.obj_effect = self.layer:Get("img_effect/obj_effect")
+    self.obj_effect_Ex = self.layer:Get("img_effect/obj_effect/UI69_tw")
+    self.obj_effect_Ex:SetPosition(0, 0, 0, true)
+    self.obj_effect:SetVisible(false)
+    self.rect_effect = self.layer:GetRectTransformComponent("img_effect/obj_effect")
+    local listener = CS.EventTriggerListener.Get(self.layer:Get("img_effect").gameObject);
+    listener.onBeginDrag = function(data)--开始拖拽回调
+        self.obj_effect:SetVisible(true)
+        self.followDrag = true
+        local temp , worldPos = CS.UnityEngine.RectTransformUtility.ScreenPointToWorldPointInRectangle(self.rect_effect, data.position, data.pressEventCamera);
+        self.obj_effect.transform.position = worldPos
+        if self.sequence then
+            self.sequence:Kill(false)
+        end
+    end;
+
+    listener.onDrag = function(data)--持续拖拽回调
+        local temp , nowPos = CS.UnityEngine.RectTransformUtility.ScreenPointToWorldPointInRectangle(self.rect_effect, data.position, data.pressEventCamera);
+        self.obj_effect:SetPosition(nowPos.x, nowPos.y, nowPos.z or 0) -- .transform.position = nowPos
+        self._transBtnBack:SetVisible(false);
+    end;
+    listener.onEndDrag = function(data)--结束拖拽回调
+        self.followDrag = false
+        self.sequence = CS.DG.Tweening.DOTween.Sequence()
+        self.sequence:AppendInterval(5)
+        self.sequence:AppendCallback(function()
+            if self.followDrag then return end
+            self.obj_effect:SetVisible(false)
+            self.followDrag = false
+        end)
+    end;
+end
+
+function LotteryEffect:onButtonClick(itype)
+    if(itype == BUTTON_TYPE.NextSkip2)then
+        if self._finishCall ~= nil then
+            self._finishCall(self._drops);
+        end
+        self:onExit();
+    elseif(itype == BUTTON_TYPE.BtnBack)then
+        if(self._returnCall ~= nil)then
+            self._returnCall();
+        end
+        self:onExit();
+    end
+end
+
+function LotteryEffect:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+
+-----new 抽卡测试
+function LotteryEffect:initNewLottery(prefab)
+    self._camera = prefab.transform:Find("Camera");
+    self._camera.transform:AddAnimationBehaviour(self)
+    local rotlottery = self._camera.gameObject:AddComponent(typeof(CS.RotLottery))
+    rotlottery:initScript(self)
+	self.played = false
+    self._prefab1 = prefab.transform:Find("M2_WheelofFortune_skin")
+    self._prefab2 = prefab.transform:Find("LotterySkin")
+    self._lotteryPrefab = self._prefab2.transform:Find("ani_xingpan")
+    self._lotteryZhiZhen = self._prefab2.transform:Find("ani_zhizhen")
+    self._curtainAnimator = self._prefab1:GetComponent("Animator")
+	--self._soundEmitter = prefab:GetComponent("FmodEmitterLite")
+	--self._soundEmitter:Play()
+    -----------------------
+    self._dragPower = 0;
+    self._maxDargAngel = 1440;
+    self._canDarg   = true;
+
+end
+function LotteryEffect:onJudgeUp()
+
+    if self._canDarg == false then
+        return;
+    end
+
+	self.soundPlayer:Stop();
+	self.played = false;
+
+    if self._dragPower <= 5 then
+        if Guide:IsGuiding() or Lottery:IsNewLottery() then
+            self._transBtnBack:SetVisible(false);
+        else
+            self._transBtnBack:SetVisible(true);
+        end
+        return;
+    end
+    if self._lotterying then return end
+
+    self._lotterying = true
+    Lottery:LotteryReq(self._data.poolid, self._data.cost_cfgid, self._data.cost_count);
+end
+function LotteryEffect:onJudge(isJudge)
+    if self._canDarg == false then
+        return;
+    end
+
+	if self.played ~= true then
+		self.soundPlayer:Play();
+		self.played = true;
+	end
+    if(self._objTips.activeInHierarchy)then
+        self._objTips:SetVisible(false);
+    end
+    local axis = math.abs(Groble_SceneMgr:GetAxis("Mouse X")) + math.abs(Groble_SceneMgr:GetAxis("Mouse Y"))
+    if isJudge then
+        self._dragPower = self._dragPower + axis * 8 * (1 - self._dragPower/self._maxDargAngel)
+
+    else
+        self._dragPower = self._dragPower - axis * 12 * (1 - self._dragPower/self._maxDargAngel)
+    end
+
+    self._lotteryPrefab.transform.rotation = CS.UnityEngine.Quaternion.Euler(0, 0, self._dragPower);
+    self._lotteryZhiZhen.transform.rotation = CS.UnityEngine.Quaternion.Euler(0, 0, -self._dragPower);
+    if self._dragPower >= self._maxDargAngel - 60 then
+        self._dragPower = self._maxDargAngel - 65;
+    end
+    if self._dragPower <= 0 then
+        self._dragPower = 0;
+    end
+    self:onJudgeEffect(self._dragPower/self._maxDargAngel)
+end
+function LotteryEffect:onJudgeEffect(rate)
+    self._lightdir.transform.rotation = CS.UnityEngine.Quaternion.Euler(0,0,self._dragPower)
+    -- AppMgr:LogInfo("rate现在是:"..rate)
+	self.soundPlayer:SetParameter("Drag",rate)
+	Groble_SceneMgr:playAniByTimes(self._star_ani,"effect_star",rate)
+end
+function LotteryEffect:playsound()
+	if self.soundPlayer ~= nil then
+		self.soundPlayer:Play();
+	end
+end
+
+function LotteryEffect:GetLotteryMaxQlty(drops)
+    local max_qlty = Bag.QLTY_N
+    for _, v in pairs(drops) do
+        local qlty = Bag.QLTY_N
+        if v.u_type == Bag.TYPE_HERO then
+            local cfg = Hero:GetCfg(v.id)
+            qlty = tonumber(cfg.Quality)
+        elseif v.u_type == Bag.TYPE_ITEM then
+            local cfg = Item:GetCfg(v.id)
+            qlty = tonumber(cfg.Quality)
+        elseif v.u_type == Bag.TYPE_EQUIP then
+            local cfg = Equip:GetCfg(v.id)
+            qlty = tonumber(cfg.Quality)
+        end
+        if qlty > max_qlty then
+            max_qlty = qlty
+        end
+    end
+    return max_qlty
+end
+
+function LotteryEffect:KeyFrameCall(keyTag)
+    if 10 == keyTag then
+        self:OnScreenChangeOut()
+    elseif 11 == keyTag then
+        if self._finishCall ~= nil then
+            self._finishCall(self._drops);
+            self:onExit();
+        end
+    end
+end
+
+function LotteryEffect:OnScreenChangeOut()
+    self._objTips:SetVisible(true);
+    if Guide:IsGuiding() or Lottery:IsNewLottery() then
+        self._transBtnBack:SetVisible(false);
+    else
+        self._transBtnBack:SetVisible(true);
+    end
+    self._newLotteryPrefab:SetVisible(true);
+    self:playAni("LotteryTipsAnim");
+    if self._enter_prefab ~= nil then
+        self._enter_prefab:Release();
+        self._enter_prefab = ni;
+    end
+    self._M2_Lottery_diaoxiang:SetVisible(true);
+    self._lottery_star:SetVisible(true);
+end
+
+return LotteryEffect

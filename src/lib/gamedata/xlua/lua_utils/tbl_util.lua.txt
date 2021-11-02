@@ -1,0 +1,295 @@
+--
+-- author: haosun
+-- date  : 2016-06-26 16:43:40
+-- brief : table tools
+--
+
+-- 
+-- brief  Table中所有的Key集合
+-- param  表
+-- return Table(key集合)
+-- 
+function lua_table_keys(hashtable)
+    local keys = {}
+    for k, v in pairs(hashtable) do
+        keys[#keys + 1] = k
+    end
+    return keys
+end
+
+-- 
+-- brief  Table中所有的Value集合
+-- param  表
+-- return Table(表中value集合)
+-- 
+function lua_table_values(hashtable)
+    local values = {}
+    for k, v in pairs(hashtable) do
+        values[#values + 1] = v
+    end
+    return values
+end
+
+-- 
+-- brief  计算表的长度
+-- param  表
+-- return number(表的大小)
+-- 
+function lua_table_len(hashtable)
+    local _count = 0
+    if type(hashtable) ~= "table" then
+        return 0
+    end
+    for _, v in pairs(hashtable) do
+        if v then
+            _count = _count + 1
+        end
+    end
+    return _count
+end
+
+-- 
+-- brief  判断表是否为空
+-- param  表
+-- return 
+-- 
+function lua_table_empty(hashtable)
+    if type(hashtable) ~= "table" then
+        return true
+    end
+    
+    return lua_table_len(hashtable) == 0
+end
+
+-- 
+-- brief  元素在表中的对应Key
+-- param  表,判断的值
+-- return key(nil表示元素不在表中)
+-- 
+function lua_table_keyof(hashtable, value)
+    if value == nil then
+        return nil
+    end
+    for k, v in pairs(hashtable) do
+        if v == value then
+            return k
+        end
+    end
+    return nil
+end
+
+-- 
+-- brief  元素在表中的对应下标
+-- param  数组、值、查找的起始位置
+-- return number(-1表示元素不在表中)
+-- 
+function lua_table_indexof(array, value, begin)
+    if value == nil then
+        return -1
+    end
+    for i = begin or 1, #array do
+        if array[i] == value then
+            return i
+        end
+    end
+    return -1
+end
+
+-- 
+-- brief  元素是否在表中
+-- param  表,判断的值
+-- return Bool(true在表中，false不在表中)
+-- 
+function lua_value_in_tbl(value, t)
+    if value == nil then
+        return false
+    end
+    for _, v in pairs(t) do
+        if v == value then
+            return true
+        end
+    end
+    return false
+end
+
+--
+-- brief  删除数组的指定元素
+-- param  表, 要删除的值, 是否删除所有的指定值
+-- return number(删除的次数)
+--
+function lua_table_removebyvalue(array, value, removeall)
+    local c, i, max = 0, 1, #array
+    while i <= max do
+        if array[i] == value then
+            table.remove(array, i)
+            c = c + 1
+            i = i - 1
+            max = max - 1
+            if not removeall then
+                break
+            end
+        end
+        i = i + 1
+    end
+    return c
+end
+
+-- 
+-- brief  浅拷贝
+-- param  表
+-- return table
+-- 
+function lua_shallow_copy(object)
+    local newObject
+    if type(object) == "table" then
+        newObject = {}
+        for key, value in pairs(object) do
+            newObject[key] = value
+        end
+    else
+        newObject = object
+    end
+    return newObject
+end
+
+--
+-- brief  深拷贝
+-- param  表
+-- return table
+-- 
+function lua_deep_copy(object)
+    local lookup = {}
+    local function _copy(object)
+        if type(object) ~= "table" then
+            return object
+        elseif lookup[object] then
+            return lookup[object]
+        end
+        local newObject = {}
+        lookup[object] = newObject
+        for key, value in pairs(object) do
+            newObject[_copy(key)] = _copy(value)
+        end
+        return setmetatable(newObject, getmetatable(object))
+    end
+    return _copy(object)
+end
+
+--
+-- brief  合并Table:数组类型的table合并，如果是复杂的table需要判断是否有相同的Key 
+-- param  表1，表2，...
+-- return table
+-- 
+function lua_merge_tables(is_copy, ...)
+    local tabs = is_copy and lua_deep_copy({...}) or {...}
+    if not tabs then 
+        return {}
+    end 
+    local result = tabs[1]
+    for i = 2, #tabs do 
+        if result then 
+            if tabs[i] then 
+                for _, v in pairs(tabs[i]) do 
+                    table.insert(result, v) 
+                end
+            end              
+        else
+            result = tabs[i]
+        end 
+    end 
+    return result
+end
+
+--
+-- brief  打印表
+-- param  表
+-- return 
+-- 
+function lua_table_print(hashtable)
+    if lua_table_len(hashtable) == 0 then
+        print("lua表为空")
+        return
+    end
+    local print_r_cache = {}
+    local temp = {}
+    table.insert(temp, "{")
+    local function _dump(t, indent)
+        print_r_cache[tostring(t)] = true
+        if type(t) == "table" then
+            for key, value in pairs(t) do
+                if type(value) == "table" then
+                    table.insert(temp, indent .. "[".. key .."] => " .. tostring(value).." {")
+                    _dump(value, indent)
+                    table.insert(temp, indent .. "}")
+                elseif type(value) == "string" then
+                    table.insert(temp, indent .. "[" .. key .. "] => " .. value)
+                else
+                    table.insert(temp, indent .. "[" .. key .. "] => " ..tostring(value))
+                end
+            end
+        else
+            table.insert(temp, indent ..tostring(t))
+        end
+        return table.concat(temp, "")
+    end
+    
+    CS.Logger.LogInfo(_dump(hashtable, "  ") .. " }")
+end
+
+function lua_table_serialize(t)
+    local mark={}
+
+    local function __serialize_string(str)
+        str = string.gsub(str, "\\", "\\\\");
+        str = string.gsub(str, '"', '\\"');
+        str = string.gsub(str, "\n", "\\n");
+        str = string.gsub(str, "\r", "\\r");
+        return '"'..str..'"';
+    end
+
+    local function __serialize(o)
+        local otype = type(o)
+        if otype == "nil" then
+            return "nil"
+        elseif otype == "boolean" then
+            return (o and "true" or "false")
+        elseif otype == "number" then  
+            return tostring(o)
+        elseif otype == "string" then
+            return __serialize_string(o)
+        elseif (szType == "function") then
+            local code = string.dump(o)
+            local bytes = {string.byte(code, i, #code)}
+            code = ""
+            for i = 1, #bytes do
+                code = code..'\\'..bytes[i]
+            end
+            return 'loadstring("'..code..'")'
+        elseif otype == "table" then
+            if not mark[o] then
+                mark[o] = true
+                local temp={}
+                for k,v in pairs(o) do 
+                    table.insert(temp, string.format('[%s] = %s', __serialize(k), __serialize(v)))
+                end
+                return "{"..table.concat(temp,",").."}"
+            else
+                return '"endless loop"';
+            end
+        else
+            return '"' .. tostring(o) .. '"';
+        end
+    end
+    
+    return __serialize(t)
+end
+
+-- 反序列化
+function lua_table_unserialize(value)  
+    local f = load("do local ret="..value.." return ret end")
+    if f then
+        return f()
+    end
+end
+
+table.print = table.print or lua_table_print

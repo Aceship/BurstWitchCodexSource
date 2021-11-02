@@ -1,0 +1,242 @@
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local LotteryPreviewLayer = class("LotteryPreviewLayer", CBaseLayer)
+
+local QltySpine = {
+    [Bag.QLTY_UTR] = { name = "spine_ur", prefab = "prefab_item_spine/spine_qlty_ur"},
+    [Bag.QLTY_SSR] = { name = "spine_ssr", prefab = "prefab_item_spine/spine_qlty_ssr"},
+    [Bag.QLTY_SR] = { name = "spine_sr", prefab = "prefab_item_spine/spine_qlty_sr"},
+}
+
+local line_nums = 5
+function LotteryPreviewLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_LotteryPreviewLayer",
+    }
+
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_DEF,
+    }
+
+    self._uitype = 2
+    self._fading = false
+
+    self.items = {}
+    self.list = {}
+    self.rate = {}
+
+    self:onEnter()
+end
+
+function LotteryPreviewLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    -- self:registerButtonEvent()
+    -- self:registerToggleEvent()
+end
+
+function LotteryPreviewLayer:show(id)
+    self._fading = false
+    self.lotteryid = id
+    self:showLayer()
+    self:refreshHero(id)
+end
+
+function LotteryPreviewLayer:initObj()
+    local this = self
+    self.items = {}
+    for i = 1, 5 do
+        local item = {}
+        item.lines = {}
+        item.gameObject = self.layer:Get(string.format("container/scrollview/viewport/content/obj_grid_%d", i))
+        item.obj_line   = item.gameObject:Get("obj_line")
+        item.txt_rate   = item.gameObject:GetTextComponent("txt_rate")
+        item.txt_rate1  = item.gameObject:GetTextComponent("txt_rate_tips")
+        item.img_qlty   = item.gameObject:GetImageComponent("image_qlty")
+        item.obj_qlty   = item.gameObject:Get("image_qlty")
+        item.spine      = nil
+
+        local function getItemLine(index, qlty)
+            if not item.lines[index] then
+                local cells = {}
+                cells.gameObject = Groble_ResMgr:Instantiate(item.obj_line, item.gameObject.transform)
+                cells.gameObject:SetVisible(true)
+                for j = 1, line_nums do
+                    cells[j] = {}
+                    cells[j].gameObject = cells.gameObject:Get(string.format("item_%d", j))
+                    cells[j].hObj       = cells[j].gameObject:Get("item")
+                    cells[j].img_bg     = cells[j].gameObject:GetImageComponent("item/img_bg")
+                    cells[j].img_icon   = cells[j].gameObject:GetImageComponent("item/img_icon")
+                    cells[j].img_border = cells[j].gameObject:GetImageComponent("item/img_border")
+                    cells[j].obj_border = cells[j].gameObject:Get("item/img_border")
+                    cells[j].img_attr   = cells[j].gameObject:GetImageComponent("item/img_attrBg/img_attr")
+                    cells[j].button     = cells[j].gameObject:GetButtonComponent("item")
+                    cells[j].txt_name   = cells[j].gameObject:GetTextComponent("item/txt_name")
+                    cells[j].obj_up     = cells[j].gameObject:Get("item/img_up")
+
+                    cells[j].hObj.name  = "basic" -- TODO
+                    cells[j].button.onClick:AddListener(function()
+                        local _index = (index - 1) * line_nums + j
+                        if not this.list[qlty] or not this.list[qlty][_index] then return end
+
+                        local heroid = this.list[qlty][_index].id;
+                        Hero:OpenWitchHeroSkillLayer(heroid)
+                        --core.require("xlua/lua_UI/Witch/WitchHeroLayer.txt"):new():show(heroid)
+                        self:onBackClick()
+                    end)
+                end
+                item.lines[index] = cells
+            end
+            return item.lines[index]
+        end
+
+        function item:Refresh()
+            local count = this.list[i] and #this.list[i] or 0
+            self.gameObject:SetVisible(count > 0)
+            if count == 0 then return end
+
+            local _l = math.ceil(count / line_nums)
+            self.gameObject:SetSizeY(210 + _l * 200)
+            -- self.txt_rate:SetText(string.format("%d%%", math.floor(rate + 0.5)))
+            self.txt_rate:SetText(Lottery:GetLotteryRate(this.lotteryid, i))
+            self.txt_rate1:SetText(Lottery:GetLotteryShowCfg(this.lotteryid).tips[i] or "")
+
+            if self.spine then
+                u3d_destory_obj(self.spine)
+            end
+            self.img_qlty:SetImageColor(1, 1, 1, 1)
+            self.img_qlty.sprite = AtlasMgr:LoadHeroQlty(i)
+            self.img_qlty:ResetSize()
+            if QltySpine[i] then
+                self.spine = self.obj_qlty:CreateChild(QltySpine[i].prefab)
+                self.spine.name = QltySpine[i].name
+                self.spine:SetVisible(true)
+            end
+
+            for j = 1, _l do
+                local cells = getItemLine(j, i)
+                cells.gameObject:SetPosition(0, 70 - j * 200, 0, true)
+                for k = 1, line_nums do
+                    local _i = (j - 1) * line_nums + k
+                    local show = _i <= count
+                    cells[k].gameObject:SetVisible(show)
+                    if show then
+                        if not cells[k].hero then
+                            cells[k].hero = Hero:CtorHeroCObj(cells[k].gameObject)
+                        end
+                        local heroID = this.list[i][_i].id
+                        local heroDB = Hero:GetHero(heroID)
+                        Hero:SetHeroCObj(cells[k].hero, heroDB, nil, true)
+                        --Hero:SetHeroHeadSprite(cells[k].img_icon, heroID, false, true, false)
+                        cells[k].txt_name:SetText(heroDB.config.Name)
+                        local size = 1
+                        local qlty = tonumber(Hero:GetCfg(heroID).Quality)
+                        if qlty == Bag.QLTY_SR or qlty == Bag.QLTY_SSR or qlty == Bag.QLTY_UTR then
+                            size = 0.56
+                        end
+                        cells[k].obj_border:SetScale(size, size, size)
+
+                        local isUP = Lottery:HeroIsUP(this.lotteryid, tonumber(heroID))
+                        cells[k].obj_up:SetVisible(isUP)
+                    end
+                end
+            end
+
+        end
+
+        self.items[i] = item
+    end
+end
+
+function LotteryPreviewLayer:refreshHero(id)
+    local typeCfg = Lottery:GetLotteryTypeCfg(id)
+
+    self.list = {}
+    self.rate = {}
+
+    local db = Lottery:GetLotteryDropShowById(id)
+
+    if not db then
+        for i = 1, 5 do
+            self.items[i]:Refresh()
+        end
+        return
+    end
+
+    local datas = lua_str_split(db.drop, "|")
+
+    for k, v in pairs(db) do
+        local hero = {}
+        hero.id = tonumber(v.id)
+        hero.quality = tonumber(Hero:GetCfg(hero.id).Quality)
+        if not self.list[hero.quality] then
+            self.list[hero.quality] = {}
+        end
+        if not self.rate[hero.quality] then
+            self.rate[hero.quality] = 0
+        end
+        table.insert(self.list[hero.quality], hero)
+    end
+
+    for qlty, list in pairs(self.list) do
+        table.sort(list, function(a, b)
+            local upA = Lottery:HeroIsUP(id, a.id)
+            local upB = Lottery:HeroIsUP(id, b.id)
+            if upA == upB then
+                return a.id < b.id
+            else
+                if upA then
+                    return true
+                elseif upB then
+                    return false
+                end
+            end
+        end)
+    end
+
+    for k, v in pairs(self.rate) do
+        self.rate[k] = Lottery:GetLotteryRate(id, k)
+    end
+
+    for i = 1, 5 do
+        self.items[i]:Refresh()
+    end
+end
+
+
+function LotteryPreviewLayer:onBackClick()
+    self:onPopLayer()
+end
+
+
+function LotteryPreviewLayer:onExit()
+    for i = 1, 5 do
+        if self.items[i].spine then
+            u3d_destory_obj(self.items[i].spine)
+        end
+
+        local line = self.items[i].lines
+        if line then
+            for k, v in pairs(line) do
+                if v.gameObject then
+                    u3d_destory_obj(v.gameObject)
+                    v.gameObject = nil
+                end
+            end
+        end
+    end
+    self._uitype    = nil
+    self._fading    = nil
+    self._topData   = nil
+    self._bgData    = nil
+
+    self.items      = nil
+    self.list       = nil
+    self.rate       = nil
+
+
+    CBaseLayer.onExit(self)
+end
+
+return LotteryPreviewLayer

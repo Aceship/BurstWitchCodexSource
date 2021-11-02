@@ -1,0 +1,21 @@
+--
+-- author: haosun
+-- date  : 2021-07-08 17:13:24
+-- brief : 魔女笔记
+--
+Activity = Activity or {}
+
+function Activity:InitWitchBook()
+end
+
+function Activity:IsExistWitchBookOper()
+    local cfg = Operation:GetActiveCfgByUID(Operation.ActivityID.WitchBook)
+    for _, v in ipairs(cfg.charges) do
+        if Operation:GetWitchBookRedStateById(v) then
+            AppMgr:LogInfo("-------------------魔女手册红点-------------------")
+            return true;
+        end
+    end
+    return false
+end
+

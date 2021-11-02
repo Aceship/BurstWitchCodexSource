@@ -1,0 +1,268 @@
+---
+--- Author:admin
+--- Create Time:2021-09-14 21:09:30
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SixthSealLayer = class("SixthSealLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    back = "button_back"
+}
+--构造函数
+function SixthSealLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_SixthSealLayer"
+    }
+    self._topData = {
+        showBtnBack = false,
+        --返回按钮
+        showPlayerInfo = false,
+        --玩家信息
+        showTopInfo = true,
+        --顶部货币菜单栏
+        topInfo = {}
+        --货币类型
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false
+    self._binstack = true
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function SixthSealLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+--按钮事件
+function SixthSealLayer:onButtonClick(itype)
+    if (itype == BTNS.BtnBack) then
+        self:OnBtnReturnClick()
+    end
+end
+--初始化
+function SixthSealLayer:Init()
+    self:InitUI()
+    self:InitData()
+end
+function SixthSealLayer:InitData()
+    self._rewardData = Activity:GetSixthSealRewardArray()
+    self:GetCurDay();
+end
+function SixthSealLayer:GetCurDay()
+    self._curServerDay = Activity:GetCurSixthSealDay()
+    if self._curServerDay > #self._rewardData then
+        self._curServerDay = #self._rewardData
+    elseif self._curServerDay < 1  then
+        self._curServerDay = 1
+    end
+end
+--初始化UI
+function SixthSealLayer:InitUI()
+    self._objVideoPlayer = self.layer:Get("obj_video_player").gameObject
+    self._imgTitle = self.layer:GetImageComponent("trans_title/imgTitle")
+    self._txtDes = self.layer:GetTextComponent("trans_title/txt_des")
+    self._txtDay = self.layer:GetTextComponent("trans_title/txt_day")
+    self._txtDayShow = self.layer:GetTextComponent("trans_title/txt_dayshow")
+    self._cellItem = self.layer:Get("itemhide/cell_item").gameObject
+    self._aniSixthSeal = self.layer:Get("ani_sixth_seal")
+    self._txt1 = self.layer:GetTextComponent("ani_sixth_seal/root/txt_1")
+    self._txt2 = self.layer:GetTextComponent("ani_sixth_seal/root/txt_2")
+    self._txt3 = self.layer:GetTextComponent("ani_sixth_seal/root/txt_3")
+
+    self._video_player = self._objVideoPlayer:GetComponent("CriVideoHelper")
+
+    local rect = self._objVideoPlayer:GetComponent("RectTransform")
+    local size = rect.rect.size
+    local sizeDelta = rect.sizeDelta
+    sizeDelta.x = size.y * 9 / 15
+    rect.sizeDelta = sizeDelta
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+function SixthSealLayer:IsFirstEnter() --判断是否是第一次进入第六封印
+    self._video_player:SetVideoClip("CriVideo/" .. self._rewardData[self._curServerDay].cfg.Video)
+    Groble_SoundMgr:PlayBgm(self._rewardData[self._curServerDay].cfg.Sound)
+    -- local flag = PrefsController:IsFirstEnterSxithSeal()
+    -- if flag == false then
+    local Blankscreentext = self._rewardData[self._curServerDay].cfg.Blankscreentext[1]
+
+    local str1 = string.gsub(LanguageMgr:GetTextByID(Blankscreentext[1]), "\\n", "\n")
+    local str2 = string.gsub(LanguageMgr:GetTextByID(Blankscreentext[2]), "\\n", "\n")
+    local str3 = string.gsub(LanguageMgr:GetTextByID(Blankscreentext[3]), "\\n", "\n")
+    self._txt1:SetText(str1)
+    self._txt2:SetText(str2)
+    self._txt3:SetText(str3)
+    -- PrefsController:SetFirstEnterSxithSeal()
+    -- self._aniSixthSeal:SetVisible(true)
+    -- end
+end
+
+--显示UI
+function SixthSealLayer:show()
+    self:showLayer()
+
+    self:IsFirstEnter()
+
+    self:InitSixthSealLayer()
+
+    self:InitAwardItem()
+
+    self:UpdateAwardState()
+end
+
+--退出按钮事件
+function SixthSealLayer:onBackClick()
+    Groble_SoundMgr:PlayBgm(301002)
+    self:onPopLayer()
+end
+
+--释放
+function SixthSealLayer:onExit()
+    --@CloseEnd
+    self._objVideoPlayer = nil
+    self._imgTitle = nil
+    self._txtDes = nil
+    self._txtDay = nil
+    self._cellItem = nil
+    self._aniSixthSeal = nil
+    self._txt1 = nil
+    self._txt2 = nil
+    self._txt3 = nil
+    self._rewardData = nil
+    self._curServerDay = nil
+    self._video_player:ClearVideoClip()
+    self._video_player = nil
+    CBaseLayer.onExit(self)
+end
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function SixthSealLayer:RegisterHandler()
+    self:addEventListener(
+        EVENT_TYPE.GET_SIXTH_SEAL_AWARD_SUCCESS_REQ,
+        self.__cname,
+        function(day)
+            self:UpdateAwardState()
+        end
+    )
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function SixthSealLayer:OnBtnReturnClick()
+    self:onBackClick()
+end
+--初始化整个界面
+function SixthSealLayer:InitSixthSealLayer()
+    local TitleIcon = self._rewardData[self._curServerDay].cfg.TitleIcon
+    self._imgTitle:LoadSprite(TitleIcon[1])
+    self._imgTitle:ResetSize()
+    self._imgTitle.transform:SetPosition(tonumber(TitleIcon[2]),tonumber(TitleIcon[3]),0,true)
+    local tempScale =tonumber(TitleIcon[4])
+    self._imgTitle.transform:SetScale(tempScale,tempScale,tempScale)
+    local effect = self._imgTitle.transform:CreateChild(self._rewardData[self._curServerDay].cfg.TitleIcon_effect)
+    effect:SetPosition(0, 0, 0, true)
+
+    self._txtDes:SetText(LanguageMgr:GetTextByID(self._rewardData[self._curServerDay].cfg.UItextTitle))
+    self._txtDay:SetText(#self._rewardData - self._curServerDay + 1)
+    self._txtDayShow:SetText(LanguageMgr:GetTextByID(self._rewardData[self._curServerDay].cfg.UItextSubtitle))
+end
+
+--初始化奖励列表Item
+function SixthSealLayer:InitAwardItem()
+    local _trans
+    local prefab
+    local _transContent = self.layer:Get("Buttom/trans_content")
+    local _cellItem = self.layer:Get("itemhide/cell_item").gameObject
+    self._sixthSealItems = {}
+    local tmpCell = nil
+    for i = 1, #self._rewardData do
+        tmpCell = {}
+        prefab = _transContent:AddChild(_cellItem)
+
+        tmpCell._imgHeight = prefab:GetImageComponent("img_height")
+
+        tmpCell._txtDate = prefab:GetTextComponent("txt_date")
+        tmpCell._txtHeight = prefab:GetTextComponent("txt_height")
+        tmpCell._txtDayShow = prefab:GetTextComponent("txt_dayShow")
+
+        local cls = Bag:CtorComSimpleGoodsUi(prefab:Get("obj_item"))
+
+        tmpCell._imgNotGet = prefab:GetImageComponent("obj_item/img_not_get")
+        tmpCell._imgGet = prefab:GetImageComponent("obj_item/img_get")
+        tmpCell._effect = prefab:Get("obj_item/effect")
+
+        tmpCell._btn = prefab:GetButtonComponent("btn_get")
+        tmpCell._btn.onClick:AddListener(
+            function()
+                if (Activity:GetSixthSealState()) then
+                    self:OnBtnGetAwardClick(i)
+                else
+                    Groble_UIMgr:LocateToLayer(LayerType_Home)
+                    Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90099))
+                end
+            end
+        )
+        if i == #self._rewardData then
+            tmpCell._imgHeight:SetVisible(false)
+        end
+
+        tmpCell._txtDate:SetText(LanguageMgr:GetTextByID(self._rewardData[i].cfg.UItext1))
+        tmpCell._txtHeight:SetText(LanguageMgr:GetTextByID(self._rewardData[i].cfg.UItext2))
+        tmpCell._txtDayShow:SetText("DAY  " .. i)
+
+        tmpCell._txtDate:SetTextColor(81 / 255, 81 / 255, 81 / 255, 1)
+        tmpCell._txtHeight:SetTextColor(81 / 255, 81 / 255, 81 / 255, 1)
+
+        local reward = self._rewardData[i].cfg.itemAwards[1]
+        Bag:SetComSimpleGoodsUi(cls, reward[1], reward[2], reward[3])
+
+        tmpCell._imgNotGet:SetVisible(false)
+        tmpCell._imgGet:SetVisible(false)
+        tmpCell._effect:SetVisible(false)
+        self._sixthSealItems[i] = tmpCell
+    end
+end
+function SixthSealLayer:OnBtnGetAwardClick(day)
+    Activity:GetSixthSealAwardReq(day)
+end
+
+function SixthSealLayer:UpdateAwardState()
+    self:GetCurDay();
+    local notice = Activity:GetSixthSealNotice()
+    for i = 1, self._curServerDay do
+        if notice[i] ~= nil then
+            self._sixthSealItems[i]._txtDate:SetTextColor(81 / 255, 81 / 255, 81 / 255, 1)
+            self._sixthSealItems[i]._txtHeight:SetTextColor(81 / 255, 81 / 255, 81 / 255, 1)
+            self._sixthSealItems[i]._txtDayShow:SetTextColor(81 / 255, 81 / 255, 81 / 255, 1)
+            self._sixthSealItems[i]._imgNotGet:SetVisible(notice[i])
+            self._sixthSealItems[i]._imgGet:SetVisible(notice[i])
+            self._sixthSealItems[i]._effect:SetVisible(not notice[i])
+            self._sixthSealItems[i]._btn.transform:SetVisible(not notice[i])
+        else
+            self._sixthSealItems[i]._txtDate:SetTextColor(1, 1, 1, 1)
+            self._sixthSealItems[i]._txtHeight:SetTextColor(1, 1, 1, 1)
+            self._sixthSealItems[i]._effect:SetVisible(true)
+            self._sixthSealItems[i]._btn.transform:SetVisible(true)
+        end
+    end
+end
+
+return SixthSealLayer

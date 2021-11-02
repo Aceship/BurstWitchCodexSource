@@ -1,0 +1,43 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-07-30 10:47:49
+---
+Stats = Stats or {}
+
+function Stats:_onUpdateData(id, cnt)
+    if self._StatisticsQuest[id] ~= nil then
+        self._StatisticsQuest[id].Count = cnt
+        self._StatisticsQuest[id].Inited = true
+    else
+        AppMgr:LogInfo("！！！！！！！！！！！！！！！！找不到统计数据ID = " .. id)
+    end
+end
+
+function Stats:SyncStats(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步统计数据----------")
+    -- clear old data
+    for _, data in pairs(self._StatisticsQuest) do
+        data.Count = 0
+        data.Inited = false
+    end
+
+    for id, cnt in pairs(data) do
+        self:_onUpdateData(id, cnt)
+    end
+end
+
+function Stats:UpdateStateData(data)
+    for id, cnt in pairs(data) do
+        self:_onUpdateData(id, cnt)
+        self:_onUpdateTasks(self:GetStatisticsQuestConfig(id))
+    end
+    -- 任务红点提示
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.TASK_RECV_NOTIFY)
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.STATISTICS_DATA_SYNC]               = {Stats,Stats.SyncStats}
+c2s[c2s.STATISTICS_DATA_CHANGE_NTF]         = {Stats,Stats.UpdateStateData}

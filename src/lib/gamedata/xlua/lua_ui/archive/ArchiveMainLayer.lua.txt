@@ -1,0 +1,220 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-03 16:25:54
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ArchiveMainLayer = class("ArchiveMainLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+
+local TogType =
+{
+    Photo = 1,      --相册
+    Archive = 2,    --图鉴
+    Fetter = 3,     --羁绊
+}
+
+--构造函数
+function ArchiveMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_ArchiveMainLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._bgData = {
+        showEffect  = true,
+        bgType      = BackBgPath.DEF,
+    }
+    self._addStack = true;
+    self._fading = false;
+    self._init = true;
+    self._hideOtherLayer = true;
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ArchiveMainLayer:onEnter()
+    self:createPnl();
+    CS.UnityHelper.NotchfitY(self.layer:Get("container"), 0, true)
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ArchiveMainLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--退出按钮事件
+function ArchiveMainLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function ArchiveMainLayer:Init()
+    self._allLayers = {};
+    self._selectType = nil;
+    self._selectTog = nil;
+    self:InitUI();
+end
+
+--初始化UI
+function ArchiveMainLayer:InitUI()
+
+    --@ImageEnd
+
+    self._txtTitle = self.layer:GetTextComponent("trans_title/txt_title");
+    self._txtTitleE = self.layer:GetTextComponent("trans_title/txt_title_E");
+    --@TextEnd
+
+    self._transUIParent = self.layer:Get("container/ui_parent");
+    --@TransformEnd
+
+    self._objTogBg = self.layer:Get("container/obj_tog_bg").gameObject;
+    --@GameObjectEnd
+
+    self._mTogArchive = self.layer:GetMToggleComponent("container/obj_tog_bg/tog_archive");
+    self._mTogFetter = self.layer:GetMToggleComponent("container/obj_tog_bg/tog_fetter");
+    self._mTogPhoto = self.layer:GetMToggleComponent("container/obj_tog_bg/tog_Photo");
+    --@MToggleEnd
+
+    self._mTogArchive.onValueChanged:AddListener(function (isOn)
+        self:OnTogArchiveClick(isOn);
+    end);
+    self._mTogFetter.onValueChanged:AddListener(function (isOn)
+        self:OnTogFetterClick(isOn);
+    end);
+    self._mTogPhoto.onValueChanged:AddListener(function (isOn)
+        self:OnTogPhotoClick(isOn);
+    end);
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function ArchiveMainLayer:show()
+    self._mTogArchive.isOn = true;
+    self:OnTogArchiveClick(true);
+    self:showLayer();
+    Guide:OpenGuideEvent(Guide.FIRST_OPEN_COLLECT)
+    self.layer:DelayCall(0.4, function()
+        self:onLayerFadeInEndCall()
+    end)
+end
+
+function ArchiveMainLayer:showLayer()
+    if(self._selectTog ~= nil)then
+        self:SetBottomUIState(true);
+        self._selectTog.isOn = true;
+    end
+    self:playAni("ArchiveMainLayerAni2");
+    self:playAni("ArchiveMainLayerTitleAnim");
+    if(not self._init)then
+        self._allLayers[self._selectType]:showLayer();
+    else
+        self._init = false;
+    end
+    CBaseLayer.showLayer(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+function ArchiveMainLayer:OnTogArchiveClick(isOn)
+    if(isOn)then
+        if(self._selectType ~= TogType.Archive)then
+            self._selectType = TogType.Archive;
+            self._selectTog = self._mTogArchive;
+            if(self._allLayers[TogType.Archive] == nil)then
+                self._allLayers[TogType.Archive] = core.require("xlua/lua_UI/Archive/ArchiveLayer.txt"):new(self._transUIParent);
+            end
+            self:CetSelectTogClick();
+        end
+    end
+end
+function ArchiveMainLayer:OnTogFetterClick(isOn)
+    if(isOn)then
+        if(self._selectType ~= TogType.Fetter)then
+            self._selectTog = self._mTogFetter;
+            self._selectType = TogType.Fetter;
+            if(self._allLayers[TogType.Fetter] == nil)then
+                self._allLayers[TogType.Fetter] = core.require("xlua/lua_UI/LibraryScene/FetterViewLayer.txt"):new(self._transUIParent);
+            end
+            self:CetSelectTogClick();
+        end
+    end
+end
+function ArchiveMainLayer:OnTogPhotoClick(isOn)
+    if(isOn)then
+        core.require("xlua/lua_UI/Archive/PhotoLayer.txt"):new():show();
+        self:SetBottomUIState(false);
+    end
+end
+--@MToggleFunctionEnd
+
+--释放
+function ArchiveMainLayer:onExit()
+
+    if(self._allLayers ~= nil)then
+        for i, v in pairs(self._allLayers) do
+            if(v ~= nil)then
+                v:onBackClick(true);
+            end
+        end
+    end
+    self._mTogArchive = nil;
+    self._mTogFetter = nil;
+    self._txtTitle = nil;
+    self._txtTitleE = nil;
+    self._mTogPhoto = nil;
+    self._allLayers = nil;
+    self._selectTog = nil;
+    self._objTogBg = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ArchiveMainLayer:CetSelectTogClick()
+    for k, layer in pairs(self._allLayers) do
+        if(layer ~= nil)then
+            if(k == self._selectType)then
+                layer:show();
+            else
+                layer:hideLayer();
+            end
+        end
+    end
+    if(self._selectType ~= TogType.Photo)then
+        self:playAni("ArchiveMainLayerTitleAnim");
+    end
+    self:SetTxtTitleContent();
+end
+
+function ArchiveMainLayer:SetBottomUIState(isShow)
+    if(isShow == nil)then
+        isShow = true;
+    end
+    self._objTogBg:SetVisible(isShow);
+end
+
+function ArchiveMainLayer:SetTxtTitleContent()
+    self._txtTitle:SetTextById(71200030 + self._selectType);
+    self._txtTitleE:SetTextById(71200040 + self._selectType);;
+end
+
+function ArchiveMainLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return ArchiveMainLayer;

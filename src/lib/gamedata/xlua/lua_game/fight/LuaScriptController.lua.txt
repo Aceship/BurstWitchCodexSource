@@ -1,0 +1,395 @@
+--
+-- author: haosun
+-- date  : 2021-04-09 16:46:07
+-- brief : 
+--
+LuaScriptController = LuaScriptController or {}
+
+local _ecsInstance = CS.ECSManager.Instance
+
+function LuaScriptController:InitLuaScriptController()
+    self._heroPosx = -1
+    self._heroPosy = -1
+    CS.LuaLogicStaticCall.SetLuaFeature(self,"LuaScriptController")
+end
+
+function LuaScriptController:PrePlayMustSkillCall()
+    AppMgr:LogInfo("---------------- 预释放大招 ----------------")
+    CS.LuaLogicStaticCall.PrePlayMustSkill()
+end
+
+function LuaScriptController:PlayMustSkillCall(isAwake)
+    AppMgr:LogInfo("---------------- 释放大招 ----------------")
+    if isAwake then
+        Groble_UIMgr:GamePause(false)
+        CS.LuaLogicStaticCall.GamePause(false)
+    end
+    CS.LuaLogicStaticCall.PlayMustSkill()
+end
+
+function LuaScriptController:PlayGunTypeSkillCall()
+    AppMgr:LogInfo("---------------- 释放切换技 ----------------")
+    CS.LuaLogicStaticCall.PlayGunTypeSkill()
+end
+
+function LuaScriptController:GamePause(pause)
+    CS.LuaLogicStaticCall.GamePause(pause)
+end
+
+function LuaScriptController:AwakenEjector()
+    CS.LuaLogicStaticCall.AwakenEjector()
+end
+
+function LuaScriptController:GetHeroPos()
+    return self._heroPosx, self._heroPosy
+end
+
+function LuaScriptController:CreateGuidePoint(x, z, radius)
+    CS.LuaLogicStaticCall.CreateGuidePoint(x, z, radius)
+end
+
+-- 
+-- brief: 选择上阵魔女
+-- 
+local _s_index = { [102] = 2, [103] = 4, [201] = 8, [203] = 16, [301] = 32, [302] = 64 }
+function LuaScriptController:ChangeFightPlayer(curIndex, newIndex)
+    AppMgr:LogInfo(string.format("%d号魔女替换%d号魔女", newIndex, curIndex))
+    CS.LuaLogicStaticCall.ChangeHero(_s_index[100 * curIndex + newIndex])
+end
+
+function LuaScriptController:SelectRankBuffIndex(buffid)
+    CS.LuaLogicStaticCall.SelectRankBuffIndex(buffid)
+end
+
+--c# call lua script-------------------------------------------------------------------------
+function LuaScriptController:onFightWaveChanged(waveIndex, dialogId)
+    AppMgr:LogInfo(string.format("波次开始==========waveIndex = %d , dialogId = %d", waveIndex, dialogId))
+    if waveIndex > 0 then
+        FightController:FightLevelWaveChanged(waveIndex, dialogId)
+    end
+end
+
+function LuaScriptController:PlayFightBgm(id)
+	SoundMgr:PlayBgm(id)
+end
+
+function LuaScriptController:PlayFightSoundEvent(EventPath)
+	SoundMgr:PlayFightEvent(EventPath)
+end
+
+-- 
+-- brief: 刷新魔女显示信息的位置
+-- 
+function LuaScriptController:onPlayerPosUpdateEvent(x, y)
+    if self._heroPosx ~= x or self._heroPosy ~= y then
+        self._heroPosx = x
+        self._heroPosy = y
+        UI_FightPlayerLayer:UpdateFightPlayerLayerPos(x, y)
+        UI_ChangePlayerLayer:UpdateUIAlpha(x, y)
+    end
+end
+
+local _battleData = {
+    state       = 0,
+    cadanScore  = 0,
+    score       = 0,
+    bwIndex     = 0,
+    levelWave   = 0,
+    curFightWave    = 0,
+    maxFightWave    = 0,
+    dialogId        = 0,
+    killNumber      = 0,
+    playMustNumber  = 0,
+    fightTime       = 0,
+    battleTime      = 0,
+    curGf           = 0,
+    maxGf           = 0,
+    curFrame        = 0,
+    wipeNumber      = 0,
+    wipeComboNumber = 0,
+    allHeroHpPer    = 0,
+    winScore        = 0,
+    defNumber       = 0,
+    secDps          = 0,
+    achieve         = { false, false, false },
+}
+
+function LuaScriptController:UpdateBattleData(battleData)
+    local BattleDataIndex = FightArrController.RenderBattleDataIndex
+
+    _battleData.state       = battleData[BattleDataIndex.iState]
+    _battleData.cadanScore  = battleData[BattleDataIndex.iCadanScore]
+    _battleData.score       = battleData[BattleDataIndex.iScore]
+    _battleData.bwIndex     = battleData[BattleDataIndex.iBwIndex]
+    _battleData.levelWave   = battleData[BattleDataIndex.iLevelWave]
+    _battleData.curFightWave    = battleData[BattleDataIndex.iCurFightWave]
+    _battleData.maxFightWave    = battleData[BattleDataIndex.iMaxFightWave]
+    _battleData.dialogId        = battleData[BattleDataIndex.fDialogId]
+    _battleData.killNumber      = battleData[BattleDataIndex.iKillNumber]
+    _battleData.playMustNumber  = battleData[BattleDataIndex.iPlayMustNumber]
+    _battleData.fightTime       = battleData[BattleDataIndex.fFightTime]
+    _battleData.battleTime      = battleData[BattleDataIndex.fBattleTime]
+    _battleData.curGf           = battleData[BattleDataIndex.fCurGf]
+    _battleData.maxGf           = battleData[BattleDataIndex.fMaxGf]
+    _battleData.curFrame        = battleData[BattleDataIndex.iCurFrame]
+    _battleData.wipeNumber      = battleData[BattleDataIndex.iWipeNumber]
+    _battleData.wipeComboNumber = battleData[BattleDataIndex.iWipeComboNumber]
+    _battleData.allHeroHpPer    = battleData[BattleDataIndex.fAllHeroHpPer]
+    _battleData.winScore        = battleData[BattleDataIndex.iWinScore]
+    _battleData.defNumber       = battleData[BattleDataIndex.iDefNumber]
+    _battleData.secDps          = battleData[BattleDataIndex.fSecDps]
+    _battleData.damageScore     = battleData[BattleDataIndex.iDamageScore]
+    _battleData.killScore       = battleData[BattleDataIndex.iKillScore]
+    _battleData.midnightScore   = battleData[BattleDataIndex.iMidnightScore]
+    for i = 1, 3, 1 do
+        _battleData.achieve[i] = battleData[BattleDataIndex.iAchieveStart + i - 1] == 1 and true or false
+    end
+end
+
+function LuaScriptController:GetBattleDataFightTime()
+    return _battleData.fightTime
+end
+
+function LuaScriptController:GetBattleDataAchieve()
+    return _battleData.achieve
+end
+
+-- 
+-- brief: 刷新战斗数据
+-- 
+function LuaScriptController:onHandlerRenderBattleData()
+    TestController:HandlerTestInfoLayer(FightArrController:GetTestBattleData())
+
+    self:UpdateBattleData(FightArrController:GetRenderBattleData())
+    if BattleState.Runing == _battleData.state then
+
+        --print(_battleData.secDps)
+        UI_FightPlayerLayer:UpdateDps()
+        local uiAttr = FightArrController:GetUIAttr(_battleData.bwIndex)
+        UI_FightPlayerLayer:UpdateFightPlayerLayerData(uiAttr, _battleData.curFrame)
+        UI_FightStaticLayer:UpdateFightStaticLayerData(_battleData)
+        UI_ChangePlayerLayer:UpdateChangePlayerLayerData(_battleData)
+        UI_BossInfoLayer:UpdateBossInfoLayer(FightArrController:GetBossRenderData(), _battleData.curFrame, uiAttr[FightArrController.UIAttrIndex.iAttriType])
+        UI_ComboWipeNumberLayer:UpdateNumber(_battleData.wipeComboNumber)
+        -- 回放时间
+        PlaybackLayer:UpdatePlaybackLayer(_battleData.curFrame)
+    else
+        FightController:EndFightController(true)
+    end
+end
+-- 
+-- brief: 击杀特定怪物触发 慢镜头结算
+-- 
+function LuaScriptController:KillEnemyFightEnd()
+    FightController:EndFightController(true)
+end
+
+-- 
+-- brief: 创建小怪血条
+-- 
+function LuaScriptController:onCreateEnemyHpBar(barIndex)
+    return core.require("xlua/lua_Game/Fight/ui/EnemyHpBar.txt"):new(barIndex)
+end
+
+-- 
+-- brief: 显示属性
+-- 
+function LuaScriptController:onShowTestFightLayer(enabled)
+    TestController:ShowTestInfoLayer(enabled)
+end
+
+-- 
+-- brief: 技能COMBO效果
+-- 
+function LuaScriptController:onHandleComboHurt(dps)
+    UI_ComboHurtLayer:HandleComboHurt(dps)
+end
+
+-- 
+-- brief: 必杀插图
+-- 
+function LuaScriptController:onHandlePrePlayMustSkill(heroId, skillName)
+    if PrefsController:IsMustPicture() then
+        Groble_UIMgr:GamePause(true)
+        CS.LuaLogicStaticCall.GamePause(true)
+        UI_MustSkillLayer:EnterMustSkillLayer(heroId, skillName)
+    else
+        self:PlayMustSkillCall(false)
+    end
+end
+
+function LuaScriptController:onHandleBossIntroduce(enemyId, state)
+    if 1 == state then
+        UI_IntroduceBossLayer:EnterIntroduceBossLayer(enemyId)
+    else
+        UI_IntroduceBossLayer:ExitIntroduceBossLayer()
+        UI_BossInfoLayer:EnterBossInfoLayer()
+        FightController:BossEnterEnd()
+    end
+end
+
+-- 
+-- brief: 击杀怪物获得神火，特效表现
+-- 
+function LuaScriptController:onHandleGfRecoverEffect()
+    UI_ChangePlayerLayer:PlayGfRecoverEffect()
+end
+
+-- 
+-- brief: 事件通知
+-- 
+function LuaScriptController:onHandleNotify(eventtype, param1, param2)
+    AppMgr:LogInfo("=======================eventtype = " .. eventtype)
+    if 1 == eventtype then
+        LandController:CloudEffect()
+    elseif 2 == eventtype then
+        UIController:HideByTalk()
+    elseif 3 == eventtype then
+        -- 显示UI
+    elseif 4 == eventtype then
+        -- 魔女入场结束
+        FightController:HeroFlyEnd()
+    elseif 5 == eventtype then
+        -- 引导移动到指定位置
+    elseif 6 == eventtype then
+        -- 激活引导，继续下一步
+        TutorialController:TutorialTrigger()
+    elseif 7 == eventtype then
+        UIController:HideByTalk()
+        TalkController:ShowOnlyDialog(param1)
+    elseif 8 == eventtype then
+        FightController:EnterTalkLayer(140010, true)
+    elseif 9 == eventtype then
+        FightController:EnterTalkLayer(130010, true)
+    elseif 10 == eventtype then
+        UI_TimeAddLayer:ShowTimeAddLayer(param1)
+    elseif 12 == eventtype then
+        -- BOSS转阶段
+    elseif 13 == eventtype then
+        UI_TimeAddLayer:ShowMidNightAddLayer()
+        UI_FightStaticLayer:DoAddScore(param1)
+        UI_ChangePlayerLayer:DoAddTime(param2)
+    end
+end
+
+-- 
+-- brief: 吃道具提示
+-- 
+function LuaScriptController:onHandleEatDrop(eatId, pos)
+    FightTipsController:ShowFightTipsByPos(pos.x, pos.y, Language:GetTxtBuyId(eatId))
+end
+
+-- 
+-- brief: 轮盘副本
+-- 
+function LuaScriptController:onHandleRandomNumber(number)
+    UI_RandomLayer:RandomLayerCreator(number)
+end
+
+-- 
+-- brief: 击杀怪物
+-- 
+function LuaScriptController:onHandleKillEnemyData(enemyId)
+    EventController:AddKillEnemyEvent(enemyId, false)
+end
+
+-- 
+-- brief: 深夜BUFF选择
+-- 
+function LuaScriptController:onHandleRankBuffNotify(buffIds)
+    FightController:ShowSelectRankBuff(buffIds)
+end
+
+
+function LuaScriptController:onLandCloudEffectDelayCall(waveIndex)
+    LightController:LightCreator(waveIndex)
+    WeatherController:WeatherCreator(waveIndex)
+end
+
+function LuaScriptController:createChangeWaveUIAniEffect(aniRes)
+    CanvasMgr:CreateCanvasChild(aniRes)
+end
+function LuaScriptController:onAutoMoveBreak()
+    if FightController:IsNoAutoMove() then
+        return
+    end
+    
+    FightController:DoAutoFightMove(false)
+    PrefsController:SetAutoSkill(false)
+
+    UI_FightStaticLayer:OnAutoMoveBreak()
+end
+
+function LuaScriptController:doAutoMove()
+    if (not FightController:IsNoAutoMove()) then
+        local isContinue = PrefsController:IsAutoMoveContinue()
+        if(Chapter:IsAutoFight()
+            and not Chapter:IsAutoStopped()) then
+            isContinue = true
+        end
+        if(PrefsController:IsAutoMove()) then
+            _ecsInstance:AutoMoveOn(isContinue, PrefsController:IsAutoMoveElite(), 
+                PrefsController:IsAutoMoveChangeByHp(), PrefsController:IsAutoMoveChangeByEnergy(), PrefsController:IsAutoMoveChangeByAttrib(), PrefsController:IsAutoMoveChangeByEnemyCount())
+        end
+    end
+
+    if((not FightController:IsOnlyAvoidLevel())
+        and (not FightController:IsTriggerLevel())) then
+        if(PrefsController:IsAutoSkill()) then
+            _ecsInstance:AutoDazhaoOn(PrefsController:AutoDazhaoType(), PrefsController:IsAutoMoveContinue(), PrefsController:IsAutoGunTypeSkill())
+        end
+    end
+end
+function LuaScriptController:playFightEndCamera()
+    FightController:DoFightEndCamer();
+    UI_FightSettingLayer:SetPauseMask()
+end
+
+function LuaScriptController:onLoadingEndNotify()
+    AppMgr:LogInfo("=======================战斗模型加载完成=======================")
+    -- 第一个战斗魔女模型创建完成    
+    UI_Loading:ReleaseLoadingLayer()
+end
+
+
+function LuaScriptController:afterInitBattleView()
+    FightController:AfterInitBattleView()
+
+    Groble_SceneMgr:setScreenSleep(-1)
+    Groble_SceneMgr:SetGameTimeScale(1)
+
+    UI_Loading:BackToLuaLoad()
+
+end
+
+function LuaScriptController:loadingSetValue(value)
+    UI_Loading:SetValue(value)
+end
+
+function LuaScriptController:ExitFightCG()
+    FightController:ExitFightCG()
+end
+
+function LuaScriptController:GetFreeEnemyBar()
+    return FightArrController:GetFreeEnemyBar()
+end
+
+-- 
+-- brief: 道具引导
+-- 
+function LuaScriptController:onTutorialDropNotify(x, y)
+    TutorialController:DropTutorialTrigger(x, y)
+end
+
+function LuaScriptController:ShowGameWordTipsLayer(id)
+    Groble_UIMgr:ShowGameWordTipsLayer(id)
+end
+
+
+function LuaScriptController:TimelineVideoPlay(path)
+    VideoController:TimelineVideoPlay(path)
+end
+
+function LuaScriptController:VideoPlayFadeout(time)
+    VideoController:VideoPlayFadeout(time)
+end

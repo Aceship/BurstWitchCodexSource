@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2019-01-15 17:53:50
+-- brief : 
+--
+
+CCfg = CCfg or {}
+
+function CCfg:Ctor()
+    self._cfgs = {}
+end
+
+function CCfg:_LoadRuleCfg()
+    self._cfgs["rule"] = {}
+    local cfgs = CfgLoader:LoadCfg("rule")
+    for _, v in pairs(cfgs) do
+        v.desc = Language:GetTxtBuyId(v.desc)
+        self._cfgs["rule"][tonumber(v.id)] = v
+    end
+end
+
+function CCfg:GetRuleCfg(cfgid)
+    if self._cfgs["rule"] == nil then
+        self:_LoadRuleCfg()
+    end
+    if self._cfgs["rule"][cfgid] == nil then
+        CS.Logger.LogError("rule cfg is nil. cfgid = {0}", cfgid)
+    end
+    return self._cfgs["rule"][cfgid]
+end
+
+CCfg:Ctor()

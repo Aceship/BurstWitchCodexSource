@@ -1,0 +1,4 @@
+ID,弹幕ID,移动规则,攻击规则,弹幕释放规则
+id,barrage_id,move_info,attack_type,barrage_info
+number,number,array_|,number,array_|
+10010101,10010106,3|2|15,1,2|0.1

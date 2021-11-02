@@ -1,0 +1,261 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-11-28 16:06:32
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SkinBuyShopLayer = class("SkinBuyShopLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+}
+--构造函数
+function SkinBuyShopLayer:ctor(super,parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_SkinBuyShopLayer",
+        trans = parent,
+        obj = true
+    }
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function SkinBuyShopLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function SkinBuyShopLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function SkinBuyShopLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function SkinBuyShopLayer:InitUI()
+
+    --@ImageEnd
+
+    --@TextEnd
+
+    self._transTableviewcontroller = self.layer:Get("trans_container/trans_TableViewController");
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function SkinBuyShopLayer:show()
+    self:UpdateData();
+    self:SetTableView();
+    self:showLayer();
+end
+
+--退出按钮事件
+function SkinBuyShopLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function SkinBuyShopLayer:onExit()
+
+    self._transTableviewcontroller = nil;
+    --@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function SkinBuyShopLayer:OnBtnSkinTicketClick(data)
+    Operation:Buy(data,function ()
+        Operation:SendMessage(Operation.ActivityID.SkinBuy,{id = data.cfgid});
+    end)
+end
+
+function SkinBuyShopLayer:OnBtnSkinClick(data)
+    Hero:OpenWitchSkinLayer(data.goods[1][2]);
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function SkinBuyShopLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:show();
+    end);
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:show();
+    end)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function SkinBuyShopLayer:UpdateData()
+    self._skinIds = Operation:GetCurChargeIds();
+end
+
+------------------------------------------------------SkinTicket-----------------------------------------------------------------------------
+
+---------------------------------------------------------------------Skin---------------------------------------------------
+
+local RowSkinNum = 3;
+function SkinBuyShopLayer:SetTableView()
+    local row = math.ceil(#self._skinIds / RowSkinNum);
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self._transTableviewcontroller)
+        self._tvController:Init(row, true,
+                function(cell, row)
+                    self:SetCell(cell, row + 1)
+                end, 0.3, 0.1)
+    else
+        self._tvController:Reload(row,true)
+        self._tvController:ScrollToTop();
+    end
+end
+
+function SkinBuyShopLayer:SetCell(cellTrans,row)
+    if(self._cells == nil)then
+        self._cells = {};
+    end
+    local cell = self._cells[cellTrans.cellInstanceIndex];
+    if(cell == nil)then
+        cell = self:NewCell(cellTrans.transform);
+        self._cells[cellTrans.cellInstanceIndex] = cell;
+    end
+    self:SetCellData(cell,row);
+end
+
+function SkinBuyShopLayer:NewCell(transform)
+    local clss = {};    
+    for i = 1, RowSkinNum do
+        local trans = transform:Get("item_"..i)
+        local cls = clearbase:new()
+        cls.transform   = trans
+        cls.imgIcon     = trans:GetImageComponent("img_icon");
+        cls.imgCursor   = trans:GetImageComponent("img_cursor")
+        cls.imgQlty     = trans:GetImageComponent("img_skinQuality")
+        cls.objTimeBg   = trans:Get("img_time_bg")
+        cls.txtTime     = trans:GetTextComponent("img_time_bg/txt_time")
+        cls.txtName     = trans:GetTextComponent("txt_name")
+        cls.imgExpIcon  = trans:GetImageComponent("img_exp_icon")
+        cls.txtExpNum   = trans:GetTextComponent("txt_exp_num")
+        cls.objHave     = trans:Get("img_have")
+        trans:Get("img_bg"):CreateChild(Bag.SPINE_SKIN_SHOP_FRAME);
+        trans:GetButtonComponent("btn_click"):AddButtonListener(
+            function ()
+                self:OnBtnSkinClick(cls.data);
+            end);
+        cls.timer = -1;
+        clss[i] = cls;
+    end
+    return clss;
+end
+
+function SkinBuyShopLayer:SetCellData(cell,row)
+    for i, cls in ipairs(cell) do
+        self:SetSkinItemData(cls,self._skinIds[(row - 1) * RowSkinNum + i])
+    end
+end
+
+function SkinBuyShopLayer:SetSkinItemData(cls,id)
+    cls.transform:SetVisible(id ~= nil);
+    if(id == nil)then
+        cls.data = nil;
+        return;
+    end
+    local data = Recharge:GetData(id)
+    if(data == nil)then
+        cls.data = nil;
+        return;
+    end
+    cls.data = data;
+    --头像
+    cls.imgIcon:LoadSprite(string.format("source_avatar/hero/card_%s" , data.goods[1][2]));
+    local cfg = Hero:GetCfg(Hero:GetHeroIdBySkinId(data.goods[1][2]));
+    cls.txtName.text = string.format("%s<color=#84A3D9FF>%s</color>",cfg.Name,data.name);
+    local skinconfig = Hero:GetSkinCfg(tonumber(data.goods[1][2]))
+    -- 皮肤品质
+    if skinconfig.SkinRare == nil then
+        cls.imgQlty:SetVisible(false)
+    else
+        if cls.SkinRare ~= skinconfig.SkinRare then
+            Hero:SetSkinRare(cls.imgQlty, skinconfig.SkinRare)
+            cls.SkinRare = skinconfig.SkinRare
+        end
+    end
+    -- 主题标签
+    if skinconfig.SkinTheme == nil then
+        cls.imgCursor:SetVisible(false)
+    else
+        if cls.SkinTheme ~= skinconfig.SkinTheme then
+            Hero:SetSkinTheme(cls.imgCursor, skinconfig.SkinTheme)
+            cls.SkinTheme = skinconfig.SkinTheme
+        end
+    end
+
+    -- 下架时间
+    cls.objTimeBg:SetVisible(data.timeId > 0);
+    if(data.timeId > 0)then
+        local timeCfg = CTime:GetCfg(data.timeId);
+        cls.timer = timeCfg.etime - CTime:GetServerTime();
+        if(cls.timer > 0)then
+            cls.txtTime:SetText(CTime:Time2Str_3(cls.timer));
+        else
+            cls.txtTime:SetTextById(90316);
+        end
+    end
+    Item:SetItemIcon(cls.imgExpIcon.transform, data.priceId);
+    local price = data.price-- * (data.discount);
+    if(Item:GetCount(data.priceId) < price)then
+        cls.txtExpNum.text = string.format(uistr.txtColorRed, price);
+    else
+        cls.txtExpNum.text = price;
+    end
+    cls.objHave:SetVisible(Item:GetCount(data.goods[1][2]) >= data.stock);
+    --cls.btn.gameObject:SetVisible(Item:GetCount(data.goods[1][2]) < data.stock);
+end
+
+function SkinBuyShopLayer:onPerSecondUpdate()
+    if(self._cells == nil)then
+        return;
+    end
+    for _, cell in pairs(self._cells) do
+        for i, cls in ipairs(cell) do
+            if(cls.data ~= nil)then
+                if(cls.timer >= 0)then
+                    cls.timer = cls.timer - 1;
+                    if(cls.timer < 0)then
+                        self:SetSkinItemData(cls,cls.data.cfgid);
+                    else
+                        cls.txtTime:SetText(CTime:Time2Str_3(cls.timer));
+                    end
+                end
+            end
+        end
+    end
+end
+
+return SkinBuyShopLayer;

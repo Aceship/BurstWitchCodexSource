@@ -1,0 +1,87 @@
+--
+-- author: haosun
+-- date  : 2019-01-10 14:26:38
+-- brief : 
+--
+Recharge = Recharge or {}
+
+Recharge.TYPE_MONEY     = 1     -- 魔晶
+Recharge.TYPE_VIP       = 2     -- 月卡
+Recharge.TYPE_GIFT      = 3     -- 礼包
+
+Recharge.DISCOUNT_IS_NIL = 1;          -- 没有折扣
+
+Recharge.BuyType =
+{
+    Normal = 0;     --正常
+    day = 1,        --天限购
+    Week = 2,       --周限购
+    Month = 3,      --月限购
+    IsDoubleWeek = 4,   --双周(14天)限购
+}
+
+Recharge.RECHARGE_RATIO     = 1
+
+Recharge.MonthCard = {
+    small = 2101,
+    big = 2102
+}
+
+
+Recharge.ChargeType = {
+    Gold = 1,               --魂晶
+    PrivilegeGiftPag = 2,   --权限礼包
+    Gift = 3,               --礼包
+    Limit = 6,              --限时礼包
+    UpgradePackage = 7,     --升级礼包
+    Handbook = 8,           --魔女精英手册
+    MutualExclusion = 9,    --互斥礼包
+    Skin = 10,              --皮肤
+    SkinTicket = 11,        --皮肤券
+    Recharge = 12,          --充值
+    PopUp = 13,             --弹出礼包
+    Item   = 14,            --普通物品
+    Chess = 15,             --夜莺巡查骰子
+    Repeat = 16,            --重复礼包(购买一次分多日领取)
+    FreeChess = 17,         --免费夜莺巡查骰子
+};
+
+--角标显示类型
+Recharge.Tag = {
+    NotHave = 0, -- 无
+    TimeLimit = 1,--限时
+    Hot = 2,--热卖
+}
+
+Recharge.OpenType = {
+    Chapter = 1,--通关指定关卡
+    Lv = 2,--等级
+    LastGift = 3,-- 前置礼包
+}
+
+Recharge.LockType = {
+    NotHave = -1,--无
+    One = 1,--一个
+    Double = 2,--多个
+}
+
+--返利基础比例
+Recharge.RebateDefNum = 100;
+
+Recharge.JewelType = 204;--魂晶兑换类型
+Recharge.FirstBuy = 1601;--首充礼包货架类型
+
+Recharge.RepeatGetType = {
+    UnNeedLogin = 1,--不需要登录,直接从购买日到今天来计算
+    NeedLogin = 2,--需要登录才计数
+}
+
+Recharge.RepeatState = {
+    UnBuy = 1,--未购买
+    Buy = 2,-- 已购买
+    GetOver = 3,--已领取完毕
+}
+
+-- 礼包背景类型
+Recharge.GiftBgSpine    = 1
+Recharge.GiftBgImage    = 2

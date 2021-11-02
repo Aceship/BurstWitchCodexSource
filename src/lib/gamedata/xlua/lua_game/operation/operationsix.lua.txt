@@ -1,0 +1,36 @@
+--
+-- author: haosun
+-- date  : 2021-09-30 22:27:06
+-- brief : 6元礼包
+--
+
+Operation = Operation or {}
+
+function Operation:InitFirstPay()
+    self._autoOpenFirstPayLayer = false
+end
+
+function Operation:IsFirstNotPurchased()
+    local _firstBuyCfg = Recharge:GetFirstBuyCfg()
+    local _serverData = self:GetRepeatDataById(_firstBuyCfg.cfgid)
+    local giftState, canGetNum, getPos = self:GetRepeatGetStateById(_firstBuyCfg.cfgid)
+
+    return Recharge.RepeatState.UnBuy == giftState
+end
+
+function Operation:SetAutoShowFirstPayLayer()
+    self._autoOpenFirstPayLayer = true
+end
+
+function Operation:OpenFirstPayLayer()
+    core.require("xlua/lua_UI/UIFirstPay/FirstPayLayer.txt"):new():show()
+end
+
+function Operation:AutoOpenFirstPayLayer()
+    if self._autoOpenFirstPayLayer then
+        self._autoOpenFirstPayLayer = false
+        self:OpenFirstPayLayer()
+    else
+        uimgr:CheckTodoList()
+    end
+end

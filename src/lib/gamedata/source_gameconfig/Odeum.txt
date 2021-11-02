@@ -1,0 +1,5 @@
+id,名字,图标,开放等级,展厅初始模型,镜头资源
+id,Concert_name,Icon,OpenLevel,SampleRoom,CameraControllerRes
+number,number,number,number,string,string
+1,10275001,1,1,prefab_scene/M2_LoginScene/M2_LoginMusic01,source_ani/concert/M2_concert_camera_base
+2,10275002,2,35,prefab_scene/M2_LoginScene/M2_LoginMusic01_Sea,source_ani/concert/M2_concert_camera_base

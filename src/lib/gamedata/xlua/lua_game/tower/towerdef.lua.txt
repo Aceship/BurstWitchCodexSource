@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2019-11-25 14:55:49
+-- brief : 
+--
+Tower = Tower or {}
+
+Tower.LEVEL_STATE_OPEN      = 1
+Tower.LEVEL_STATE_PASS      = 2
+Tower.LEVEL_STATE_LOCK      = 3
+
+Tower.REFRESH_WEEK_DAY      = {1}

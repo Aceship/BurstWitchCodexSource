@@ -1,0 +1,360 @@
+--
+-- author: haosun
+-- date  : 2018-12-27 13:52:38
+-- brief :
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local TaskLayer = class("TaskLayer", CBaseLayer)
+
+local BUTTON_TYPE =  {
+    recv_all = "button_all"
+}
+
+function TaskLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/sys/UI_TaskLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = true,
+        topInfo         = Player.CURRENCY_MAIN,
+    };
+    self._bgData = {
+        showEffect = true,
+        bgType = BackBgPath.BG_DEF,
+    }
+    self._addStack = true
+    self._hideOtherLayer = true
+    self._isFristEnter = true
+    self:onEnter()
+end
+
+function TaskLayer:initObj()
+    self._cellsObj = {}
+    self._typeObjs = {}
+    self._tipsObjs = {}
+    for _, v in pairs(Task.SHOW_TYPE) do
+        self._typeObjs[v] = self.layer:GetMToggleComponent("obj_tog_bg/show_type_" .. v)
+        self._tipsObjs[v] = self.layer:Get("obj_tog_bg/show_type_" .. v.."/img_red_tips")
+    end
+
+    self._obj_subtype   = self.layer:Get("obj_subtype")
+    self._tvController  = UIController:CtorTableView(self.layer:Get("TableViewController"):CreateChild("prefab_uiHome/sys/prefab_tasklist"))
+    
+    self._subTypeObjs   = {}
+    self._obj_subtype   = self.layer:Get("obj_subtype")
+    self._template      = self.layer:Get("template").gameObject
+    self._template:SetVisible(false)
+end
+
+function TaskLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:initObj()
+    self:registerTaskEvent()
+    self:addUpdateDayListener()
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self:refreshComOper(false)
+        end)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY,
+        function()
+            self:refreshComOper(false)
+        end)
+    self.physicalPowers = {};
+    self:onInitExpTask()
+end
+
+function TaskLayer:onExit()
+    self._taskids = nil
+    if self._cellsObj ~= nil then
+        for _, cls in pairs(self._cellsObj) do
+            cls.dtor()
+        end
+    end
+    self._cellsObj = nil
+    if self._typeObjs ~= nil then
+        for k, comp in pairs(self._typeObjs) do
+            self._typeObjs[k] = nil
+        end
+        self._typeObjs = nil
+    end
+    if self._tipsObjs ~= nil then
+        for k, comp in pairs(self._tipsObjs) do
+            self._tipsObjs[k] = nil
+        end
+        self._tipsObjs = nil
+    end
+    self.physicalPowers = nil
+    self._template      = nil
+    self._obj_daily     = nil
+    self._txt_curExp    = nil
+    self._txt_maxExp    = nil
+    self._exp_reward    = nil
+    self._obj_awards    = nil
+    self._exp_taskids   = nil
+
+    if self._subTypeObjs ~= nil then
+        for _, cls in pairs(self._subTypeObjs) do
+            cls:clear()
+        end
+        self._subTypeObjs   = nil
+    end
+    self._obj_subtype   = nil
+    self._cls_awards    = nil
+
+    CBaseLayer.onExit(self)
+end
+
+function TaskLayer:onBackClick()
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        self:onPopLayer()
+    end)
+end
+
+function TaskLayer:onPerSecondUpdate()
+    if(self.physicalPowers == nil)then
+        return;
+    end
+    for _, v in pairs(self.physicalPowers) do
+        local state = CTime:IsOpen(v.TimeId)
+        if v.state ~= state then
+            v.state = state
+            self:refreshComOper(true)
+            break
+        end        
+    end
+end
+
+function TaskLayer:onUpdateDay()
+    if self._showtype == Task.TYPE_NOR_TASK then
+        self:refreshComOper(true)
+    end
+end
+
+function TaskLayer:show()
+    self._fading = false
+    self._showtype = Task:GetTaskType()
+    local subtype = Task:GetTaskSubType()
+    if subtype ~= nil then
+        for k, subtypes in pairs(Task.SHOW_SUB_TYPE) do
+            if lua_value_in_tbl(subtype, subtypes) then
+                self._showtype = k
+                break
+            end
+        end
+    end
+    self._typeObjs[self._showtype].isOn = true
+    self:onTaskTypeClick(self._showtype, true)
+
+    for _, v in pairs(Task.PhysicalPowerID) do
+        local task = Task:GetTask(v)
+        if task ~= nil then
+            self.physicalPowers[v] = {
+                state   = CTime:IsOpen(task.taskTimeId),
+                TimeId  = task.taskTimeId
+            }
+        end
+    end
+    self:showLayer(taskid)
+    self:playAni("TaskLayerAni")
+end
+
+function TaskLayer:showLayer(taskid)
+    if taskid then
+        local index = 0
+        for k, v in ipairs(self._taskids) do
+            if v == taskid then
+                index = k
+                break
+            end
+        end
+        if index > 0 then
+            self._tvController:ScrollToRow(index - 1)
+        end
+    end
+    if self._isFristEnter then
+        self._isFristEnter = false
+    else
+        self:refreshComOper(false)
+    end
+    CBaseLayer.showLayer(self)
+end
+
+function TaskLayer:registerTaskEvent()    
+    for _, v in pairs(Task.SHOW_TYPE) do
+        self._typeObjs[v].onValueChanged:AddListener(function (isOn)
+            if isOn then
+                if v ~= self._showtype then
+                    self:onTaskTypeClick(v, false)
+                end
+            end
+        end)
+    end
+end
+
+function TaskLayer:onTaskTypeClick(showtype, enter)
+    self._showtype = showtype
+    -- task sub type
+    for i, v in pairs(self._subTypeObjs) do
+        v.transform:SetVisible(false)
+    end
+    local posx = -360
+    for i, subtype in ipairs(Task.SHOW_SUB_TYPE[showtype]) do
+        if self._subTypeObjs[i] == nil then
+            local transform = self._obj_subtype:AddChild(self._template)
+            self._subTypeObjs[i] = clearbase:new()
+            self._subTypeObjs[i].transform = transform
+            self._subTypeObjs[i].toggle    = transform:GetComponent("MToggle")
+            self._subTypeObjs[i].txt_tite1 = transform:GetTextComponent("select/txt_tite")
+            self._subTypeObjs[i].txt_tite_E1 = transform:GetTextComponent("select/txt_tite_E")
+            self._subTypeObjs[i].txt_tite2   = transform:GetTextComponent("unselect/txt_tite")
+            self._subTypeObjs[i].txt_tite_E2 = transform:GetTextComponent("unselect/txt_tite_E")
+            self._subTypeObjs[i].img_tips    = transform:Get("img_red_tips"),
+            self._subTypeObjs[i].toggle.onValueChanged:AddListener(function(isOn)
+                if isOn then self:onTaskSubTypeClick(i) end
+            end)
+        end
+        self._subTypeObjs[i].transform:SetVisible(true)
+        self._subTypeObjs[i].transform:SetPosition(posx + (i-1)*200, 0, 0, true)        
+        self._subTypeObjs[i].txt_tite1:SetTextById(Task.SHOW_SUB_TYPE_TITLE[subtype][1])
+        self._subTypeObjs[i].txt_tite_E1:SetTextById(Task.SHOW_SUB_TYPE_TITLE[subtype][2])
+        self._subTypeObjs[i].txt_tite2:SetTextById(Task.SHOW_SUB_TYPE_TITLE[subtype][1])
+        self._subTypeObjs[i].txt_tite_E2:SetTextById(Task.SHOW_SUB_TYPE_TITLE[subtype][2])
+    end
+    self._subtype = Task:GetTaskSubType() or Task.SHOW_SUB_TYPE[showtype][1]
+    Task:SetTaskSubType()
+    local index = 1
+    for i, v in ipairs(Task.SHOW_SUB_TYPE[showtype]) do
+        if v == self._subtype then
+            index = i
+            break
+        end
+    end
+    for i, v in pairs(self._subTypeObjs) do
+        v.toggle.isOn = i == index
+    end
+    if not enter then
+        self:onTaskSubTypeClick(index)
+    end
+end
+
+function TaskLayer:onTaskSubTypeClick(index)
+    self._subtype = Task.SHOW_SUB_TYPE[self._showtype][index]
+    self:refreshComOper(true)
+    self._obj_daily:SetVisible(self._showtype == Task.TYPE_NOR_TASK)
+end
+
+function TaskLayer:refreshComOper(playAni)
+    self._taskids = Task:SortTaskIds(Task:GetSubTasks(self._subtype))
+    if not self._init then
+        self._tvController:Init(#self._taskids, true,
+            function(cell, row)
+                self:refreshTaskUnitCell(cell, row)
+            end, 0.3, 0.1)
+        self._init = true
+    else
+        self._tvController:Reload(#self._taskids, false)
+        self._tvController:ScrollToTop()
+    end
+    -- 刷新大类红点
+    local ret = Task:GetTaskRecv()
+    for _, v in pairs(Task.SHOW_TYPE) do
+        self._tipsObjs[v]:SetVisible(ret[v])
+    end
+    -- 刷新小类红点
+    for i, subtype in ipairs(Task.SHOW_SUB_TYPE[self._showtype]) do
+        self._subTypeObjs[i].img_tips:SetVisible(Task:IsSubTaskCanRecv(subtype))
+    end
+    -- 
+    self:refreshExpTask()
+end
+
+function TaskLayer:refreshTaskUnitCell(item, row)
+    local taskid = self._taskids[row+1]
+    local cls = self._cellsObj[item]
+    if cls == nil then
+        cls = Task:InitTaskCell(item.transform, 2)
+        self._cellsObj[item] = cls
+        cls.btn_goto:AddButtonListener(
+            function()
+                self:onTaskGo(cls.taskcfgid)
+            end)
+    end
+    Task:SetTaskCell(cls, taskid)
+end
+
+function TaskLayer:CheckCanRecv()
+    local tbl = {}
+    for _, v in pairs(self._taskids) do
+        local data = Task:GetTask(v)
+        if data.state == Task.STATE_HAS_DONE then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+
+function TaskLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.recv_all then
+        local recvs = self:CheckCanRecv()
+        if #recvs > 0 then
+            Task:GetRewardReq(recvs)
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(60011))
+        end
+    end
+end
+
+function TaskLayer:onInitExpTask()
+    self._obj_daily     = self.layer:Get("obj_daily")
+    self._txt_curExp    = self.layer:GetTextComponent("obj_daily/txt_cur_exp")
+    self._txt_maxExp    = self.layer:GetTextComponent("obj_daily/txt_max_exp")
+    self._exp_reward    = self.layer:Get("obj_daily/exp_reward").gameObject
+    self._obj_awards    = self.layer:Get("obj_daily/obj_awards")
+    self._exp_taskids   = Task:GetSubTasks(Task.TYPE_DAILY_EXP)
+    table.sort(self._exp_taskids, function(a, b) return a < b end)
+    self._cls_awards    = {}
+    local maxExp = 0
+    for i, taskid in ipairs(self._exp_taskids) do
+        local transform = self._obj_awards:AddChild(self._exp_reward)
+        self._cls_awards[i] = Task:InitSpecialTask(transform, taskid)
+        transform:SetPosition(-286 + (i-1) * 147 , -26, 0, true)
+        local task = Task:GetTask(taskid)
+        maxExp = math.max(maxExp, task.cmpValue)
+    end
+    self._txt_maxExp:SetText(maxExp)
+    self:refreshExpTask()
+    self._exp_reward:SetVisible(false)
+end
+
+function TaskLayer:refreshExpTask()
+    for i, cls in ipairs(self._cls_awards) do
+        Task:SetSpecialTask(cls)
+    end
+    local _value = Stats:GetDailyExpValue()
+    local fontSize = 110
+    if _value > 999 then
+        fontSize = 85
+    end
+    if self._txt_curExp.fontSize ~= fontSize then
+        self._txt_curExp.fontSize = fontSize
+    end
+    self._txt_curExp:SetText(_value)
+end
+
+function TaskLayer:onTaskGo(taskid)
+    local task = Task:GetTask(taskid)
+    if task ~= nil then
+        JumpMgr:JumpCheck(task.dataJump)
+    end
+end
+
+function TaskLayer:onLayerFadeInEndCall()
+    Guide:ContinueGuideEvent(self.__cname)
+end
+
+return TaskLayer
+

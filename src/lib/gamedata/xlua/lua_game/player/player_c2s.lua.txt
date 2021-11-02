@@ -1,0 +1,566 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 12:24:43
+-- brief :
+--
+
+Player = Player or {}
+--
+
+-- 名片carddata
+--[[playerdata : {
+    lookid = xx,
+    name = xx,
+    autograph = xx,
+    level = xx,
+    frameid = xx,
+    iconid = xx,
+    carddata = {
+        lasttime=xx,
+        heroids = {[1] = xx, [2] = xx, [3] = xx},
+        heros = {
+            [1] = {skills={}, id=xx, equipids={x,x,x,x,x,x}, pet={exp=xx,level=xx}, star=xx, step=xx, exp=xx, talentid=xx, level=xx},
+            ...,
+        }
+        equips = {
+            [1] = {id=xx, skills={}, heroid=xx, star=xx, exp=xx, configid=xx, level=xx},
+            ...,
+        }
+    }
+    coin = xx,
+}]] function Player:__OnPlayerInfo(
+    playerdata)
+    local data = self:GetBusinessData()
+    data.id = playerdata.lookid
+    data.level = playerdata.level
+    data.name = playerdata.nickname
+    data.autograph = playerdata.autograph
+    data.iconid = playerdata.iconid
+    data.frameid = tonumber(playerdata.frameid)
+    data.sy_coin = tonumber(playerdata.coin or 0)
+    --data.sy_level   = 0
+    data.sy_ranking = 0
+    data.sy_score = playerdata.syscore or 0
+    data.sy_mystery = playerdata.mystery or 0
+    data.trophy = playerdata.trophy or 0
+    --基础奖杯
+    data.glory = playerdata.glory or 0
+    --荣耀奖杯
+
+    data.heroes = {0, 0, 0}
+    if (playerdata.carddata.heros ~= nil) then
+        for i, v in ipairs(playerdata.carddata.heros) do
+            data.heroes[i] = Hero:OtherPlayerHero(v.hero, playerdata.carddata.equips, v.attrs)
+        end
+    end
+    return data
+end
+
+function Player:SyncPlayer(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------同步玩家数据----------")
+    if data.login_days ~= nil then
+        self._snycdata.login_days = data.login_days
+    end
+    if data.tch_id ~= nil then
+        self._snycdata.tch_id = data.tch_id
+    end
+    if data.add_spirit_num ~= nil then
+        self:SetBuyPowerTimes(data.add_spirit_num)
+    end
+    if data.event_marks ~= nil then
+        self._snycdata.bfree_modify_name = (data.event_marks & Player.MARKS_FREE_MODIFY_NAME) == 0
+        self._snycdata.bfirst_modify_name = (data.event_marks & Player.MARKS_FIRST_MODIFY_NAME) == 0
+        self._snycdata.recharge_is_get = (data.event_marks & Player.MARKS_FIRST_RECHARGE_IS_GET) ~= 0
+        self._snycdata.is_recharge = (data.event_marks & Player.MARKS_FIRST_RECHARGE) ~= 0
+        self._getVerify = (data.event_marks & Player.MARKS_AUTH_GIFT) ~= 0
+        self._isFirstShare = (data.event_marks & Player.SHARE_STATE) == 0
+    end
+    if data.online_time ~= nil then
+        self._playTime = data.online_time
+        self._allOnlineTime = data.online_time
+    end
+    if data.online_time ~= nil then
+        self._todayOnlineTime = data.per_time
+    end
+    -- 偏移天数
+    if data.sday ~= nil then
+        self._sday = data.sday
+    end
+    -- 体力倒计时
+    self._snycdata.next_power_time = data.next_spirit_time or 0
+    self._snycdata.flag_power_time = os.time()
+    -- 新手引导的数据
+    if data.guides ~= nil then
+        Guide:UpdateGuide(data.guides)
+    end
+    if data.heroids ~= nil then
+        self:SetPlayerShowTeam(data.heroids)
+    end
+    if data.c_collocations ~= nil then
+        self._witch_redTips = data.c_collocations.hero_red_set
+    end
+    -- 看板娘皮肤id
+    if data.kanban ~= nil then
+        self._mainWitch = data.kanban
+    end
+    -- 分享奖励次数
+    if data.share_num ~= nil then
+        self._shareNum = data.share_num
+    end
+    --阵营
+    if data.humanvalues ~= nil then
+        self._campAttrs = {}
+        self._campAttrs[Player.CAMP_TYPE_LIGHT] = data.humanvalues[Player.CAMP_TYPE_LIGHT] or 0
+        self._campAttrs[Player.CAMP_TYPE_DARK] = data.humanvalues[Player.CAMP_TYPE_DARK] or 0
+        self._campAttrs[Player.CAMP_TYPE_VACANT] = data.humanvalues[Player.CAMP_TYPE_VACANT] or 0
+        self._campAttrs[Player.CAMP_TYPE_LIMITLESS] = data.humanvalues[Player.CAMP_TYPE_LIMITLESS] or 0
+    end
+    CS.LuaLogicStaticCall.playerName = self:GetName()
+    -- 红点系统数据
+    if data.red_points ~= nil then
+        self._red_points = data.red_points
+    end
+    self._cardLayerData = nil
+    self._cardLayerIsRank = false
+    self._redTempData = {}
+
+    if (data.trophy ~= nil) then
+        --深夜奖杯
+        self._trophyNum = data.trophy or 0
+    end
+
+    if (data.glory_trophy ~= nil) then
+        self._gloryTrophyNum = data.glory_trophy or 0
+    end
+
+    --创角时间(天数)
+    if (data.create_day ~= nil) then
+        self._createDay = data.create_day
+    end
+end
+
+--获取创角天数
+function Player:GetCreateDay()
+    return self._createDay or 0
+end
+
+function Player:GetTrophyNum()
+    return self._trophyNum
+end
+
+function Player:GetGloryTrophyNum()
+    return self._gloryTrophyNum
+end
+
+function Player:UpdateTrophyNum(num)
+    self._trophyNum = self._trophyNum + num
+    if (self._trophyNum < 0) then
+        self._trophyNum = 0
+    end
+end
+
+function Player:UpdateGloryTrophyNum(num)
+    self._gloryTrophyNum = self._gloryTrophyNum + num
+end
+
+function Player:ChoseTeacherReq(id)
+    Network:CallServerScript({c2s.PLAYERINFO_CHOSE_TEACHER_REQ, id})
+end
+
+function Player:ChoseTeacherRep(id)
+    self._snycdata.tch_id = id
+    local data = self:GetTutorheadByID(id)
+    self:SetHeadIcon(data.headitemid)
+    self:SetHeadBorder(0)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME)
+    -- Network:CallServerScript({c2s.PLAYERINFO_MODIFY_NAME_REQ, self.nameTemp})
+    -- self.nameTemp = nil
+end
+
+-- 起名/改名
+-- p1 name 名字
+-- p2 tch_id 导师id
+function Player:ModifyNameReq(name, tch_id, callback)
+    -- 检测空值
+    if name == nil or name == "" then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800067)
+        if callback then
+            callback()
+        end
+        return
+    end
+    -- 检测名字长度：12个汉字
+    if lua_str_utf8len(name) > Player.MaxPlayerNameLenght then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800071)
+        if callback then
+            callback()
+        end
+        return
+    end
+    -- 检测屏蔽词
+    if not SensitiveWordUtil:CheckIsLegal(name) then
+        if callback then
+            callback()
+        end
+        Groble_UIMgr:ShowGameWordTipsLayer(1800066)
+        return
+    end
+    -- 检测消耗
+    local costid, costnum = self:GetChangeNameCost()
+    if false == Item:CheckCount(costid, costnum) then
+        if callback then
+            callback()
+        end
+        Groble_UIMgr:ShowLackCurrencyTips(costid)
+        return
+    end
+
+    -- 选择导师
+    if tch_id then
+        self.tchTemp = tch_id
+    end
+
+    Network:CallServerScript({c2s.PLAYERINFO_MODIFY_NAME_REQ, name})
+end
+
+function Player:ModifyNameRep(name, errcode)
+    if errcode == 0 then
+        self:SetName(name)
+        if false == self._snycdata.bfirst_modify_name then
+            self._snycdata.bfree_modify_name = false
+        end
+        self._snycdata.bfirst_modify_name = false
+
+        if self.tchTemp then
+            self:ChoseTeacherReq(self.tchTemp)
+            self.tchTemp = nil
+        else
+            GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME)
+        end
+
+        CS.UIHelpScript.Instance:SetBuglyUserId(Player:GetName())
+
+        UIController:OnProgressTopPlayer(Player.INFO_NAME)
+    else
+        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME_ERR)
+        Groble_UIMgr:ShowGameWordTipsLayer(88000000 + errcode)
+    end
+end
+
+function Player:ModifyBorderReq(borderid)
+end
+
+function Player:ModifyBorderRep(borderid)
+    if borderid ~= nil then
+        self:SetHeadBorder(borderid)
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_AVATAR)
+    if Player:GetHeadIcon() ~= nil then
+        UIController:OnProgressTopPlayer(Player.INFO_HEAD)
+    end
+end
+
+function Player:ModifyHeadReq(headid)
+end
+
+function Player:ModifyHeadRep(headid)
+end
+
+function Player:ModifyAvatarReq(headid, borderid)
+    local data = {}
+    data.frameid = borderid
+    if borderid ~= self:GetHeadIcon() then
+        data.iconid = headid
+    end
+    -- 选择导师头像, 并且要设置默认的头像框时, 头像框是0
+    if self:IsTutorialIcon(data.iconid) and (borderid <= Player.DEFAULT_ICON_INDEX) then
+        data.frameid = 0
+    end
+    Network:CallServerScript({c2s.PLAYERINFO_MODIFY_INFO_REQ, data})
+end
+
+function Player:ModifyAvatarRep(avatar)
+    if avatar.iconid ~= nil then
+        self:SetHeadIcon(avatar.iconid)
+    end
+    if avatar.frameid ~= nil then
+        self:SetHeadBorder(avatar.frameid)
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_AVATAR)
+    if avatar.iconid ~= nil then
+        UIController:OnProgressTopPlayer(Player.INFO_HEAD)
+    end
+end
+
+function Player:ModifySignReq(signstr)
+    self._tmp_signstr = signstr
+    Network:CallServerScript({c2s.PLAYERINFO_AUTOGRAPH_REQ, signstr})
+end
+
+function Player:ModifySignRep()
+    -- 修改签名成功
+    self:SetPlayerSign(self._tmp_signstr)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_SIGN)
+end
+
+function Player:ModifyTeamReq(heroids)
+    Network:CallServerScript({c2s.PLAYERINFO_MODIFY_TEAM_REQ, heroids})
+end
+
+function Player:ModifyTeamRep(heroids)
+    self:SetPlayerShowTeam(heroids)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_SHOWTEAM)
+end
+
+-- 查看玩家名片
+function Player:LookInfoReq(playerid)
+    --小于1kw为机器人id
+    local pdata
+    if Robot:IsRobot(playerid) then
+        pdata = Robot:GetRobotDataById(playerid)
+    else
+        pdata = self:GetPlayerCardCacheData(playerid)
+    end
+    if pdata ~= nil then
+        self:SetPlayerCard(pdata, false)
+        self:ShowPlayerCardLayer()
+        return
+    end
+    self._lookid = playerid
+    local data = {
+        playerid = playerid,
+        nickname = ""
+    }
+    local bytes = ProtoMgr:Encode(Player.LookPlayerCardReq, data)
+    Network:SendHttp(
+        Player.Ip,
+        Player.Port,
+        Http.LOOK_PLAYER_CARD_REQ,
+        bytes,
+        function(id, bytes)
+            Player:LookInfoRep(id, bytes)
+        end
+    )
+end
+
+function Player:LookInfoRep(id, bytes)
+    local playerdata = ProtoMgr:Decode(Player.LookPlayerCardRep, bytes)
+    playerdata.lookid = self._lookid
+    local carddata = Player:DecodeHeroData(playerdata.carddata)
+    --
+    --[[if(Robot:IsRobot(self._lookid))then
+        local robotData = Robot:GetRobotBaseDataById(self._lookid);
+        if(robotData == nil)then
+            robotData = Robot:InitRobotBaseData(nil,self._lookid);
+        end
+        playerdata.frameid = robotData.frameid;
+        playerdata.iconid = robotData.iconid;
+        playerdata.level = robotData.level;
+        playerdata.nickname = robotData.name;
+        playerdata.syscore = robotData.score;
+    end]] playerdata.carddata =
+        carddata
+    local data = self:__OnPlayerInfo(playerdata)
+    self:SetPlayerCardCacheData(self._lookid, data)
+    self:SetPlayerCard(data, false)
+    self:ShowPlayerCardLayer()
+end
+
+function Player:DecodeHeroData(bytes)
+    local temp = string.char(string.byte(bytes, 1, 1))
+    local isZip = false
+    if (temp ~= "0" and temp ~= "\0") then
+        isZip = true
+    end
+    local curBytes = ""
+    if (string.len(bytes) ~= 1) then
+        curBytes = string.sub(bytes, 2)
+    end
+    if (isZip) then
+        curBytes = CS.Network.NetworkZip.UnZlib(curBytes)
+    end
+    return ProtoMgr:Decode(Player.CardData, curBytes) or {}
+end
+
+function Player:BuyPowerReq()
+    Network:CallServerScript({c2s.PLAYERINFO_ADD_SCRIPT_REQ})
+end
+
+function Player:BuyPowerRep(buy_times, count)
+    self:SetBuyPowerTimes(buy_times)
+    local drops = {[Bag.TYPE_ITEM] = {[Player.ITEM_VALUE_POWER] = count}}
+    Bag:ShowDrops(drops)
+
+    if Chapter:IsAutoFight() then
+        Chapter:SubAutoBuyNumber()
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_STAMINA)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY)
+end
+
+function Player:SyncHotFix(ver)
+    local localVer = AssetLoader:GetHotVer()
+    if localVer < tonumber(ver) then
+        Groble_UIMgr:ShowMessageBox(
+            true,
+            false,
+            string.format(LanguageMgr:GetTextByID(880033), ver),
+            function()
+                -- uimgr:onLoginScene()
+                CS.UnityEngine.Application.Quit()
+            end,
+            nil,
+            true
+        )
+        return false
+    end
+    return true
+end
+
+function Player:ChangeRedStateReq(heroid, lock)
+    Network:CallServerScript({c2s.PLAYERINFO_HERO_REd_REQ, heroid, lock})
+end
+
+function Player:ChangeRedStateRes(heroid, lock)
+    self._witch_redTips[heroid] = lock
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_RED_STATE)
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.UI_REFRESH_REDTIP)
+end
+
+function Player:ShareGiftReq()
+   -- print("分享请求")
+    if self._shareNum >=1 then
+        return
+    end
+   -- print("分享请求通过")
+    Network:CallServerScript({c2s.PLAYERINFO_GET_SHARE_GIFT_REQ})
+end
+---- 领取分享奖励 返回
+function Player:ShareGiftRes()
+    --print("分享请求奖励返回")
+    self._isFirstShare=false
+    self._shareNum =self._shareNum+ 1
+    GEvent:fireEvent(EVENT_TYPE.SHOW_SHARE_CALLBACK);
+end
+
+--更换看板娘请求
+function Player:SignHeroReq(skinid)
+    Network:CallServerScript({c2s.PLAYERINFO_SET_KANBAN_REQ, skinid})
+end
+
+function Player:SignHeroRes(skinid)
+    self._mainWitch = skinid
+end
+
+--修改阵营(善恶)数据
+function Player:SetCampAttrReq(id)
+    Network:CallServerScript({c2s.PLAYERINFO_SET_HUMANVAL_REQ, id})
+end
+
+--修改阵营(善恶)数据返回
+function Player:SetCampAttrRep(id, addValue)
+    local isAdd = false
+    for id, value in pairs(addValue) do
+        self._campAttrs[id] = self._campAttrs[id] + value
+        if (not isAdd) then
+            isAdd = true
+        end
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION, EVENT_NAME.TALK_SELECT_EDIT, isAdd)
+end
+
+function Player:GetOffsetDay()
+    return self._sday or 0
+end
+
+function Player:AddOffsetDay()
+    if (self._sday == nil) then
+        self._sday = 0
+    end
+    self._sday = self._sday + 1
+end
+
+function Player:RedPointReq(u_type, u_id)
+    self._redTempData[1] = u_type
+    self._redTempData[2] = u_id
+    Network:CallServerScript({c2s.PLAYERINFO_RED_POINT_REQ, u_type, u_id})
+end
+
+function Player:RedPointRep()
+    if self._red_points == nil then
+        self._red_points = {}
+    end
+    if self._red_points[self._redTempData[1]] == nil then
+        self._red_points[self._redTempData[1]] = {}
+    end
+    self._red_points[self._redTempData[1]][self._redTempData[2]] = true
+end
+
+function Player:GetUrlGift(id)
+    Network:CallServerScript({c2s.PLAYERINFO_GET_URL_GIFT_REQ, id})
+end
+
+function Player:GetUrlGiftRep()
+end
+
+
+----------------------------------------举报相关(HTTP)------------------------------------------
+
+function Player:ReportReq()
+    local pData = Player:GetPlayerCardData();
+    if(Player:GetReportStr() == nil or Player:GetReportStr() == "" or pData == nil  or UpLoadVideo.Ip == "" or UpLoadVideo.Port <= 0)then
+        Player:ReportRep();
+        return;
+    end
+    local data = {
+    from    = Player:GetId(),
+    target     = pData.id,
+    }
+    local bytes;
+    local messageId = 0;
+    if(Player:GetPlayerCardType() == Player.CardType_Talk)then
+        messageId = Http.REPORT_CHAT;
+        data.content = Player:GetReportStr();
+        bytes = ProtoMgr:Encode(ProtoMgr.ReportChatReq,data);
+    elseif(Player:GetPlayerCardType() == Player.CardType_Rank)then
+        messageId = Http.REPORT_GAMER;
+        data.path = Player:GetReportStr();
+        bytes = ProtoMgr:Encode(ProtoMgr.ReportVideoReq,data);
+    else
+        return;
+    end
+    if(bytes == nil or messageId <= 0)then
+        return;
+    end
+
+    Network:SendHttp(UpLoadVideo.Ip,UpLoadVideo.Port,messageId,bytes,function()
+        Player:ReportRep();
+    end);
+end
+
+function Player:ReportRep()
+    AppMgr:LogInfo("举报成功!!!!");
+    self._reportTime = CTime:GetServerTime();
+    GEvent:fireEvent(EVENT_TYPE.REPORT_REP);
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.PLAYERINFO_DATA_SYNC] = {Player, Player.SyncPlayer}
+c2s[c2s.PLAYERINFO_CHOSE_TEACHER_RES] = {Player, Player.ChoseTeacherRep}
+c2s[c2s.PLAYERINFO_MODIFY_NAME_RES] = {Player, Player.ModifyNameRep}
+c2s[c2s.PLAYERINFO_MODIFY_FRAME_RES] = {Player, Player.ModifyBorderRep}
+c2s[c2s.PLAYERINFO_MODIFY_ICON_RES] = {Player, Player.ModifyHeadRep}
+c2s[c2s.PLAYERINFO_MODIFY_INFO_RES] = {Player, Player.ModifyAvatarRep}
+c2s[c2s.PLAYERINFO_AUTOGRAPH_RES] = {Player, Player.ModifySignRep}
+c2s[c2s.PLAYERINFO_MODIFY_TEAM_RES] = {Player, Player.ModifyTeamRep}
+c2s[c2s.PLAYERINFO_CARD_DATA_RES] = {Player, Player.LookInfoRep}
+c2s[c2s.PLAYERINFO_ADD_SCRIPT_RES] = {Player, Player.BuyPowerRep}
+c2s[c2s.CLT_HOT_UPDATE_NTF] = {Player, Player.SyncHotFix}
+c2s[c2s.PLAYERINFO_HERO_REd_RES] = {Player, Player.ChangeRedStateRes}
+c2s[c2s.PLAYERINFO_GET_SHARE_GIFT_RES] = {Player, Player.ShareGiftRes}
+c2s[c2s.PLAYERINFO_SET_KANBAN_RES] = {Player, Player.SignHeroRes}
+c2s[c2s.PLAYERINFO_SET_HUMANVAL_RES] = {Player, Player.SetCampAttrRep}
+c2s[c2s.PLAYERINFO_RED_POINT_RES] = {Player, Player.RedPointRep}
+c2s[c2s.PLAYERINFO_GET_URL_GIFT_RES] = {Player, Player.GetUrlGiftRep}

@@ -1,0 +1,4 @@
+ID,渐散-第1段多少米,渐散-第1段体型总共减小,渐散-第2段体型每米减小,渐散-伤害保底,血量越少用特效,数值盾特效,次数盾特效
+id,GrapeshotStep1Distance,GrapeshotStep1Rate,GrapeshotStep2Rate,GrapeshotDamageFloor,LostHpBonusEffect,ShieldValueEffect,ShieldCountEffect
+int,number,number,number,number,string,string,string
+1,5.2,-0.1,-0.7,0.8,prefab_Barrage/playerBarrage_1009/barrage_1009_blood5x,prefab_Barrage/playerBarrage_1015/barrage_101503,prefab_fightEffect/FightEffect/PlayerBuffEffect/buff_hudun

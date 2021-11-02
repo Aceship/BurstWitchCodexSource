@@ -1,0 +1,6 @@
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Friend/friend.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Friend/friend_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Friend/frienddef.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Friend/friendui.txt")
+
+Friend:Ctor()

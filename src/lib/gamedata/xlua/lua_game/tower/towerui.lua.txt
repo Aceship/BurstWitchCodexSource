@@ -1,0 +1,17 @@
+--
+-- author: haosun
+-- date  : 2020-04-09 15:32:34
+-- brief : 
+--
+Tower = Tower or {}
+
+function Tower:ShowTowerLayer()
+    -- local open, desc = Chapter:ChapterIsOpen(Chapter.MODE_TOWER_CID)
+    -- if open then
+    --     core.require("xlua/lua_UI/HomeScene/tower/TowerLevelLayer.txt"):new():show()
+    --     return true
+    -- else
+    --     Groble_UIMgr:ShowTipsLayer(desc)
+    --     return false
+    -- end
+end

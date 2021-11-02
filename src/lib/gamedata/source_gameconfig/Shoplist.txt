@@ -1,0 +1,7 @@
+id排序,商店大类,商店种类,商店名称id,排序,对应icon,货币栏显示,spineid,系统关联
+id,Shop_MainType,Shop_Type,Shop_Name_Id,Sort,icon,Currency_field,spineid,Play_LevelUp_id
+number,number,number,number,number,array_&,array_&,number,array_&
+1,1,1,11350001,1,yq_heishi_a&yq_heishi_c,1000001&1000002&1000012,10100003,-1
+2,1,9,11350002,2,yq_youan_a&yq_youan_c,1000001&1000002&1000013,10100003,1016
+3,1,5,11350003,3,yq_shengyejishi_a&yq_shengyejishi_c,1000001&1000002&1000008,10100003,10302
+4,1,6,11350004,4,yq_suipian_a&yq_suipian_c,1000001&1000002&8900001,10100003,-1

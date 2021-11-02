@@ -1,0 +1,32 @@
+--
+-- author: haosun
+-- date  : 2021-03-18 14:30:27
+-- brief : 
+--
+ShenYeController = ShenYeController or {}
+
+function ShenYeController:InitShenYeController(ranklevel)
+    self.oldRank = 30
+
+    self.scoreTbl = {}
+    for i = 1, 50 do
+        self.scoreTbl[i] = 500000 - i * 10000
+    end
+    self.oldScore = self.scoreTbl[self.oldRank]
+
+    if(MidNight ~= nil) then
+        local data = MidNight:GetServerData()
+        if(data ~= nil) then
+            self.oldScore = data.value
+
+            self.scoreTbl = {}
+            for k, v in ipairs(data.list or {}) do
+                self.scoreTbl[k] = v.score or 0
+            end
+            self.oldRank = data.ranking
+        end
+    end
+end
+
+function ShenYeController:UnInitShenYeController()
+end

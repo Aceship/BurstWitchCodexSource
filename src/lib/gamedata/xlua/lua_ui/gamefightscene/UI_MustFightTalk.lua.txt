@@ -1,0 +1,53 @@
+
+local baseanimation = core.require("xlua/lua_UI/BaseAnimation.txt")
+local UI_MustFightTalk = class("UI_MustFightTalk", baseanimation)
+
+function UI_MustFightTalk:ctor()
+    baseanimation.ctor(self)
+    self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightTalk/prefab/ui_must_talk")
+    self:addBaseAnimationBehaviour(self.layer)
+    self.layer:SetVisible(false)
+
+    self._ui_mustName   = self.layer:GetTextComponent("bkg3/mustName")
+    self._ui_mustHeroPos= self.layer:Get("mask/heroContent/hero")
+    self._ui_mustHero   = self._ui_mustHeroPos:GetComponent("Image")
+    self._Particle_G3   = self.layer:Get("UI60_must_talk/Particle_G3"):GetComponent("ParticleSystem")
+end
+
+function UI_MustFightTalk:MustFightTalkDestructor()
+	self._ui_mustName  = nil
+	self._ui_mustHero  = nil;
+	self._mustCall = nil;
+	self._ui_mustHeroPos = nil;
+    self.layer:Release()
+    self.layer = nil
+end
+
+function UI_MustFightTalk:ShowLayer(herodata,skillName,call)
+    self._mustCall = call;
+    self._ui_mustName:SetText(skillName)
+    Hero:SetBodyImage(self._ui_mustHero, herodata:GetModelID());
+    Groble_UIMgr:GamePause(true)
+
+    local info = Hero.SPINE_INFO[herodata:GetModelID()][Hero.SPINE_UI_FIGHT_MUST_TALK]
+    if info ~= nil then
+        if info.localPos ~= nil then
+            self._ui_mustHeroPos.transform.localPosition = info.localPos
+        end
+        if info.localScale ~= nil then
+            self._ui_mustHeroPos.transform.localScale = info.localScale
+        end
+    end
+    self.layer:SetVisible(true)
+    self._Particle_G3:Play()
+	self.layer:AnimatorPlay("enter")
+end
+function UI_MustFightTalk:onLayerFadeInEndCall()
+    self._mustCall();
+    self._mustCall = nil;
+	self.layer:SetVisible(false)
+    HeroController:MoveVariableClear()
+    Groble_UIMgr:GamePause(false)
+end
+
+return UI_MustFightTalk

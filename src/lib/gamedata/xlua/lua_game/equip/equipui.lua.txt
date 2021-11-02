@@ -1,0 +1,456 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:03:54
+-- brief :
+--
+Equip = Equip or {}
+
+function Equip:SetIconUi(image, filename,stoneName)
+    if image == nil then
+        return
+    end
+    local _filepath
+    if stoneName ~= nil and stoneName~= 0 then
+        _filepath =  "source_icon/equip/" .. stoneName
+    else
+        _filepath =  "source_icon/equip/" .. filename
+    end
+
+    image:GetComponent("Image"):LoadSprite(_filepath)
+    for i = 1, image.transform.childCount do
+        image.transform:GetChild(i - 1):SetVisible(false)
+    end
+    image:GetComponent("Image").enabled = true
+end
+
+local _s_fsborder = {}
+
+function Equip:SetFSBorder(image, filename)
+    if image == nil then
+        return
+    end
+    if _s_fsborder[filename] == nil then
+        _s_fsborder[filename] = "source_icon/equip/" .. filename
+    end
+    image:LoadSprite(_s_fsborder[filename])
+    image.enabled = true
+end
+
+function Equip:SetSpine(node, filename)
+    if node == nil then
+        return
+    end
+    local _filepath = "prefab_item_spine/" .. filename
+    local qltySpine = node:CreateChild(_filepath)
+    qltySpine.name = filename
+    qltySpine:SetVisible(true)
+    return qltySpine
+end
+
+function Equip:NewPassiveSkill(trans)
+    local cls           = {};
+    cls.transform       = trans;
+    cls.descPrefab      = trans.transform:Find("item_hide/skill_desc")
+    cls.scrollview      = trans.transform:Find("scrollview")
+    cls.txtEmpty        = trans.transform:Find("text_empty")
+    cls.content         = trans.transform:Find("scrollview/content")
+    return cls;
+end
+
+function Equip:SetPassiveSkill(cls, equip, heroid)
+    local skills = {}
+    for _, v in pairs(equip.skills) do
+        table.insert(skills, {skilltype = 1, cfgid = v})
+    end
+    if #skills == 0 then
+        for _, v in pairs(equip.init_skills) do
+            table.insert(skills, {skilltype = 1, cfgid = v})
+        end
+    end
+    if equip.suitid ~= 0 then
+        local suitcfgids = self:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM)
+        for _, v in pairs(suitcfgids) do
+            table.insert(skills, {skilltype = 2, cfgid = v})
+        end
+    end
+
+    set_obj_active(cls.scrollview, #skills > 0)
+    set_obj_active(cls.txtEmpty, #skills == 0)
+    if #skills == 0 then return end
+
+    local posy, disy = 0, 30
+    local cellnum = math.max(cls.content.childCount, #skills)
+    local skillcfg = nil
+    local bactive = false
+    if(cls.descItems == nil)then
+        cls.descItems = {};
+    end
+    for i = 1, cellnum do
+        if cls.descItems[i] == nil then
+            cls.descItems[i] = {};
+            cls.descItems[i].transform = Groble_ResMgr:Instantiate(cls.descPrefab, cls.content)
+            cls.descItems[i].transform.name = "item" .. i
+            cls.descItems[i].txtDesc = cls.descItems[i].transform:Find("text_desc"):GetComponent("Text")
+            cls.descItems[i].txtNum = cls.descItems[i].transform:Find("text_num"):GetComponent("Text")
+            cls.descItems[i].rect = cls.descItems[i].transform:GetComponent("RectTransform")
+        end
+        set_obj_active(cls.descItems[i].transform, skills[i] ~= nil)
+        if skills[i] ~= nil then
+            skillcfg = self:GetEquipSuitCfg(skills[i].cfgid)
+            local cfg = Skill:GetCfgByTypeIdStr(skillcfg.skill)
+            local desc = lua_color_str(cfg.desc)
+            local suitnum = (heroid == 0) and 0 or Hero:EquipSuitExistNum(heroid, equip.suitid)
+            cls.descItems[i].txtNum.text  = string.format("%d/%d", suitnum, skillcfg.num)
+            bactive = suitnum >= skillcfg.num
+            cls.descItems[i].txtDesc.text = desc
+            if bactive then
+                cls.descItems[i].txtDesc.color = COLOR_TYPE.White
+                cls.descItems[i].txtNum.color  = COLOR_TYPE.White
+            else
+                cls.descItems[i].txtDesc.color = COLOR_TYPE.Gary_New
+                cls.descItems[i].txtNum.color  = COLOR_TYPE.Gary_New
+            end
+            local size = cls.descItems[i].rect.sizeDelta
+            size.y = cls.descItems[i].txtDesc.preferredHeight + disy
+            cls.descItems[i].rect.sizeDelta = size
+            local localPos = cls.descItems[i].rect.localPosition
+            localPos.y = posy
+            cls.descItems[i].rect.localPosition = localPos
+            posy = posy - size.y
+        end
+    end
+end
+
+function Equip:InitBelongTypes(obj)
+    local clsArr = {}
+    for i = 1, 3, 1 do
+        clsArr[i]           = clsbase:new(obj.transform:Find("img_attrBg" .. i))
+        clsArr[i].attrCom   = clsArr[i]:GetImageComponent("img_attr")
+    end
+    return clsArr
+end
+
+function Equip:EquipBelongTypes(clsArr, cfgid)
+    local limits = {1, 2, 3}
+    local cfg = self:GetCfg(cfgid)
+    if cfg.belong_dept ~= "-1" then
+        limits = lua_str_split(cfg.belong_dept, "|")
+    end
+    for i, cls in ipairs(clsArr) do
+        cls:Visible(limits[i] ~= nil)
+        if limits[i] ~= nil then
+            Hero:LoadAttrIconSp(cls.attrCom, limits[i])
+        end
+    end
+end
+
+-- showUnlock 显示未解锁状态
+function Equip:SetEquipAttr(clsArr, equip, showUnlock )
+    -- calc show attrtypes
+
+    local maxCount = Equip.FS_ATTR_COUNT
+    for i, cls in ipairs(clsArr) do
+        local attrtype
+        if equip.show_attrs[i] ~= nil then
+            attrtype = equip.show_attrs[i][1]
+        end
+        cls:Visible(attrtype ~= nil)
+        if i <= maxCount then
+            if attrtype ~= nil then
+                CAttr:SetAttrCObj(cls, attrtype, equip.show_attrs[i][2])
+                cls.attrtype = attrtype
+            else
+                if showUnlock then
+                    CAttr:SetUnlockAttrObj(cls, equip, i)
+                    cls:Visible(true)
+                end
+            end
+        else
+            cls:Visible(false)
+        end
+    end
+
+    return equip.show_attrs;
+end
+
+function Equip:NewEquipProp(trans)
+    local cls               = clsbase:new(trans)
+    cls.skillIsNull         = cls:Find("txt_none_desc")
+    cls.txtSkillDesc        = cls:GetTextComponent("txt_skill_desc")
+    cls.rect                = cls:GetComponent("RectTransform");
+    return cls
+end
+
+function Equip:SetEquipProp(cls, equip,checkActive)
+    local exist = false
+    exist = equip.suitid ~= Equip.SUIT_NULL
+    set_obj_active(cls.skillIsNull,not exist)
+    set_obj_active(cls.txtSkillDesc.transform, exist)
+    local desc = nil
+    local suitcfgids = Equip:GetEquipSuitCfgIds(equip.suitid, Equip.SUIT_MAX_NUM) or {}
+    local suitcfg, deskillcfg, tmpdesc
+    local suitnum = 0   -- 已达成的数量
+    for _, v in pairs(suitcfgids) do
+        suitcfg = Equip:GetEquipSuitCfg(v)
+        deskillcfg = Skill:GetCfgByTypeIdStr(suitcfg.skill)
+        if checkActive then
+            suitnum = (equip.heroid == 0) and 0 or Hero:EquipSuitExistNum(equip.heroid, equip.suitid)
+        end
+        suitnum = lua_math_in_range(suitnum,0,suitcfg.num);
+        tmpdesc = string.format(LanguageMgr:GetTextByID(99000042), suitnum, suitcfg.num, deskillcfg and deskillcfg.desc or "")
+        if suitnum < suitcfg.num then
+            tmpdesc = string.format(LanguageMgr:GetTextByID(99000043), tmpdesc)
+        end
+        if desc == nil then
+            desc = tmpdesc
+        else
+            desc = desc .. "\n" .. tmpdesc
+        end
+    end
+    if(exist)then
+        cls.txtSkillDesc.text = lua_color_str(desc)
+    end
+
+    ---enchant
+    local empty = false
+    CS.UIHelpScript.Instance:ForceRebuildLayoutImmediate(cls.rect);
+end
+
+function Equip:NewEquipNameLvExp(trans)
+    local cls           = {};
+    cls.txtLevel        = trans:Find("text_level"):GetComponent("Text")
+    cls.txtName         = trans:Find("text_name"):GetComponent("Text")
+    cls.imgCur          = trans:Find("image_cur")
+    cls.txtPer          = trans:Find("text_per"):GetComponent("Text")
+    cls.sliderLevel     = trans:Find("level_slider"):GetComponent ("Slider")
+    cls.sliderLevelBg   = trans:Find("level_sliderBg")
+    if(cls.sliderLevelBg ~= nil)then
+        cls.sliderLevelBg = cls.sliderLevelBg:GetComponent ("Slider")
+    end
+    return cls
+end
+
+function Equip:SetEquipNameLvExp(cls, equip, params)
+    cls.equip = equip;
+    cls.params = params;
+    local str_level = string.format(COLOR_STR.EquipLevel, equip.level, equip.curr_max_level)
+    cls.txtLevel.text = str_level
+    local cfg = Equip:GetCfg(equip.cfgid)
+    cls.txtName.text = cfg.Name
+
+    if cls.imgCur ~= nil then
+        set_obj_active(cls.imgCur, params ~= nil and equip.heroid ~= 0 and equip.heroid == params.heroid)
+    end
+
+    if params ~= nil and params.showExp then
+        local str_exp = "--/--"
+        local per_exp = 1
+        if equip.level ~= equip.max_level then
+            local next_exp = self:GetLevelCostExp(equip.cfgid, equip.level)
+            str_exp = equip.exp .. "/" .. next_exp
+            per_exp = equip.exp / next_exp
+        end
+        cls.txtPer.text = str_exp
+        cls.sliderLevel.value = per_exp
+        if cls.sliderLevelBg ~= nil then
+            cls.sliderLevelBg.value = per_exp
+        end
+    end
+end
+
+function Equip:GetNameLvExpInfo(data)
+    local cfg = self:GetCfg(data.cfgid)
+    local info = {
+        name    = cfg.Name,
+        level   = string.format(LanguageMgr:GetTextByID(99000076), data.level, data.curr_max_level),
+        exp_str = "--/--",
+        exp_per = 1,
+    }
+    if data.level ~= data.max_level then
+        local next_exp = self:GetLevelCostExp(data.cfgid, data.level)
+        info.exp_str = data.exp .. "/" .. next_exp
+        info.exp_per = data.exp / next_exp
+    end
+    return info
+end
+
+function Equip:CtorEquipCObj(obj, call,hideSkin)
+    local cls       = clsbase:new(obj)
+    cls.clsbag      = Bag:CtorComSimpleGoodsUi(obj, call,hideSkin)
+    cls.heroObj     = cls:Find("img_hero")
+    cls.starCom     = cls:Find("img_star")
+    cls.levelBgCom  = cls:GetImageComponent("img_levelBg")
+    cls.levelTxtCom = cls:GetTextComponent("txt_level")
+    cls.numCom      = cls:GetTextComponent("txt_num")
+    cls.starChilds     = {}
+    if cls.starCom ~= nil then
+        for i = 1, 6 do
+            cls.starChilds[i] = cls:Find("img_star/img_star"..i)
+        end
+    end
+    cls.level   = 0
+    cls.star    = 0
+    cls.heroid  = 0
+    return cls
+end
+
+function Equip:_SetEquipCObj(cls, cfgid, level, heroid, star, isMayDrop, showMay, num)
+    Bag:SetComSimpleGoodsUi(cls.clsbag, Bag.TYPE_EQUIP, cfgid, num,nil, isMayDrop, showMay)
+    if cls.levelTxtCom ~= nil then
+        if level > 0 then
+            cls.levelTxtCom.text = "Lv." .. level
+        else
+            cls.levelTxtCom.text = ""
+        end
+    end
+
+    if cls.levelBgCom ~= nil then
+        set_com_enabled(cls.levelBgCom, level > 0)
+    end
+
+    if cls.heroObj ~= nil then
+        set_obj_active(cls.heroObj, heroid ~= 0)
+        if heroid ~= 0 then
+            if(cls.heroClass == nil)then
+                cls.heroClass = Bag:CtorComSimpleGoodsUi(cls.heroObj);
+            end
+            Bag:SetComSimpleGoodsUi(cls.heroClass,Bag.TYPE_HERO,heroid,0);
+        end
+    end
+
+    local empty, c = false, 0
+    -- refresh enchant icon pos
+    if cls.starCom ~= nil then
+        local showStar = false
+        cls.starCom:SetVisible(showStar)
+        if showStar then
+            Bag:SetStarSprite(cls.starCom, star)
+        end
+    end
+end
+
+
+
+function Equip:SetEquipCObjByCfgid(cls, cfgid, isMayDrop, showMay, num)
+    local cfg = self:GetCfg(cfgid)
+    self:_SetEquipCObj(cls, cfgid, 0, 0, tonumber(cfg.Star), isMayDrop, showMay, num)
+end
+
+function Equip:SetEquipCObjByUid(cls, uid, hidehero)
+    local equip = self:GetEquip(uid)
+    local heroid = hidehero and 0 or equip.heroid
+    --Bag:SetComSimpleGoodsUi(cls.clsbag, Bag.TYPE_EQUIP, equip.cfgid)
+    self:_SetEquipCObj(cls, equip.cfgid, equip.level, heroid, equip.star)
+end
+
+function Equip:HideEquipCObj(cls)
+    if cls.levelTxtCom ~= nil then
+        cls.levelTxtCom.text = ""
+    end
+    if cls.levelBgCom ~= nil then
+        set_com_enabled(cls.levelBgCom, false)
+    end
+    if cls.heroObj ~= nil then
+        set_obj_active(cls.heroObj, false)
+    end
+
+    if cls.starCom ~= nil then
+        cls.starCom.gameObject:SetVisible(false)
+    end
+end
+
+-- 符石的标签
+function Equip:SetEquipTag(sid, img, txt)
+
+    if not sid then return end
+
+    local cfg = self:GetEquipSuitCfg(sid)
+    if not cfg then return end
+
+    if img then
+        img:LoadAtlasSprite("source_atlas/atlas_equip_layer", "img_fushi_icon_" .. cfg.signimg)
+    end
+
+    if txt then
+        txt:SetText(cfg.sign)
+    end
+end
+
+-- 指定位置指定系别等级最高的装备 UID
+function Equip:GetEquipsUIDByTypeSuit(itype, suitid, heroid)
+    local datas = {}
+    for _, v in pairs(self._equips) do
+        if itype == v.ntype and suitid == v.suitid then
+            local tbl = {
+                uid     = v.uid,
+                level   = v.level,
+                qlty    = v.qlty
+            }
+            table.insert(datas, tbl)
+        end
+    end
+    if #datas > 0 then
+        table.sort(datas, function(a, b)
+            if a.qlty ~= b.qlty then
+                return a.qlty > b.qlty
+            elseif a.level ~= b.level then
+                return a.level >= b.level
+            end
+            return false
+        end)
+        for i = 1, #datas do
+            local uid = datas[i].uid
+            local equip = Equip:GetEquip(uid)
+            if (not equip.heroid) or (equip.heroid == 0) or (heroid == equip.heroid) then
+                return datas[i].uid
+            end
+        end
+    end
+    return nil
+end
+
+-- 指定位置指定系别等级最高的装备 ID
+function Equip:GetEquipsIDByTypeSuit(itype, suitid)
+    local datas = {}
+    for _, v in pairs(self._configs) do
+        if itype == tonumber(v.Type) and suitid == tonumber(v.Classmate) then
+            local tbl = {
+                id     = tonumber(v.id),
+                qlty   = tonumber(v.Quality),
+            }
+            table.insert(datas, tbl)
+        end
+    end
+    if #datas > 0 then
+        table.sort(datas, function(a, b)
+            return a.qlty < b.qlty
+        end)
+        return datas[1].id
+    end
+    return nil
+end
+
+function Equip:EnterWitchEquipLayer(heroId)
+    if not Groble_UIMgr:ShowUnlockTipsLayer(Player.SYS_FUNC.sys_equip) then
+        return    
+    end
+    if heroId == 0 or heroId == nil then
+        local heroIds = Hero:GetOwnerIds()
+        local sortLow = {
+            sortType = Hero.Select_TYPE_HERO.sort,
+            subType = Hero.SORT_TYPE_HERO.default
+        }
+        heroIds = Hero:SortHeroList(heroIds, sortLow)
+        if #heroIds > 0 then
+            heroId = heroIds[1]
+        else
+            heroId = 1001
+        end
+    end
+    xpcall(function()
+            core.require("xlua/lua_UI/Witch/WitchEquipLayer.txt"):new():show(heroId)
+        end, 
+        function()
+            HttpUpload:UploadTraceback(debug.traceback())
+        end)
+end

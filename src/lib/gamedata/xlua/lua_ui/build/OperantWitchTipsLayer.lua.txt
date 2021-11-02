@@ -1,0 +1,124 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-03-05 16:10:30
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local OperantWitchTipsLayer = class("OperantWitchTipsLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	--@ButtonEnd
+}
+--构造函数
+function OperantWitchTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiBuild/UI_OperantWitchTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function OperantWitchTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function OperantWitchTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+end
+
+--初始化
+function OperantWitchTipsLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function OperantWitchTipsLayer:InitUI()
+
+	--@ImageEnd
+
+	--@TextEnd
+
+	self._transItemParent = self.layer:Get("trans_container/trans_witch_bg/trans_item_parent");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	self._objItem = self.layer:Get("trans_container/item_hide/obj_item").gameObject;
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function OperantWitchTipsLayer:show(atkType)
+    self:SetUI(atkType);
+    self:showLayer();
+end
+
+--退出按钮事件
+function OperantWitchTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function OperantWitchTipsLayer:onExit()
+
+    self._transItemParent = nil;
+	self._objItem = nil;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function OperantWitchTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function OperantWitchTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function OperantWitchTipsLayer:SetUI(atkType)
+    local heros = Hero:GetIdsByAtkType(atkType);
+    self:InitHeroItems(heros);
+end
+
+function OperantWitchTipsLayer:InitHeroItems(heros)
+    self._heroItems = {};
+    for i, id in ipairs(heros) do
+        self._heroItems[i] = Bag:CtorComSimpleGoodsUi(CS.UnityEngine.GameObject.Instantiate(self._objItem,self._transItemParent));
+        self._heroItems[i].objLock = self._heroItems[i]:Find("img_lock");
+        self._heroItems[i].txtName = self._heroItems[i]:GetTextComponent("txt_name");
+        Bag:SetComSimpleGoodsUi(self._heroItems[i],Bag.TYPE_HERO,id);
+        self._heroItems[i].objLock:SetVisible(not Hero:GetHero(id).owner);
+        self._heroItems[i].txtName:SetText(Hero:GetCfg(id).Name);
+    end
+end
+
+return OperantWitchTipsLayer;

@@ -1,0 +1,37 @@
+--
+-- author: haosun
+-- date  : 2018-11-16 12:09:32
+-- brief : 
+--
+
+UI_TipsLayer = UI_TipsLayer or {}
+
+local _slist = {}
+
+function UI_TipsLayer:ShowTipsLayer(desc, play)
+    local prefab = CanvasMgr:CreateCanvasChild("prefab_comframeWork/UI_TipsLayer")
+    prefab:AddAnimationBehaviour(self)
+    prefab:GetTextComponent("canvas_ui/text_desc"):SetText(desc)
+    prefab:SetVisible(true)
+
+    if play then
+        prefab:AnimationPlay("TipsLayerAni2")
+    else
+        prefab:AnimationPlay("TipsLayerAni") 
+    end
+    table.insert(_slist, prefab)
+end
+
+function UI_TipsLayer:onAnimationEvent()
+    if _slist[1] ~= nil then
+        _slist[1]:Release()
+        table.remove(_slist, 1)
+    end
+end
+
+function UI_TipsLayer:ClearTipsLayer()
+    for i, v in ipairs(_slist) do
+        _slist[i] = nil
+    end
+end
+

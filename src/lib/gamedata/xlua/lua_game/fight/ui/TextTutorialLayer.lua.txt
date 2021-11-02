@@ -1,0 +1,101 @@
+--
+-- author: haosun
+-- date  : 2020-12-21 17:39:06
+-- brief : 
+--
+local TextTutorialLayer = class("TextTutorialLayer")
+
+local _pos_auto     = 0
+local _pos_hero     = 1
+
+function TextTutorialLayer:ctor(super)
+    self.layer  = CanvasMgr:CreateCanvasChild("tutorial_dir/tutorial_text")
+    self._container = self.layer:Get("container")
+    self._arrow = self._container:Get("bk2")
+    self._title = self._container:GetTextComponent("Title")
+    self._desc  = self._container:GetTextComponent("Info")
+    self._anim  = self.layer:GetComponent("Animation")
+    self._objHand   = self.layer:Get("hand")
+    self._objHand:SetVisible(false)
+    self._compGraphic  = self.layer:GetComponent("TransparentGraphic")
+    local listener = CS.EventTriggerListener.Get(self.layer:GetComponent("Button").gameObject)
+    listener.onDown = function(go) self:onNextClick() end
+    self._hasEnd = false
+end
+
+function TextTutorialLayer:TextTutorialLayerDestructor()
+    self._arrow = nil
+    self._title = nil
+    self._desc  = nil
+    self._anim  = nil
+    self._objHand   = nil
+    self._container = nil
+    self.layer:Release()
+    self.layer  = nil
+end
+
+function TextTutorialLayer:TextTutorialLayerEnter(cfg, x, y)
+    self._title:SetTextById(cfg.title_id)
+    self._desc:SetTextById(cfg.text_id)
+    if cfg.show_arr then
+        self._arrow:SetPosition(cfg.arrow_info[1], cfg.arrow_info[2], 0, true)
+        self._arrow:SetScale(cfg.arrow_info[3], cfg.arrow_info[4], 1)
+        self._arrow:SetRotation(cfg.arrow_info[5], cfg.arrow_info[6], cfg.arrow_info[7], true)
+    end
+    
+    self._posx, self._posy = 0, 0
+    if cfg.pos_info[1] == _pos_auto then
+        self._posx = cfg.pos_info[2]
+        self._posy = cfg.pos_info[3]
+    elseif cfg.pos_info[1] == _pos_hero then
+        local _tmpx, _tmpy = UI_FightPlayerLayer:GetFightPlayerLayerPos()
+        x = _tmpx + cfg.pos_info[2]
+        y = _tmpy + cfg.pos_info[3]
+    end
+    if x ~= nil and y ~= nil then
+        self._posx = x
+        self._posy = y
+    end
+    self._arrow:SetVisible(cfg.show_arr)
+    self._objHand:SetVisible(cfg.show_move)
+    if cfg.show_move then
+        self._objHand:SetPosition(200, -472, 0, true)
+        self._objHand:DOLocalMove(CS.UnityEngine.Vector3(-200, -472, 0), 1):SetLoops(-1, CS.DG.Tweening.LoopType.Yoyo)
+    end
+
+    self._container:SetPosition(self._posx, self._posy, 0, true)
+    self.layer:SetVisible(true)
+    if cfg.auto_end > 0 then
+        self.layer:DelayCall(cfg.auto_end, function() self:onNextClick() end)
+    end
+    self._compGraphic.raycastTarget = cfg.mask_click
+    self._hasEnd = false
+    self._anim:Play("ToutailStepEffect2")
+    self:stopSound()
+    if cfg.battlevoice_id ~= 0 then
+        self._instHandler = Groble_SoundMgr:PlayGuideBattleVoice(cfg.battlevoice_id)
+    end
+end
+
+function TextTutorialLayer:onNextClick()
+    if self._hasEnd then return end
+    self._hasEnd = true
+
+    self.layer:SetVisible(false)
+    TutorialController:TextTutorialEnd()
+end
+
+function TextTutorialLayer:ExitTextTutorialLayer()
+    if self._hasEnd then return end
+    self._hasEnd = true
+    self._instHandler = nil
+    
+    self.layer:SetVisible(false)
+end
+
+function TextTutorialLayer:stopSound()
+    Groble_SoundMgr:StopOnceEffect(self._instHandler)
+    self._instHandler = nil
+end
+
+return TextTutorialLayer

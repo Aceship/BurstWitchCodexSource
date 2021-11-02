@@ -1,0 +1,514 @@
+--
+-- date 2018-10-12 16:43:15 CST
+-- brief 客户端服务器通用脚本调用
+--
+c2s = c2s or {}
+--------------------------------------------------------------
+-- 客户端远程调用
+function c2s.OnCallCmd(data)
+    -- 函数名
+    local tb_func = c2s[data[1]]
+    if not tb_func or type(tb_func[1]) ~= "table" or type(tb_func[2]) ~= "function" then
+        AppMgr:LogInfo("network decode buff error. msgid = " .. data[1])
+        return;
+    end
+    AppMgr:LogInfo(string.format("-----------------------------------------recv msg id:%d", data[1]))
+    -- 调用
+    data[1] = tb_func[2]
+    table.insert(data, 2, tb_func[1])
+    Lib:CallBack(data)
+end
+
+-------------------------------------------------------------------
+-- 协议
+-- 注册实例：c2s[c2s.GM_TEST_REQ] = {Gm, Gm.OnRequestGmTest}
+-------------------------------------------------------------
+-- gm
+c2s.GM_TEST_REQ                 = 1         --测试脚本
+c2s.GM_TEST_RES                 = 2
+c2s.GM_CALL_FUNC                = 3         --调用服务器函数p1:server_type,p2:函数有无player对象,p3:func
+c2s.GM_REPEAT_SCRIPT            = 4         --重载脚本
+c2s.GM_ADD_ITEM_REQ             = 5         --gm增加物品p1:{{unit_type = , configid = , num = }, ...}
+c2s.GM_PASS_DUNGEON_REQ         = 6         --GM 通关所有剧情副本
+c2s.GM_SEND_MAIL_REQ            = 7         --GM 发送邮件请求
+c2s.GM_DO_PLAYER_SCRIPT_REQ     = 10        --GM 调用玩家脚本
+-- global
+c2s.ERROR_CODE_NTF               = 11       -- 错误码通知
+c2s.DAILY_REFRESH_NTF            = 12        -- 日刷新通知, p1: isMonthChange, p2: isWeekChanged
+c2s.SERVER_TIME_REFRESH_NTF     = 13        -- 时间刷新, p1:服务器更新时间
+c2s.CLT_HOT_UPDATE_NTF          = 14        -- 客户端热更新通知, p1:版本
+
+-- 玩家信息
+c2s.PLAYERINFO_MODIFY_NAME_REQ  = 1101      --修改昵称请求，p1：name
+c2s.PLAYERINFO_MODIFY_NAME_RES  = 1102      --修改昵称响应，p1：name
+c2s.PLAYERINFO_MODIFY_FRAME_REQ = 1103      --修改头像框请求，p1：frameid
+c2s.PLAYERINFO_MODIFY_FRAME_RES = 1104      --修改头像框响应，p1：frameid
+c2s.PLAYERINFO_MODIFY_ICON_REQ  = 1105      --修改头像请求，p1：iconid
+c2s.PLAYERINFO_MODIFY_ICON_RES  = 1106      --修改头像响应，p1：iconid
+c2s.PLAYERINFO_MODIFY_INFO_REQ  = 1107      --玩家修改信息请求, {frameid = frameid, iconid = iconid}
+c2s.PLAYERINFO_MODIFY_INFO_RES  = 1108      --玩家修改信息响应
+c2s.PLAYERINFO_DATA_SYNC        = 1109      --玩家信息数据同步
+c2s.PLAYERINFO_MODIFY_TEAM_REQ  = 1110      --修改队伍信息, p1: heroids,
+c2s.PLAYERINFO_MODIFY_TEAM_RES  = 1111      --修改队伍响应, p1: heroids
+c2s.PLAYERINFO_AUTOGRAPH_REQ    = 1112      --签名请求, p1: 签名
+c2s.PLAYERINFO_AUTOGRAPH_RES    = 1113      --签名响应
+c2s.PLAYERINFO_CARD_DATA_REQ    = 1114      --查看名片请求, p1: lookid
+c2s.PLAYERINFO_CARD_DATA_RES    = 1115      --查看名片响应
+c2s.PLAYERINFO_ADD_SCRIPT_REQ   = 1118      --购买体力请求
+c2s.PLAYERINFO_ADD_SCRIPT_RES   = 1119      --购买体力响应
+c2s.PLAYERINFO_GIFT_CODE_REQ    = 1120      --兑换激活码请求 p1:giftcode
+c2s.PLAYERINFO_GIFT_CODE_RES    = 1121      --兑换激活码响应 p1:-1 不存在的兑换码, 0 兑换成功, 1 已兑换的兑换码, 2 已经兑换该类型的兑换码
+c2s.PLAYERINFO_GUIDE_REQ        = 1122      --引导请求 p1:
+c2s.PLAYERINFO_GUIDE_RES        = 1123      --引导响应 p1
+c2s.PLAYERINFO_GUIDE_REWARD_REQ = 1124      --引导奖励请求    p1: guideid
+c2s.PLAYERINFO_GUIDE_REWARD_RES = 1125      --引导奖励响应    p1: guideid
+--请求没有参数  返回 返回drop_ret
+c2s.PLAYERINFO_GET_VERIFY_ID_CARD_AWARD_REQ     = 1126      -- 身份证验证奖励 请求
+c2s.PLAYERINFO_GET_VERIFY_ID_CARD_AWARD_RES     = 1127      -- 身份证验证奖励 返回
+c2s.PLAYERINFO_HERO_REd_REQ     = 1128      --魔女红点锁定请求    p1: hero_id p2: bool
+c2s.PLAYERINFO_HERO_REd_RES     = 1129      --魔女红点锁定请求   p1: hero_id p2: bool
+c2s.PLAYERINFO_SET_KANBAN_REQ   = 1130      -- 设置看板娘 请求 p1:skin_id
+c2s.PLAYERINFO_SET_KANBAN_RES   = 1131      -- 设置看板娘 返回 p1:skin_id
+c2s.PLAYERINFO_GET_SHARE_GIFT_REQ = 1132    --领取分享奖励 请求
+c2s.PLAYERINFO_GET_SHARE_GIFT_RES = 1133    --领取分享奖励 返回
+
+c2s.PLAYERINFO_CHOSE_TEACHER_REQ    = 1136     -- 选择导师 请求 p1:tch_id
+c2s.PLAYERINFO_CHOSE_TEACHER_RES    = 1137     -- 选择导师 返回 p1:tch_id
+c2s.PLAYERINFO_RED_POINT_REQ        = 1138     -- 红点记录请求
+c2s.PLAYERINFO_RED_POINT_RES        = 1139     -- 红点记录返回
+c2s.PLAYERINFO_GET_URL_GIFT_REQ         = 1140          -- 领取 url 奖励 请求 p1：id
+c2s.PLAYERINFO_GET_URL_GIFT_RES         = 1141          -- 领取 url 奖励 返回
+
+-- item
+c2s.ITEM_DATA_SYNC              = 1201      --物品数据同步
+c2s.ITEM_BATCH_ADD_NTF          = 1202      --增加物品,     p1:{item1, ...}
+c2s.ITEM_BATCH_DEC_NTF          = 1203      --减少物品,     p1:{item1, ...}
+c2s.ITEM_USE_REQ                = 1204      --使用物品请求, p1:configid, p2:num
+c2s.ITEM_USE_RES                = 1205      --使用物品响应，p1:configid
+c2s.ITEM_SELL_REQ               = 1206      --出售物品请求, p1:{config=num, ...}
+c2s.ITEM_SELL_RES               = 1207
+c2s.ITEM_RESOLVE_REQ            = 1208      --物品分解请求, p1:{config=num, ...}
+c2s.ITEM_RESOLVE_RES            = 1209
+
+-- 魔女
+c2s.HERO_DATA_SYNC              = 1301      --魔女数据同步
+c2s.HERO_BATCH_ADD_NTF          = 1302      --增加魔女,         p1:{hero1,...}
+c2s.HERO_UNLOCK_REQ             = 1303      --魔女解锁请求    p1:heroid
+c2s.HERO_UNLOCK_RES             = 1304      --魔女解锁响应    p1:heroid
+c2s.HERO_LEVEL_UP_REQ           = 1305      --魔女升级请求    p1:heroid
+c2s.HERO_LEVEL_UP_RES           = 1306      --魔女升级响应    p1:heroid
+c2s.HERO_STEP_UP_REQ            = 1307      --魔女升阶请求    p1:heroid
+c2s.HERO_STEP_UP_RES            = 1308      --魔女升阶响应    p1:heroid
+c2s.HERO_STAR_UP_REQ            = 1309      --魔女升星请求    p1:heroid
+c2s.HERO_STAR_UP_RES            = 1310      --魔女升星响应    p1:heroid, p2:talentid
+c2s.HERO_SKILL_UP_REQ           = 1321      --魔女技能升级请求  p1:heroid, p2:skill_slot
+c2s.HERO_SKILL_UP_RES           = 1322      --魔女技能升级响应  P1:heroid, p2:skill_slot
+c2s.HERO_SKIN_CHANGE_REQ        = 1333      -- 魔女更换皮肤 请求 p1:heroid p2:skinid
+c2s.HERO_SKIN_CHANGE_RES        = 1334      -- 魔女更换皮肤 返回 p1:heroid p2:skinid
+c2s.HERO_SWPOINT_LV_UP_REQ      = 1335      -- 魔女星盘点升级 请求 p1:hero_id, p2:slot_part(第几个星盘), slot_point(第几个点)
+c2s.HERO_SWPOINT_LV_UP_RES      = 1336      -- 魔女星盘点升级 返回 p1:hero_id, p2:slot_part(第几个星盘), slot_point(第几个点)
+
+c2s.HERO_INTIMACY_GIFT_GET_REQ  = 1341      -- 魔女获得好感度礼物 请求 p1:heroid p2:items {[id1]= num1 ..}
+c2s.HERO_INTIMACY_GIFT_GET_RES  = 1342      -- 魔女获得好感度礼物 返回 p1:heroid p2:intimacy_level p3:intimacy_exp
+
+c2s.HERO_INTIMACY_RAISE_UP_REQ  = 1343      -- 魔女好感度升华 请求 p1:heroid
+c2s.HERO_INTIMACY_RAISE_UP_RES  = 1344      -- 魔女好感度升华 请求 p1:heroid p2:升华后的raiseup(首次置为-1为激活，之后为升华)
+
+c2s.HERO_INTIMACY_GET_ADVENTURE_REQ     = 1345      -- 魔女奇遇奖励领取 请求 p1:heroid;
+c2s.HERO_INTIMACY_GET_ADVENTURE_RES     = 1346      -- 魔女奇遇奖励领取 返回 p1:cfgid
+
+c2s.HERO_EMBLEM_LV_UP_REQ       = 1351      -- 魔女纹章等级升级 请求 p1:emblem_id
+c2s.HERO_EMBLEM_LV_UP_RES       = 1352      -- 魔女纹章等级升级 返回 p1:emblem_id p2:new_lv
+c2s.HERO_EMBLEM_CONDITION2OK_NTF= 1353      -- 魔女纹章条件2满足通知 返回 p1:{ emblem_id1, ... }
+
+--关卡
+c2s.DUNGEON_DATA_SYNC           = 1601      --副本数据同步
+c2s.DUNGEON_UNLOCK_NTF          = 1602      --副本解锁通知      p1:dungeon
+c2s.DUNGEON_BEGIN_LEVEL_REQ     = 1603      --关卡开始请求  p1:levelid, p2: heroids
+c2s.DUNGEON_BEGIN_LEVEL_RES     = 1604      --关卡开始响应  p1:levelid, p2:servertime
+c2s.DUNGEON_END_LEVEL_REQ       = 1605      -- 关卡结束请求  p1:success , p2:star , p3:achieve , p4:score , p5:time, p6:k_monsters , p7:items , p8:clockid , p9:cadan_score, p10:skill_num , p11:tower_hero_used , p12:tower_boss_hp  -- p11:爬塔使用的魔女数据 { [hero_id1] = { ["hero_hp"] = xx, ["pet_hp"] = xx } ...} table p12 最终boss血量 int
+c2s.DUNGEON_END_LEVEL_RES       = 1606      --关卡结束响应  p1:{success=success, level = level, next_level = levelid(解锁的下一关卡), drops={}, star_reward=state, add_star = add_star, cg_drops(挑战奖励) = {}, clt_drops = {}}
+c2s.DUNGEON_MOP_UP_REQ          = 1607      --关卡扫荡请求      p1:levelid, p2:count
+c2s.DUNGEON_MOP_UP_RES          = 1608      --关卡扫荡响应      p1:levelid, p2:count, p3:drops
+c2s.DUNGEON_THREE_STAR_RD_REQ   = 1609      --关卡三星奖励请求  p1:levelids
+c2s.DUNGEON_THREE_STAR_RD_RES   = 1610      --关卡三星奖励响应  p1:levelids
+c2s.DUNGEON_STAR_STAGE_RD_REQ   = 1611      --副本大章星级阶段奖励请求 p1:dungeon_id, p2:stage
+c2s.DUNGEON_STAR_STAGE_RD_RES   = 1612      --副本大章星级阶段奖励响应 p1:dungeon_id, p2:stage
+c2s.DUNGEON_SHENYE_ID_CHANGE_NTF= 1613      --深夜副本章节id改变通知 p1:new_shenye_dungeon_id
+c2s.DUNGEON_RIFT_DATA_CHANGE_NTF= 1614      -- 幽暗数据更新 p1:怪物词缀table{1,2 3}; p2:关卡序列 table{1,2,..,7}
+c2s.DUNGEON_SETTLE_RIFT_REQ     = 1617      -- 结算幽暗秘境上周层数奖励
+c2s.DUNGEON_SETTLE_RIFT_RES     = 1618      -- 结算幽暗秘境上周层数奖励 p1:drop
+c2s.DUNGEON_ADD_RIFT_REWARD_NUM_REQ = 1619  -- 增加幽暗秘境奖励次数 请求 无参数
+c2s.DUNGEON_ADD_RIFT_REWARD_NUM_RES = 1620  -- 增加幽暗秘境奖励次数 返回 p1:当前剩余次数 p2:已增加次数
+c2s.DUNGEON_ADD_DUNGEON_COUNT_REQ   = 1621  -- 增加关卡挑战次数 请求 p1:dungeon_id
+c2s.DUNGEON_ADD_DUNGEON_COUNT_RES   = 1622  -- 增加关卡挑战次数 返回 p1:dungeon_id p2:cost_item
+
+c2s.DUNGEON_RESET_YITAI_WORDS_REQ       = 1623      -- 重置以太边境词缀数据 请求 p1:dugneon_id
+c2s.DUNGEON_RESET_YITAI_WORDS_RES       = 1624      -- 重置以太边境词缀数据 返回 p1:dugneon_id
+
+c2s.DUNGEON_GET_YT_LV_AWARD_REQ         = 1625      -- 以太边境总层数奖励领取 请求
+c2s.DUNGEON_GET_YT_LV_AWARD_RES         = 1626      -- 以太边境总层数奖励领取 返回
+
+
+--包裹
+c2s.BAG_DROP_SHOW_NTF           = 1701      --掉落弹框通知  p1:drops
+
+--buff(buff:{id = id, count = count, endtime = endtime})
+c2s.BUFF_DATA_SYNC              = 1801      --buff数据同步
+c2s.BUFF_UPDATE_NTF             = 1802      --buff更新通知(不存在则创建),
+c2s.BUFF_DEL_NTF                = 1803      --删除buff通知, p1:buffid
+c2s.BUFF_SY_BUY_REQ             = 1804      --购买深夜buff请求, p1:sybuffid;
+c2s.BUFF_SY_BUY_RES             = 1805      --购买深夜buff返回, p1:sybuffid, p2:cost_item;
+c2s.BUFF_RIFT_CHOOSE_REQ        = 1806      -- 幽暗秘境buff选择  请求 p1:floor p2:key
+c2s.BUFF_RIFT_CHOOSE_RES        = 1807      -- 幽暗秘境buff选择  返回 p1:buffid
+c2s.BUFF_RIFT_CHOOSE_LIST_REFRESH_NTF   = 1808    -- 幽暗秘境可供选择buff列表更新 p1:list {[floor] = ids ..}
+
+--装备
+c2s.EQUIP_DATA_SYNC             = 1901      --武器数据同步
+c2s.EQUIP_BATCH_ADD_NTF         = 1902      --增加装备,     p1:{equip1, ...}
+c2s.EQUIP_BATCH_DEC_NTF         = 1903      --减少装备,     p1:{id1, ...}
+c2s.EQUIP_LEVEL_UP_REQ          = 1904      --装备强化请求, p1:equipid，items = {id=count, ...}, equips = {id1,...}
+c2s.EQUIP_LEVEL_UP_RES          = 1905      --装备强化响应, p1:equipid, cur_level, cur_exp
+c2s.EQUIP_DRESS_REQ             = 1906      --穿装备请求 p1:heroid, p2:equipids p3:onekey
+c2s.EQUIP_DRESS_RES             = 1907      --穿装备响应 p1:heroid, p2:equipids p3:onekey
+c2s.EQUIP_UNDRESS_REQ           = 1908      --脱装备请求 p1:equipids p2:onekey
+c2s.EQUIP_UNDRESS_RES           = 1909      --脱装备响应 p1:equipids p2:onekey
+c2s.EQUIP_SELL_REQ              = 1910      --出售武器请求 p1:{id1, ...}
+c2s.EQUIP_SELL_RES              = 1911      --出售武器响应
+c2s.EQUIP_STAR_UP_REQ           = 1912      --装备升星请求 p1: equipid, p2:cost_type, p3:cost_id
+c2s.EQUIP_STAR_UP_RES           = 1913      --装备升星响应
+c2s.EQUIP_CHANGE_LOCK_STATE_REQ = 1918      --改变装备锁定状态 p1:uid
+c2s.EQUIP_CHANGE_LOCK_STATE_RES = 1919      --改变装备锁定状态 p1:uid p2:lock_state
+
+--时间
+c2s.TIME_DATA_SYNC              = 2001      --时间数据同步{time1, ...}
+c2s.TIME_DATA_UPDATE            = 2002      --时间数据更新{time1, ...}
+
+
+--邮件
+c2s.MAIL_DATA_SYNC              = 2101      --邮件数据同步 {unread=, count=}
+c2s.MAIL_MAIL_LIST_REQ          = 2102      --邮件列表请求
+c2s.MAIL_MAIL_LIST_RES          = 2103      --邮件列表响应, p1: {mail1, ...}
+c2s.MAIL_ADD_NTF                = 2104      --增加邮件通知 p1:mail
+c2s.MAIL_READ_REQ               = 2105      --读邮件请求, p1: mailid
+c2s.MAIL_READ_RES               = 2106      --读邮件响应, p1: mailid
+c2s.MAIL_GET_UNIT_REQ           = 2107      --领取附件请求, p1: mailid
+c2s.MAIL_GET_UNIT_RES           = 2108      --领取附件响应, p1: mailid
+c2s.MAIL_BATCH_GET_UNIT_REQ     = 2109      --一键领取附件请求
+c2s.MAIL_BATCH_GET_UNIT_RES     = 2110      --一键领取附件响应, p1: {id1, ...}
+c2s.MAIL_DEL_REQ                = 2111      --删除邮件请求, p1: mailid
+c2s.MAIL_DEL_RES                = 2112      --删除邮件响应, p1: mailid
+c2s.MAIL_BATCH_DEL_REQ          = 2113      --一键删除邮件请求
+c2s.MAIL_BATCH_DEL_RES          = 2114      --删除邮件响应, p1: {id1, ...}
+c2s.MAIL_DEL_MAIL_NTF           = 2115      --服务器主动删除邮件, p1:mailid, p2:bread
+
+--排行榜
+-- c2s.RANK_DATA_SYNC              = 2201      --排行榜数据同步
+-- c2s.RANK_LIST_REQ               = 2202      --排行榜列表请求
+-- c2s.RANK_LIST_RES               = 2203      --排行榜列表响应, p1: 数据列表
+-- c2s.RANK_CARD_REQ               = 2204      --排行名片请求 p1: lookid
+-- c2s.RANK_CARD_RES               = 2205      --排行名片响应
+c2s.RANK_MODIFY_RANK_REQ        = 2206      --修正排行榜(当玩家本地排行值与排行榜上不一致时, 需要客户端主动修正)
+c2s.RANK_MODIFY_RANK_RES        = 2207      --修正排行榜响应
+-- c2s.RANK_SETTLE_REQ             = 2208      --请求结算排行
+-- c2s.RANK_SETTLE_RES             = 2209      --请求结算排行 p1 add_coin(排行结算积分币), p2 drops
+c2s.RANK_SETTLE_SCOIN_REQ       = 2210      --请求结算竞技币
+c2s.RANK_SETTLE_SCOIN_RES       = 2211      --请求结算竞技币响应 p1 scoin
+c2s.RANK_SETTLE_SCOIN_NTF       = 2212      --每日竞技币结算通知
+-- c2s.RANK_LAST_LIST_REQ          = 2213      --请求上一次排行列表
+-- c2s.RANK_LAST_LIST_RES          = 2214      --请求上一次排行列表响应 p1 group
+
+-- 新版排行协议
+c2s.RANK_SETTLE_FINISH_NTF      = 2215      --排行榜结算完成通知
+c2s.RANK_SETTLE_START_NTF       = 2216      --排行榜结算开始通知
+c2s.RANK_GET_REQ                = 2217      --排行名次请求,  p1: rank_type
+c2s.RANK_GET_RES                = 2218      --排行名次请求,  p1: rank_type, p2: ranking
+c2s.RANK_SETTLE_RANKING_NTF     = 2219      --排行榜排名结算完成通知 p1：ranking
+c2s.WRANK_ENROLL_REQ            = 2220      --排行榜参赛登记, p1: rank_type
+c2s.WRANK_ENROLL_RSP            = 2221      --排行榜参赛登记返回,
+c2s.WRANK_LIST_REQ              = 2222      --排行榜列表请求, p1: rank_type , p2:data_type(1=上赛季，2=本赛季，3=上+本2个赛季)
+c2s.WRANK_LIST_RSP              = 2223      --排行榜列表响应, p1: 数据列表
+c2s.WRANK_FRIEND_REQ            = 2224      --排行榜好友排名请求, p1: rank_type , p2:page(每页10个） 或使用 [c2s.PFRIEND_GET_CLASS_DATA_REQ]
+c2s.WRANK_FRIEND_RSP            = 2225      --排行榜好友排名响应, p1: 数据列表，
+c2s.WRANK_CARD_REQ              = 2226      --排行榜名片请求   p1: rank_type, p2: lookid
+c2s.WRANK_CARD_RSP              = 2227      --排行榜名片响应   p1: rank_type, p2: data
+c2s.WRANK_SEASON_RESULT_REQ     = 2228      --请求赛季结算结果     p1: rank_type, 这里是前10名的数据
+c2s.WRANK_SEASON_REWARD_REQ     = 2230      --领取赛季奖励请求  p1: rank_type,
+c2s.WRANK_SEASON_REWARD_RSP     = 2231      --领取赛季奖励返回
+c2s.WRANK_DATA_SYNC             = 2232      --排行榜数据同步  p1: table
+c2s.WRANK_CHANGE_NTF            = 2233      --当排名发生变化时同步到前端  {p1:rank_type, p2:rank, p3:score
+c2s.WRANK_SETTLE_DEBUG          = 2234      --仅结算调试使用 {p1:rank_type; p2:kind, 1=日结算，2=赛季结算}
+c2s.WRANK_BIGSEASON_REWARD_REQ  = 2236      --领取大赛季奖励请求  p1: rank_type,
+c2s.WRANK_BIGSEASON_REWARD_RSP  = 2237      --领取大赛季奖励返回
+
+--商店
+c2s.SHOP_DATA_SYNC              = 2301      --商店数据同步
+c2s.SHOP_LOTTERY_REQ            = 2309      --抽奖请求, p1:lotteryid
+c2s.SHOP_LOTTERY_RES            = 2310      --抽奖响应, p1:lotteryid, p2: drops
+c2s.SHOP_SELF_BUY_REQ           = 2311      --自主购买请求, p1:goodstype p2:id p3:num p4:show
+c2s.SHOP_SELF_BUY_RES           = 2312      --自主购买响应
+c2s.SHOP_GET_RANK_SHOP_GIFT_REQ = 2313      --领取排行商店礼包 请求 p1:slot_id
+c2s.SHOP_GET_RANK_SHOP_GIFT_RES = 2314      --领取排行商店礼包 返回
+c2s.SHOP_EXCHANGE_HERO_CHIPS_REQ    = 2317      --兑换魔女碎片 请求 p1: { [item_id] = item_num, .... }
+c2s.SHOP_EXCHANGE_HERO_CHIPS_RES    = 2318      --兑换魔女碎片 返回
+
+c2s.SHOP_CONFIRM_TEST_LOTTERY_REQ   = 2319      --确认玩家测试抽奖 请求 p1:lotteryid
+c2s.SHOP_CONFIRM_TEST_LOTTERY_RES   = 2320      --确认玩家测试抽奖 返回 p1:lotteryid
+
+c2s.SHOP_GET_LSY_VOW_GIFT_REQ   = 2321      --深夜一键领取 请求
+c2s.SHOP_GET_LSY_VOW_GIFT_RES   = 2322      --深夜一键领取 返回
+
+c2s.QUEST_DATA_SYNC             = 2401      --任务数据同步
+c2s.QUEST_DATA_REQ              = 2402      --任务数据请求
+c2s.QUEST_DATA_RES              = 2403      --任务数据响应, p1:quests
+c2s.QUEST_UPDATE_NTF            = 2404      --任务更新通知, p1:quests
+c2s.QUEST_GET_REWARD_REQ        = 2405      --领取奖励请求, p1:questid
+c2s.QUEST_GET_REWARD_RES        = 2406      --领取奖励响应, p1:questid
+c2s.QUEST_MIDNIGHT_CHANGE_NTF   = 2408      -- 深夜任务更新通知 p1:old_task p2:new_task
+
+--宠物
+c2s.PET_DATA_SYNC               = 2501      --宠物数据同步
+c2s.PET_SKILL_LEVELUP_REQ       = 2502      --宠物技能升级请求  --p1:gid(训练场技能节点id)
+c2s.PET_SKILL_LEVELUP_RES       = 2503      --宠物技能升级响应  --p1:{gid="训练场技能节点id", s_level="训练场等级",s_exp="训练场当前经验"}
+c2s.PET_USE_REQ                 = 2504      --使用宠物请求      --p1:petid, p2:heroid
+c2s.PET_USE_RES                 = 2505      --使用宠物响应      --p1:petid, p2:heroid
+
+--挂機
+c2s.HANGUP_DATA_SYNC            = 2601      --挂機數據同步
+c2s.HANGUP_ASK_REQ              = 2602      --挂機請求 請求 p1:hanguplistid p2:cardchoose, p3:hardchoose, p4:heroids (表), p5:usehour
+c2s.HANGUP_ASK_RES              = 2603      --挂機請求 返回 p1:cardchoose p2:挂機數據
+c2s.HANGUP_COMPLETE_REQ         = 2604      --挂機完成領取獎勵 請求p1:cardchoose
+c2s.HANGUP_COMPLETE_RES         = 2605      --挂機完成領取獎勵 p1:cardchoose p2:drops
+c2s.HANGUP_CARD_CANCEL_REQ      = 2606      --挂機取消 請求 p1:cardchoose
+c2s.HANGUP_CARD_CANCEL_RES      = 2607      --挂機取消 返回 p1:cardchoose
+c2s.HANGUP_UPDATE_NTF           = 2608      --挂機特殊同步 ，p1:hangup_new_sepcial;
+
+--活動
+c2s.ACTIVE_DATA_SYNC                = 2701      --活動數據同步
+c2s.ACTIVE_GET_ACTIVE_ITEM_REQ      = 2702      --活動物品領取 請求 p1:active_id, p2:active_item_id
+c2s.ACTIVE_GET_ACTIVE_ITEM_RES      = 2703      --活動物品領取 返回 p1:active_item_id p2:drops
+c2s.ACTIVE_PLAY_CHESS_REQ           = 2704      -- 玩棋盘活动 请求 无参数
+c2s.ACTIVE_PLAY_CHESS_RES           = 2705      -- 玩棋盘活动 返回 p1:pos_add p2:drop_ret
+c2s.ACTIVE_GET_CHESS_AWARD_REQ      = 2706      -- 领取棋盘圈数奖励 p1:圈数奖励表对应id
+c2s.ACTIVE_GET_CHESS_AWARD_RES      = 2707      -- 领取棋盘圈数奖励 p1:圈数奖励表对应id
+c2s.ACTIVE_PLAY_TURNTABLE_REQ       = 2708      -- 玩转盘活动 请求 p1:转的次数
+c2s.ACTIVE_PLAY_TURNTABLE_RES       = 2709      -- 玩转盘活动 请求 p1:{ 落点1， 落点2 ...} p2:总掉落
+c2s.ACTIVE_GET_TURNTABLE_AWARD_REQ  = 2710      -- 请求转盘活动奖励 请求
+c2s.ACTIVE_GET_TURNTABLE_AWARD_RES  = 2711      -- 请求转盘活动奖励 返回
+c2s.ACTIVE_DALIY_SIGN_REQ           = 2712      -- 日签到 请求 无参数
+c2s.ACTIVE_DALIY_SIGN_RES           = 2713      -- 日签到 返回 p1:day p2:drop_ret(普通) p3:drop_ret(特殊 无则nil)
+
+c2s.ACTIVE_GET_NOTICE_DAY_GIFT_REQ      = 2714      -- 获取预热天礼包 请求 p1:day
+c2s.ACTIVE_GET_NOTICE_DAY_GIFT_RES      = 2715      -- 获取预热天礼包 返回 p1:day
+c2s.ACTIVE_GET_SIXTH_CLASS_DAY_GIFT_REQ = 2716      -- 获取第六封印类 对应活动 天礼包 p1:active_id, p2:day
+c2s.ACTIVE_GET_SIXTH_CLASS_DAY_GIFT_RES = 2717      -- 获取第六封印类 对应活动 天礼包 p1:active_id, p2:day
+
+--评论/回复/点赞
+c2s.COMMENT_USER_DATA_REQ   = 2810      -- 评论相关玩家数据 请求
+c2s.COMMENT_USER_DATA_RSP   = 2811      -- 评论相关玩家数据 回复  p1: week comment num , p2: week reply num, p3: day like num
+c2s.COMMENT_ADD_REQ         = 2815      -- 增加评论 请求  p1:module, p2:entryid, p3:conten(string)
+c2s.COMMENT_ADD_RSP         = 2816      -- 增加评论 返回  p1:module, p2:entryid, p3:msgid
+c2s.COMMENT_REPLY_REQ       = 2817      -- 回复评论 请求  p1:module, p2:msgid, p3:content
+c2s.COMMENT_REPLY_RSP       = 2818      -- 回复评论 返回
+c2s.COMMENT_LIKE_REQ        = 2819      -- 点赞评论 请求  p1:module, p2:msgid,
+c2s.COMMENT_LIKE_RSP        = 2820      -- 点赞评论 返回
+c2s.COMMENTER_CARD_REQ      = 2821      -- 评论者名片 请求  p1:lookid
+c2s.COMMENTER_CARD_RSP      = 2822      -- 评论者名片 返回  p1:data
+
+
+--好友系统
+c2s.PFRIEND_DATA_SYNC                   = 2901      -- 同步好友数据
+c2s.PFRIEND_GET_CLASS_DATA_REQ          = 2902      -- 好友数据的一类中的基本信息 请求 p1:int(class_type 好友1 好友申请2，黑名单3)
+c2s.PFRIEND_GET_CLASS_DATA_RES          = 2903      -- 好友数据的一类中的基本信息 返回 p1:table{basedata,basedata..} p2:int(class_type)
+c2s.PFRIEND_GET_RECOMMEND_LIST_REQ      = 2904      -- 好友推荐列表 请求
+c2s.PFRIEND_GET_RECOMMEND_LIST_RES      = 2905      -- 好友推荐列表 确认 p1:table{basedata,basedata...}
+c2s.PFRIEND_GET_FRIEND_DATA_REQ         = 2906      -- 获得对应玩家 好友简介 请求 p1:idorname(int or string) p2:paramtype (int 1  string 2)
+c2s.PFRIEND_GET_FRIEND_DATA_RES         = 2907      -- 获得对应玩家 好友简介 返回 p1:table(basedata) {"id", "name", "level", "iconid", "onlinetime", "offlinetime", "frameid"}
+c2s.PFRIEND_FRIEND_REQUEST_REQ          = 2908      -- 好友请求 请求 p1:p_id
+c2s.PFRIEND_FRIEND_REQUEST_RES          = 2909      -- 好友请求 返回 p2:p_id
+c2s.PFRIEND_FRIEND_REQUEST_NOTIFY       = 2910      -- 好友请求 通知 p1:table(basedata)
+c2s.PFRIEND_FRIEND_REQUEST_OK_REQ       = 2911      -- 好友请求同意 请求p1: p_id
+c2s.PFRIEND_FRIEND_REQUEST_OK_RES       = 2912      -- 好友请求同意 返回 p1:bool p2:p_id
+c2s.PFRIEND_FRIEND_REQUEST_OK_NOTIFY    = 2913      -- 好友请求同意 通知 p1:table(basedata)
+c2s.PFRIEND_FRIEND_REQUEST_DEL_REQ      = 2914      -- 好友请求删除 请求p1: p_id
+c2s.PFRIEND_FRIEND_REQUEST_DEL_RES      = 2915      -- 好友请求删除 返回 p1:p_id
+c2s.PFRIEND_FRIEND_DEL_REQ              = 2916      -- 好友删除 请求 p1:p_id
+c2s.PFRIEND_FRIEND_DEL_RES              = 2917      -- 好友删除 返回 p1:bool p2:p_id
+c2s.PFRIEND_FRIEND_DEL_NOTIFY           = 2918      -- 好友删除 通知 p1:p_id
+c2s.PFRIEND_UNFRIEND_ADD_REQ            = 2919      -- 添加黑名单 请求 p1:p_id
+c2s.PFRIEND_UNFRIEND_ADD_RES            = 2920      -- 添加黑名单 返回 p1:p_id
+c2s.PFRIEND_UNFRIEND_ADD_NTF            = 2921      -- 添加黑名单 通知 p1:p_id
+c2s.PFRIEND_UNFRIEND_DEL_REQ            = 2922      -- 删除黑名单 请求 p1:p_id
+c2s.PFRIEND_UNFRIEND_DEL_RES            = 2923      -- 删除黑名单 返回 p1:p_id
+c2s.PFRIEND_COIN_SEND_REQ               = 2924      -- 发送好友币 请求 p1:p_id
+c2s.PFRIEND_COIN_SEND_RES               = 2925      -- 发送好友币 返回 p1:p_id
+c2s.PFRIEND_COIN_SEND_NOTIFY            = 2926      -- 发送好友币 通知 p1:p_id
+c2s.PFRIEND_COIN_GET_REQ                = 2927      -- 接受好友币 请求 p1:p_id
+c2s.PFRIEND_COIN_GET_RES                = 2928      -- 接受好友币 返回 p1:coin_num p2:p_id
+c2s.PFRIEND_COIN_SEND_ONEKEY_REQ        = 2929      -- 一键发送好友币 请求
+c2s.PFRIEND_COIN_SEND_ONEKEY_RES        = 2930      -- 一键发送好友币 返回 p1 table{id1,id2,..}
+c2s.PFRIEND_COIN_GET_ONEKEY_REQ         = 2931      -- 一键接受好友币 请求
+c2s.PFRIEND_COIN_GET_ONEKEY_RES         = 2932      -- 一键接受好友币 返回 p1:coin_num p2:table{id1, id2..}
+c2s.PFRIEND_FRIEND_LOGIN_NTF            = 2933      -- 好友上线通知
+c2s.PFRIEND_FRIEND_LOGOUT_NTF           = 2934      -- 好友离线通知
+c2s.PFRIEND_REFUSE_ALLREQ_ONEKEY_REQ    = 2935      -- 一键拒绝所有的好友请求  无参数
+c2s.PFRIEND_REFUSE_ALLREQ_ONEKEY_RSP    = 2936      -- 一键拒绝所有的好友请求返回, 返回 无参数
+
+-- 聊天
+c2s.PTALK_DATA_SYNC                     = 3001      -- 同步好友数据
+c2s.PTALK_DATA_REQ                      = 3005      -- 聊天 发布数据 请求
+c2s.PTALK_DATA_RES                      = 3006      -- 聊天 发布数据 返回
+c2s.PTALK_DATA_NTF                      = 3007      -- 聊天 发布数据 通知
+c2s.PTALK_BAN_NTF                       = 3008      -- 聊天 被禁言 通知 p1:(>0 禁言时间至) (==0 解除禁言) (<0 永久)
+
+--乐器
+c2s.MUSICAL_DATA_SYNC                   = 3201      -- 乐器数据同步
+c2s.MUSICAL_BATCH_ADD_NTF               = 3202      -- 增加乐器,     p1:{musical1, ...}
+c2s.MUSICAL_BATCH_DEC_NTF               = 3203      -- 减少乐器,     p1:{id1, ...}
+c2s.MUSICAL_DRESS_REQ                   = 3204      -- 穿乐器请求     p1:heroid, p2:musical_id
+c2s.MUSICAL_DRESS_RES                   = 3205      -- 穿乐器响应     p1:heroid, p2:musical_id
+c2s.MUSICAL_COMPOSE_REQ                 = 3206      -- 合成乐器请求 p1:musical_id
+c2s.MUSICAL_COMPOSE_RES                 = 3207      -- 合成乐器响应 p1:musical p2:cost_item
+c2s.MUSICAL_RESOLVE_REQ                 = 3208      -- 分解乐器请求 p1:musical_id
+c2s.MUSICAL_RESOLVE_RES                 = 3209      -- 分解乐器相应 p1:musical_id p2:drops
+
+--------------------- 音乐厅(新版)---------------------------------------------
+c2s.MUSICSHOW_DATA_SYNC                 = 4101      -- 同步音乐厅数据
+c2s.MUSICSHOW_ACQUIRE_BOOK_NTF          = 4102      -- 通知 习得新的乐谱 p1: bookid
+
+c2s.MUSICSHOW_START_REQ                 = 4103      -- 请求 开始演奏 p1:演奏厅id p2:乐谱id p3:出战魔女队列 p4:增幅物品id
+c2s.MUSICSHOW_START_RES                 = 4104      -- 返回 开始演奏 p1:演奏厅数据结构
+c2s.MUSICSHOW_STOP_REQ                  = 4105      -- 请求 结束演奏 p1:演奏厅id p2:结算时间戳 p3:是否消耗钻石领取全部奖励 1是0否
+c2s.MUSICSHOW_STOP_RES                  = 4106      -- 返回 结束演奏 p1:增加魔女经验 p2:魔女等级相关改动 p3:是否全时间挂机 1是0否
+c2s.MUSICSHOW_GET_HERO_GIFTS_REQ        = 4107      -- 请求 领取魔女奖励 p1:hero_id p2:结算时间戳
+c2s.MUSICSHOW_GET_HERO_GIFTS_RES        = 4108      -- 返回 领取魔女奖励 p1:演奏厅id p2:魔女id p3:服务器计入最后时间戳
+c2s.MUSICSHOW_COMPOSE_BOOK_REQ          = 4109      -- 请求 合成乐谱 p1:bookid
+c2s.MUSICSHOW_COMPOSE_BOOK_RES          = 4110      -- 返回 合成乐谱
+-------------------------------------------------------------------------------
+c2s.MUSICSHOW_BOOK_ADD_NTF              = 3302      -- 获得乐谱通知 p1:book_id
+c2s.MUSICSHOW_HOT_POOL_REFRESH_NTF      = 3303      -- 热门乐谱刷新通知 p1:pools{ [pool_id] = {id1,id2,id3}}
+c2s.MUSICSHOW_HOT_POOL_REFRESH_NTF      = 3303      -- 热门乐谱刷新通知 p1:pools{ [pool_id] = {id1,id2,id3}}
+c2s.MUSICSHOW_NEED_ALL_DATA_REQ         = 3304      -- 客户端申请演奏厅数据 请求 无参数 登陆周期中只能申请一次
+c2s.MUSICSHOW_NEED_ALL_DATA_RES         = 3305      -- 客户端申请演奏厅数据 返回 演奏数据
+--c2s.MUSICSHOW_START_REQ                 = 3306      -- 开始演奏 请求 p1:hall_id p2:book_id p3:queue_hero_ids
+--c2s.MUSICSHOW_START_RES                 = 3307      -- 开始演奏 返回 p2:hall_data
+c2s.MUSICSHOW_END_REQ                   = 3308      -- 结束演奏 请求 p1:hall_id
+c2s.MUSICSHOW_END_RES                   = 3309      -- 结束演奏 返回 p1:hall_id, p2:乐器耐久变化 p3：魔女乐器经验变化 p4：乐谱经验变化
+c2s.MUSICSHOW_PUB_JOIN_REQ              = 3310      -- [公演应援]申请加入大厅 请求 p1:pub_id(公演id)
+c2s.MUSICSHOW_PUB_JOIN_RES              = 3311      -- [公演应援]申请加入大厅 返回 p1:公演信息 p2:大厅内其他玩家显示数据
+c2s.MUSICSHOW_PUB_JOIN_NTF              = 3312      -- [公演应援]申请加入大厅 通知 p1:pub_id p2:进入者显示数据
+c2s.MUSICSHOW_PUB_SIT_DOWN_REQ          = 3313      -- [公演应援]大厅坐下 请求 p1:pub_id
+c2s.MUSICSHOW_PUB_SIT_DOWN_RES          = 3314      -- [公演应援]大厅坐下 返回 p1:helped_data(加入自己数据的应援信息)
+c2s.MUSICSHOW_PUB_SIT_DOWN_NTF          = 3315      -- [公演应援]大厅通知 请求 p1:pub_id p2:helper_id
+c2s.MUSICSHOW_PUB_LEAVE_REQ             = 3316      -- [公演应援]离开大厅 请求 p1:pub_id
+c2s.MUSICSHOW_PUB_LEAVE_RES             = 3317      -- [公演应援]离开大厅 返回 p1:pub_id
+c2s.MUSICSHOW_PUB_LEAVE_NTF             = 3318      -- [公演应援]离开大厅 通知 p1:pub_id p2:player_id
+c2s.MUSICSHOW_PUB_OVER_NTF              = 3319      -- [公演应援]公演结束 通知 p1:pub_id
+
+-- 音乐厅堡垒
+c2s.MUSICSHOW_NEW_DATA_SYNC             = 3321      --音乐厅堡垒数据同步
+c2s.MUSICSHOW_GET_DATA_REQ              = 3322      --音乐厅堡垒演奏数据 请求 无参数
+c2s.MUSICSHOW_GET_DATA_RES              = 3323      --音乐厅堡垒演奏数据 请求 返回 p1:数据A
+c2s.MUSICSHOW_CREATE_NEW_HALL_DATA_REQ  = 3324          -- 创建演奏厅 请求 p1:大厅id
+c2s.MUSICSHOW_CREATE_NEW_HALL_DATA_RES  = 3325          -- 创建演奏厅 请求 p1:对应大厅数据 p2:数据D
+
+c2s.MUSICSHOW_ADD_VIGOUR_REQ            = 3326          -- 增加精力值 请求 p1:消耗的体力值
+c2s.MUSICSHOW_ADD_VIGOUR_RES            = 3327          -- 增加精力值 返回 p2:增加的精力值
+c2s.MUSICSHOW_VIGOUR_USE_CHANGE_NTF     = 3328          -- 精力消耗变化通知 p1:精力值 p2:开始消耗精力时间(数据b) p3:每秒消耗(数据c)
+c2s.MUSICSHOW_RAND_REWARD_NTF           = 3329          -- 随机奖励通知
+
+c2s.MUSICSHOW_SELF_START_NTF            = 3330          -- 自启演奏通知 p1:开始的大厅参数 halls
+c2s.MUSICSHOW_SELF_STOP_NTF             = 3331          -- 自停演奏通知 p1:停止的大厅参数 halls
+
+c2s.MUSICSHOW_HALL_DATA_CHANGE_REQ      = 3332          -- 修改大厅中的数据(队列或者乐谱) 请求 p1: hallid, p2:table = { 魔女ids }
+c2s.MUSICSHOW_HALL_DATA_CHANGE_RES      = 3333          -- 修改大厅中的数据(队列或者乐谱) 返回 p1:hallid p2:table {魔女ids}
+
+--c2s.MUSICSHOW_START_REQ                 = 3334          -- 演奏开始 请求 p1:大厅id,{heroids}
+--c2s.MUSICSHOW_START_RES                 = 3335          -- 演奏开始 返回 p1:大厅数据
+
+
+c2s.MUSICSHOW_REFRESH_FIT_CARDS_REQ     = 3338          -- 手动刷新契合度卡组 请求
+c2s.MUSICSHOW_REFRESH_FIT_CARDS_RES     = 3339          -- 手动刷新契合度卡组 返回 p1:刷新的大厅契合度{ [hall_id] = fit, ... }
+c2s.MUSICSHOW_REFRESH_FIT_CARDS_NTF     = 3340          -- 自动刷新契合度卡组 通知 p1:刷新的大厅契合度{ [hall_id] = fit, ... }
+c2s.MUSICSHOW_HALLS_REFRESH_NTF         = 3341          -- 大厅契合度改变刷新 p1:刷新的大厅 p2:停止的大厅 p3:仅仅契合度改变的大厅
+c2s.MUSICSHOW_GET_STORAGE_BOX_REQ       = 3342          -- 领取奖励 请求 p1:大厅 id (可以不传为一键领取);
+c2s.MUSICSHOW_GET_STORAGE_BOX_RES       = 3343          -- 领取奖励 返回 p1:大厅（table { [hall_id] =  hall, ...},）
+
+
+
+-- 羁绊
+c2s.FETTER_DATA_SYNC                    = 3401          -- 同步羁绊数据
+c2s.FETTER_BATCH_ADD_NTF                = 3402          -- 获得新魔女的时候，创建有关羁绊 并通知
+
+-- 图鉴
+c2s.PICTORIAL_DATA_SYNC                 = 3501          -- 同步图鉴数据
+c2s.PICTORIAL_ICHERO_GET_ATTR_REQ       = 3502          -- 领取魔女图鉴属性 p1:hero_id
+c2s.PICTORIAL_ICHERO_GET_ATTR_RES       = 3503          -- 领取魔女图鉴属性 p1:hero_id p2:star_now
+
+-- 充值数据同步
+c2s.CHARGE_DATA_SYNC                    = 3601          -- 充值数据同步
+c2s.CHARGE_LIMIT_BAG_CHANED_NTF         = 3602          -- 充值 等级时限礼包 改变通知 p1:bag_add, p2:bag_del;
+c2s.CHARGE_GET_GROW_UP_PLAN_GIFT_REQ    = 3603          -- 领取 成长计划礼包 请求 p1:id(Charge_growupPlan id)
+c2s.CHARGE_GET_GROW_UP_PLAN_GIFT_RES    = 3604          -- 领取 成长计划礼包 返回
+c2s.CHARGE_GET_RECHARGE_GIFT_REQ        = 3605          -- 领取 充值累计礼包 请求 p1:id(累充礼包id)
+c2s.CHARGE_GET_RECHARGE_GIFT_RES        = 3606          -- 领取 充值累计礼包 返回
+c2s.CHARGE_GET_DIVINE_RIGHT_REQ         = 3609          -- 开通 占卜权益 请求
+c2s.CHARGE_GET_DIVINE_RIGHT_RES         = 3610          -- 开通 占卜权益 返回
+c2s.CHARGE_GET_DIVINE_DAY_GIFT_REQ      = 3611          -- 领取 每日占卜礼包 请求
+c2s.CHARGE_GET_DIVINE_DAY_GIFT_RES      = 3612          -- 领取 每日占卜礼包 返回
+c2s.CHARGE_GET_DIVINE_NUM_GIFT_REQ      = 3613          -- 领取 占卜累计次数礼包 请求
+c2s.CHARGE_GET_DIVINE_NUM_GIFT_RES      = 3614          -- 领取 占卜累计次数礼包 返回
+c2s.CHARGE_DIVINE_POOL_CHANGE_NTF       = 3615          -- 占卜池id变化 通知
+c2s.CHARGE_DAILYBAG_POOL_REFRESH_NTF    = 3616          -- 日刷新礼包 变化 通知 p1:new_ids
+c2s.CHARGE_GET_FIRST_CHARGE_GIFT_REQ    = 3617          -- 获取首充礼包 请求
+c2s.CHARGE_GET_FIRST_CHARGE_GIFT_RES    = 3618          -- 获取首充礼包 返回 p1:Drops
+
+
+c2s.CHARGE_CANCEL_ORDER_REQ             = 3691          -- 取消订单 请求 p1:OrderId
+c2s.CHARGE_CANCEL_ORDER_RES             = 3692          -- 取消订单 响应 p1:OrderId
+c2s.CHARGE_MONEY_REQ                    = 3693          -- 根据id 正式充值 请求 p1:Charge_Money_id
+c2s.CHARGE_MONEY_RES                    = 3694          -- 根据id 正式充值 返回 p1:Charge_Money_id, p2:OrderId, p3:order_sign
+c2s.CHARGE_MONEY_NTF                    = 3695          -- 根据id 正式充值 通知 p1:Charge_Money_id, p2:success,p3:int魔女币增加量, p4:int充值人民币
+c2s.CHARGE_QUERY_ORDER_REQ              = 3696          -- 查询确认订单 请求 p1:OrderId p2:SDKOrderId;
+c2s.CHARGE_QUERY_ORDER_RES              = 3697          -- 查询确认订单 响应 p1:resut
+
+c2s.CHARGE_BUY_GIFT_BY_ID_REQ           = 3602
+c2s.CHARGE_BUY_GIFT_BY_ID_RES           = 3603
+
+c2s.CHARGE_GET_HB_LV_GIFT_REQ           = 3623          -- 领取手书礼包等级奖励 请求 p1:wg_id, p2:nids p3:sids
+c2s.CHARGE_GET_HB_LV_GIFT_RES           = 3624          -- 领取手书礼包等级奖励 返回 p1:wg_id, p2:nids p3:sids
+c2s.CHARGE_UNLOCK_HB_LV_GIFT_REQ        = 3625          -- 解锁手书礼包等级奖励 请求 p1:hb_gift_id
+c2s.CHARGE_UNLOCK_HB_LV_GIFT_RES        = 3626          -- 解锁手书礼包等级奖励 请求 p1:hb_gift_id
+c2s.CHARGE_GET_WG_BALE_DAY_GIFT_REQ     = 3627          -- 领取互斥礼包天奖励 请求 p1:wg_bale_id p2:1stDay_smail_wg_id or "nil"
+c2s.CHARGE_GET_WG_BALE_DAY_GIFT_RES     = 3628          -- 领取互斥礼包天奖励 返回 p1:wg_bale_id
+c2s.SHOP_CLIENT_TRIGGER_SHOP_REQ        = 3629          --触发商店 请求 p1:trigger_shop_id;
+c2s.SHOP_CLIENT_TRIGGER_SHOP_RES        = 3630          --触发商店 返回 p1:trigger_shop_data
+c2s.CHARGE_GET_REPEAT_GIFTS_REQ         = 3631          -- 请求领取重复礼包 请求 p1:wg_id
+c2s.CHARGE_GET_REPEAT_GIFTS_RES         = 3632          -- 请求领取重复礼包 返回 p1:wg_id p2:pos
+
+c2s.STATISTICS_DATA_SYNC                = 3701          -- 同步统计数据
+c2s.STATISTICS_DATA_CHANGE_NTF          = 3702          -- 统计数据改变
+
+c2s.BULLETBUILD_DATA_SYNC               = 3801          -- 子弹构筑 数据 同步
+c2s.BULLETBUILD_HERO_LIST_CHANGED_REQ   = 3802          -- 构筑点魔女队列更换 请求 p1:build_id p2:{ hero_id, ... };
+c2s.BULLETBUILD_HERO_LIST_CHANGED_RES   = 3803          -- 构筑点魔女队列更换 返回 p1:build_id p2:{ hero_id, ... };
+
+
+c2s.BULLETBUILD_POINT_LV_UP_REQ         = 3804          -- 构筑点 内天赋升级 请求 p1:build_id p2:build_point_id
+c2s.BULLETBUILD_POINT_LV_UP_RES         = 3805          -- 构筑点 内天赋升级 返回 p1:build_id p2:build_point_id p3:lv_now
+c2s.BULLETBUILD_POINT_RESET_REQ         = 3806          -- 构筑点 内天赋重置 请求 p1:build_id
+c2s.BULLETBUILD_POINT_RESET_RES         = 3807          -- 构筑点 内天赋重置 返回 p1:build_id
+
+c2s.BULLETBUILD_LV_UP_REQ               = 3808          -- 构筑升级 请求 p1:build_type
+c2s.BULLETBUILD_LV_UP_RES               = 3809          -- 构筑升级 返回 p1:build_type p2:lv_to
+c2s.BULLETBUILD_DOT_NUM_CHANGE_REQ      = 3810          -- 构筑点加点改动 请求 p1:build_dot_id p2:增加=1 减少=0
+c2s.BULLETBUILD_DOT_NUM_CHANGE_RES      = 3811          -- 构筑点加点改动 请求 p1:build_dot_id p2:dot_num(手动加成点数)
+
+c2s.POKERCARD_USE_CHANCE_REQ            = 3901          -- 翻牌 使用翻牌 请求 p1:card_type p2:card_index
+c2s.POKERCARD_USE_CHANCE_RES            = 3902          -- 翻牌 使用翻牌 请求 p1:card_type p2:card_index p3:drop_ret
+
+
+c2s.PLAYERINFO_SET_HUMANVAL_REQ         = 1134          -- 修改善恶值 请求 p1:{ [id] = val, ... }
+c2s.PLAYERINFO_SET_HUMANVAL_RES         = 1135          -- 修改善恶值 返回 无参数
+
+c2s.POLICEMAN_GET_REPORT                = 3101          --检测外挂上报

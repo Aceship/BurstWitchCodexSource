@@ -1,0 +1,499 @@
+---
+--- @Author:Administrator
+--- @Create Time:2021-04-15 16:33:37
+--- 礼包购买, 只用于Charge表中的字段
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local BuyTipsLayer = class("BuyTipsLayer", CBaseLayer)
+local CellItemMaxNum = 3;
+--按钮
+local BTNS = {
+	BtnReturn = "btn_return",
+	BtnAdd = "trans_container/trans_num_info/btn_add",
+	BtnSub = "trans_container/trans_num_info/btn_sub",
+	BtnMax = "trans_container/trans_num_info/btn_max",
+	BtnBuy = "trans_container/trans_num_info/btn_buy",
+	BtnSkinBuy = "trans_container/trans_skin_buy_info/btn_skin_buy",
+	--@ButtonEnd
+}
+--构造函数
+function BuyTipsLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiOperation/UI_BuyTipsLayer",
+    }
+    self._uitype = 2;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function BuyTipsLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function BuyTipsLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnReturn)then 
+	   self:OnBtnReturnClick();
+    elseif(itype == BTNS.BtnAdd)then 
+	   self:OnBtnAddClick();
+    elseif(itype == BTNS.BtnSub)then 
+	   self:OnBtnSubClick();
+    elseif(itype == BTNS.BtnMax)then 
+	   self:OnBtnMaxClick();
+    elseif(itype == BTNS.BtnBuy)then 
+	   self:OnBtnBuyClick();
+    elseif(itype == BTNS.BtnSkinBuy)then 
+	   self:OnBtnSkinBuyClick();
+    else--@ButtonCallBackEnd
+	end--RemoveEnd
+
+
+
+
+
+end
+
+--初始化
+function BuyTipsLayer:Init()
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化UI
+function BuyTipsLayer:InitUI()
+
+    --@ImageEnd
+
+    self._txtDes = self.layer:GetTextComponent("trans_container/trans_des/txt_des");
+    --@TextEnd
+
+    self._transGoods = self.layer:Get("trans_container/trans_goods");
+    self._transItem = self.layer:Get("trans_container/trans_item_info/trans_item");
+    self._transItemInfo = self.layer:Get("trans_container/trans_item_info");
+    self._transNumInfo = self.layer:Get("trans_container/trans_num_info");
+    self._transSkinDiscount = self.layer:Get("trans_container/trans_skin_discount");
+    self._transSkinBuyInfo = self.layer:Get("trans_container/trans_skin_buy_info");
+    self._transSkinInfo = self.layer:Get("trans_container/trans_skin_info");
+    --@TransformEnd
+
+    self._rectContainer = self.layer:GetRectTransformComponent("trans_container");
+    self._rectDes = self.layer:GetRectTransformComponent("trans_container/trans_des");
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@ScrollRectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    if(self._chargeCfg.itype == Recharge.ChargeType.Skin)then
+        self._imgSkinPriceIcon = self.layer:GetImageComponent("trans_container/trans_skin_buy_info/img_skin_price_icon");
+        self._imgSkinChargeIcon = self.layer:GetImageComponent("trans_container/trans_skin_buy_info/img_skin_charge_icon");
+        self._imgSkinIcon = self.layer:GetImageComponent("trans_container/trans_skin_info/img_skin_icon");
+        self._txtSkinName = self.layer:GetTextComponent("trans_container/trans_skin_info/txt_skin_name");
+        self._txtHeroName = self.layer:GetTextComponent("trans_container/trans_skin_info/txt_hero_name");
+        self._txtSkinCurPrice = self.layer:GetTextComponent("trans_container/trans_skin_buy_info/txt_skin_cur_price");
+        self._txtSkinAllPrice = self.layer:GetTextComponent("trans_container/trans_skin_buy_info/txt_skin_all_price");
+        self._txtSkinChargeTips = self.layer:GetTextComponent("trans_container/trans_skin_buy_info/txt_skin_charge_tips");
+    else
+        self._imgUnitPriceIcon = self.layer:GetImageComponent("trans_container/trans_item_info/img_unit_price_icon");
+        self._imgPriceIcon = self.layer:GetImageComponent("trans_container/trans_num_info/img_price_icon");
+        self._txtItemName = self.layer:GetTextComponent("trans_container/trans_item_info/txt_item_name");
+        self._txtUnitPrice = self.layer:GetTextComponent("trans_container/trans_item_info/txt_unit_price");
+        self._txtBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_buy_num");
+        self._txtAllPrice = self.layer:GetTextComponent("trans_container/trans_num_info/txt_all_price");
+        self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num");
+        self._txtHaveNum = self.layer:GetTextComponent("trans_container/trans_item_info/txt_have_num");
+        self._rectSlider = self.layer:GetRectTransformComponent("trans_container/trans_num_info/slider");
+        self._scrollTableView = self.layer:GetScrollRectComponent("trans_container/trans_goods/TableView");
+        self._slider = self.layer:GetSliderComponent("trans_container/trans_num_info/slider");
+        self._slider.onValueChanged:AddListener(function (value)
+            if(value < 0)then
+                value = 0;
+            end
+            value = math.floor(value);
+            self._buyItemNum = value;
+            self._txtBuyNum:SetText(value.."/"..self._oneMaxBuyNum);
+            if(self._limitBuyStr ~= "")then
+                self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum));
+            end
+            local curAllPrice = math.floor(self._chargeCfg.price * value * self._chargeCfg.discount);
+            if(Item:GetCount(self._chargeCfg.priceId) < curAllPrice)then
+                self._txtAllPrice:SetTextColor(1.00, 0.40, 0.32, 1.00);
+            else
+                self._txtAllPrice:SetTextColor(0,0,0,1);
+            end
+            self._txtAllPrice:SetText(curAllPrice);
+        end)
+        self._maxSlierX = self._rectSlider.sizeDelta.x;
+        self._sliderV2 = self._rectSlider.sizeDelta;
+        self._item = Bag:CtorComSimpleGoodsUi(self._transItem);
+    end
+end
+
+--显示UI
+function BuyTipsLayer:show()
+    self._transGoods:SetVisible(self._chargeCfg.itype ~= Recharge.ChargeType.Skin);
+    self._transItemInfo:SetVisible(self._chargeCfg.itype ~= Recharge.ChargeType.Skin);
+    self._transNumInfo:SetVisible(self._chargeCfg.itype ~= Recharge.ChargeType.Skin);
+    self._transSkinInfo:SetVisible(self._chargeCfg.itype == Recharge.ChargeType.Skin);
+    self._transSkinBuyInfo:SetVisible(self._chargeCfg.itype == Recharge.ChargeType.Skin);
+    self._transSkinDiscount:SetVisible(self._chargeCfg.itype == Recharge.ChargeType.Skin);
+    if(self._chargeCfg.itype == Recharge.ChargeType.Skin)then
+        self:SetSkinInfoUI();
+        self:SetSkinDiscountUI();
+        self:SetSkinBuyInfoUI();
+    else
+        self:SetItemInfo();
+        self:SetTableView();
+        self:SetNumInfoUI();
+    end
+    self:SetDesUI();
+    self:showLayer();
+    self:playAni("CommTipsLayer");
+end
+
+--退出按钮事件
+function BuyTipsLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--释放
+function BuyTipsLayer:onExit()
+
+    self._chargeCfg = nil;
+    self._item = nil;
+    self._cells = nil;
+    self._imgUnitPriceIcon = nil;
+    self._txtItemName = nil;
+    self._txtUnitPrice = nil;
+    self._txtDes = nil;
+    self._transGoods = nil;
+    self._imgPriceIcon = nil;
+    self._txtBuyNum = nil;
+    self._txtAllPrice = nil;
+    self._txtLimitBuyNum = nil;
+	self._transItem = nil;
+	self._txtHaveNum = nil;
+	self._rectContainer = nil;
+	self._scrollTableView = nil;
+	self._rectDes = nil;
+	self._imgSkinIcon = nil;
+	self._txtSkinName = nil;
+	self._txtHeroName = nil;
+	self._transSkinDiscount = nil;
+	self._transItemInfo = nil;
+	self._transNumInfo = nil;
+	self._transSkinBuyInfo = nil;
+	self._imgSkinPriceIcon = nil;
+	self._txtSkinCurPrice = nil;
+	self._txtSkinAllPrice = nil;
+	self._imgSkinChargeIcon = nil;
+	self._txtSkinChargeTips = nil;
+	self._transSkinInfo = nil;
+	--@CloseEnd
+    GEvent:fireEvent(EVENT_TYPE.BACK_TIPS_LAYER);
+    CBaseLayer.onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function BuyTipsLayer:OnBtnReturnClick()
+    self:onBackClick();
+ end
+function BuyTipsLayer:OnBtnAddClick()
+    self._slider.value = self._slider.value + 1;
+ end
+function BuyTipsLayer:OnBtnSubClick()
+    if(self._slider.value > 0)then
+        self._slider.value = self._slider.value - 1;
+    end
+end
+function BuyTipsLayer:OnBtnMaxClick()
+    self._slider.value = self._slider.maxValue;
+ end
+function BuyTipsLayer:OnBtnBuyClick()
+
+    if(self._chargeCfg.timeId > 0)then
+        local timeCfg = CTime:GetCfg(self._chargeCfg.timeId);
+        if(CTime:GetServerTime() >= timeCfg.etime)then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90315));
+            return;
+        end
+    end
+
+    if(self._buyItemNum <= 0)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90250));
+        return;
+    end
+    local isLock = false;
+    if(self._chargeCfg.lockData == Recharge.LockType.NotHave)then--锁定方式--无
+    elseif(self._chargeCfg.lockData[1] == Recharge.LockType.One)then--锁定方式--一个锁定
+        isLock = Item:GetCount(self._chargeCfg.lockData[2]) + self._buyItemNum > 1;
+    elseif(self._chargeCfg.lockData[1] == Recharge.LockType.Double)then--锁定方式--指定个数锁定
+        isLock = Item:GetCount(self._chargeCfg.lockData[2]) + self._buyItemNum > self._chargeCfg.lockData[3];
+    end
+
+    if(isLock)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90314));
+        return;
+    end
+
+    if(self._buyItemNum * self._chargeCfg.price * self._chargeCfg.discount > Item:GetCount(self._chargeCfg.priceId))then
+        local cfg = Item:GetCfg(self._chargeCfg.priceId)
+        if(self._chargeCfg.priceId == Player.ITEM_VALUE_WITCH_COIN)then
+            self:doGoBuy(cfg.Name, Operation.ActivityID.WitchCoin)
+        elseif(self._chargeCfg.priceId == Player.ITEM_VALUE_MONEY)then
+            Groble_UIMgr:ShowMsgBy2CallLayer(string.format(LanguageMgr:GetTextByID(90055), cfg.Name),
+                    function()
+                        -- do nothing
+                    end,
+                    function()
+                        self:onBackClick();
+                        UIMgr:ShowBuyJewelLayer();
+                    end)
+        else
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(90218),cfg.Name))
+        end
+        return;
+    end
+    Operation:SendMessage(Operation:GetCurSelectUID(),{id = self._chargeId,num = self._buyItemNum});
+end
+function BuyTipsLayer:OnBtnSkinBuyClick()
+    local hero = Hero:GetHero(Hero:GetHeroIdBySkinId(self._chargeCfg.goods[1][2]));
+
+    if(not CTime:IsOpen(self._chargeCfg.timeId))then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90317));
+    end
+
+    if(not hero.owner)then
+        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90219));
+        return;
+    end
+    if(Item:GetCount(self._chargeCfg.priceId) < self._chargeCfg.price)then
+        local info = {
+            cfgid = self._chargeCfg.priceId,
+            count = self._chargeCfg.price,
+        }
+        Groble_UIMgr:ShowCommonBuyLayer(info, true)
+        return;
+    end
+    Operation:SendMessage(Operation.ActivityID.SkinBuy,{id = self._chargeId,num = 1});
+ end
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function BuyTipsLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        if(self._chargeCfg.itype == Recharge.ChargeType.Skin)then
+            self:SetSkinBuyInfoUI();
+        end
+    end)
+
+    self:addEventListener(EVENT_TYPE.UPDATE_GIFT_BAG,self.__cname,function()
+        self:onBackClick();
+    end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function BuyTipsLayer:UpdateData()
+    self._chargeId = Recharge:GetCurSelectGiftPagId();
+    self._chargeCfg = Recharge:GetData(self._chargeId);
+    
+end
+-----------------------------------------------------非皮肤礼包---------------------------------------------------------------------------
+function BuyTipsLayer:SetItemInfo()
+    -----------------2021/04/15-----策划顾东玉确认过, 礼包类型  14  不显示tableView, 信息走Item表配置, 其他的都显示tableView, 信息走charge表配置---------------------------------------------
+    if(self._chargeCfg.itype == Recharge.ChargeType.Item)then
+        local cfg = Item:GetCfg(self._chargeCfg.goods[1][2]);
+        self._txtItemName:SetText(cfg.Name);
+        Bag:SetComSimpleGoodsUi(self._item,self._chargeCfg.goods[1][1],self._chargeCfg.goods[1][2],self._chargeCfg.goods[1][3]);
+        self._txtHaveNum:SetText(tostring(math.wTally(Item:GetCount(self._chargeCfg.goods[1][2]))));
+    else
+        self._txtHaveNum:SetText(0);
+        self._item.iconImg:LoadSprite(self._chargeCfg.icon);
+        Bag:SetGoodsBorderByQlty(self._item,self._chargeCfg.qlty);
+        self._txtItemName:SetText(self._chargeCfg.name);
+    end
+    self._txtUnitPrice:SetText(math.ceil(self._chargeCfg.price * self._chargeCfg.discount));
+    self._imgUnitPriceIcon.sprite = Item:LoadSprite(self._chargeCfg.priceId);
+end
+
+
+function BuyTipsLayer:SetTableView()
+    self._transGoods:SetVisible(self._chargeCfg.itype ~= Recharge.ChargeType.Item);
+    if(self._chargeCfg.itype == Recharge.ChargeType.Item)then
+        return;
+    end
+    local rows = math.ceil(#self._chargeCfg.goods / CellItemMaxNum);
+    if(self._tvController == nil)then
+        self._tvController  = UIController:CtorTableView(self._transGoods);
+        self._tvController:Init(rows, false,
+        function(cell, row)
+            self:UpdateCell(cell, row);
+        end);
+        self._tvController:ScrollRectVertical(false);
+        self._aniPanelFadeInEndCallback = function()
+            self._tvController:ScrollRectVertical(true);
+        end
+    else
+        self._tvController:Reload(rows);
+        self._tvController:ScrollToTop();
+    end
+end
+
+function BuyTipsLayer:UpdateCell(cell,row)
+    if(self._cells == nil)then
+        self._cells = {};
+    end
+    local item = self._cells[cell];
+    if(item == nil)then
+        item = {};
+        for i = 1, CellItemMaxNum do
+            item[i] = Bag:CtorComSimpleGoodsUi(cell.transform:Get(string.format("item_%s",i)));
+        end
+        self._cells[cell] = item;
+    end
+    local index = 0;
+    for i = 1, CellItemMaxNum do
+        index = row * i + i;
+        self._cells[cell][i]:Visible(self._chargeCfg.goods[index] ~= nil);
+        if(self._chargeCfg.goods[index] ~= nil)then
+            Bag:SetComSimpleGoodsUi(self._cells[cell][i],self._chargeCfg.goods[index][1],self._chargeCfg.goods[index][2],self._chargeCfg.goods[index][3]);
+        end
+    end
+end
+
+function BuyTipsLayer:SetNumInfoUI()
+    if(self._chargeCfg.oneBuyNum < 1)then
+        return;
+    end
+    self._maxBuyNum = 0;
+    self._oneMaxBuyNum = 0;
+    self._limitBuyStr = "";
+    if(self._chargeCfg.buytype == Recharge.BuyType.day)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90223);
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Week)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90224);
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Month)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90225);
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.Normal)then
+        if(self._chargeCfg.stock > 0)then
+            self._limitBuyStr = LanguageMgr:GetTextByID(90227);
+        end
+    elseif(self._chargeCfg.buytype == Recharge.BuyType.IsDoubleWeek)then
+        self._limitBuyStr = LanguageMgr:GetTextByID(90228);
+    end
+    if(self._limitBuyStr == "")then
+        self._txtLimitBuyNum:SetText("");
+    end
+    self._imgPriceIcon.sprite = Item:LoadSprite(self._chargeCfg.priceId);
+    self._oneMaxBuyNum = Recharge:GetGiftBagBuyNum(self._chargeId);
+    if(self._chargeCfg.stock > 0)then
+        self._maxBuyNum = self._chargeCfg.stock;
+    else
+        self._maxBuyNum = self._chargeCfg.oneBuyNum;
+    end
+    local canBuyNum = math.floor(Item:GetCount(self._chargeCfg.priceId) / self._chargeCfg.price);
+    if(canBuyNum < self._oneMaxBuyNum)then
+        self._oneMaxBuyNum = canBuyNum;
+    end
+    if(self._oneMaxBuyNum <= 0)then
+        self._oneMaxBuyNum = 1;
+    end
+    self._slider.value = 1;
+    self._slider.minValue = 0;
+    self._slider.maxValue = self._oneMaxBuyNum;
+    --self._sliderV2.x = self._maxSlierX * (self._oneMaxBuyNum / self._chargeCfg.oneBuyNum);
+    --self._rectSlider.sizeDelta = self._sliderV2;
+end
+-----------------------------------------------------------皮肤礼包---------------------------------------------------------------
+
+function BuyTipsLayer:SetSkinInfoUI()
+    local hero = Hero:GetHero(Hero:GetHeroIdBySkinId(self._chargeCfg.goods[1][2]));
+    local skinCfg = Hero:GetSkinCfg(self._chargeCfg.goods[1][2]);
+    self._txtSkinName:SetText(skinCfg.name);
+    self._txtHeroName:SetText(hero.config.Name);
+    self._imgSkinIcon:LoadSprite(string.format("source_avatar/hero/card_%s" , self._chargeCfg.goods[1][2]));
+end
+
+function BuyTipsLayer:SetSkinDiscountUI()
+    --TODO 皮肤折扣暂时屏蔽
+    self._transSkinDiscount:SetVisible(false);
+end
+
+function BuyTipsLayer:SetSkinBuyInfoUI()
+    local curPrice = math.ceil(self._chargeCfg.price * self._chargeCfg.discount);
+    local curNum = Item:GetCount(self._chargeCfg.priceId);
+    if(curNum < curPrice)then
+        local item = Item:GetCfg(self._chargeCfg.priceId);
+        local tbl = lua_str_split(item.price, "&",true);
+        local buyNum = curPrice - curNum;
+        self._imgSkinChargeIcon.sprite = Item:LoadSprite(tbl[1]);
+        self._txtSkinChargeTips:SetText(string.format(LanguageMgr:GetTextByID(90230),buyNum * tbl[2]));
+        self._txtSkinCurPrice:SetTextColor(1.00, 0.40, 0.32, 1.00);
+    else
+        self._txtSkinCurPrice:SetTextColor(0,0,0,1);
+    end
+    self._imgSkinChargeIcon:SetEnabled(curNum < curPrice);
+    self._txtSkinChargeTips:SetEnabled(curNum < curPrice);
+    --价格相关
+    self._txtSkinCurPrice:SetText(curPrice);
+    self._imgSkinPriceIcon.sprite = Item:LoadSprite(self._chargeCfg.priceId);
+    self._txtSkinAllPrice:SetVisible(self._chargeCfg.discount < 1);
+    if(self._chargeCfg.discount < 1)then
+        self._txtSkinCurPrice:SetAnchoredPosition(-125,27);
+        self._imgSkinPriceIcon:SetAnchoredPosition(-160,30);
+        self._txtSkinAllPrice:SetText(self._chargeCfg.price);
+    else
+        self._txtSkinCurPrice:SetAnchoredPosition(-90,27);
+        self._imgSkinPriceIcon:SetAnchoredPosition(-128,30);
+    end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+
+function BuyTipsLayer:SetDesUI()
+    local str = "";
+    if(self._chargeCfg.itype == Recharge.ChargeType.Item)then
+        local cfg = Item:GetCfg(self._chargeCfg.goods[1][2]);
+        str = cfg.itemInfo;
+    else
+        str = self._chargeCfg.desc;
+    end
+    self._txtDes:SetText(lua_color_str(str));
+    local h = self._txtDes:GetTextY() + 65;
+    if(h > self._rectDes:GetSizeDeltaY())then--字的高度超过Text的UI高度,设置高度
+        self._rectDes:SetSizeY(h);
+        CS.UIHelpScript.Instance:ForceRebuildLayoutImmediate(self._rectContainer);
+    end
+end
+
+function BuyTipsLayer:doGoBuy(Name, buyUid)
+    Groble_UIMgr:ShowMsgBy2CallLayer(string.format(LanguageMgr:GetTextByID(90055), Name),
+            function()
+                -- do nothing
+            end,
+            function()
+                Operation:OpenOperationMainLayer(nil, buyUid, false)
+                self:onBackClick();
+            end)
+end
+
+return BuyTipsLayer;

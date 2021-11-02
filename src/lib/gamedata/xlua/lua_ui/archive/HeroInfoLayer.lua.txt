@@ -1,0 +1,208 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-06 14:31:57
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local HeroInfoLayer = class("HeroInfoLayer", CBaseLayer)
+
+--构造函数
+function HeroInfoLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiArchive/UI_HeroInfoLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+        topInfo        = {},
+    };
+    self._addStack = true;
+    self._hideOtherLayer = true;
+    self._fading = false;
+    self:onEnter()
+end
+
+
+--进入Ui调用一次
+function HeroInfoLayer:onEnter()
+    self:createPnl();
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/obj_title"))
+    self:Init();
+end
+
+--退出按钮事件
+function HeroInfoLayer:onBackClick()
+    self:onPopLayer();
+end
+
+--初始化
+function HeroInfoLayer:Init()
+
+    self:InitUI();
+end
+
+--初始化UI
+function HeroInfoLayer:InitUI()
+
+    self._signObj = self.layer:Get("obj_talk")
+	self._imgAttr = self.layer:GetImageComponent("container/img_info_bg/img_attr");
+	self._imgLocation = self.layer:GetImageComponent("container/img_info_bg/img_location");
+	--@ImageEnd
+
+	self._txtName = self.layer:GetTextComponent("container/obj_title/txt_name");
+	self._txtTitle = self.layer:GetTextComponent("container/obj_title/txt_title");
+	self._txtAttr = self.layer:GetTextComponent("container/img_info_bg/txt_attr");
+	self._txtStory = self.layer:GetTextComponent("container/img_info_bg/txt_story_bg/txt_story");
+	self._txtLocation = self.layer:GetTextComponent("container/img_info_bg/txt_location");
+	--@TextEnd
+
+	self._transSpineParent = self.layer:Get("trans_spine_parent");
+	--@TransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    self._stars = {};
+    for i = 1, 6 do
+        self._stars[i] = self.layer:Get("container/img_star_bg/img_star_"..i);
+    end
+
+    self._skillCls = {};
+    local _prefab
+    for _, slot in ipairs(Hero.SKILL_SLOT) do
+        _prefab = self.layer:Get("container/img_info_bg/trans_skill_"..slot)
+        self._skillCls[slot] =  {
+            icon = _prefab:GetImageComponent("img_icon"),
+            transform = _prefab,
+            title = _prefab:GetTextComponent("txt_name").text,
+        }
+        _prefab:GetButtonComponent("img_icon").onClick:AddListener(function ()
+            self:OnSkillBtnClick(slot);
+        end);
+    end
+end
+
+--显示UI
+function HeroInfoLayer:show()
+    self:showLayer();
+end
+
+function HeroInfoLayer:showLayer()
+    self:UpdateData();
+    Hero:LoadSpineAsync(self.__cname,self._transSpineParent, self._heroId, Hero.SPINE_UI_ARCHIVE_HERO_INFO,function(obj)
+        self._alpha = -0.1
+        if obj == nil then
+            self._updateA = false
+            self._curMoudle = nil
+        else
+            self._curMoudle = obj
+            self.skeletonAni = self._curMoudle:GetComponent("SkeletonAnimation")
+            self.aniName = self.skeletonAni.AnimationName
+            self._updateA = true
+            if self._alpha < 1 then
+                CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 0)
+            else
+                CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, 1)
+            end
+        end
+    end)
+    --self:playAni("HeroInfoLayerAnim");
+    CBaseLayer.showLayer(self);
+end
+
+function HeroInfoLayer:onUpdate(dt)
+
+    if self._updateA then
+        self._alpha = self._alpha + dt*2
+        if self._alpha >= 1.0 then
+            self._alpha = 1.0
+            self._updateA = false
+        end
+        if self._alpha > 0 then
+            CS.SkeletonHelper.SetSkeletonAlpha(self.skeletonAni, self._alpha)
+            -- self.skeletonAni.Skeleton.A = self._alpha
+        end
+    end
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function HeroInfoLayer:OnSkillBtnClick(slot)
+    local skill = self._hero.skills[slot]
+    local skillcfg = Skill:GetHeroSkillCfg(skill.cfgid, self._hero.star)
+
+    local atk = self._hero.attrs[CAttr.TYPE_ATK]
+    if atk == 0 then
+        local cfg = Hero:GetCfgAttrs(self._hero.id)
+        atk = cfg[CAttr.TYPE_ATK]
+    end
+    local desc = Skill:GetSkillHurtDesc(atk, skill.cfgid, skill.showid, true, skill.level or 1 , self._hero.star)
+    core.require("xlua/lua_UI/Build/BuildDotTipsLayer.txt"):new():show(self._skillCls[slot].transform,
+        self._skillCls[slot].title, desc)
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+--释放
+function HeroInfoLayer:onExit()
+
+    self._transSpineParent = nil;
+	self._txtName = nil;
+	self._txtTitle = nil;
+	self._imgAttr = nil;
+	self._txtAttr = nil;
+	self._txtStory = nil;
+	self._imgLocation = nil;
+	self._txtLocation = nil;
+    self._hero = nil;
+    self._heroId = 0;
+	--@CloseEnd
+    CBaseLayer.onExit(self);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function HeroInfoLayer:UpdateData()
+    self._heroId = Archive:GetCurSelectHeroId();
+    self._hero = Hero:GetHero(self._heroId);
+    self:SetHeroUI();
+end
+
+function HeroInfoLayer:SetHeroUI()
+    --文本
+    self:SetViewUI();
+    --属性
+    Hero:LoadAttrIconSpEX(self._imgAttr, self._hero.config.attri_type);
+    --星级
+    Bag:SetStarSprite(self._stars, self._hero.star);
+    --技能
+    self:SetSkillUI();
+end
+
+function HeroInfoLayer:SetViewUI()
+    local hero = self._hero;
+    local cfg = hero.config;
+    self._txtName.text = cfg.Name;
+    self._txtTitle.text = cfg.Name_after;
+    self._txtStory.text = cfg.itemInfo;
+    self._txtAttr:SetTextById(tonumber("881025"..cfg.attri_type));
+    self._txtLocation.text = string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + hero.atktype))
+    Hero:SetHeroAtkType(self._imgLocation,hero.atktype);
+end
+
+function HeroInfoLayer:SetSkillUI()
+    local skillcfg
+    for slot, v in ipairs(Hero.SKILL_SLOT) do
+        skillcfg = Skill:GetHeroSkillShowCfg(self._hero.skills[slot].showid, self._hero.star)
+        self._skillCls[slot].icon:LoadSprite(skillcfg.icon)
+    end
+end
+
+return HeroInfoLayer;

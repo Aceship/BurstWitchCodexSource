@@ -1,0 +1,207 @@
+--
+-- author: haosun
+-- date  : 2018-10-13 12:52:21
+-- brief : 选择游戏服
+--
+
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local GameAreaLayer = class("GameAreaLayer", CBaseLayer)
+
+function GameAreaLayer:ctor(super, showCall, backCall)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiLogin/ui_LoginPanel/UI_AreaLayer",
+    }
+    self._loadAsync = true
+
+    self._showCall = showCall
+    self._backCall = backCall
+
+    self:loadAsync()
+end
+
+function GameAreaLayer:initObj()
+    self._listObj = {}
+    self._playerObjs = {}
+    for i = 1, 10 do
+        self._listObj[i] = self.layer:Get("GA_ListAreaPnl/GA_List" .. i)
+        self._playerObjs[i] = Player:CtorPlayerIconBorder(self.layer:Get("GA_ListAreaPnl/GA_List" .. i.."/playerdata/prefab_player").gameObject)
+    end
+end
+
+function GameAreaLayer:onEnter()
+    self:createPnl()
+    self:initObj()
+    for i, obj in ipairs(self._listObj) do
+        obj:GetComponent("Button"):AddButtonListener(
+            function()
+                self:doClickArea(i)
+            end)
+    end
+end
+
+function GameAreaLayer:onExit()
+    self._serverIds     = nil
+    self._loginedIds    = nil
+
+    for _, v in pairs(self._buttons) do
+        v:Release()
+    end
+    self._buttons       = nil
+    self._backCall      = nil
+    self._listObj       = nil
+    self._playerObjs    = nil
+    CBaseLayer.onExit(self)
+end
+
+function GameAreaLayer:onBackClick()
+    if self._backCall ~= nil then
+        self._backCall()
+    end
+    self:onPopLayer()
+end
+
+function GameAreaLayer:show()
+    if self._showCall ~= nil then
+        self._showCall()
+        self._showCall = nil
+    end
+    self:initLayer()
+end
+
+function GameAreaLayer:initLayer()
+    local tdata = Login:GetLastServer()
+    self.layer:GetTextComponent("text_name").text = tdata.zonename
+
+    self._cur_idx = 1
+    self._serverIds = Login:GetServerIds()
+    self._counts = math.ceil(#self._serverIds /10)
+
+    self._loginedIds = {}
+    self._has_login = #self._loginedIds > 0
+    if self._has_login then
+        self._counts = self._counts + 1
+    end
+
+    self:genButtons()
+    self:onListClick(self._cur_idx)
+end
+
+function GameAreaLayer:genButtons()
+    local GA_Content = self.layer:Get("GA_ScrollView/GA_Content")
+    local GA_Button = self.layer:Get("UI_GAButton").gameObject
+    local GA_LastLogin = self.layer:Get("UI_GALastLogin").gameObject
+
+    self._buttons = {}
+    local lastlogin = false
+    for i = 1, self._counts do
+        lastlogin = i == 1 and self._has_login
+        local trans
+        if lastlogin then
+            trans = GA_Content:AddChild(GA_LastLogin)
+        else
+            trans = GA_Content:AddChild(GA_Button)
+        end
+        trans.name = "GAButton" .. i
+		trans:GetComponent("Button"):AddButtonListener(function()
+				self:onListClick(i);
+			end)
+
+        if self._has_login then
+            if i > 1 then
+                trans:GetTextComponent("text_servers"):SetTextById(99000023)
+               -- trans.transform:Find("text_servers"):GetComponent("Text").text = string.format("%02d~%02d", (i-2)*10 + 1, (i-1)*10)
+            end
+        else
+            trans:GetTextComponent("text_servers"):SetTextById(99000023)
+          --  trans.transform:Find("text_servers"):GetComponent("Text").text = string.format("%02d~%02d", (i-1)*10 + 1, i*10)
+        end
+        table.insert(self._buttons, trans)
+    end
+    GA_Button:SetVisible(false)
+    GA_LastLogin:SetVisible(false)
+end
+
+function GameAreaLayer:onListClick(index)
+    self._cur_idx = index
+    local sel = self._cur_idx == 1
+    local container
+    local index = 1
+    if self._has_login then
+        index = 2
+        self._buttons[1]:GetComponent("Button").interactable = not sel
+        local color = COLOR_TYPE.Gray55
+        if sel then
+            color = COLOR_TYPE.Black
+        end
+        self._buttons[1]:GetTextComponent("label_last").color = color
+        self._buttons[1]:GetTextComponent("label_last_en").color = color
+        self._buttons[1]:Get("img_sel"):SetVisible(sel)
+    end
+    for i = index, self._counts do
+        sel = self._cur_idx == i
+        self._buttons[i]:GetComponent("Button").interactable = not sel
+        self._buttons[i]:Get("img_sel"):SetVisible(sel)
+        if sel then
+            self._buttons[i]:GetTextComponent("text_servers").color = COLOR_TYPE.Black
+        else
+            self._buttons[i]:GetTextComponent("text_servers").color = COLOR_TYPE.Gray55
+        end
+    end
+    self:setShowList()
+end
+
+function GameAreaLayer:realAreaIndex(index)
+    if self._has_login then
+        if self._cur_idx == 1 then
+            return index
+        else
+            return (self._cur_idx - 2)*10 + index
+        end
+    else
+        return (self._cur_idx - 1)*10 + index
+    end
+end
+
+function GameAreaLayer:realAreas()
+    if self._has_login and self._cur_idx == 1 then
+        return self._loginedIds
+    end
+    return self._serverIds
+end
+
+function GameAreaLayer:setShowList()
+    local datas = self:realAreas()
+    local server
+    local logindata
+    for i, obj in ipairs(self._listObj) do
+        local ridx = self:realAreaIndex(i)
+        obj:SetVisible(datas[ridx])
+        if datas[ridx] ~= nil then
+            server = Login:GetServerDataById(datas[ridx])
+            logindata = Login:GetLoinDataById(datas[ridx])
+            obj:GetTextComponent("TextAreaName"):SetText(server.zonename)
+            -- obj.transform:Find("ImageAreaState"):GetComponent("Image").sprite = Login:GetStateSprite(server.state)
+            obj:Get("playerdata"):SetVisible(logindata ~= nil)
+            if logindata ~= nil then
+                obj:GetTextComponent("playerdata/txt_level"):SetText("Lv."..logindata.level)
+                if logindata.nickname ~= nil then
+                    obj:GetTextComponent("playerdata/txt_name"):SetText(logindata.nickname)
+                end
+                Player:SetPlayerIconBorderObj(self._playerObjs[i], logindata.iconid, logindata.frameid)
+            end
+        end
+    end
+end
+
+function GameAreaLayer:doClickArea(idx)
+    local datas = self:realAreas()
+    local ridx = self:realAreaIndex(idx)
+    local testId = datas[ridx]
+    --CS.LogError.LogInfo(testId)
+    Login:SetLastLoginId(testId)
+    self:onBackClick()
+end
+
+return GameAreaLayer
+

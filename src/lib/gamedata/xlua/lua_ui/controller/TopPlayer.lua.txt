@@ -1,0 +1,100 @@
+--
+-- author: haosun
+-- date  : 2019-09-10 17:01:53
+-- brief :
+--
+local TopPlayer = class("TopPlayer")
+
+function TopPlayer:ctor(super, obj)
+    self._lvComObj      = obj:GetTextComponent("text_level")
+    self._nameComObj    = obj:GetTextComponent("text_name")
+    self._fightComObj   = obj:GetTextComponent("text_fighting")
+    self.playerCls      = Player:CtorPlayerIconBorder(obj.transform:Find("prefab_player"))
+    self._expSliderComObj = obj:GetSliderComponent("slider_exp")
+
+    obj:GetButtonComponent("button_click"):AddButtonListener(function()
+            self:showHomeSettingLayer()
+        end)
+
+    obj:GetButtonComponent("text_fighting"):AddButtonListener(function()
+        self:ShowFightTips()
+    end)
+    self._objNameTips = obj:Get("image_red_tips")
+
+    self:SetPlayerInfo()
+    UIController:AddTopPlayer(self)
+end
+
+function TopPlayer:clear()
+    self._lvComObj      = nil
+    self._nameComObj    = nil
+    self._fightComObj   = nil
+    self._iconComObj    = nil
+    self._expSliderComObj = nil
+    self._expBgSliderComObj = nil
+    if self.playerCls ~= nil then
+        self.playerCls:clear()
+    end
+    self.playerCls = nil
+    self._objNameTips   = nil
+    UIController:RemoveTopPlayer(self)
+end
+
+function TopPlayer:SetPlayerInfo()
+    self:SetPlayerLv()
+    self:SetPlayerExp()
+    self:SetPlayerName()
+    self:SetPlayerFightCapacity()
+end
+
+function TopPlayer:SetPlayerIconBorderObj()
+    if self.playerCls ~= nil then
+        Player:SetPlayerIconBorderObj(self.playerCls, Player:GetHeadIcon(), Player:GetHeadBorder());
+    end
+end
+
+function TopPlayer:SetPlayerLv()
+    self._lvComObj.text = "Lv" .. Player:GetLevel()
+end
+
+function TopPlayer:SetPlayerExp()
+    local expper = Player:GetLevelExpPer()
+    self._expSliderComObj.value = expper
+    -- local currExp, nextExp = Player:GetLevelExp()
+    -- local expstr = string.format("<color=#8999D3FF>%d</color>/%d", currExp, nextExp)
+end
+
+function TopPlayer:SetPlayerName()
+    self._nameComObj.text = Player:GetName()
+    self._objNameTips:SetVisible(Player:CanChangeNameTip())
+end
+
+function TopPlayer:SetPlayerFightCapacity()
+    self._fightComObj:SetText(Hero:GetTotalFightNum())
+end
+
+function TopPlayer:showHomeSettingLayer()
+    core.require("xlua/lua_UI/HomeScene/HomeSettingLayer.txt"):new():show()
+end
+
+--
+function TopPlayer:ShowFightTips()
+    Groble_UIMgr:ShowFightTipsLayer()
+    --Groble_UIMgr:ShowFightUpLayer()
+end
+
+function TopPlayer:UpdateByInfoType(infotype)
+    if Player.INFO_NAME == infotype then
+        self:SetPlayerName()
+    elseif Player.INFO_HEAD == infotype then
+        Player:SetPlayerIconBorderObj(self.playerCls, Player:GetHeadIcon(), Player:GetHeadBorder());
+    elseif Player.INFO_LEVEL == infotype then
+        self:SetPlayerLv()
+        self:SetPlayerExp()
+    elseif Player.INFO_FIGHT == infotype then
+        self:SetPlayerFightCapacity()
+    else
+    end
+end
+
+return TopPlayer

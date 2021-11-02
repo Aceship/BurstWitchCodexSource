@@ -1,0 +1,121 @@
+--
+-- author: haosun
+-- date  : 2019-06-11 12:01:45
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local InputLayer = class("InputLayer", CBaseLayer)
+
+local BUTTON_TYPE = {
+    ok      = "container/button_ok",
+}
+
+function InputLayer:ctor(super, layer)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_comframeWork/UI_InputLayer",
+    }
+
+    self:onEnter()
+end
+
+function InputLayer:onEnter()
+    self:createPnl()
+    self:registerButtonEvent(BUTTON_TYPE)
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.MODIFY_PLAYER_NAME,
+        function()
+            self._bExit = true
+            self:doBack("", true)
+        end)
+end
+
+function InputLayer:onBackClick()
+    if self._uid == InputUid.name then
+        self._callback = nil
+    end
+    self:doBack("")
+end
+
+function InputLayer:onButtonClick(itype)
+    if itype == BUTTON_TYPE.ok then
+        self:onInputCheck()
+    end
+end
+
+function InputLayer:onInputCheck()
+    local input = self.layer.transform:Find("container/input_code"):GetComponent("InputField").text
+    if input == nil or input == "" then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800067)
+        return
+    end
+    local checkOne = Groble_SceneMgr:checkStrIsChaneseOrENNUSure(input)
+    if checkOne == false then
+        Groble_UIMgr:ShowGameWordTipsLayer(1800068)
+        return
+    end
+    self:doBack(input)
+end
+
+function InputLayer:show(uid, callback, exit)
+    self._fading = true
+    self._uid = uid
+    self._callback = callback
+    self._bExit = exit
+    
+    self:initLayer()
+    self:showLayer()
+    self:playAni("CommonLayerFadeInAni")
+end
+
+function InputLayer:initLayer()
+    self._nameInput = self.layer.transform:Find("container/input_code"):GetComponent("InputField");
+    self._nameInput.onValueChanged:AddListener(function(value)
+        self._nameInput.text = filter_spec_chars(value)
+    end)
+
+    local objText = self.layer.transform:Find("container/input_code/Placeholder"):GetComponent("Text")
+    if self._uid == InputUid.acc then
+        objText:SetTextById(880020)
+        self.layer:GetTextComponent("container/text_title"):SetTextById(880021)
+        self.layer:GetTextComponent("container/text_title_en"):SetTextById(880022)
+    elseif self._uid == InputUid.code then
+        objText:SetTextById(880027);
+        self.layer:GetTextComponent("container/text_title"):SetTextById(880023)
+        self.layer:GetTextComponent("container/text_title_en"):SetTextById(880024)
+    elseif self._uid == InputUid.name then
+        objText:SetTextById(880028);
+        self.layer:GetTextComponent("container/text_title"):SetTextById(880025)
+        self.layer:GetTextComponent("container/text_title_en"):SetTextById(880026)
+    else
+        objText.text = "Input Error Uid..."
+    end
+    
+    local showcost = self._uid == InputUid.name
+    self.layer:Get("container/info_cost"):SetVisible(showcost)
+    if showcost then
+        local costid, costnum = Player:GetChangeNameCost()
+        self.layer:Get("container/info_cost/image_icon"):SetVisible(costnum > 0)
+        self.layer:Get("container/info_cost/text_value"):SetVisible(costnum > 0)
+        self.layer:Get("container/info_cost/label_free"):SetVisible(costnum == 0)
+        if costnum > 0 then
+            Item:SetItemIcon(self.layer:Get("container/info_cost/image_icon"), costid)
+            set_cost_color(self.layer:Get("container/info_cost/text_value"), costid, costnum)
+        end
+    end
+end
+
+function InputLayer:doBack(msg, ret)
+    if self._callback ~= nil then
+        self._callback(msg, ret)
+        if self._bExit then
+            self:onPopLayer()
+            Groble_UIMgr:CloseInputLayer();
+        end
+    else
+        self:onPopLayer()
+        Groble_UIMgr:CloseInputLayer();
+    end
+end
+
+return InputLayer
+

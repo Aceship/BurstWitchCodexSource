@@ -1,0 +1,247 @@
+---
+--- @Author:Administrator
+--- @Create Time:2020-08-11 16:21:10
+---
+Build = Build or {}
+
+Build.HeroAddLvImagePath = "img_gouzhu_dian_1";
+Build.AddLvImagePath = "img_gouzhu_dian_2";
+Build.NoAddLvImagePath = "img_gouzhu_dian_3";
+
+function Build:SetBuildIcon(img,path)
+    if(img == nil or path == nil)then
+        CS.Logger.LogError(" img or path is nil!!");
+    end
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_build_layer", path);
+end
+
+function Build:SetBuildImage(img,path)
+    if(img == nil or path == nil)then
+        CS.Logger.LogError(" img or path is nil!!");
+    end
+    img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_build_layer", path);
+end
+
+function Build:NewAddAttr(retCls,trans,item,num)
+    if(retCls == nil)then
+        retCls = {};
+    end
+    for i = 1, num do
+        local cls = retCls[i];
+        if(cls == nil)then
+            cls = CAttr:CtorAttrCObj(CS.UnityEngine.GameObject.Instantiate(item,trans));
+            local transLvUpAnim = cls:Find("obj_lv_up_anim");
+            if(transLvUpAnim  ~= nil)then
+                cls.objLvUpAnim = transLvUpAnim .gameObject;
+            end
+            cls.txtAttrAddNum = cls:GetTextComponent("txt_attr_add_num");
+            retCls[i] = cls;
+        end
+    end
+    return retCls;
+end
+
+function Build:SetAddAttr(cls,showData,compareData)
+    for i, v in ipairs(cls) do
+        local attrId = showData.attrSortIds[i];
+        v.obj:SetVisible(attrId ~= nil);
+        if(attrId ~= nil)then
+            local des = showData.attrAdds[attrId];
+            if(compareData ~= nil)then
+                if(v.objLvUpAnim ~= nil)then
+                    v.objLvUpAnim:SetVisible(des < compareData.attrAdds[attrId]);
+                    set_com_enabled(v.txtAttrAddNum,des < compareData.attrAdds[attrId]);
+                    if(des < compareData.attrAdds[attrId])then
+                        v.txtAttrAddNum.text = compareData.attrAdds[attrId];
+                    end
+                end
+            end
+            if(des == 0)then
+                des = string.format("<color=#5E5E5EFF>+ %s</color>",des);
+            else
+                des = string.format("+ %s",des);
+            end
+            CAttr:SetAttrCObj(v,attrId, des,nil,true);
+        end
+    end
+end
+
+function Build:SetAtkTypeAdd(txt,atkType,addValue)
+    txt.text = string.format(LanguageMgr:GetTextByID(702029),LanguageMgr:GetTextByID(71200000 + atkType),lua_math_round(addValue * 1000)/10);
+end
+
+
+function Build:NewBuildItem(trans,callback)
+    local cls = clsbase:new(trans);
+    cls.imgCanvasGroupValue = 1;
+    cls.txtCanvasGroupValue = 1;
+    cls.rect = cls.transform:GetComponent("RectTransform");
+    cls.objItem = cls:Find("item");
+    cls.txtCanvasGroup = cls:Find("item/trans_txt"):GetComponent("CanvasGroup");
+    cls.imgCanvasGroup = cls:Find("item/trans_img"):GetComponent("CanvasGroup");
+    cls.bgCanvasGroup = cls:Find("item/trans_bg"):GetComponent("CanvasGroup");
+    cls.imgIcon = cls:GetImageComponent("item/trans_img/img_icon");
+    cls.imgRed = cls:GetImageComponent("item/trans_img/img_red");
+    cls.txtLv = cls:GetTextComponent("item/trans_txt/txt_lv");
+    cls.txtName = cls:GetTextComponent("item/trans_txt/txt_name");
+    cls.txtNameE = cls:GetTextComponent("item/trans_txt/txt_name_E");
+    --cls.objLock = cls.item.transform:Find("obj_lock").gameObject;
+    cls.effectColorScript = cls:Find("item/trans_img/trans_effect"):GetComponent("EffectColorScript");
+    cls.sort = cls.transform:GetComponent("SortingGroup");
+    cls.canvas = cls.transform:GetComponent("Canvas");
+    cls.btn = cls:GetButtonComponent("item/trans_img");
+
+    if(cls.btn ~= nil)then
+        cls.btn.onClick:AddListener(function()
+            if(callback ~= nil)then
+                callback(cls);
+            end
+        end);
+    end
+    return cls;
+end
+
+function Build:SetBuildItemData(cls,atkType)
+    cls.atkType = atkType;
+    local buildServerData = Build:GetBuildServerDataByAtkType(cls.atkType);
+    Hero:SetHeroAtkType(cls.imgIcon,cls.atkType);
+    cls.txtName.text = string.format(LanguageMgr:GetTextByID(702046),LanguageMgr:GetTextByID(71200000 + cls.atkType));
+    cls.txtNameE:SetTextById(71200010 + cls.atkType);
+    cls.isLock = Build:GetBuildTypeIsLock(cls.atkType);
+    if(cls.isLock)then
+        cls.txtLv:SetTextById(702103);
+        set_com_enabled(cls.imgRed,false);
+    else
+        cls.txtLv:SetText(string.format("Lv.%s",buildServerData.lv));
+        if(cls.imgRed ~= nil)then
+            set_com_enabled(cls.imgRed,Build:GetBuildLvIsUp(cls.atkType) or self:IsBuildAddTips(cls.atkType));
+        end
+    end
+end
+
+function Build:OpenBuildMainLayer(loadOverCallBack)
+    uimgr:ShowInterimLayer(CTime.delayTime,function ()
+        if(self._objBuildBook == nil)then
+            local path;
+            if(self._isFirstOpen)then
+                path = "prefab_uiEffect/M2_Lamiabook/M2_Lamiabook01";
+            else
+                path = "prefab_uiEffect/M2_Lamiabook/M2_Lamiabook";
+            end
+            AssetAsyncLoader:LoadResourceAsync(path,
+                    function(obj)
+                        local layer = core.require("xlua/lua_UI/Build/BuildMainLayer.txt"):new();
+                        if obj ~= nil then
+                            self._objBuildBook = Groble_ResMgr:Instantiate(obj).transform:Find("M2_Lamiabook");
+                            CS.BehaviourMgr.AddAnimatorKeyFrameCall(self._objBuildBook.gameObject, self)
+                        end
+                        if(loadOverCallBack ~= nil)then
+                            loadOverCallBack();
+                        end
+                        layer:show();
+                        if(self._isFirstOpen)then
+                            self._isFirstOpen = false;
+                        end
+                    end)
+        end
+    end);
+end
+
+function Build:LuaAnimatorKeyFrameCall(keyenum)
+    if keyenum == 1 then
+        GEvent:fireEventByEvt(EVENT_TYPE.UI_ACTION,EVENT_NAME.BUILD_MADE_LOAD_OVER);
+    elseif(keyenum == 2)then
+        Build:PlayAwaitAnim();
+    end
+end
+
+--播放开始动画
+function Build:PlayEnterAnim()
+    self._objBuildBook:AnimationPlay("enter")
+end
+
+--播放待机动画
+function Build:PlayAwaitAnim()
+    self._objBuildBook:AnimationPlay("wait")
+end
+
+function Build:GetBuildDotDesAndTitleByLv(dotId,lv)
+    local dotCfg = Build:GetBuildDotCfgById(dotId);
+    local title = dotCfg.name;
+    local addValues = {};
+    local tempDes = "<color=#787878FF>%s</color>";
+    local temp
+    for i, v in ipairs(dotCfg.dotAddValues) do
+        temp = lua_str_split(v,"&")
+        for ii, vv in ipairs(temp) do
+            if(addValues[ii] == nil)then
+                addValues[ii] = "";
+            end
+            if(i == lv)then
+                addValues[ii] = addValues[ii] ..string.format("<color=#AF6FFFFF>%s</color>",vv);
+            else
+                addValues[ii] = addValues[ii] ..vv;
+            end
+            if(#dotCfg.dotAddValues > i)then
+                addValues[ii] = addValues[ii] .."/";
+            else
+                addValues[ii] = string.format(tempDes,addValues[ii]);
+            end
+        end
+    end
+    if(lv > 0)then
+        title = dotCfg.name .. uistr.com_stepstr[lv];
+    end
+    local des = string.format(dotCfg.des,table.unpack(addValues));
+    return title,des;
+end
+
+function Build:OpenBuildTypeLayer(isShow)
+    if(self._buildTypeLayer == nil)then
+        self._buildTypeLayer = core.require("xlua/lua_UI/Build/BuildTypeLayer.txt"):new();
+    end
+    if(isShow)then
+        Build:ShowBuildTypeLayer();
+    end
+end
+
+function Build:CloseBuildTypeLayer()
+    if(self._buildTypeLayer == nil)then
+        return;
+    end
+    self._buildTypeLayer:CloseLayer();
+    self._buildTypeLayer = nil;
+end
+
+function Build:HideBuildTypeLayer()
+    if(self._buildTypeLayer == nil)then
+        return;
+    end
+    self._buildTypeLayer:hide();
+end
+
+function Build:ShowBuildTypeLayer(showType)
+    if(self._buildTypeLayer == nil)then
+        return;
+    end
+    self._buildTypeLayer:SetShowLayerType(showType or Build.ShowLayerType.BuildDot);
+    self._buildTypeLayer:show();
+end
+
+function Build:PlayerPreview(allDotData)
+    if(self._buildTypeLayer == nil)then
+        return;
+    end
+
+    if(allDotData == nil)then
+        return;
+    end
+    self._buildTypeLayer:PlayerPreview(allDotData);
+end
+
+function Build:SetCutBuildTypeTogState(isShow)
+    if(self._buildTypeLayer == nil)then
+        return;
+    end
+    self._buildTypeLayer:SetCutBuildTypeTogState(isShow);
+end

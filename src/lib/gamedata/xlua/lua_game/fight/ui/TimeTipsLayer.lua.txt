@@ -1,0 +1,39 @@
+--
+-- author: haosun
+-- date  : 2020-11-09 14:24:03
+-- brief : 
+--
+UI_TimeTipsLayer = UI_TimeTipsLayer or {}
+
+function UI_TimeTipsLayer:TimeTipsLayerCreator()
+    self._enabled = not FightController:IsOnlyAvoidLevel()
+    if self._enabled then
+        self.layer = CanvasMgr:CreateCanvasChild("prefab_uiFight/ui_FightInfo/TimeTipsLayer")
+        self.layer:SetVisible(false)
+
+        self._isVisible = false
+    end
+end
+
+function UI_TimeTipsLayer:EnterTimeTipsLayer()
+    if not self._enabled then return end
+    if self._isVisible then return end
+
+    self._isVisible = true
+    self.layer:SetVisible(true)
+end
+
+function UI_TimeTipsLayer:ExitTimeTipsLayer()
+    if not self._enabled then return end
+    if not self._isVisible then return end
+
+    self._isVisible = false
+    self.layer:SetVisible(false)
+end
+
+function UI_TimeTipsLayer:TimeTipsLayerDestructor()
+    if self.layer ~= nil then
+        self.layer:Release()
+    end
+    self.layer = nil
+end

@@ -1,0 +1,85 @@
+--
+-- author: haosun
+-- date  : 2021-03-29 14:38:30
+-- brief : 
+--
+FightModule = FightModule or {}
+
+function FightModule:_LoadFightTalkCfg()
+    self._talk_cfgs = {}
+    for _, v in pairs(CfgLoader:LoadCfgTable("FightMapTalk")) do
+        self._talk_cfgs[tonumber(v.id)] = {
+            nextid      = tonumber(v.next),
+            talk_info   = lua_str_split(v.talk_info, "|", true),
+            talk_sound  = v.talk_sound,
+            talk_sample = tonumber(v.talk_sample),
+        }
+    end
+
+    self._talk_show_cfgs = {}
+    for _, v in pairs(CfgLoader:LoadCfgTable("FightTalkShow")) do
+        self._talk_show_cfgs[tonumber(v.id)] = {
+            show_type   = tonumber(v.show_type),
+            face_info   = v.face_info,
+            param       = v.parm,
+        }
+    end
+
+    self._talk_text_cfgs = {}
+    for _, v in pairs(CfgLoader:LoadCfgTable("FightTalkText")) do
+        self._talk_text_cfgs[tonumber(v.id)] = {
+            head_id     = tonumber(v.head_id),
+            face_id     = v.face_id,
+            talk_name   = v.talk_name,
+            text_speed  = tonumber(v.text_speed),
+        }
+    end
+
+    self._talk_select_cfgs = {}
+    for _, v in pairs(CfgLoader:LoadCfgTable("FightTalkSelect")) do
+        self._talk_select_cfgs[tonumber(v.id)] = {
+            select_info = v.select_info,
+            need_info   = v.need_info,
+            add_info    = v.add_info,
+            jump_id     = tonumber(v.jump_id)
+        }
+    end
+
+    local code = LanguageMgr:GetLanguageCode()
+    if code == Language.LANGUAGE_CHS then
+        AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightmsg_zh.txt")
+    elseif code == Language.LANGUAGE_CHT then
+        AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightmsg_tw.txt")
+    elseif code == Language.LANGUAGE_EN then
+        AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightmsg_en.txt")
+    elseif code == Language.LANGUAGE_JP then
+        AssetLoader:LoadLuaAsset("xlua/lua_Game/Actor/FightModule/fightmsg_zh.txt")
+    end
+end
+
+function FightModule:GetFightTalkCfg(cfgid)
+    if self._talk_cfgs[cfgid] == nil then
+        AppMgr:LogError("can't find config in FightMapTalk. cfgid = " .. cfgid)
+    end
+    return self._talk_cfgs[cfgid]
+end
+
+function FightModule:GetFightTalkShowCfg(cfgid)
+    if self._talk_show_cfgs[cfgid] == nil then
+        AppMgr:LogError("can't find config in FightTalkShow. cfgid = " .. cfgid)
+    end
+    return self._talk_show_cfgs[cfgid]
+end
+
+function FightModule:GetFightTalkTextCfg(cfgid)
+    if self._talk_text_cfgs[cfgid] == nil then
+        AppMgr:LogError("can't find config in FightTalkText. cfgid = " .. cfgid)
+    end
+    return self._talk_text_cfgs[cfgid]
+end
+
+function FightModule:GetFightTalkSelectCfg(cfgid)
+    return self._talk_select_cfgs[cfgid]
+end
+
+

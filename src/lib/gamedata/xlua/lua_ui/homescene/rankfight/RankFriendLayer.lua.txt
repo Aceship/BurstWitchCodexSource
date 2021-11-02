@@ -1,0 +1,201 @@
+--
+-- brief : 
+--
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local RankFriendLayer = class("RankFriendLayer", CBaseLayer)
+
+local _top_number = 3
+
+function RankFriendLayer:ctor(super, parent)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_rank/UI_RankFriendLayer",
+    }
+    self._bgData = {
+        showEffect = false,
+        bgType = BackBgPath.BG_MID_NIGHT_1,
+    }
+    self._topData = {
+        showBtnBack     = true,
+        showPlayerInfo  = false,
+        showTopInfo     = false,
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self:onEnter()
+end
+
+function RankFriendLayer:onEnter()
+    self:createPnl()
+    CS.UnityHelper.NotchfitY(self.layer:Get("Top"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("Mid"), 0, true)
+end
+
+function RankFriendLayer:onExit()
+    self._listdata      = nil
+
+    if self._objUnitCells ~= nil then
+        for i, cls in pairs(self._objUnitCells) do
+            cls.cplayer:clear()
+            cls:clear()
+        end
+        self._objUnitCells = nil
+    end
+
+    if self._clsplayer ~= nil then
+        for i, cls in pairs(self._clsplayer) do
+            cls:clear()
+        end
+        self._clsplayer = nil
+    end
+    CBaseLayer.onExit(self)
+end
+
+function RankFriendLayer:onBackClick()
+    self:onPopLayer()
+end
+
+function RankFriendLayer:show()
+    self:dataGenFriendList()
+    self:doInitTop3Player()
+    self:doInitSelf()
+    self:showLayer()
+end
+
+function RankFriendLayer:dataGenFriendList()
+    self._listLen = 0
+    self._listdata = lua_deep_copy(MidNight:GetMidnightFriendList())
+    if self._listdata ~= nil then
+        --本地保护 服务器分数可能传过来false
+        for _, v in pairs(self._listdata) do
+            if type(v[Player.ATTR_RANK_VALUE]) == "boolean" then
+                table.remove(self._listdata, _)
+            else
+                --不在好友列表移除
+                if not Friend:IsFriend(tonumber(v[Player.ATTR_PLAYERID])) then
+                    table.remove(self._listdata, _)
+                end
+            end
+        end
+        table.insert(self._listdata,{[1] = Player:GetId(), [2] = Player:GetName(), [3] = Player:GetHeadBorder(),
+            [4] = Player:GetHeadIcon(),[5] = Player:GetLevel(), [8] = MidNight:GetHistoryScore()})
+        self._listLen = #self._listdata
+        if self._listLen > 0 then
+            --加入玩家自己的数据
+            table.sort(self._listdata, function (a, b)
+                return tonumber(a[Player.ATTR_RANK_VALUE]) > tonumber(b[Player.ATTR_RANK_VALUE])
+            end)
+            if self._listLen > _top_number then
+                self._objUnitCells = {}
+                self._tvController = UIController:CtorTableView(self.layer:Get("Mid/TableViewController").gameObject)
+                self._tvController:Init(self._listLen - _top_number, true,
+                    function(cell, row, play)
+                        self:refreshUnitCell(cell, row+1)
+                    end, 0.3, 0.1)
+            end
+        end            
+    end
+    self.layer:Get("Mid/image_empty"):SetVisible(self._listLen <= _top_number)
+    self.layer:Get("Mid/TableViewController"):SetVisible(self._listLen > _top_number)
+end
+
+function RankFriendLayer:ctorUnitCell(trans)
+    local cls       = clearbase:new()
+    cls.cplayer     = Player:CtorPlayerIconBorder(trans:Get("prefab_player"))
+    cls.transBg     = trans:Get("img_bg")
+    cls.txtLv       = trans:GetTextComponent("txt_lv")
+    cls.txtName     = trans:GetTextComponent("txt_name")
+    cls.txtOrder    = trans:GetTextComponent("txt_order")
+    cls.txtScore    = trans:GetTextComponent("txt_score")
+    return cls
+end
+
+function RankFriendLayer:refreshUnitCell(cell, row)
+    local cls = self._objUnitCells[cell.name]
+    if cls == nil then
+        cls = self:ctorUnitCell(cell.transform)
+        self._objUnitCells[cell.name] = cls
+    end
+    -- refresh info
+    local data = self._listdata[row + _top_number]
+    cls.txtName:SetText(data[Player.ATTR_NAME])
+    cls.txtLv:SetText("Lv." .. tostring(data[Player.ATTR_LEVEL]))
+    cls.txtName:SetText(data[Player.ATTR_NAME])
+    cls.txtOrder:SetText(row + _top_number)
+    cls.txtScore:SetText(tostring(data[Player.ATTR_RANK_VALUE]))
+    Player:SetPlayerIconBorderObj(cls.cplayer, tonumber(data[Player.ATTR_ICONID]), tonumber(data[Player.ATTR_FRAMID]), 
+        tonumber(data[Player.ATTR_PLAYERID]), true)
+    cls.transBg:SetVisible(row % 2 == 1)
+end
+
+function RankFriendLayer:doInitTop3Player()
+    local _sname = {"Top/obj_rank_1", "Top/obj_rank_2", "Top/obj_rank_3"}
+    self._clsplayer = {}
+    for i = 1, _top_number, 1 do
+        local data = self._listdata ~= nil and self._listdata[i] or nil
+        local obj_rank = self.layer:Get(_sname[i])
+        if data ~= nil then
+            obj_rank:GetTextComponent("txt_name"):SetText(data[Player.ATTR_NAME])
+            obj_rank:GetTextComponent("txt_score"):SetText(tostring(data[Player.ATTR_RANK_VALUE]))
+            self._clsplayer[i] = Player:CtorPlayerIconBorder(obj_rank:Get("prefab_player"))
+            Player:SetPlayerIconBorderObj(self._clsplayer[i], tonumber(data[Player.ATTR_ICONID]), 
+                tonumber(data[Player.ATTR_FRAMID]), tonumber(data[Player.ATTR_PLAYERID]), true)
+            obj_rank:Get("img_bg"):SetVisible(true)
+            obj_rank:Get("obj_grayBg"):SetVisible(false)
+        else
+            obj_rank:Get("obj_grayBg"):SetVisible(true)
+            obj_rank:Get("img_bg"):SetVisible(false)
+        end
+
+        obj_rank:Get("txt_name"):SetVisible(data ~= nil)
+        obj_rank:Get("txt_score"):SetVisible(data ~= nil)
+        obj_rank:Get("prefab_player"):SetVisible(data ~= nil)
+        obj_rank:Get("obj_empty"):SetVisible(data == nil)
+    end
+end
+
+function RankFriendLayer:doInitSelf()
+    local selfTrans = self.layer:Get("Bottom/obj_info")
+    local selfOrder = 0
+    local selfData
+    if next(self._listdata) == nil then
+        selfOrder = 1
+        selfData = {
+            [Player.ATTR_PLAYERID]  = Player:GetId(), 
+            [Player.ATTR_NAME]      = Player:GetName(), 
+            [Player.ATTR_FRAMID]    = Player:GetHeadBorder(),
+            [Player.ATTR_ICONID]    = Player:GetHeadIcon(),
+            [Player.ATTR_LEVEL]     = Player:GetLevel(), 
+            [Player.ATTR_RANK_VALUE] =  MidNight:GetHistoryScore()
+        }
+    else
+        local selfId = Player:GetId()
+        for order, data in ipairs(self._listdata) do
+            if data[Player.ATTR_PLAYERID] == selfId then
+                selfOrder = order
+                selfData = data
+                break
+            end
+        end
+    end
+
+    selfTrans:GetTextComponent("txt_name"):SetText(selfData[Player.ATTR_NAME])
+    selfTrans:GetTextComponent("txt_score"):SetText(tostring(selfData[Player.ATTR_RANK_VALUE]))
+    selfTrans:GetTextComponent("txt_lv"):SetText("Lv." .. tostring(selfData[Player.ATTR_LEVEL]))
+    if selfOrder < 3 then
+        selfTrans:Get("txt_order"):SetVisible(false)
+        selfTrans:Get("img_order"):SetVisible(true)
+        selfTrans:GetImageComponent("img_order"):LoadAtlasSprite(AtlasMgr.MID_NIGHT, MidNight.OrderImgNames[selfOrder])
+    else
+        selfTrans:Get("txt_order"):SetVisible(true)
+        selfTrans:Get("img_order"):SetVisible(false)
+        selfTrans:GetTextComponent("txt_order"):SetText(selfOrder)
+    end
+
+    local clsplayer = Player:CtorPlayerIconBorder(selfTrans:Get("prefab_player"))
+    Player:SetPlayerIconBorderObj(clsplayer, tonumber(selfData[Player.ATTR_ICONID]), tonumber(selfData[Player.ATTR_FRAMID]), 
+        tonumber(selfData[Player.ATTR_PLAYERID]), true)
+    clsplayer:clear()
+end
+
+return RankFriendLayer

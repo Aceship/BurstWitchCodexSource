@@ -1,0 +1,250 @@
+--
+-- author: haosun
+-- date  : 2018-10-29 10:42:22
+-- brief : 
+--
+
+Player = Player or {}
+
+-- 玩家数值型货币
+Player.VALUE_COIN                           = 1                             -- 魂晶/金币
+Player.VALUE_MONEY                          = 2                             -- 魔晶/钻石
+Player.VALUE_FRIENDSHIP                     = 3                             -- 友情
+Player.VALUE_CLOSE                          = 4                             -- 亲密
+Player.VALUE_POWER                          = 5                             -- 体力
+Player.VALUE_MAX_POWER                      = 6                             -- 最大体力
+Player.VALUE_EXP                            = 7                             -- 经验
+Player.VALUE_LEVEL                          = 8                             -- 等级
+Player.VALUE_EQUIP_COIN                     = 9                             -- 低阶装备币
+Player.VALUE_EQUIP_MONEY                    = 10                            -- 高阶魔导石
+Player.VALUE_COIN_MARK                      = 11                            -- 印记币
+Player.VALUE_SY_COIN                        = 12                            -- 深夜币
+Player.VALUE_SKIN_COIN                      = 13                            -- 皮肤币
+Player.VALUE_MUSIC_COIN                     = 14                            -- 音符币
+Player.VALUE_HANDBOOK_EXP                   = 15                            -- 手册经验
+Player.VALUE_TOWER_COIN                     = 16                            -- 调查币
+Player.VALUE_BLOOD_COIN                     = 17                            -- 轮回币
+Player.VALUE_WITCH_COIN_ALL                 = 18                            -- 魔女币总数
+Player.VALUE_WITCH_COIN                     = 19                            -- 魔女币（与RMB挂钩）
+Player.VALUE_RMB_CHARGED                    = 20                            -- 充值的人民币总数（不重置不消耗不可随意调用）
+Player.VALUE_VIGOUR                         = 21                            -- 精力值
+Player.VALUE_BOSS_COIN                      = 22                            -- 世界BOSS币
+
+-- item表中的货币ID
+Player.ITEM_VALUE_COIN                      = 1000001                       -- 魂晶
+Player.ITEM_VALUE_MONEY                     = 1000002                       -- 魔晶
+Player.ITEM_VALUE_FRIENDSHIP                = 1000003                       -- 友情
+Player.ITEM_VALUE_CLOSE                     = 1000004                       -- 亲密
+Player.ITEM_VALUE_EQUIP_COIN                = 1000005                       -- 低阶装备币
+Player.ITEM_VALUE_EQUIP_MONEY               = 1000006                       -- 高阶魔导石
+Player.ITEM_VALUE_SY_COIN                   = 1000008                       -- 深夜币
+Player.ITEM_VALUE_SKIN_COIN                 = 1000009                       -- 皮肤币
+Player.ITEM_VALUE_MUISIC_COIN               = 1000010                       -- 音符币
+Player.ITEM_VALUE_TOWER_COIN                = 1000011                       -- 调查币(爬塔)
+Player.ITEM_VALUE_WITCH_COIN                = 1000012                       -- 魔女币（与RMB挂钩）
+Player.ITEM_VALUE_BOSS_COIN                 = 1000013                       -- 世界BOSS币
+Player.ITEM_VALUE_PIECE_COIN                = 8900001                       -- 碎片商店币
+
+Player.ITEM_VALUE_BLOOD_COIN                = 1010001                       -- 血之轮回币
+Player.ITEM_VALUE_TASK_EXP                  = 1000094                       -- 任务活跃值
+Player.ITEM_VALUE_VIGOR                     = 1000096                       -- 精力值
+Player.ITEM_VALUE_HANDBOOK_EXP              = 1000097                       -- 手册经验
+Player.ITEM_VALUE_POWER                     = 1000098                       -- 体力
+Player.ITEM_VALUE_EXP                       = 1000099                       -- 经验
+
+Player.ITEM_FRIEND_TICKET                   = 7000006                       -- 友情券
+Player.ITEM_LOTTERY_TICKET                  = 7000007                       -- 抽奖券
+Player.ITEM_SY_CLOCK                        = 7000102                       -- 深夜普通闹钟
+Player.ITEM_EQUIP                           = 7000009                       --  灵契券
+
+Player.ITEM_DICE                            = 8999998                       --棋盘活动色子
+Player.ITEM_TURNTABLE                       = 8999997                       --转盘道具
+
+Player.ITEM_RON                             = 3000000                       --万能碎片
+-- 道具类型-数值类型
+Player.kPlayerItem2Value = {
+    [Player.ITEM_VALUE_COIN]                = Player.VALUE_COIN,            -- 魂晶
+    [Player.ITEM_VALUE_MONEY]               = Player.VALUE_MONEY,           -- 魔晶
+    [Player.ITEM_VALUE_FRIENDSHIP]          = Player.VALUE_FRIENDSHIP,      -- 友情
+    [Player.ITEM_VALUE_CLOSE]               = Player.VALUE_CLOSE,           -- 亲密
+    [Player.ITEM_VALUE_POWER]               = Player.VALUE_POWER,           -- 体力
+    [Player.ITEM_VALUE_EXP]                 = Player.VALUE_EXP,             -- 经验
+    [Player.ITEM_VALUE_EQUIP_COIN]          = Player.VALUE_EQUIP_COIN,      -- 
+    [Player.ITEM_VALUE_EQUIP_MONEY]         = Player.VALUE_EQUIP_MONEY,     -- 高阶魔导石
+    [Player.ITEM_VALUE_SY_COIN]             = Player.VALUE_SY_COIN,         -- 
+    [Player.ITEM_VALUE_SKIN_COIN]           = Player.VALUE_SKIN_COIN,       -- 
+    [Player.ITEM_VALUE_MUISIC_COIN]         = Player.VALUE_MUSIC_COIN,      -- 
+    [Player.ITEM_VALUE_TOWER_COIN]          = Player.VALUE_TOWER_COIN,      -- 调查币
+    [Player.ITEM_VALUE_BLOOD_COIN]          = Player.VALUE_BLOOD_COIN,      -- 轮回币
+    [Player.ITEM_VALUE_HANDBOOK_EXP]        = Player.VALUE_HANDBOOK_EXP,    -- 手册经验
+    [Player.ITEM_VALUE_WITCH_COIN]          = Player.VALUE_WITCH_COIN,      -- 魔女币
+    [Player.ITEM_VALUE_VIGOR]               = Player.VALUE_VIGOUR,          -- 精力值
+    [Player.ITEM_VALUE_BOSS_COIN]           = Player.VALUE_BOSS_COIN,       -- 世界BOSS币
+}
+
+-- 数值类型-道具类型
+Player.kPlayerValue2Item = {
+    [Player.VALUE_COIN]                     = Player.ITEM_VALUE_COIN,               -- 魂晶
+    [Player.VALUE_MONEY]                    = Player.ITEM_VALUE_MONEY,              -- 魔晶
+    [Player.VALUE_FRIENDSHIP]               = Player.ITEM_VALUE_FRIENDSHIP,         -- 友情
+    [Player.VALUE_CLOSE]                    = Player.ITEM_VALUE_CLOSE,              -- 亲密
+    [Player.VALUE_POWER]                    = Player.ITEM_VALUE_POWER,              -- 体力
+    [Player.VALUE_EXP]                      = Player.ITEM_VALUE_EXP,                -- 经验
+    [Player.VALUE_EQUIP_COIN]               = Player.ITEM_VALUE_EQUIP_COIN,         -- 魔导石
+    [Player.VALUE_EQUIP_MONEY]              = Player.ITEM_VALUE_EQUIP_MONEY,        -- 高阶魔导石
+    [Player.VALUE_SY_COIN]                  = Player.ITEM_VALUE_SY_COIN,            -- 
+    [Player.VALUE_SKIN_COIN]                = Player.ITEM_VALUE_SKIN_COIN,          -- 
+    [Player.VALUE_MUSIC_COIN]               = Player.ITEM_VALUE_MUISIC_COIN,        -- 
+    [Player.VALUE_TOWER_COIN]               = Player.ITEM_VALUE_TOWER_COIN,         -- 调查币
+    [Player.VALUE_HANDBOOK_EXP]             = Player.ITEM_VALUE_HANDBOOK_EXP,       -- 手册经验
+    [Player.VALUE_BLOOD_COIN]               = Player.ITEM_VALUE_BLOOD_COIN,         -- 轮回币
+    [Player.VALUE_WITCH_COIN]               = Player.VALUE_WITCH_COIN,              -- 魔女币
+    [Player.VALUE_VIGOUR]                   = Player.ITEM_VALUE_VIGOR,              -- 精力值
+    [Player.VALUE_BOSS_COIN]                = Player.ITEM_VALUE_BOSS_COIN,          -- 世界BOSS币
+}
+
+Player.INFO_NAME    = 1
+Player.INFO_HEAD    = 2
+Player.INFO_EXP     = 3
+Player.INFO_LEVEL   = 4
+Player.INFO_FIGHT   = 5     -- 主页魔力值
+
+Player.MARKS_FIRST_RECHARGE             = 1
+Player.MARKS_FREE_MODIFY_NAME           = 2     -- 改名免费
+Player.MARKS_FIRST_RECHARGE_IS_GET      = 4
+Player.MARKS_AUTH_GIFT                  = 8     -- 实名认证奖励
+Player.MARKS_FIRST_MODIFY_NAME          = 16    -- 第一次改名
+Player.SHARE_STATE                      =64      --分享状态
+Player.MAX_LEVEL    = 0
+
+Player.MAX_SIGN    = 30
+
+Player.PER_POWER_TIME   = 300
+
+Player.CAN_BUY = {
+    --[Player.ITEM_VALUE_COIN]    = true,
+    [Player.ITEM_VALUE_POWER]   = true,
+    [Player.ITEM_VALUE_MONEY]   = true,
+    [Player.ITEM_VALUE_WITCH_COIN]   = true,
+    --[Player.ITEM_VALUE_VIGOR]   = true,
+    --[Player.ITEM_VALUE_SY_COIN] = true,
+    --[Player.ITEM_VALUE_SKIN_COIN] = true,
+}
+
+Player.JUMP_SHOP    = {
+ --   [Player.ITEM_VALUE_COIN]    = true,
+  --  [Player.ITEM_VALUE_MONEY]   = true,
+}
+
+Player.CURRENCY_BAG             = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN}
+Player.CURRENCY_MAIN            = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_WITCH_COIN, Player.ITEM_VALUE_COIN}
+Player.CURRENCY_ACTIVITY        = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN, Player.ITEM_VALUE_WITCH_COIN}
+Player.CURRENCY_LOTTERY         = {nil, Player.ITEM_VALUE_MONEY, Player.ITEM_LOTTERY_TICKET}
+Player.CURRENCY_RANK_SHOP       = {Player.ITEM_VALUE_SY_COIN}
+Player.CURRENCY_LACKEY_UP       = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN}
+Player.CURRENCY_Concert         = {Player.ITEM_VALUE_POWER,Player.ITEM_VALUE_MONEY}
+
+--好友
+Player.CURRENCY_FRIEND          = {nil,Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN}
+--邮件
+Player.CURRENCY_MAIL            = {Player.ITEM_VALUE_POWER,Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN}
+--深夜出战
+Player.CURRENCY_SY              = {Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN,Player.ITEM_VALUE_SY_COIN}
+--转盘活动
+Player.ACTIVITY_DIAL            = {Player.ITEM_VALUE_POWER, Player.ITEM_TURNTABLE, Player.ITEM_VALUE_COIN}
+--棋盘活动
+Player.ACTIVITY_CHESS_BOARD     = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN}
+--雪之轮回
+Player.ACTIVITY_BLOOD           = {nil, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_WITCH_COIN}
+
+Player.REQ_PLAYER_INFO_TIME     = 600    -- 查看玩家名片时间间隔
+
+--玩家相关属性key
+Player.ATTR_PLAYERID    = 1     --玩家id
+Player.ATTR_NAME        = 2     --玩家昵称
+Player.ATTR_FRAMID      = 3     --头像框iD
+Player.ATTR_ICONID      = 4     --玩家头像id
+Player.ATTR_LEVEL       = 5     --玩家等级
+Player.ATTR_ZONEID      = 6     --区id
+Player.ATTR_RANK_LEVEL  = 7     --排行段位
+Player.ATTR_RANK_VALUE  = 8     --排行值
+Player.ATTR_RANK_CARD   = 9     --排行名片
+Player.ATTR_RANK_COIN   = 10    -- 排行奖杯总数
+Player.ATTR_RANK_ID     = 11    --排行榜（分组）id
+
+Player.ONEKEY_RECV_LEVEL  = 0    --日常任务一键领取开放等级
+
+Player.TD_OPER          = {
+    [Player.VALUE_COIN]                     = "魂晶",
+    [Player.VALUE_MONEY]                    = "魔晶",
+    [Player.VALUE_WITCH_COIN]               = "魔女币",
+    [Player.VALUE_FRIENDSHIP]               = "友情",
+    [Player.VALUE_CLOSE]                    = "亲密",
+    [Player.VALUE_POWER]                    = "体力",
+    [Player.VALUE_EQUIP_COIN]               = "低阶装备币",
+    [Player.VALUE_EQUIP_MONEY]              = "高阶魔导石",
+    [Player.VALUE_COIN_MARK]                = "印记币",
+    [Player.VALUE_SY_COIN]                  = "深夜币",
+    [Player.VALUE_SKIN_COIN]                = "皮肤币",
+    [Player.VALUE_MUSIC_COIN]               = "音符币",
+    [Player.VALUE_TOWER_COIN]               = "调查币",
+    [Player.VALUE_BLOOD_COIN]               = "轮回币",
+    [Player.VALUE_VIGOUR]                   = "精力值",
+}
+
+Player.DEFAULT_BORDER_INDEX     = 2
+Player.DEFAULT_ICON_INDEX       = 10
+Player.MAX_POWER_BUY            = 5
+
+--魔女演奏系数
+Player.MUSIC_RATE_LEVEL = 0
+Player.MUSIC_RATE_STAR  = 0
+--实名奖励
+Player.REAL_NAME_AWARD  = {}
+
+Player.RECHAGE_COEF     = 100 -- 充值系数(当前以分为单位)
+Player.OPEN_SKILLED_MODE_LEVEL = 0;--打开老手模式等级
+
+Player.WHITE_NIGHT_TASK_ITEM_ID = 0--白夜任务道具
+
+
+--阵营类型
+Player.CAMP_TYPE_LIGHT           = 1;--光明
+Player.CAMP_TYPE_DARK            = 2;--黑暗
+Player.CAMP_TYPE_VACANT          = 3;--虚无
+Player.CAMP_TYPE_LIMITLESS       = 4;--无限
+
+--测试用
+Player.Ip = "192.168.21.215";
+Player.Port = 31700;
+
+--正式用
+--Rank.Ip = "129.211.129.127";
+--Rank.Port = 31700;
+
+function Player:SetRankIpPort(ip, port)
+    Player.Ip = ip --or Rank.Ip
+    Player.Port = port --or Rank.Port
+end
+
+Player.LookPlayerCardReq = "LookPlayerCardReq";--查看通用名片请求
+Player.LookPlayerCardRep = "LookPlayerCardRep";--查看通用名片请求返回
+Player.CardData = "CardData";
+Player.SendMessageCD_002 = 2;   --发送消息CD(减少于服务器交互的次数)
+
+
+Player.ITEM_VALUE_TASK_EXP = 9999999
+
+Player.TaskExpReward = {
+    Player.ITEM_VALUE_EXP,
+    Player.ITEM_VALUE_HANDBOOK_EXP,
+    Player.ITEM_VALUE_TASK_EXP
+}
+
+Player.MaxPlayerNameLenght = 9
+
+--玩家详细界面类型
+Player.CardType_Talk = 1;--聊天
+Player.CardType_Rank = 2;--排行榜
+
+Player.ReportCD = 30;

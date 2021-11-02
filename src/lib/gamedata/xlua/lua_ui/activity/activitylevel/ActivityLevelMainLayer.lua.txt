@@ -1,0 +1,315 @@
+---
+--- @Author:2144
+--- @Create Time:2021-09-24 15:40:56
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelMainLayer = class("ActivityLevelMainLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	BtnShopTop = "trans_container/btn_shop_top",
+	BtnTaskBottom = "trans_container/btn_task_bottom",
+	BtnSignInBottom = "trans_container/btn_sign_in_bottom",
+	BtnLotteryBottom = "trans_container/btn_lottery_bottom",
+	BtnEnterBtm = "trans_container/btn_enter_btm",
+    BtnSpecialBtm = "trans_container/btn_special_level",
+	--@ButtonEnd
+}
+--构造函数
+function ActivityLevelMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelMainLayer",
+    }
+    self._topData = {
+        showBtnBack     = true,--返回按钮
+    };
+
+    self._hideOtherLayer = true;
+    self._addStack = true;
+    self._fading = false;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function ActivityLevelMainLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function ActivityLevelMainLayer:onButtonClick(itype)
+    if(itype == BTNS.BtnShopTop)then
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.shopUid))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90396));
+            return;
+        end
+        Activity:SetCurSelectUid(self._typeCfg.shopUid);
+        self:OnBtnShopTopClick();
+    else
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.uid))then
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90396));
+            return;
+        end
+        if(itype == BTNS.BtnTaskBottom)then
+            self:OnBtnTaskBottomClick();
+        elseif(itype == BTNS.BtnSignInBottom)then
+            self:OnBtnSignInBottomClick();
+        elseif(itype == BTNS.BtnLotteryBottom)then
+            self:OnBtnLotteryBottomClick();
+        elseif(itype == BTNS.BtnEnterBtm)then
+            self:OnBtnEnterBtmClick();
+        elseif(itype == BTNS.BtnSpecialBtm)then
+            self:OnBtnSpecialBtmClick();
+        else--@ButtonCallBackEnd
+        end--RemoveEnd
+    end
+end
+
+--初始化
+function ActivityLevelMainLayer:Init()
+    self:InitData();
+    self:UpdateData();
+    self:InitUI();
+end
+
+--初始化数据
+function ActivityLevelMainLayer:InitData()
+    self._uid = Activity:GetOpenActivityLevelId();
+    self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity.ActivityLevelType_Main);
+    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
+end
+
+--更新数据
+function ActivityLevelMainLayer:UpdateData()
+
+end
+
+--初始化UI
+function ActivityLevelMainLayer:InitUI()
+
+	--self._imgMaskBg = self.layer:GetImageComponent("trans_container/img_mask_bg");
+	self._imgSpecialLevel = self.layer:GetImageComponent("trans_container/btn_special_level");
+	--@ImageEnd
+
+	self._txtSpecialLevelTitle = self.layer:GetTextComponent("trans_container/btn_special_level/txt_special_level_title");
+	self._txtSpecialLevelTitleE = self.layer:GetTextComponent("trans_container/btn_special_level/txt_special_level_title_E");
+    self._txtSpecialLevelLock = self.layer:GetTextComponent("trans_container/btn_special_level/txt_special_level_lock");
+    self._imgSpecialLevelRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnSpecialBtm,"img_special_level_red"));
+    self._imgEnterRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnEnterBtm,"img_enter_red"));
+    self._imgSignInRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnSignInBottom,"img_sign_in_red"));
+    self._imgTaskRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnTaskBottom,"img_task_red"));
+	--@TextEnd
+
+	self._orientTask = Lottery:InitOrientTaskItem(self.layer:Get("trans_container/trans_orient_task"));
+	self._transEnterBtm = self.layer:Get("trans_container/btn_enter_btm");
+	--self._videoPlayer = self.layer:Get("trans_container/obj_video_player"):GetComponent("CriVideoHelper");
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+    CS.UnityHelper.NotchfitY(self.layer:Get(BTNS.BtnShopTop));
+    --self._videoPlayer:SetVideoClip("CriVideo/" .. self._layerCfg.videoPath);
+    Groble_SoundMgr:PlayBgm(self._layerCfg.soundPath);
+    self:SetUI();
+end
+
+--显示UI
+function ActivityLevelMainLayer:show()
+    local chapter
+    if(Activity:GetActivityLevelIsJump())then--跳转关卡
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.uid))then--活动关闭, 清空界面关卡ID
+            Activity:CloseCurActivityLevelId();
+            Groble_UIMgr:ShowGameWordTipsLayer(880032);
+        else
+            chapter = Chapter:GetChapterByLevelId(Activity:GetCurActivityLevelId());
+        end
+    end
+
+    if chapter ~= nil then
+       if(Activity:GetOpenActivityLevelId() <= 0)then
+            Groble_UIMgr:LocateToLayer(LayerType_Home);
+            Groble_UIMgr:ShowGameWordTipsLayer(90396);
+            self:showLayer()
+        else
+            CBaseLayer.showLayer(self)
+            if chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL then
+                self:OnBtnSpecialBtmClick()
+            else
+                self:OnBtnEnterBtmClick()
+            end
+        end
+    else
+        self:showLayer()
+    end
+end
+
+function ActivityLevelMainLayer:showLayer()
+    Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Main);
+    Activity:SetCurSelectUid(self._typeCfg.uid);
+    self:UpdateRedState();
+    self._orientTask:UpdateOrientTaskUI(self._typeCfg.gashaponListId);
+    CBaseLayer.showLayer(self)
+end
+
+--退出按钮事件
+function ActivityLevelMainLayer:onBackClick()
+    Activity:CloseActivityLevelTitleLayer();
+    Activity:CloseCurActivityLevelId();
+    Groble_SoundMgr:PlayBgm(301002);
+    self:onPopLayer();
+end
+
+--释放
+function ActivityLevelMainLayer:onExit()
+
+    Activity:SetCurSelectUid();
+    self._typeCfg = nil;
+    self._layerCfg = nil;
+    --self._imgMaskBg = nil;
+	self._imgSpecialLevel = nil;
+	self._txtSpecialLevelTitle = nil;
+    self._orientTask:Close();
+    self._orientTask = nil;
+	self._transEnterBtm = nil;
+    --self._videoPlayer:ClearVideoClip()
+    --self._videoPlayer = nil
+	self._txtSpecialLevelTitleE = nil;
+    self._imgSpecialLevelRed = nil;
+    self._imgEnterRed = nil;
+    self._imgSignInRed = nil;
+    self._imgTaskRed = nil;
+
+	--@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+function ActivityLevelMainLayer:OnBtnShopTopClick()
+    --AppMgr:LogInfo("打开商店界面");
+    Activity:OpenActivityLevelShopLayer();
+end
+function ActivityLevelMainLayer:OnBtnTaskBottomClick()
+    -- AppMgr:LogInfo("打开任务界面");
+    Activity:OpenActivityLevelTaskLayer()
+end
+function ActivityLevelMainLayer:OnBtnSignInBottomClick()
+   -- AppMgr:LogInfo("打开签到界面");
+    Activity:OpenActivityLevelSignLayer()
+  
+end
+function ActivityLevelMainLayer:OnBtnLotteryBottomClick()
+    --AppMgr:LogInfo("打开召唤界面");
+    Activity:HideActivityLevelTitleLayer();
+    Lottery:EnterLotteryLayer(self._typeCfg.gashaponListId or 0)
+end
+function ActivityLevelMainLayer:OnBtnEnterBtmClick()
+    --AppMgr:LogInfo("进入关卡");
+    Activity:OpenActivityLevelLayer();
+end
+function ActivityLevelMainLayer:OnBtnSpecialBtmClick()
+    --AppMgr:LogInfo("打开特殊关卡界面");
+    Activity:OpenActivityLevelSpecialLayer();
+end
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityLevelMainLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+local EnterImgType = {
+    Spine = 1,
+    Effect = 2,
+}
+function ActivityLevelMainLayer:SetUI()
+    --进入按钮
+    if(self._layerCfg.enterPath ~= nil)then
+        if(tonumber(self._layerCfg.enterPath[1]) == EnterImgType.Spine)then--spine
+            local rect = self._transEnterBtm:CreateChild(string.format("prefab_item_spine/%s",self._layerCfg.enterPath[2])):GetComponent("RectTransform");
+            rect:SetAnchoredPosition(self._layerCfg.enterPath[3],self._layerCfg.enterPath[4]);
+        end
+    end
+
+    --特殊关卡
+    self:SetSpecialLevelUI();
+    --bg
+    --[[if(self._layerCfg.bgPath ~= nil)then
+        self._imgMaskBg:LoadSprite(string.format("source_common/ActivityLevel/%s",self._layerCfg.bgPath));
+    end]]--
+
+end
+
+--设置特殊关卡UI
+function ActivityLevelMainLayer:SetSpecialLevelUI()
+
+    self._specialLevelIsLock = true;
+    if(self._layerCfg.specialLevelImgPath ~= nil)then
+        local str = string.format("source_common/ActivityLevel/%s",self._layerCfg.specialLevelImgPath[1]);
+        self._imgSpecialLevel:LoadSprite(str);
+        if(self._layerCfg.specialLevelImgPath[2] ~= nil and self._layerCfg.specialLevelImgPath[3] ~= nil)then
+            self._imgSpecialLevel:SetAnchoredPosition(self._layerCfg.specialLevelImgPath[2],self._layerCfg.specialLevelImgPath[3]);
+        end
+    end
+
+
+    local chapterIds = Activity:GetActivityChapterIds();
+    local curChapter;
+    for _, v in ipairs(chapterIds) do
+        local chapter = Chapter:GetChapter(v);
+        if(chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL)then--深渊关卡, 并且再活动时间内
+            curChapter = chapter;
+            break;
+        end
+    end
+    local isOpen,lockStr = Chapter:GetChapterIsLock(curChapter.id);
+    if(isOpen)then
+        lockStr = "";
+    elseif(CTime:GetServerTime() > CTime:GetOverTime(curChapter.timeid))then
+        lockStr = LanguageMgr:GetTextByID(90396);
+    end
+    self._txtSpecialLevelLock:SetText(lockStr);
+    if(curChapter == nil)then
+        return;
+    end
+    self._txtSpecialLevelTitle:SetText(self._layerCfg.txtEntrance);
+    self._txtSpecialLevelTitleE:SetText(self._layerCfg.txtEntranceE);
+    if(isOpen)then
+        self._specialLevelIsLock = false;
+        self._imgSpecialLevel.material = nil;
+        self._txtSpecialLevelTitle:SetTextColor(1,1,1,1);
+        self._txtSpecialLevelTitleE:SetTextColor(109/255,109/255,109/255,1);
+        self._imgSpecialLevel.transform:CreateChild(self._layerCfg.effect);
+    else
+        self._imgSpecialLevel.material = AssetLoader:LoadGrayMaterial();
+        self._txtSpecialLevelTitle:SetTextColor(147/255,147/255,147/255,1);
+        self._txtSpecialLevelTitleE:SetTextColor(61/255,61/255,61/255,1);
+    end
+end
+
+function ActivityLevelMainLayer:UpdateRedState()
+    self._imgTaskRed:SetEnabled(Task:IsBetterOper(Task.TYPE_ACTIVIT));
+    self._imgEnterRed:SetEnabled(Activity:GetLevelRedState_Main());
+    self._imgSignInRed:SetEnabled(Activity:GetSixSignstate());
+    self._imgSpecialLevelRed:SetEnabled(Activity:GetFirstOpenSpecialLevelId() > 0);
+end
+
+return ActivityLevelMainLayer;

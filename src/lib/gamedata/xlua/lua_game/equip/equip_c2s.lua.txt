@@ -1,0 +1,207 @@
+--
+-- author: haosun
+-- date  : 2018-11-21 18:00:38
+-- brief :
+--
+Equip = Equip or {}
+
+-- 装备数据同步
+function Equip:SyncEquips(data)
+    if Network:IsNotHandleNotify() then return end
+    
+    AppMgr:LogInfo("----------装备数据同步----------")
+    for _, v in pairs(data) do
+        self:_addEquip(v)
+    end
+end
+
+function Equip:AddEquips(equips)
+    for _, v in pairs(equips) do
+        self:_addEquip(v)
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Equip:SubEquips(uids)
+    for _, v in pairs(uids) do
+        self:_subEquip(v)
+    end
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Equip:OndressReq(heroid, uids, onekey)
+    onekey = onekey or false
+    Network:CallServerScript({c2s.EQUIP_DRESS_REQ, heroid, uids, onekey})
+end
+
+function Equip:OndressRep(heroid, uids, onekey)
+    local hero = Hero:GetHero(heroid)
+    if hero == nil then
+        return
+    end
+    local index = nil
+    for _, uid in pairs(uids) do
+        self:__undressOper(uid)
+        local equip = self:GetEquip(uid)
+        if equip ~= nil then
+            index = equip.ntype
+            if hero.equipids[index] ~= 0 then
+                Equip:__undressOper(hero.equipids[index])
+            end
+            hero.equipids[index] = equip.uid
+            equip.heroid = heroid
+        end
+    end
+    Hero:UpdateAttrByEquip(heroid)
+    if true == onekey then
+        index = nil
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_UPDATE)
+    GEvent:fireEvent(EVENT_TYPE.HERO_EQUIP_UI, {index = index,isUpdate = true})
+    Guide:RecoverGuide()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GZSDKHelper:equipOpFlowWithPlayerInfo("穿戴符石", heroid)
+end
+
+function Equip:UndressReq(uids, onekey)
+    onekey = onekey or false
+    Network:CallServerScript({c2s.EQUIP_UNDRESS_REQ, uids, onekey})
+end
+
+function Equip:UndressRep(uids, onekey)
+    for _, uid in pairs(uids) do
+        self:__undressOper(uid)
+    end
+
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_UPDATE)
+    GEvent:fireEvent(EVENT_TYPE.HERO_EQUIP_UI, onekey or nil)
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Equip:__undressOper(uid)
+    local equip = self:GetEquip(uid)
+    if equip == nil then
+        return
+    end
+
+    if equip.heroid ~= 0 then
+        local hero = Hero:GetHero(equip.heroid)
+        if hero ~= nil then
+            hero.equipids[equip.ntype] = 0
+            Hero:UpdateAttrByEquip(hero.id)
+        end
+        Hero:UpdateLastFightingById(equip.heroid);
+    end
+    equip.heroid = 0
+end
+
+function Equip:LevelUpReq(uid, items, equips)
+    Network:CallServerScript({c2s.EQUIP_LEVEL_UP_REQ, uid, items, equips})
+end
+-- 新增参数 ： add_ex_attr [ pos , id , val]
+--
+function Equip:LevelUpRep(uid, cur_level, cur_exp, add_ex_attr)
+    local equip = self:GetEquip(uid)
+    local old_level = equip.level
+    equip.level = cur_level
+    equip.is_level_max = equip.level == equip.max_level
+    equip.exp = math.floor(cur_exp)
+    local hasNewSkill = false
+    local unlockAttr = {}
+    local isLevelUp = false
+    if equip.level - old_level > 0 then
+        isLevelUp = true
+        local tmpskillids = lua_deep_copy(equip.skills)
+        local addtbl,unlocktbl  =  self:RefreshEquipEXAttr(equip, add_ex_attr )
+        self:__EquipAttr(equip)
+        if  equip.skills[1] ~= tmpskillids[1] then
+            hasNewSkill = true
+        end
+
+        -- 重新计算英雄附加属性
+        if equip.heroid ~= 0 then
+            local hero = Hero:GetHero(equip.heroid)
+            if hero ~= nil then
+                Hero:UpdateAttrByEquip(hero.id)
+            end
+        end
+        --是否强化属性
+        for _,v in pairs(addtbl) do
+            local poolcfg = self:getPoolCfgById(v[2])
+            table.insert(unlockAttr , { atype = poolcfg.atype , unlock = false})
+        end
+        --是否解锁属性
+        for _, v in pairs(unlocktbl) do
+            local poolcfg = self:getPoolCfgById(v[2])
+            table.insert(unlockAttr , { atype = poolcfg.atype , unlock = true})
+        end
+    end
+    if(equip.heroid ~= nil and equip.heroid > 0)then
+        SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,1,equip.heroid);
+
+        GZSDKHelper:equipOpFlowWithPlayerInfo("强化符石", equip.heroid)
+    end
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_LEVEL,{ hasNewSkill , unlockAttr,isLevelUp })
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+end
+
+function Equip:SellReq(uids)
+    --
+    Network:CallServerScript({c2s.EQUIP_SELL_REQ, uids})
+end
+
+function Equip:SellRep(items)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BAG_SELL,items)
+end
+--equip_uid, cost_item_num, cost_equip_ids
+--第一个参数是装备uid
+--第二个参数是你消耗魂之心数量
+--第三个参数是你消耗的装备材料 {uid1, uid2,.. }
+function Equip:TopReq(uid, cost_item_num, cost_equip_ids)
+    Network:CallServerScript({c2s.EQUIP_STAR_UP_REQ, uid, cost_item_num, cost_equip_ids})
+end
+
+function Equip:TopRep(uid, star)
+    local equip = self:GetEquip(uid)
+    equip.star = star
+    self:RefreshMaxLevel(equip)
+    self:__EquipAttr(equip)
+    Guide:RecoverGuide()
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.HERO_EQUIP_TOP)
+end
+
+function Equip:__EquipAttr(equip)
+    self:SetAttr(equip)
+    self:SetShowAttr(equip)
+    if equip.heroid ~= 0 then
+        Hero:UpdateAttrByEquip(equip.heroid)
+    end
+end
+
+function Equip:SetEquipLockStartReq(uid)
+    uid = tonumber(uid);
+    Network:CallServerScript({c2s.EQUIP_CHANGE_LOCK_STATE_REQ, uid})
+end
+
+function Equip:SetEquipLockStartRep(uid,start)
+    local equip = Equip:GetEquip(uid);
+    if(equip == nil)then
+        CS.Logger.LogError(" equip is null..."..uid)
+        return;
+    end
+    equip.lock = start;
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.EQUIP_LOCK_START_CHANGE,uid);
+end
+
+----------------------------------------注册回调----------------------------------------
+c2s[c2s.EQUIP_DATA_SYNC]                = {Equip, Equip.SyncEquips}
+c2s[c2s.EQUIP_BATCH_ADD_NTF]            = {Equip, Equip.AddEquips}
+c2s[c2s.EQUIP_BATCH_DEC_NTF]            = {Equip, Equip.SubEquips}
+c2s[c2s.EQUIP_DRESS_RES]                = {Equip, Equip.OndressRep}
+c2s[c2s.EQUIP_UNDRESS_RES]              = {Equip, Equip.UndressRep}
+c2s[c2s.EQUIP_LEVEL_UP_RES]             = {Equip, Equip.LevelUpRep}
+c2s[c2s.EQUIP_SELL_RES]                 = {Equip, Equip.SellRep}
+c2s[c2s.EQUIP_STAR_UP_RES]              = {Equip, Equip.TopRep}
+c2s[c2s.EQUIP_CHANGE_LOCK_STATE_RES]    = {Equip, Equip.SetEquipLockStartRep}
+
