@@ -7,7 +7,7 @@ const config = {
 	kit: {
 		adapter: node({out:'./out'}),
 		paths: {
-			base: dev ? '' : '/BurstWitchToolbox',
+			base: dev ? '' : '/BurstWitchCodex',
 		},
 	}
 };
