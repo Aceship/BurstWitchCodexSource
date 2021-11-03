@@ -165,6 +165,8 @@ function JumpMgr:JumpCheck(jumpData)
     elseif jumpData[1] == JumpMgr.Jump_Activity then
         if(jumpData[2] > 0)then
             if(Operation:GetActiveIsOpenByUid(jumpData[2]))then
+                local cfg = Operation:GetActiveCfgByUID(jumpData[2]);
+                Activity:SetCurMainType(tonumber(cfg.Interface));
                 Activity:SetActivityId(jumpData[2]);
             else
                 Groble_UIMgr:ShowTipsLayer(90086);

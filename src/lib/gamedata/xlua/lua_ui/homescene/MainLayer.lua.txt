@@ -91,6 +91,7 @@ function MainLayer:doCheckPopRule()
     if Guide:IsGuiding() then return end
 
     uimgr:AddTodoList(function() Activity:OpenNewbieUpLayer() end)
+    uimgr:AddTodoList(function() Activity:ActivitySignLayer() end)
     uimgr:AddTodoList(function() Activity:AutoOpenSevenSignLayer() end)
     uimgr:AddTodoList(function() Operation:AutoOpenTriggerPackageLayer() end)
     uimgr:AddTodoList(function() Activity:DaySignInLayer() end)

@@ -74,34 +74,34 @@ function Activity:_LoadCfg()
     self:LoadActivityLevelMainTypeCfg();
     self:LoadActiveSixthSeal_Sign_in()
 end
-function Activity:LoadActiveSixthSeal()--读取第六封印配置表
-    self._activeSpTotalConfig = {};
-    for k,v in pairs(CfgLoader:LoadCfg("Active_sixthnotice")) do
-        local data = {
-            id = tonumber(v.id),
-            days = tonumber(v.days),
-            activeid = tonumber(v.activeid),
-            itemAwards = lua_parse_cfg(v.itemAwards,true),
-            Blankscreentext = lua_parse_cfg(v.Blankscreentext,true),
-            UItextTitle = v.UItextTitle,
-            UItextSubtitle =v.UItextSubtitle,
-            UItext1 = v.UItext1,
-            UItext2 = v.UItext2,
-            Video = v.Video,
-            Sound = v.Sound,
-            TitleIcon = lua_str_split(v.TitleIcon,"&"),
-            TitleIcon_effect = v.TitleIcon_effect
-        }
-        self._activeSpTotalConfig[data.id] = data
-    end
-    self._activeSixthSealCfg = {};
-    for k,v in pairs(self._activeSpTotalConfig) do
-        if(v.activeid == 2001) then
-            self._activeSixthSealCfg[v.days] = v;
-        end
-    end
-    Activity:InitSixthSealRewardData()
-end
+-- function Activity:LoadActiveSixthSeal()--读取第六封印配置表
+--     self._activeSpTotalConfig = {};
+--     for k,v in pairs(CfgLoader:LoadCfg("Active_sixthnotice")) do
+--         local data = {
+--             id = tonumber(v.id),
+--             days = tonumber(v.days),
+--             activeid = tonumber(v.activeid),
+--             itemAwards = lua_parse_cfg(v.itemAwards,true),
+--             Blankscreentext = lua_parse_cfg(v.Blankscreentext,true),
+--             UItextTitle = v.UItextTitle,
+--             UItextSubtitle =v.UItextSubtitle,
+--             UItext1 = v.UItext1,
+--             UItext2 = v.UItext2,
+--             Video = v.Video,
+--             Sound = v.Sound,
+--             TitleIcon = lua_str_split(v.TitleIcon,"&"),
+--             TitleIcon_effect = v.TitleIcon_effect
+--         }
+--         self._activeSpTotalConfig[data.id] = data
+--     end
+--     self._activeSixthSealCfg = {};
+--     -- for k,v in pairs(self._activeSpTotalConfig) do
+--     --     if(v.activeid == 2001) then
+--     --         self._activeSixthSealCfg[v.days] = v;
+--     --     end
+--     -- end
+--     self:InitSixthSealRewardData()
+-- end
 
 function Activity:LoadActiveSixthSeal_Sign_in()--读取第六封印签到配置表
     self._Active_sixthsigned = {};
@@ -142,21 +142,6 @@ function Activity:GetSixSigninConfigsByUID(activityId)
 end
 
 
-function Activity:InitSixthSealRewardData()--添加一个是否可领取的bool添加到一个数据结构表中
-    self._sixthSealRewardData = {};
-    local allConfig = self._activeSixthSealCfg;
-    local tmpData = nil;
-    for i, v in ipairs(allConfig) do
-        tmpData = {};
-        tmpData.isCanGetAward = false;
-        tmpData.cfg = v;
-        self._sixthSealRewardData[i] = tmpData;
-    end
-end
-
-function Activity:GetSixthSealRewardArray()--获取第六封印的包装配置表
-    return self._sixthSealRewardData;
-end
 function Activity:LoadActiveTriggerAD()
     self._activeTriggerCfg = {}
     local id = 0
@@ -258,7 +243,7 @@ end
 --获取可弹窗广告
 function Activity:GetTriggerActivites()
     local result = {}
-    for i, v in pairs(self._activeTriggerCfg) do
+    for _, v in pairs(self._activeTriggerCfg) do
         if self:IsShowActivity(v) then
             table.insert(result,v)
         end
@@ -286,6 +271,18 @@ function Activity:IsShowActivity(cfg)
     if curTime > endTime then
         return false
     end
+    --[[if cfg.jumpTo[1] == JumpMgr.Jump_Activity then
+        if(cfg.jumpTo[2] > 0)then
+            if(Operation:ActivityIsRepeat(cfg.jumpTo[2]))then--重复礼包, 如果领取完毕不弹
+                local activity = Operation:GetActiveCfgByUID(cfg.jumpTo[2]);
+                if(activity.charges ~= nil or #activity.charges > 0)then
+                    if(Operation:GetRepeatGetStateById(activity.charges[1]) ~= Recharge.RepeatState.GetOver)then
+                        return true;
+                    end
+                end
+            end
+        end
+    end]]--
     return true
 end
 
@@ -334,6 +331,14 @@ function Activity:GetAllActiveGatherCfg()
                         isAdd = true;
                     end
                 else
+                    isAdd = true;
+                end
+            end
+        elseif(cfg.itype == Activity.JobType.JobActivity)then--万圣节
+            if(cfg.uid  == Operation.ActivityID.ThousandHolyNight )then
+                local TimeId = self:GetActivityByUId(Operation.ActivityID.ThousandHolyNight).info.Time
+                if  Activity:GetNewWelfareIsOver_AcvitySign()==false and  CTime:IsOpen(tonumber(TimeId)) then
+                    print("万圣节活动有效")
                     isAdd = true;
                 end
             end
@@ -677,14 +682,14 @@ function Activity:LoadActivityLevelLayerCfg()
         if(self._layerCfgs[data.activityUID] == nil)then
             self._layerCfgs[data.activityUID] = {};
         end
-        table.insert(self._layerCfgs[data.activityUID],data);
+        self._layerCfgs[data.activityUID][data.layerType] = data;
     end
 
-    for _, v in pairs(self._layerCfgs) do
-        table.sort(v,function (a,b)
-            return a.layerType < b.layerType;
-        end);
-    end
+    -- for _, v in pairs(self._layerCfgs) do
+    --     table.sort(v,function (a,b)
+    --         return a.layerType < b.layerType;
+    --     end);
+    -- end
 end
 
 function Activity:GetActivityLevelLayerCfg(uid,layerType)
@@ -696,6 +701,13 @@ function Activity:GetActivityLevelLayerCfg(uid,layerType)
         return nil;
     end
     return self._layerCfgs[uid][layerType];
+end
+
+function Activity:GetActivityLevelLayerCfgisOpen(uid,layerType)
+    if(uid == nil or uid <= 0)then
+        uid = Activity:GetActivityId();
+    end
+    return self._layerCfgs[uid][layerType] ~= nil;
 end
 
 function Activity:LoadActivityLevelMainTypeCfg()

@@ -4,6 +4,7 @@ function UpLoadVideo:InitData()
     self._playerData = nil;
     self._curVideoType = 0;
     self._curScore = 0;
+    self._heroData = {};
     self._curVideoTime = 0;
     self._isReport = false;
 end
@@ -59,3 +60,24 @@ end
 function UpLoadVideo:CloseCurScore()
     self._curScore = 0;
 end
+
+--出战魔女等级缓存
+function UpLoadVideo:CloseHeroData()
+    self._heroData = 0;
+end
+
+function UpLoadVideo:SetHeroData(heroData)
+    local hero;
+    self._heroData = {};
+    for _, v in pairs(heroData) do
+        if(v > 0)then
+            hero = Hero:GetHero(v);
+            table.insert(self._heroData,{heroId = v, lv = hero.level});
+        end
+    end
+end
+
+function UpLoadVideo:GetHeroData()
+    return self._heroData;
+end
+

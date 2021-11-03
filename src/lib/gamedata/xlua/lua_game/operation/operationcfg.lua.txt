@@ -207,10 +207,19 @@ function Operation:LoadActiveChargeCfg()
         else
             v.openConditions = lua_parse_cfg(v.DisplayConditions,true);
         end
+        if(v.Word == "-1")then
+            v.txtWord = nil;
+        else
+            v.txtWord = lua_str_split(v.Word,"|");
+        end
+        if(v.UItextPos == "-1")then
+            v.uiTxtPos = nil;
+        else
+            v.uiTxtPos = lua_parse_cfg(v.UItextPos);
+        end
         v.mutualExclusionId = tonumber(v.BuyIds);
         local adword = lua_str_split(v.Adword,"&");
         v.charges = Recharge:GetDataIdsByType(tonumber(v.id));
-        v.txtWord = lua_parse_cfg(v.Word);
         v.award = lua_parse_cfg(v.award,true);
         v.curGet = adword[1];
         v.allGet = adword[2];

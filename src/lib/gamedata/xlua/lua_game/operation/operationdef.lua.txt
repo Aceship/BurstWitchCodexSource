@@ -19,6 +19,7 @@ Operation.ActivityID = {
     GradeAward              = 20003,        --等级奖励
     ChessBoard              = 20004,        --夜莺巡查
     Dial                    = 20005,        --转盘活动
+    ThousandHolyNight       = 20008,        --万圣节
 
 
     TimeLimitGift           = 30001,        --限时礼包
@@ -44,13 +45,15 @@ Operation.ActivityID = {
     ShopLateAtNight          = 40003,       --深夜商店
     --ShopSummon               = 40004,       --召唤商店
 
+    SkinGiftBag_1       = 16011,            -- 皮肤礼包1
+
     --ShopActive               = 212,       --活动商店
     --ShopDial                 = 222,         --转盘商店
 
     WarmUp              = 50001,         --第六封印预热的UID
     SixthSeal           = 50002,         --第六封印正式开启的UID
-
-
+    fullmoon            = 50004,         --满月祭正式开启UID
+    fullmoonnotice      = 50003,         --满月祭预告UID
 };
 
 

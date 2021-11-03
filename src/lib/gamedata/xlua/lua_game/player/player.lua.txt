@@ -48,6 +48,8 @@ function Player:Clear()
 end
 
 function Player:SyncBaseInfo(info)
+    Groble_SceneMgr:PrefsSetString("player_id",tostring(info.id));
+    Groble_SceneMgr:PrefsSetString("player_name",tostring(info.nickname));
     self._info = {
         id = info.id,
         name = info.nickname,
@@ -104,6 +106,7 @@ function Player:SetName(name)
         ThinkingMgr:AddUserSet("role_name", name)
         ThinkingMgr:UserSet()
         GZSDKHelper:doUpdatePlayerInfo()
+        Groble_SceneMgr:PrefsSetString("player_name",tostring(name));
     end
 end
 

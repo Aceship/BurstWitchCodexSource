@@ -97,6 +97,10 @@ function GameSdkMgr:HasUserCenter()
     return _sdkmgr.HasUserCenter()
 end
 
+function GameSdkMgr:IsNewJar()
+    return _sdkmgr.IsNewJar
+end
+
 function GameSdkMgr:HasPermissionExplain()
     if GameSdkMgr:IsIssueJuren() then
         return true
@@ -159,15 +163,22 @@ local _productid_iOS = {
         [18] = "com.bilibili.blmn.20070018",    -- 45级直升进阶礼包
         [19] = "com.bilibili.blmn.20070019",    -- 45级直升进阶礼包
         [20] = "com.bilibili.blmn.20070020",    -- 魔力契约礼包
-        -- [12] = "com.bilibili.blmn.20070012",
-        -- [13] = "com.bilibili.blmn.20070013",
-        -- [14] = "com.bilibili.blmn.20070014",
-        -- [15] = "com.bilibili.blmn.20070015",
-        -- [16] = "com.bilibili.blmn.20070016",
-        -- [17] = "com.bilibili.blmn.20070017",
-        -- [18] = "com.bilibili.blmn.20070018",
-        -- [19] = "com.bilibili.blmn.20070019",
-        -- [20] = "com.bilibili.blmn.20070020",
+        [21] = "com.bilibili.blmn.20070021",    -- 夜霓旋律换装礼包
+        [22] = "com.bilibili.blmn.20070022",    -- 
+        [23] = "com.bilibili.blmn.20070023",    -- 
+        [24] = "com.bilibili.blmn.20070024",    -- 
+        [25] = "com.bilibili.blmn.20070025",    -- 
+        [26] = "com.bilibili.blmn.20070026",    -- 
+        [27] = "com.bilibili.blmn.20070027",    -- 
+        [28] = "com.bilibili.blmn.20070028",    -- 
+        [29] = "com.bilibili.blmn.20070029",    -- 
+        [30] = "com.bilibili.blmn.20070030",    -- 
+        [31] = "com.bilibili.blmn.20070031",    -- 
+        [32] = "com.bilibili.blmn.20070032",    -- 
+        [33] = "com.bilibili.blmn.20070033",    -- 
+        [34] = "com.bilibili.blmn.20070034",    -- 
+        [35] = "com.bilibili.blmn.20070035",    -- 
+        [36] = "com.bilibili.blmn.20070036",    -- 
     }
 }
 
@@ -551,3 +562,8 @@ function GameSdkMgr:DownByLeBian()
     GameSdkMgr:OnTdOper(data)
 end
 
+
+------------------ 版本控制接口 ------------------------
+function GameSdkMgr:IsLowCrashApkVer()
+    return CS.SdkMgr.IsLowCrashTag
+end

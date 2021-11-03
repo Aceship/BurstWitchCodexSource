@@ -12,7 +12,7 @@ Player.UnlockType = {
     unlock   = 3, --暂不开放
 }
 
-Player.SYS_FUNC = {
+Player.SYS_FUNC= {
     fight_plot      = 101,     -- 战斗-剧情关卡
     plot_n          = 10101,   -- 剧情普通
     plot_d          = 10102,   -- 剧情困难
@@ -69,7 +69,8 @@ Player.SYS_FUNC = {
     sys_concert     = 1024,    -- 音乐厅
 
     syc_activity_level    = 50002,   -- 活动关卡
-    
+    syc_activity_moon    = 50004,   -- 活动关卡满月祭预告
+
     chapter3        = 888003,  --第3章
     chapter4        = 888004,
     chapter5        = 888005,

@@ -73,7 +73,7 @@ function BagLayer:onEnter()
         end)
     self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.EQUIP_LOCK_START_CHANGE,
             function(uid)
-                self._datas = Bag:GetItemsByShowType(self._showtype)
+                -- self._datas = Bag:GetItemsByShowType(self._showtype)
                 local equip = Equip:GetEquip(uid)
                 set_obj_active(self.selectItem.imgLock,equip.lock == Equip.EquipLockStart.Lock);
                 if(self.selectEquipLock ~= tonumber(equip.lock))then

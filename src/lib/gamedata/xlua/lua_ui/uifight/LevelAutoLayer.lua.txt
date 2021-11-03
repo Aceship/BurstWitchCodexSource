@@ -218,14 +218,18 @@ function LevelAutoLayer:checkMultiple(levelid)
     end
 end
 
-function LevelAutoLayer:show(remain, backCall, costPower, isPlot, levelid)
+function LevelAutoLayer:show(remain, backCall, costPower, isPlot, levelid,isSpActive)
+    self._isSpActive = isSpActive == true;
     self._autoCount     = true
     self._backCall      = backCall
     self._costPower     = costPower
     self._multipleValue = 1
+    self._chapterData = Chapter:GetLevel(levelid);
+
     self:checkMultiple(levelid)
     self:checkMat(levelid)
     self._useMax    = Item:GetCount(Item.ITEM_POWER_ID)
+    self:TryInitSpActiveCall();
     self._buyMax    = math.min(Player.MAX_POWER_BUY, Player.MAX_POWER_BUY - Player:GetBuyPowerTimes())
     self._countMax  = remain == -1 and 999 or remain
     self._maxPower  = Player:GetValue(Player.VALUE_POWER)
@@ -252,6 +256,25 @@ function LevelAutoLayer:show(remain, backCall, costPower, isPlot, levelid)
     self:refreshCountNumber(0) 
     self:refreshCostPower()
     self:playAni("CommonLayerFadeInAni")
+end
+
+function LevelAutoLayer:TryInitSpActiveCall()
+    if(self._isSpActive == true) then
+        
+        local image = self.layer:GetImageComponent("container/info_other/img_icon");
+
+        local cost = lua_str_split(self._chapterData.cost_items, "&")
+        self._spActiveCostItemId = cost[1];
+        self._spActiveCostItemCostCount = tonumber(cost[2]);
+        image:LoadSprite(Item:GetItemIconPath(self._spActiveCostItemId));
+        --Item:GetCount(cost[1]) < tonumber(cost[2])
+
+        self.layer:Get("container/info_power"):SetVisible(false);
+        self.layer:Get("container/info_use"):SetVisible(false);
+        self.layer:Get("container/info_buy"):SetVisible(false);
+
+        --self._useMax = Item:GetCount(self._spActiveCostItemId);
+    end
 end
 
 function LevelAutoLayer:refreshUse(bcheck)
@@ -321,11 +344,23 @@ function LevelAutoLayer:refreshCount(bcheck)
 end
 
 function LevelAutoLayer:refreshCountNumber(value)
-    local maxTemp = math.floor(self._countMax / self._multipleValue)
-    self._countNum = lua_math_in_range(self._countNum + value, self._countMax <= 0 and 0 or 1, maxTemp)
-    if self._countNum > maxTemp then
-        self._countNum = maxTemp
+    if(self._isSpActive) then
+        local count = Item:GetCount(self._spActiveCostItemId)
+        local maxTemp = math.floor(count / self._spActiveCostItemCostCount);
+        local minValue = 1;
+        if(maxTemp == 0) then
+            minValue = 0;
+        end
+        self._countNum = lua_math_in_range(self._countNum + value, minValue, maxTemp);
+        --local maxTemp = math.floor(self._countMax / )
+    else
+        local maxTemp = math.floor(self._countMax / self._multipleValue)
+        self._countNum = lua_math_in_range(self._countNum + value, self._countMax <= 0 and 0 or 1, maxTemp)
+        if self._countNum > maxTemp then
+            self._countNum = maxTemp
+        end
     end
+
     self._countTxtCom.text = string.format(LanguageMgr:GetTextByID(3009010), self._countNum)
     self:refreshMatDrop()
 end
@@ -345,19 +380,46 @@ function LevelAutoLayer:refreshCostPower()
         strPower = string.format("（+%d）", addPower)
     end
     local showStr = ""
-    if self._infiniteCnt and self._autoCount then
-        showStr = string.format(LanguageMgr:GetTextByID(3009013), "--", curPower, strPower)
+    local baseStr = nil;
+    --先写死 以后迭代
+    if(self._isSpActive == true) then
+        baseStr = "灰烬之羽消耗：<color=#91b6fc>%s/%d%s</color>"
+        curPower = Item:GetCount(self._spActiveCostItemId);
     else
-        local costPower = self._countNum * self._multipleValue * self._costPower
-        if self._autoCount then
-            costPower = self._costPower * self._multipleValue
-        end
-        if costPower > self._maxPower + addPower then
-            costPower = string.format("<color=#FF6652FF>%d</color>", costPower)
+        baseStr = LanguageMgr:GetTextByID(3009013);
+    end
+
+    if self._infiniteCnt and self._autoCount then
+        showStr = string.format(baseStr, "--", curPower, strPower)
+    else
+        local costEnough = true;
+        local costCount = 0;
+        local costStr = nil;
+
+        if(self._isSpActive == true) then
+            local count = Item:GetCount(self._spActiveCostItemId);
+            if(count == 0) then
+                costCount = 0;
+            else
+                costCount = self._spActiveCostItemCostCount * self._countNum;
+            end
+
         else
-            costPower = tostring(costPower)
+            costCount = self._countNum * self._multipleValue * self._costPower
+            if self._autoCount then
+                costCount = self._costPower * self._multipleValue
+            end
+            if costCount > self._maxPower + addPower then
+                costEnough = false;
+            end
         end
-        showStr = string.format(LanguageMgr:GetTextByID(3009013), costPower, curPower, strPower)
+
+        if not costEnough then
+            costStr = string.format("<color=#FF6652FF>%d</color>", costCount)
+        else
+            costStr = tostring(costCount)
+        end
+        showStr = string.format(baseStr, costStr, curPower, strPower)
     end
     self._txtPower:SetText(showStr)
     self._maxPower = self._maxPower + addPower
@@ -434,6 +496,12 @@ function LevelAutoLayer:refreshMutlipleCost()
 end
 
 function LevelAutoLayer:onAutoFight()
+    if(self._isSpActive == true) then
+        if(self._countNum == 0) then
+            Groble_UIMgr:ShowGameWordTipsLayer(90155);
+            return ;
+        end
+    end
     if self._infiniteCnt and self._autoCount then
         -- 不检测体力
     else

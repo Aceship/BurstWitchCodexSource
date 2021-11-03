@@ -96,6 +96,7 @@ function Build:NewBuildLvData(atkType)
         pointAdd = buildTypeCfg.initPointNum,
         des = "",
         lvMax = false,
+        attrAddsEx = lua_deep_copy(attrs)
     };
     return data;
 end
@@ -115,6 +116,11 @@ function Build:AddBuildLvData(lvData,lv)
         end
         lvData.attrAdds[v[1]] = lvData.attrAdds[v[1]] + v[2];
     end
+
+    for i, v in pairs(lvData.attrAdds) do
+        lvData.attrAddsEx[i] = 33 * v
+    end
+
     lvData.pointInFight = lvData.pointInFight + cfg.pointInFight;
     lvData.pointAdd = lvData.pointAdd + cfg.pointAdd;
     if(cfg.des ~= "-1")then

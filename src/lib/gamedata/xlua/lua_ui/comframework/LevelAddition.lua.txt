@@ -43,7 +43,7 @@ end
 function LevelAddition:SetAdditionItem(cls,index)
     cls.imgIcon:LoadSprite(string.format("source_common/LevelAddtionIcon/%s",self._levelCfg.levelAddIcon[index]));
     cls.txtDes:SetText(Language:GetTxtBuyId(self._levelCfg.effectDes[index][1]));
-    cls.txtAddValue:SetText(string.format("+%s%%",self._levelCfg.effectDes[index][2]));
+    cls.txtAddValue:SetText(string.format("%s%%",self._levelCfg.effectDes[index][2]));
 end
 
 function LevelAddition:SetLevelId(levelId)

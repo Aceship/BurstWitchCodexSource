@@ -64,6 +64,7 @@ function SoundMgr:ctor()
 	fmod:Load("source_sound/fmodAsset/CGScene");
 	fmod:Load("source_sound/fmodAsset/BackgroundEffect");
 	fmod:Load("source_sound/fmodAsset/Patch0923");
+	fmod:Load("source_sound/fmodAsset/Patch20211102");
 
 	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1001");
 	fmod:preloadSampleData("event:/GameEffect/UIEffect/CardCharacterXlsx-SpineFmodPath-1002");

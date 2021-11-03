@@ -33,7 +33,7 @@ function Activity:IsSixthSealStartState()
 end
 
 function Activity:GetSixthSealDaysRemaining()
-    local _rewardData = Activity:GetSixthSealRewardArray()
+    local _rewardData = Activity:GetSixthSealRewardArray(Activity:GetactivityOpenId())
     local _curServerDay = Activity:GetCurSixthSealDay()
     return #_rewardData - _curServerDay + 1
 end
@@ -42,7 +42,9 @@ function Activity:SetSignData(data)
     self._signData = data
 end
 function Activity:GetoffsetDay(id)
-    return self._offsetDay[id]
+    if self._offsetDay~=nil then
+        return self._offsetDay[id]
+    end
 end
 
 function Activity:DayIsSigned(activityId, day)
@@ -67,8 +69,9 @@ function Activity:GetSixthSealRedState() --第六封印预告的红点
         local curServerDay = Activity:GetCurSixthSealDay()
         if Activity:GetOpenWarmUpLevelId() > 0 then
             local notice = Activity:GetSixthSealNotice()
+           local _rewardData = Activity:GetSixthSealRewardArray(Activity:GetactivityOpenId())
             local flag = false
-            for i = 1, curServerDay do
+            for i = 1, #_rewardData do
                 if not notice[i] then
                     flag = true
                 end

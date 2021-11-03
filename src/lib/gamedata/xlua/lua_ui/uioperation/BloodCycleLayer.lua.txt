@@ -9,6 +9,7 @@ local BTNS = {
     BtnTaskTo = "container/trans_lv_up/img_bg/btn_task_to",
     BtnBuyLv = "container/trans_lv_up/img_bg/btn_buy_lv",
     BtnGetAll = "container/btn_get_all",
+    BtnRule = "container/trans_top_title/btn_rule",
 }
 --构造函数
 function BloodCycleLayer:ctor(super)
@@ -58,6 +59,8 @@ function BloodCycleLayer:onButtonClick(itype)
         JumpMgr:JumpCheck({JumpMgr.Jump_Task,Task.TYPE_WEEKLY});
     elseif(itype == BTNS.BtnBuyLv)then
         self:OnBuyExpBtnClick(self.cfgDatas[self.Lv + 1])
+    elseif(itype == BTNS.BtnRule)then
+        Groble_UIMgr:ShowRuleTipsLayer(6001);
     elseif(itype == BTNS.BtnGetAll)then
         self:OnBtnGetAllClick();
     else--@ButtonCallBackEnd
@@ -261,7 +264,7 @@ function BloodCycleLayer:SetUI()
     end
 
     if(self._cfg.txtWord ~= nil)then
-        self._imgADTxt1:LoadSprite("source_common/ImageText/" .. self._cfg.txtWord[1][1])
+        self._imgADTxt1:LoadSprite("source_common/ImageText/" .. self._cfg.txtWord[1])
         -- Operation:SetOperationImage(self._imgADTxt1,self._cfg.txtWord[1][1],Operation.AD_IMAGE_FILE);
         --[[local tempV;
         if(self._cfg.txtWord[1][4] == nil)then

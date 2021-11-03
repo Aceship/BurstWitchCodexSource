@@ -52,8 +52,6 @@ end
 
 --初始化UI
 function ConcertItemSelectLayer:InitUI()
-    local NODE_CLASS = {
-    };
     self._uibtnCancel = self.layer:GetUIButtonComponent("uibtn_cancel");
     self._rectToggles = self.layer:GetRectTransformComponent("top/subtype/rect_toggles");
     self._cellTemplate = self.layer:GetRectTransformComponent("cell_template").gameObject;
@@ -76,12 +74,6 @@ function ConcertItemSelectLayer:show(heros,dropItems,callback)
 
     self:InitItemTypeToggles();
     self:showLayer();
-end
-
---退出按钮事件
-function ConcertItemSelectLayer:onBackClick()
-    self:Close();
-    self:onPopLayer();
 end
 
 --释放

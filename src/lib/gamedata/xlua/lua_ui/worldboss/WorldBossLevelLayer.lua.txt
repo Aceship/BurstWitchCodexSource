@@ -30,6 +30,7 @@ function WorldBossLevelLayer:ctor(super)
     self._hideOtherLayer = true;
     self._addStack = true
     self._fading = false;
+    self._hasHideLayer = false
     self._curHeroIds = {0, 0, 0}
 
     self:onEnter()
@@ -79,18 +80,19 @@ function WorldBossLevelLayer:onInitWorldBossTeamCtrl()
     self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(
     self.layer:Get("trans_container/trans_hero_select"))
 
+    self._heroSelectCtrl:SetJumpCallBack(function ()
+        WorldBoss:SetBossShow(false);
+    end);
     local btnClick = function(index)
         self:onHeroClick(index)
     end;
 
     local onEndDrag = function (heroIsNull, heroIds)
         for i, v in pairs(heroIds) do
-            if not self._teams[i].plot then
-                if(v == 0)then
-                    self._heros[i].hero = nil;
-                else
-                    self._heros[i].hero = Hero:GetHero(v);
-                end
+            if(v == 0)then
+                self._heros[i].hero = nil;
+            else
+                self._heros[i].hero = Hero:GetHero(v);
             end
         end
         self:SetHeroData()
@@ -128,15 +130,27 @@ end
 
 --显示UI
 function WorldBossLevelLayer:show()
+    WorldBoss:BossLevelInAnim();
     self:showLayer();
 end
 
 function WorldBossLevelLayer:showLayer()
-    WorldBoss:BossLevelInAnim();
     self:playAni("WorldBossLevelLayerAnim");
+    if self._heroSelectCtrl ~= nil then
+        self._heroSelectCtrl:OnEnabled()
+    end
+    if self._hasHideLayer then
+        if self._heroSelectCtrl ~= nil then
+            self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds)
+        end
+    end
     CBaseLayer.showLayer(self)
 end
+function WorldBossLevelLayer:hideLayer()
+    self._hasHideLayer = true
 
+    CBaseLayer.hideLayer(self)
+end
 --释放
 function WorldBossLevelLayer:onExit()
 
@@ -200,9 +214,9 @@ function WorldBossLevelLayer:SetHeroData()
     for i, v in ipairs(self._heros) do
         self._curHeroIds[i] = 0
         if(v.hero == nil)then
-            self._curHeroIds[i] = 0
+            self._curHeroIds[i] = 0;
         else
-            self._curHeroIds[i] = v.hero.id
+            self._curHeroIds[i] = v.hero.id;
         end
     end
 end
@@ -215,6 +229,7 @@ function WorldBossLevelLayer:onHeroClick(i)
     if(temp[i].hero ~= nil)then
         temp[i].hero = nil;
     end
+    WorldBoss:SetBossShow(false);
     Chapter:OpenWitchesLayer(temp, function(ids)
          for _, info in pairs(self._heros) do
              info.hero = nil
@@ -223,6 +238,7 @@ function WorldBossLevelLayer:onHeroClick(i)
              self._heros[v].hero = Hero:GetHero(id)
          end
         self:SetHeroData()
+        WorldBoss:SetBossShow(true);
         self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds)
     end, self._curChapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD)
 end

@@ -292,7 +292,7 @@ function ProtoMgr:ctor()
         message PushBugMessageReq
         {
             optional uint32         platform           = 1;    //运营层面的渠道，如2144，小米等
-            optional uint32         device_type        = 2;    //设备类型，手持设备，如手机，平板
+            optional uint64         device_type        = 2;    //设备类型，手持设备，如手机，平板
             optional string         device_model       = 3;    //设备型号，如iPhone6,2、Xiaomi MI 5 
             optional string         device_os          = 4;    //设备操作系统，andriod or IOS or windows   
             optional string         system_cpu         = 5;    //系统CPU信息

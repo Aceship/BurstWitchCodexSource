@@ -44,9 +44,10 @@ function Activity:SyncActive(data, warm_day_start,offsetDay)
 			end
 		end
 	end
-	
-
-	-- 夜莺巡查
+	-- 通用活动签到数据
+	self:SetActivityComSignData(data.timelogindays)
+ 	
+	 -- 夜莺巡查
 	self._chessData = {};
 	self._chessData.getItems = {};
 	self._chessData.curTurns = data.chess.coils or 0;--当前圈数
@@ -122,8 +123,23 @@ function Activity:onItemReqCall(item_id,drops)
 	if(self._getItems[tonumber(item_id)] == nil)then
 		self._getItems[tonumber(item_id)] = 0;
 	end
-	self._getItems[tonumber(item_id)] = self._getItems[tonumber(item_id)] + 1
 	AppMgr:LogInfo("----------活动领取物品回调----------" .. item_id)
+	local activityId = self:GetActivitySginLevelId()
+	if -1 ~= activityId then
+		local config = self._activityCfg[activityId].formCfg[tonumber(item_id)]
+		if config ~= nil then
+			local groupid =tonumber(config.Group)
+			if self.timelogindays[groupid] == nil then
+				self.timelogindays[groupid] = {}
+			end 
+			if self.timelogindays[groupid].awarded == nil then
+				self.timelogindays[groupid].awarded = {}
+			end
+			self.timelogindays[groupid].awarded[tonumber(config.Count)] = true
+		end    
+	end
+	--------------------------------------------------------------
+	self._getItems[tonumber(item_id)] = self._getItems[tonumber(item_id)] + 1
     GEvent:fireEvent(EVENT_TYPE.ACTIVITY_GET_REP,drops)
 	self._isDay = false;
 	GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);

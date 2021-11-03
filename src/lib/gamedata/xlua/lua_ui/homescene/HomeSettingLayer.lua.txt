@@ -23,6 +23,7 @@ local BUTTON_TYPE = {
     playskill       = "container/high_info/button_PlaySkill",
     fightui         = "container/high_info/button_FightUI",
     highFps         = "container/high_info/button_FPS",
+    lowCrash        = "container/high_info/button_crash",
     button_must     = "container/high_info/button_must",
     toolGm          = "container/button_gm",
 }
@@ -52,6 +53,7 @@ function HomeSettingLayer:onExit()
     self._mustPicture   = nil
     self.transMusic     = nil
     self.transSound     = nil
+    self._lowCrashGou   = nil
     self.basicInfo      = nil
     self.highInfo       = nil
     self.nameRed        = nil
@@ -94,6 +96,7 @@ function HomeSettingLayer:InitUI()
     self._mustPicture   = self.layer:Get("container/high_info/button_must/Gou")
     self.transMusic     = self.layer:Get("container/basic_info/button_music/Gou")
     self.transSound     = self.layer:Get("container/basic_info/button_sound/Gou")
+    self._lowCrashGou   = self.layer:Get("container/high_info/button_crash/Gou")
     self.togBasic       = self.layer:GetMToggleComponent("container/image_type_bg/tog_basic")
     self.togHigh        = self.layer:GetMToggleComponent("container/image_type_bg/tog_high")
     self.basicInfo      = self.layer:Get("container/basic_info");
@@ -145,6 +148,7 @@ function HomeSettingLayer:InitUI()
     self.layer:Get(BUTTON_TYPE.privacy):SetVisible(GameSdkMgr:IsHasUserPrivacy())
     self.layer:Get(BUTTON_TYPE.user):SetVisible(GameSdkMgr:HasUserCenter())
     self.layer:Get(BUTTON_TYPE.explain):SetVisible(GameSdkMgr:HasPermissionExplain())
+    self.layer:Get(BUTTON_TYPE.lowCrash):SetVisible(GameSdkMgr:IsLowCrashApkVer())
 end
 
 function HomeSettingLayer:SetQuality(isOn, qlty)
@@ -249,6 +253,22 @@ function HomeSettingLayer:onButtonClick(itype)
         self._isMustPicture = not self._isMustPicture
         PrefsController:SetMustPicture(self._isMustPicture)
         self._mustPicture:SetVisible(self._isMustPicture)
+    elseif itype == BUTTON_TYPE.lowCrash then
+        self._isLowCrash = not self._isLowCrash
+        self._lowCrashGou:SetVisible(self._isLowCrash)
+        if self._isLowCrash then
+            PrefsController:SetLowCrash(1)
+        else
+            PrefsController:SetLowCrash(0)
+        end
+        Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(30527),
+            function()
+                if GameSdkMgr:IsIosPlat() then
+                    CS.UnityEngine.Application.Quit()
+                else
+                    GameSdkMgr:Exit()
+                end
+            end, true, true)
     elseif itype == BUTTON_TYPE.toolGm then
         self:onPopLayer()
         core.require("xlua/lua_UI/HomeScene/GmLayer.txt").GetInstance():show()
@@ -318,6 +338,7 @@ function HomeSettingLayer:initSetting()
     self._isPlaySkill         = PrefsController:IsDoublePlaySkill()
     self._isFightRight        = PrefsController:IsFightRight()
     self._isMustPicture     = PrefsController:IsMustPicture()
+    self._isLowCrash    = PrefsController:IsLowCrash()
 
     self.music_slider         = self.layer:GetSliderComponent("container/basic_info/slider_music")
     self.sound_slider         = self.layer:GetSliderComponent("container/basic_info/slider_sound")
@@ -330,6 +351,7 @@ function HomeSettingLayer:initSetting()
     self.transFightUI:SetVisible(self._isFightRight);
     self._mustPicture:SetVisible(self._isMustPicture);
     self.highFpsBtn:SetVisible(PrefsController:GetFpsSetting() == FPSSettingHigh);
+    self._lowCrashGou:SetVisible(self._isLowCrash)
     local function onMusicChange()
         Groble_SoundMgr:SetBGMVolume(self.music_slider.value);
     end

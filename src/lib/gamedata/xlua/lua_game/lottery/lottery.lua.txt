@@ -261,8 +261,12 @@ function Lottery:SetFistTimes()
 end
 
 function Lottery:EnterLotteryLayer(jumpLotteryId)
-    self:SetJumpLotteryId(jumpLotteryId)
-    core.require("xlua/lua_UI/UILottery/LotteryLayer.txt"):new():show()
+    xpcall(function()
+        self:SetJumpLotteryId(jumpLotteryId)
+        core.require("xlua/lua_UI/UILottery/LotteryLayer.txt"):new():show()
+    end, function()
+        HttpUpload:UploadTraceback(debug.traceback())
+    end)
 end
 
 function Lottery:SetNewLottery(value)

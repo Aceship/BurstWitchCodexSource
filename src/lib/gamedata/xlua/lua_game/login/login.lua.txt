@@ -51,6 +51,8 @@ function Login:Ctor()
     self._noticeList    = {};
     self._accUnActivity = false;
     self._enterLoginLayer  = false;
+
+    self._simulationPlatformId = 0
 end
 
 function Login:Clear()
@@ -71,12 +73,16 @@ function Login:SetEnterLoginLayer(isEnter)
 end
 
 function Login:GetLoginIpPort(zoneid)
-    local server = self._serverlist[zoneid]
-    if server ~= nil then
-        return server.ip, server.port
+    if self:IsSimulationPlatformId() then
+        return self:GetSimulationPlatformLoginIpPort()
+    else
+        local server = self._serverlist[zoneid]
+        if server ~= nil then
+            return server.ip, server.port
+        end
+        AppMgr:LogError("can't find zoneid = " .. zoneid)
+        return "", 0
     end
-    AppMgr:LogError("can't find zoneid = " .. zoneid)
-    return "", 0
 end
 
 function Login:GetGameIpPort(zoneid)
@@ -215,6 +221,7 @@ function Login:LoginSucc(uid)
     Network:ClearWait()
     Activity:SetDialData();
     Activity:InitActivityChapterIds();
+    Activity:InitActivityComSignAfterLogin()
     Chapter:AddCount();
     MidNight:CalcCurSeasonId()
     Talk:LoadLocalTalker();
@@ -233,7 +240,7 @@ function Login:LoginSucc(uid)
     Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_LOGIN_DAY})
 
     GZSDKHelper:playerLoginWithPlayerInfo()
-    HttpUpload:InitHttpUpload()
+    HttpUpload:InitHttpUpload(ip, port)
 end
 
 function Login:IsRegisterFull()
@@ -301,4 +308,44 @@ end
 
 function Login:GetLoginTime()
     return self._loginTime
+end
+
+function Login:SetSimulationPlatformId(platformId)
+    if platformId ~= nil and platformId ~= "" then
+        self._simulationPlatformId = tonumber(platformId)
+    else
+        self._simulationPlatformId = 0
+    end
+end
+
+function Login:SetSimulationServerId(serverId)
+    if serverId ~= nil and serverId ~= "" then
+        self._last_login_id = tonumber(serverId)
+
+        if self:GetSimulationPlatformId() == 200 then
+            cdnwww:DownloadServerListByTest("test/serverlist_prod.txt")
+        elseif self:GetSimulationPlatformId() == 900 then
+            cdnwww:DownloadServerListByTest("test/serverlist_UO.txt")
+        else
+            AppMgr:LogError("======未知渠道======")
+        end
+    end
+end
+
+function Login:GetSimulationPlatformId()
+    return self._simulationPlatformId
+end
+
+function Login:IsSimulationPlatformId()
+    return self._simulationPlatformId ~= 0
+end
+
+function Login:GetSimulationPlatformLoginIpPort()
+    if self:GetSimulationPlatformId() == 200 then
+        return "192.168.23.11", 10110
+    elseif self:GetSimulationPlatformId() == 900 then
+        return "192.168.23.11", 10211
+    else
+        return
+    end
 end

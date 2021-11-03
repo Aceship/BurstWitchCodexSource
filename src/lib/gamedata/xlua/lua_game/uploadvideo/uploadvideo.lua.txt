@@ -60,8 +60,12 @@ function UpLoadVideo:GetVideoPath(pId,videoType,score)
     if(pId == nil or pId <= 0 or videoType == nil or videoType == "")then
         return ""
     end
+    local heroStr = "";
+    for i, v in ipairs(UpLoadVideo:GetHeroData()) do
+        heroStr = string.format("%s_%s_%s",heroStr,v.heroId,v.lv);
+    end
     --字符串格式(玩家Id/视频类型_上传时间_分数_视频版本_战斗时长_玩家等级)
-    return string.format("%s/%s_%s_%s_%s_%s_%s",pId,videoType or "",CTime:GetServerTime(),score or 0,Player:GetUpLoadVideoVersion(),UpLoadVideo:GetVideoTime(),Player:GetLevel());
+    return string.format("%s/%s_%s_%s_%s_%s_%s%s",pId,videoType or "",CTime:GetServerTime(),score or 0,Player:GetUpLoadVideoVersion(),UpLoadVideo:GetVideoTime(),Player:GetLevel(),heroStr);
 end
 
 function UpLoadVideo:SetUpLoadState(isUpLoad)

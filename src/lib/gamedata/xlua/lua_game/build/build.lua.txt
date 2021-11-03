@@ -127,12 +127,17 @@ function Build:IsBuildAddTips(buildType)
     -- 玩家等级大于30级，表示玩家对法典已熟悉
     if Player:GetLevel() > 30 then return false end
     -- 法典构筑点判断
-    local serverData = self:GetBuildServerDataByAtkType(buildType)
     local buildLvData = self:GetBuildLvDataByAtkType(buildType)
+    local pointAdd = 0
+    if buildLvData ~= nil then
+        pointAdd = buildLvData.pointAdd or 0
+    end
+    
+    local serverData = self:GetBuildServerDataByAtkType(buildType)
+    if serverData == nil then return false end
 
     local data
-    local pointAdd = buildLvData.pointAdd
-    for _, v in ipairs(serverData.dotIds) do
+    for _, v in ipairs(serverData.dotIds or {}) do
         data = self:GetDotAddLvById(v)
         if data ~= nil then
             pointAdd = pointAdd - (data.addLv or 0)

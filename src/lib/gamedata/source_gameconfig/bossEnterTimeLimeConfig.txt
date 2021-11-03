@@ -11,4 +11,5 @@ number,string,string,sarray_|
 8,prefab_timeline/M2_Haiyinlixi_enter01_Timeline,prefab_land/ruchangheimu_cloud,-1
 9,prefab_timeline/M2_Kalinna_enter01_Timeline,prefab_land/ruchangheimu_cloud,-1
 10,prefab_timeline/M2_Duerlahan_enter01_Timeline,prefab_land/ruchangheimu_cloud01,-1
+11,prefab_timeline/M2_Minuosi_enter01_Timeline,prefab_land/ruchangheimu_cloud,-1
 13,prefab_timeline/M2_Xueyue_enter_Timeline,prefab_land/ruchangheimu_cloud02,-1

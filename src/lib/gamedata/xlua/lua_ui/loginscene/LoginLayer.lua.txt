@@ -42,10 +42,13 @@ function LoginLayer:ctor(super)
     self:onEnter()
     Network:ResetSyncNotify()
 
-    if Login:GetEnterLoginLayer() then
-        GameSdkMgr:Logout()
+    if not GameSdkMgr:IsNewJar() then
+        if Login:GetEnterLoginLayer() then
+            GameSdkMgr:Logout()
+        end
+        Login:SetEnterLoginLayer(true)
     end
-    Login:SetEnterLoginLayer(true)
+    
 end
 
 function LoginLayer:initObj()
@@ -180,7 +183,7 @@ end
 
 function LoginLayer:show()
     self._fading = false
-
+    CameraController:InitCameraController()
     self:initLayer()
     self:showLayer()
     -- 下载服务器列表

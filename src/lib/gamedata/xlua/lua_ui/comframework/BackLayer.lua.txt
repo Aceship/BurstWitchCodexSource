@@ -41,6 +41,10 @@ function BackLayer:onEnter()
     self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
         self:_onUpdateCurrency()
     end)
+    self:addEventListener(EVENT_TYPE.UPDATE_TIPS, self.__cname, function()
+        self:_onUpdateCurrency()
+    end)
+
     self:InitUI();
 end
 

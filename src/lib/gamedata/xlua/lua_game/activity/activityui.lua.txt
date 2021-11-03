@@ -75,17 +75,25 @@ function Activity:OpenNewbieUpLayer()
 end
 
 function Activity:SetImgTitle(img,rect,data)
-	if(data.ad_Image ~= nil)then--设置广告字
-		local tempV;
-		Operation:SetOperationImage(img,data.ad_Image[1],Operation.AD_IMAGE_FILE);--加载广告字图片
-		if(data.ad_Image[4] == nil)then
-			tempV = CS.UnityEngine.Vector2(0.5, 1);
-		else
-			tempV = CS.UnityEngine.Vector2(tonumber(data.ad_Image[4]), tonumber(data.ad_Image[5]));
-		end
-		rect.anchorMax = tempV;
-		rect.anchorMin = tempV;
-		rect.pivot = tempV;
-		rect.anchoredPosition = CS.UnityEngine.Vector2(tonumber(data.ad_Image[2]), tonumber(data.ad_Image[3]));
+	if(data ~= nil)then--设置广告字
+		Operation:SetOperationImage(img,data[1],Operation.AD_IMAGE_FILE);--加载广告字图片
+		Activity:SetRect(rect,data);
 	end
+end
+
+function Activity:SetRect(rect,data)
+	if(data == nil or data == "-1")then
+		AppMgr:LogError("SetRect Err data is null!!!");
+		return;
+	end
+	local tempV;
+	if(data[4] == nil)then
+		tempV = CS.UnityEngine.Vector2(0.5, 1);
+	else
+		tempV = CS.UnityEngine.Vector2(tonumber(data[4]), tonumber(data[5]));
+	end
+	rect.anchorMax = tempV;
+	rect.anchorMin = tempV;
+	rect.pivot = tempV;
+	rect.anchoredPosition = CS.UnityEngine.Vector2(tonumber(data[2]), tonumber(data[3]));
 end

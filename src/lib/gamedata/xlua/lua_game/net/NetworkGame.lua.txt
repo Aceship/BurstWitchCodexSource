@@ -34,7 +34,9 @@ function NetworkGame:_doLoginRst(rst, bantime)
         })
     elseif rst == ERR_BAN_ACCOUNT then
         local timeDes = os.date("%Y年%m月%d日%H时%M分%S秒",bantime + os.time())
-        local des = string.format("提示:\n违规游戏行为，账号已被封停\n解封时间为:%s",timeDes)
+        local player_name = Groble_SceneMgr:PrefsGetString("player_name");
+        local player_id = Groble_SceneMgr:PrefsGetString("player_id");
+        local des = string.format("提示:\n违规游戏行为，账号已被封停\n账号id:%s\n账号uid:%s\n账号昵称:%s\n账号解封时间为:%s", player_id, Login:GetUserUid(), player_name, timeDes)
         Groble_UIMgr:ShowMessageBox(false, false, des, nil, nil, false)
         GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.GAME_LOGIN_RST, false)
     else

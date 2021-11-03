@@ -6,4 +6,4 @@ number,string,string,number,string,array_&_|,array_&
 3,source_common/ImageText/img_huodong_xuncha_01,50&50,1,1&20004,4&10240002|4&7000007|4&3000024,prefab_uiEffect/uiEffect/ui81_yingye&-60&-270
 5,source_common/ImageText/img_huodong_lunhui_05,0&50,1,2&8001,4&10030004|4&7000007|4&6020010,prefab_uiEffect/uiEffect/ui81_xuezhilunhui&95&11
 6,source_common/ImageText/img_huodong_lizan_03,0&100,2,3&1000001,4&10030002|4&7000007|1&1050,prefab_uiEffect/uiEffect/ui81_muguanglizhan&113&38
-7,source_common/ImageText/img_huodong_wanshengmofay,50&0,2,1&20008,4&7000007|4&1000002|4&1000001,prefab_uiEffect/uiEffect/ui81_wanshengmofaye&-50&11.5
+7,source_common/ImageText/img_huodong_wanshengmofay,50&0,2,1&20008,4&3000000|4&7000007|4&10280002,prefab_uiEffect/uiEffect/ui81_wanshengmofaye&-50&11.5

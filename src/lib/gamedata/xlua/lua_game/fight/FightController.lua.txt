@@ -49,12 +49,26 @@ function FightController:initFightData()
     }
     if(Chapter.FIGHT_TYPE_NIGHT == self._chapter.main_type) then
         data.midnightDiv = MidNight:GetDanId() or 0
+
+        local groupId = MidNight:GetDanGradingCfgById(data.midnightDiv).groupId
+        levelid = 400000 + groupId
+
+        self._levelcfg  = Chapter:GetLevel(levelid)
+        self._chapter   = Chapter:GetChapter(self._levelcfg.chapterid)
+
+        data.levelid = levelid
     end
 
     self._changeSkillLv = {}
     for gunType = 1, 6 do
         local cId, cLv, _, _ = Build:GetChangerSkillIdByAtkType(gunType)
         self._changeSkillLv[gunType] = { id = cId, level = cLv }
+    end
+
+    for k, v in pairs(self._levelcfg.levelAddEnv or {}) do
+        if(v ~= -1) then
+            table.insert(data.battleEffectIds, v)
+        end
     end
 
     -- 战斗词条效果

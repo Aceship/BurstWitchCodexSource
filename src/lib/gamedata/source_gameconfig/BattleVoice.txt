@@ -196,11 +196,18 @@ number,string,string
 193,event:/FightEffect/BossFight/Dantalion/Dantalion_skill_2_4,event:/FightEffect/BossFight/Dantalion/Dantalion_skill_2_4
 194,event:/FightEffect/BossFight/Dantalion/Dantalion_skill_2_5,event:/FightEffect/BossFight/Dantalion/Dantalion_skill_2_5
 195,event:/FightEffect/BossFight/Dantalion/Dantalion_entrance,event:/FightEffect/BossFight/Dantalion/Dantalion_entrance
-196,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_enter,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_enter _JP
-197,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill1,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill1 _JP
-198,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill2,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill2 _JP
-199,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill3,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill3 _JP
-200,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_death,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_death _JP
+196,event:/FightEffect/BossFight/Dantalion/Dantalion_1,event:/FightEffect/BossFight/Dantalion/Dantalion_1_JP
+197,event:/FightEffect/BossFight/Dantalion/Dantalion_2,event:/FightEffect/BossFight/Dantalion/Dantalion_2_JP
+198,event:/FightEffect/BossFight/Dantalion/Dantalion_3,event:/FightEffect/BossFight/Dantalion/Dantalion_3_JP
+199,event:/FightEffect/BossFight/Dantalion/Dantalion_4,event:/FightEffect/BossFight/Dantalion/Dantalion_4_JP
+200,event:/FightEffect/BossFight/Dantalion/Dantalion_5,event:/FightEffect/BossFight/Dantalion/Dantalion_5_JP
+201,event:/FightEffect/BossFight/Dantalion/Dantalion_6,event:/FightEffect/BossFight/Dantalion/Dantalion_6_JP
+202,event:/FightEffect/BossFight/Dantalion/Dantalion_7,event:/FightEffect/BossFight/Dantalion/Dantalion_7_JP
+203,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_enter,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_enter_JP
+204,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill1,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill1_JP
+205,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill2,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill2_JP
+206,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill3,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_skill3_JP
+207,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_death,event:/FightEffect/BossFight/Janusia/Janusia_Boss_VO_death_JP
 1000,event:/GameEffect/WitchSound/1001-skill_play,event:/GameEffect/WitchSound/JP/1001-skill_play_JP
 1001,event:/GameEffect/WitchSound/1002-skill_play,event:/GameEffect/WitchSound/JP/1002-skill_play_JP
 1002,event:/GameEffect/WitchSound/1003-skill_play,event:/GameEffect/WitchSound/JP/1003-skill_play_JP

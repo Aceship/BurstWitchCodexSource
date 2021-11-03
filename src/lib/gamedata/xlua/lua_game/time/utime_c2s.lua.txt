@@ -49,6 +49,7 @@ function CTime:UpdateTime(datas)
         Stats:UpdateStatsTimeListener(v.id)
         CTime:SendMessage(v);
         GEvent:fireEvent(EVENT_TYPE.UPDATE_TIME,v);
+        Activity:CheckSignTimeid(v.id)
     end
     GEvent:fireEvent(EVENT_TYPE.UTIME_ACTION)
 end

@@ -6,6 +6,11 @@ function Activity:InitData()
     self._mainLayer = nil;
     self._curMainType = nil;
     self._activityId = -1;
+    local curMonth = CTime:GetCurMonth();
+    self._curSignInCycNum = curMonth % Activity.DaySignInCycNum;
+    if(self._curSignInCycNum == 0)then
+        self._curSignInCycNum = Activity.DaySignInCycNum;
+    end
     Activity:InitActivityLevelData();
 end
 
@@ -19,7 +24,7 @@ function Activity:GetCurSixthSealDay()--第六封印获取当前天数
 end
 
 function Activity:GetActivityId()
-    return self._activityId
+    return self._activityId or 0
 end
 
 function Activity:SetActivityId(activityId)

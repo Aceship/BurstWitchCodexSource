@@ -18,3 +18,4 @@ number,number,string,number,array_&,string,number,number,number,number
 18,10070018,Netherstone,20070011,-1,source_icon/item/8010001,30,499,3800,17000
 19,10070019,Netherstone,20070012,-1,source_icon/item/8010001,30,499,3800,17000
 20,10070016,Netherstone,20070012,-1,source_icon/item/8010001,30,499,3800,17000
+21,10070021,Netherstone,20070012,-1,source_icon/item/8010001,18,299,2400,9900

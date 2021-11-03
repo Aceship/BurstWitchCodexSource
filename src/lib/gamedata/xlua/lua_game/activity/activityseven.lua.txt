@@ -7,11 +7,12 @@ Activity = Activity or {}
 
 function Activity:InitSevenActivity()
     self._isFirstEnterSevenSign = true
+    self._isFirstEnterActivitySevenSign = true
 end
 
 function Activity:AutoOpenSevenSignLayer()
     if self._isFirstEnterSevenSign then
-        self._isFirstEnterSevenSign = false
+       self._isFirstEnterSevenSign = false
         local list = self:GetNewPlayerAwardsList()
         if next(list) ~= nil then
             self:OpenSevenSignLayer()
@@ -37,6 +38,7 @@ function Activity:DaySignInLayer()
         uimgr:CheckTodoList()
     end
 end
+
 --第六封印签到福利设置
 function Activity:GetSixSignstate()
     local _activityId = self:GetActivityIdByUid(self:GetOpenActivityLevelId())--活动id

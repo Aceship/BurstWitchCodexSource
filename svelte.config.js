@@ -13,7 +13,6 @@ const config = {
 		paths: {
 			base: dev ? '' : '/BurstWitchCodex',
 		},
-		appDir: 'internal',
 	}
 };
 

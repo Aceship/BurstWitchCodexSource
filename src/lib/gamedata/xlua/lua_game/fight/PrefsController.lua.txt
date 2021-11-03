@@ -27,6 +27,7 @@ local _skey_is_auto_gun_type_skill = nil
 local _skey_voice_language = nil
 local _skey_PushActivity_Day = nil
 local _skey_is_show_star_desc = nil
+local _skey_is_low_crash_mode   = "_skey_is_low_crash_mode"
 
 local _instance = nil
 function PrefsController:InitPrefsController()
@@ -102,6 +103,8 @@ function PrefsController:InitPrefsController()
 
     self._change_name = _instance:GetBool(_skey_change_name, true)
     self._pushActivityDay = _instance:GetInt(_skey_PushActivity_Day,0)
+
+    self._crash_mode = _instance:GetInt(_skey_is_low_crash_mode, 0) == 1
 end
 
 function PrefsController:IsAutoMove()
@@ -341,4 +344,13 @@ end
 
 function PrefsController:GetPushActivityDay()
     return _instance:GetInt(_skey_PushActivity_Day)
+end
+
+-- 是否开启防崩溃模式
+function PrefsController:IsLowCrash()    
+    return self._crash_mode
+end
+
+function PrefsController:SetLowCrash(value)
+    _instance:SetInt(_skey_is_low_crash_mode, value)
 end

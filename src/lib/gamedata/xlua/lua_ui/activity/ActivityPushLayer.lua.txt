@@ -39,7 +39,6 @@ end
 
 function ActivityPushLayer:onExit()
     self._spine = nil
-    self._imgMask = nil
     self._beginTime = nil
     self._endTime = nil
     self._spineParent = nil
@@ -77,7 +76,6 @@ end
 
 --初始化UI
 function ActivityPushLayer:InitUI()
-    self._imgMask = self.layer:GetImageComponent("container/img_mask")
     self._beginTime = self.layer:GetTextComponent("container/open_time/txt_begin")
     self._endTime   = self.layer:GetTextComponent("container/open_time/txt_end")
     self._checkObj  = self.layer:Get("container/toggle_sel/Background/Checkmark")
@@ -173,7 +171,6 @@ end
 
 --释放
 function ActivityPushLayer:Close()
-    self._imgMask = nil
     --@CloseEnd
 end
 
@@ -209,6 +206,7 @@ function ActivityPushLayer:RefreshView()
         self._spine:SetVisible(isHero);
         if isHero then
             local heroId = tonumber(self.m_CurData.picture)
+            print("=====heroId = ", heroId)
             Hero:LoadSpineAsync(self.__cname,self._spine, heroId,Hero.SPINE_NEWUP,
             function(obj)
                 self._curMoudle = obj
@@ -291,7 +289,7 @@ function ActivityPushLayer:SetCommonInfo()
     set_obj_active(self._transQltySpine,self.m_CurData.activityType == 1)
     self._transQltySpine:SetPosition(self.m_CurData.qltyPos[1],self.m_CurData.qltyPos[2],0,true)
 
-    if(self.m_CurData.picture ~= nil and self.m_CurData.picture > 0)then
+    if self.m_CurData.picture ~= nil and self.m_CurData.picture > 0 and self.m_CurData.picture < 10000 then
         local heroCfg = Hero:GetCfg(self.m_CurData.picture)
         self._gunType:SetText(heroCfg.Name_UP) --枪型文字
         Hero:SetHeroAtkType(self._gunIcon,tonumber(heroCfg.AtkType));
@@ -300,6 +298,10 @@ function ActivityPushLayer:SetCommonInfo()
             self._gunIcon.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
         end
         self._gunIcon:SetNativeSize()
+        self._gunIcon:SetVisible(true)
+    else
+        self._gunType:SetText("")
+        self._gunIcon:SetVisible(false)
     end
     --print("槍型 ： "..tonumber(heroCfg.AtkType))
 end

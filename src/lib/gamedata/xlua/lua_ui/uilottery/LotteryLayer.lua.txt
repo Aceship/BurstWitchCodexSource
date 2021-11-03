@@ -47,6 +47,7 @@ local MoonPosX = {
     274,
     100,
     10,
+    -80,
 }
 
 local MoonSprite = {
@@ -393,9 +394,7 @@ function LotteryLayer:UpdateNoticeData()
 end
 
 function LotteryLayer:_refreshAppointPool(i, item,cfg)
-    local temp
     local hero = Hero:GetCfg(self._upHeroId[self._lotteryids[i].id])
-
     local lotteryPool = Lottery:GetLotteryPoolDataById(self._lotteryids[i].id);
     local lotteryGift = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift[1];
     if lotteryPool == nil then
@@ -404,12 +403,13 @@ function LotteryLayer:_refreshAppointPool(i, item,cfg)
         local missnum = lotteryGift - lotteryPool.missnum
         item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),missnum,hero.Name));
     end
+    local temp
     temp = item:GetImageComponent("titles/img_title");
     temp:LoadSprite("source_common/ImageText/"..cfg.LotteryTitle[1])
     temp:SetAnchoredPosition(cfg.LotteryTitle[2],cfg.LotteryTitle[3])
 
     if cfg.LotteryStand == nil then return end
-    
+
     local imgPrefab = item:Get("item_hide/image_hero").gameObject
     local transImgParent = item:Get("heroes")
     for _, v in ipairs(cfg.LotteryStand) do
@@ -423,18 +423,6 @@ function LotteryLayer:_refreshAppointPool(i, item,cfg)
         temp:SetAnchoredPosition(tonumber(v[2]), tonumber(v[3]))
         temp:SetPivot(tonumber(v[5]), tonumber(v[6]))
         temp.gameObject.name = "image_hero".._
-    end
-end
-
-function LotteryLayer:_refreshUpPool(i, item)
-    local hero = Hero:GetCfg(self._upHeroId[self._lotteryids[i].id])
-    local lotteryPool = Lottery:GetLotteryPoolDataById(self._lotteryids[i].id)
-    local lotteryGift = Lottery:GetLotteryTypeCfg(self._lotteryids[i].id).LotteryGift[1]
-    if lotteryPool == nil then
-        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),lotteryGift,hero.Name))
-    else
-        local missnum = lotteryGift - lotteryPool.missnum
-        item:GetTextComponent("titles/text_name"):SetText(string.format(LanguageMgr:GetTextByID(30042),missnum,hero.Name))
     end
 end
 
@@ -453,13 +441,10 @@ function LotteryLayer:initLotterys()
             if cfg.tagId == Lottery.ORIENT_ACTIVITY then
                 --定向卡池&UP池
                 self:_refreshAppointPool(i, item,cfg)
-
-                self:_refreshUpPool(i, item)
-
             elseif cfg.tagId == Lottery.ORIENT then--定向卡池
                 self:_refreshAppointPool(i, item,cfg)
             elseif cfg.tagId == Lottery.UP then
-                self:_refreshUpPool(i, item)
+                self:_refreshAppointPool(i, item,cfg)
             else
                 if cfg.txtShowTime ~= "-1" then
                     local txt = item:Get("titles/img_name_title/txt_time_title");

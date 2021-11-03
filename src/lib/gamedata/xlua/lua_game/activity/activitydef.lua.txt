@@ -75,7 +75,8 @@ Activity.PushType = {
 }
 
 Activity.NewWelfareMaxDay = 7;--7人签到最大天数
-
+Activity.sixnotice =2001;
+Activity.fullmoonnotice =2003;
 
 Activity.ActivityLevelType_Main = 1;
 Activity.ActivityLevelType_Shop = 2;
@@ -86,3 +87,8 @@ Activity.ActivityLevelType_Common = 5;
 Activity.ActivityLevelType_Hard = 6;
 Activity.ActivityLevelType_Special = 7;
 Activity.ActivityLevelType_Video = 8;
+
+
+
+Activity.MainLayerOutAnim1 = "ActivityMainLayerOutAnim1";
+Activity.MainLayerInAnim1 = "ActivityMainLayerInAnim1";

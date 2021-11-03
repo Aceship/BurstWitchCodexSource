@@ -1,0 +1,370 @@
+---
+--- @Author:2144
+--- @Create Time:2021-06-01 14:02:00
+---core.require("xlua/lua_UI/Activity/ActivitySignLayer.txt"):new():show();
+-- 通用活动签到模块：万圣节
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivitySignLayer = class("ActivitySignLayer", CBaseLayer)
+--按钮
+local BTNS = {}
+
+--构造函数
+function ActivitySignLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/UI_ActivitySignLayer"
+    }
+    self._topData = {
+        showBtnBack = true,
+        --返回按钮
+        showPlayerInfo = false,
+        --玩家信息
+        showTopInfo = false,
+        --顶部货币菜单栏
+        topInfo = {}
+        --货币类型
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false
+    self._isActiveEnd = false
+    self._updateText = true
+
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ActivitySignLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+function ActivitySignLayer:onBackClick()
+    self:onPopLayer()
+    if self.ispop then
+        uimgr:CheckTodoList()
+    end
+end
+
+--按钮事件
+function ActivitySignLayer:onButtonClick(itype)
+    --@ButtonCallBackEnd
+end
+
+--初始化
+function ActivitySignLayer:Init()
+    self:UpdateData()
+    self:InitUI()
+end
+
+function ActivitySignLayer:UpdateData()
+    self._playerLoginDays = Activity:GetActivitySignDay()
+    --活动期间累计登录天数
+    self._actInfo = Activity:ActivitySignLayerConfig()
+    self._canAwardList = Activity:GetActivityNewPlayerAwardsList()
+    if self._activityList == nil then
+        self._activityList = {}
+        local tempCount = 1
+        for k, v in pairs(self._actInfo.formCfg) do
+            self._activityList[tempCount] = v
+            tempCount = tempCount + 1
+        end
+        table.sort(self._activityList,
+            function(a, b)
+                return a.Count < b.Count
+            end)
+    end
+end
+
+--初始化UI
+function ActivitySignLayer:InitUI()
+    self._imgAD = self.layer:GetImageComponent("container/img_AD")
+    --@ImageEnd
+
+    --@TextEnd
+
+    self._transSpineBg = self.layer:Get("trans_spine_bg")
+    self._transRewards = self.layer:Get("container/trans_rewards")
+    --@TransformEnd
+
+    self._rectAD = self.layer:GetRectTransformComponent("container/img_AD")
+    self._time_info = self.layer:GetTextComponent("container/trans_title/time_info")
+    --@RectTransformEnd
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+
+    if (self._actInfo.info.ad_Image ~= nil) then --设置广告字
+        for i, v in ipairs(self._actInfo.info.ad_Image) do
+        end
+        local tempV
+        Operation:SetOperationImage(self._imgAD, self._actInfo.info.ad_Image[1], Operation.AD_IMAGE_FILE)
+        if (self._actInfo.info.ad_Image[4] == nil) then
+            tempV = CS.UnityEngine.Vector2(0.5, 1)
+        else
+            tempV =
+                CS.UnityEngine.Vector2(
+                tonumber(self._actInfo.info.ad_Image[4]),
+                tonumber(self._actInfo.info.ad_Image[5])
+            )
+        end
+        self._imgAD.color = CS.UnityEngine.Color(1, 1, 1, 0)
+        self._imgAD:DOColor(CS.UnityEngine.Color(1, 1, 1, 1), 0.5)
+        self._imgAD:ResetSize()
+        self._rectAD.anchorMax = tempV
+        self._rectAD.anchorMin = tempV
+        self._rectAD.pivot = tempV
+        self._rectAD.anchoredPosition =
+            CS.UnityEngine.Vector2(tonumber(self._actInfo.info.ad_Image[2]), tonumber(self._actInfo.info.ad_Image[3]))
+    end
+
+    if (self._actInfo.info.Picture ~= "-1") then
+        self:SetBGImage(self._actInfo.info.Picture)
+    end
+
+    if (self._actInfo.info.spine ~= nil) then --设置spine
+        self:LoadHeroSpine(self._actInfo.info.spine[1], self._actInfo.info)
+    else
+        if (self._spine ~= nil) then
+            self.currHeroId = nil
+            u3d_destory_obj(self._spine)
+            self._spine = nil
+        end
+    end
+
+    self.items = {}
+    self:SetItemUI()
+end
+
+--显示UI
+function ActivitySignLayer:show(ispop)
+    self.ispop = ispop
+    self:onPerSecondUpdate()
+    self:showLayer()
+    Groble_SoundMgr:PlayEffectByEvent("event:/GameEffect/UIEffect/General/Click-card")
+end
+
+--释放
+function ActivitySignLayer:onExit()
+    Activity:SetCurSelectUid()
+    self._activityList = nil
+    self._playerLoginDays = nil
+    self._actInfo = nil
+    if self.items ~= nil then
+        for _, v in pairs(self.items) do
+            v:clear()
+        end
+    end
+    self.items = nil
+
+    if (self._spine ~= nil) then
+        self.currHeroId = nil
+        u3d_destory_obj(self._spine)
+        self._spine = nil
+    end
+
+    self._transSpineBg = nil
+    self._imgAD = nil
+    self._transRewards = nil
+    self._rectAD = nil
+    --@CloseEnd
+    CBaseLayer.onExit(self)
+end
+
+function ActivitySignLayer:onPerSecondUpdate()
+    local _value = CTime:GetRemainTime(self._actInfo.info.Time)
+    if _value ~= nil then
+        if self._updateText then
+            self._time_info:SetText(CTime:Time2HMS(_value))
+            self._updateText = _value > 0
+            if _value <= 0 then
+                self:onActiveEnd()
+            end
+        end
+    end
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivitySignLayer:RegisterHandler()
+    self:addUpdateDayListener()
+    self:addEventListener(
+        EVENT_TYPE.ACTIVITY_GET_REP,
+        self.__cname,
+        function(drops)
+            self:UpdateData()
+            self:SetItemUI()
+            Bag:ShowDrops(drops)
+            GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE)
+        end
+    )
+    self:addEventListener(
+        EVENT_TYPE.UPDATE_GIFT_BAG,
+        self.__cname,
+        function(isUptateDay)
+            if (isUptateDay == false) then
+                self:UpdateData()
+                self:SetItemUI()
+            end
+        end
+    )
+end
+function ActivitySignLayer:onUpdateDay()
+    if CTime:IsOpen(self._actInfo.info.Time) then
+        self:UpdateData()
+        self:SetItemUI()
+    else
+        self:onActiveEnd()
+    end    
+end
+
+function ActivitySignLayer:onActiveEnd()
+    if self._isActiveEnd then return end
+    for k, v in ipairs(self._activityList) do
+        self.items[k].effect:SetVisible(false)
+    end
+    self._isActiveEnd = true
+    Groble_UIMgr:ShowMsgLayer(LanguageMgr:GetTextByID(90316),
+        function()
+            self:onPopLayer()
+        end, false, true)
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+
+function ActivitySignLayer:SetItemUI()
+    local _c = self.layer:Get("container/trans_rewards")
+    local item1 = self.layer:Get("container/trans_rewards/item").gameObject
+    local posx = {-282.5, -93.5, 95.5, 284.5, -188, 3, 193}
+    local posy = {103, 103, 103, 103, -127, -127, -127}
+    local awarded = Activity:GetActivitySignDayState()
+    local isOpen = CTime:IsOpen(self._actInfo.info.Time)
+    for k, v in ipairs(self._activityList) do
+        if (self.items[k] == nil) then
+            local item = _c:AddChild(item1)
+            item.name = "item" .. k
+            item:SetPosition(posx[k], posy[k], 0, true)
+            item:SetVisible(true)
+            self.items[k] = self:NewItem(item, k)
+
+            local itemInfo = GameTools.GetCsvValueList(v.Items, "&")
+            Bag:SetComSimpleGoodsUi(
+                self.items[k].item,
+                tonumber(itemInfo[1]),
+                tonumber(itemInfo[2]),
+                tonumber(itemInfo[3]),
+                true
+            )
+        end
+        item1:SetVisible(false)
+
+        local isGet = false
+        self.items[k].id = tonumber(v.id)
+        if self._playerLoginDays >= tonumber(v.Count) then
+            if isOpen then
+                if self._canAwardList[tonumber(v.id)] ~= nil and (awarded == nil or awarded[k] ~= true) then
+                    -- 可以领取的
+                    self.items[k].effect:SetVisible(true)
+                    isGet = true
+                else
+                    --已经领取过了的
+                    self.items[k].effect:SetVisible(false)
+                    self.items[k].imgGeted:SetVisible(true)
+                    isGet = false
+                end
+            else
+                self.items[k].effect:SetVisible(false)
+                self.items[k].imgGeted:SetVisible(false)
+            end
+        else
+            self.items[k].effect:SetVisible(false)
+            self.items[k].imgGeted:SetVisible(false)
+        end
+        self.items[k].text_day:SetText(string.format("DAY%d", k))
+        self.items[k].isGet = isGet
+        self.items[k].transform.localScale = CS.UnityEngine.Vector3(0, 0, 1)
+        local dt = self.items[k].transform:DOScale(1, 0.05):SetDelay(0.03 * k)
+    end
+
+    if self._isActiveEnd then
+        for k, v in ipairs(self._activityList) do
+            self.items[k].effect:SetVisible(false)
+        end
+    end
+end
+
+function ActivitySignLayer:NewItem(trans)
+    local cls = clearbase:new()
+    cls.transform = trans.transform
+    cls.item     = Bag:CtorComSimpleGoodsUi(trans:Get("prefab_item"))
+    cls.effect   = trans:Get("ui_effect")
+    cls.imgGeted = trans:Get("image_geted")
+    cls.text_day = trans:GetTextComponent("text_day")
+
+    trans:GetButtonComponent("button_click"):AddButtonListener(
+        function()
+            if CTime:IsOpen(self._actInfo.info.Time) then
+                if (cls.isGet) then
+                    local actId = tonumber(self._actInfo.info.id)
+                    Activity:GetItemReq(actId, cls.id)
+                else
+                    SingletonMgr:ShowItemTipsLayer(cls.item, cls.item.data[1], cls.item.data[2], false)
+                end
+            else
+                self:onActiveEnd()
+            end
+        end)
+    return cls
+end
+
+function ActivitySignLayer:LoadHeroSpine(heroId, cfg)
+    if (self.currHeroId ~= heroId) then
+        self.currHeroId = heroId
+        AssetAsyncLoader:LoadSpineAsync(
+            self.__cname,
+            heroId,
+            function(obj)
+                self._spine = self.layer:Get("trans_spine_bg"):AddChild(obj)
+                self._spine:SetPosition(cfg.spinePos[1][1], cfg.spinePos[1][2], cfg.spinePos[1][3], true)
+                self._spine:SetScale(cfg.spineScale[1][1], cfg.spineScale[1][2], cfg.spineScale[1][3])
+                self:FixedSpineOrder()
+            end
+        )
+    end
+end
+
+function ActivitySignLayer:FixedSpineOrder()
+    if self._spine == nil then return end
+
+    local localOrder = Activity.SPINE_ORDER
+    self._spine:GetComponent("SkeletonAnimation"):GetComponent("MeshRenderer").sortingOrder = localOrder
+    local transform = self._spine.transform
+    for i = 1, transform.childCount do
+        local child = transform:GetChild(i - 1).gameObject
+        if string.find(child.name, "_under") ~= nil then
+            set_particle_order(child, localOrder - 1)
+        else
+            set_particle_order(child, localOrder + 1)
+        end
+    end
+end
+
+function ActivitySignLayer:SetBGImage(path)
+    self._bgData = {
+        bgType = "source_icon/operation/BGImage/" .. path
+    }
+    Groble_UIMgr:SetBgData(self._bgData)
+end
+return ActivitySignLayer

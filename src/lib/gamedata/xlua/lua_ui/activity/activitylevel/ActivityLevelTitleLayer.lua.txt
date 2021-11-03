@@ -174,7 +174,7 @@ function ActivityLevelTitleLayer:SetUI()
     local txtDes = self.layer:GetTextComponent("txt_des");
     local txtTitleE = self.layer:GetTextComponent("txt_title_E");
     if(self._activityCfg.ad_Image ~= nil)then--设置广告字
-        Activity:SetImgTitle(imgTitle,rectTitle,self._activityCfg);
+        Activity:SetImgTitle(imgTitle,rectTitle,self._activityCfg.ad_Image);
     end
     txtTitleE:SetText(self._activityCfg.EnglishName);
     if(self._activityCfg.des ~= nil)then

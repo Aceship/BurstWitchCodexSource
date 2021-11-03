@@ -156,7 +156,8 @@ function Hero:IsNewSkin(heroid, skinid)
     if hero.skinids[1] == skinid then return false end
 
     if Item:GetCount(skinid) > 0 then
-        if not Player:CheckRedPoint(4, skinid) then
+        --未获得魔女直接显示
+        if not Player:CheckRedPoint(4, skinid)then
             return true
         end
     end

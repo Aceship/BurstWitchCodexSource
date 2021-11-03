@@ -342,8 +342,10 @@ function Operation:SetHomeTriggerPackageTips(cls, isTipsSell)
     cls.transform:SetVisible(isTipsSell)
     if not isTipsSell then return end
 
+    if cls.txtNumber == nil or cls.txtTime == nil then return end
+
     -- 显示礼包个数
-    cls.txtNumber:SetText(self._validTriggerPackageCnt)
+    cls.txtNumber:SetText(self._validTriggerPackageCnt or 0)
     -- 显示最快结束的礼包的倒计时
     local minExpire = 10000000000
     local data
@@ -359,7 +361,7 @@ function Operation:SetHomeTriggerPackageTips(cls, isTipsSell)
     if cls.day > 0 then
         if cls.showIndex ~= 1 then
             cls.showIndex = 1
-            cls.showValue = cls.day
+            cls.showValue = cls.day            
             cls.txtTime:SetText(string.format(LanguageMgr:GetTextByID(888100), cls.day))
         else
             if cls.showValue ~= cls.day then

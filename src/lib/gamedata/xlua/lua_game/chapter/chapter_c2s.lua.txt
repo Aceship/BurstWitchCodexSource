@@ -257,6 +257,11 @@ function Chapter:ChapterLevelEndReq(success, params)
         UIController:RemoveTimerId()
         return
     end
+    if HeroController:HeroAttrCheck() then
+        UIController:RemoveTimerId()
+        return
+    end
+
     local star = 0
     for i, v in ipairs(params.star) do
         if v then
@@ -282,9 +287,6 @@ function Chapter:ChapterLevelEndReq(success, params)
                 level.max_score =  params.all_score
             end
         end
-    end
-    if HeroController:HeroAttrCheck() then
-        params.all_score = 1
     end
     self._usingtime = params.usingtime
     Network:CallServerScript({c2s.DUNGEON_END_LEVEL_REQ, success, star, 0,
@@ -352,6 +354,7 @@ function Chapter:ChapterLevelEndRep(param)
     --深夜或圣光需要记录关卡用时
     if(self:CurFightModeIsShenYe() or self:CurFightModeIsWorldBoss())then
         UpLoadVideo:SetVideoTime(self._usingtime);
+        UpLoadVideo:SetHeroData(Chapter:GetFightHeroIds(self._inFightLevelId));
     end
 
     if self:CurFightModeIsShenYe() then
@@ -464,7 +467,6 @@ function Chapter:ChapterLevelEndRep(param)
     end
     -- CS.Logger.LogWarning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~:ChapterLevelEndRep~~~~~")
     UIController:HandleFightResult(ret)
-    HttpUpload:UploadFightAttr()
     Chapter:TrackEndBattle(ret)
 end
 function Chapter:GetAllFight(list)

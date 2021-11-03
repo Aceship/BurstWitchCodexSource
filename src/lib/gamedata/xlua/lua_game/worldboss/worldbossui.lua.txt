@@ -31,8 +31,8 @@ function WorldBoss:OpenWorldBossLayer()
             function()
                 UpLoadVideo:SetCurVideoType(UpLoadVideo.VideoType.WorldBoss);
                 core.require("xlua/lua_UI/WorldBoss/WorldBossLayer.txt"):new():show();
-                Groble_UIMgr:HideMoneyUI(0,0);
                 Groble_UIMgr:HideBackBtn();
+                Groble_UIMgr:HideMoneyUI(0,0);
             end, CTime.delayTime);
     end);
 end
@@ -116,4 +116,18 @@ function WorldBoss:SetIcon(img,path)
         return;
     end
     img.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_world_boss", path);
+end
+
+function WorldBoss:SetBossShow(isShow)
+    if(self._boss ~= nil)then
+        if(isShow)then
+            self._boss:SetPositionY(0,true);
+        else
+            self._boss:SetPositionY(5000,true);
+        end
+    end
+    if(self._objWorldBossScene ~= nil)then
+        RenderSettingsMgr:FogEnabled(isShow);
+        --self._objWorldBossScene:SetVisible(isShow);
+    end
 end

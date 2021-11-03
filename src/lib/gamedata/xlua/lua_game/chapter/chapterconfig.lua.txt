@@ -112,7 +112,8 @@ function Chapter:_LoadLevels()
             effectDes       = lua_parse_cfg(v.EffectDes,true),
             levelAddDes     = tonumber(v.LevEffectConditionDes), --关卡加成条件描述
             addEffDes       = tonumber(v.LevEffectDes), --加成效果描述
-            monsterType     = tonumber(v.monstertype)
+            monsterType     = tonumber(v.monstertype),
+            levelAddEnv     = lua_str_split(v.MD_LevEffect,"&",true), --关卡加成
         }
         memoryInfo =lua_str_split(v.Memory_level,"&")
         level.memory_level = tonumber(memoryInfo[1])

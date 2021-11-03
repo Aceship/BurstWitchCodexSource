@@ -38,8 +38,14 @@ end
 
 --获取活动开启的天数
 function Activity:GetCurrActivityDay(id)
-    self.currday = tonumber(CTime:GetOffsetDay()) -tonumber(self:GetoffsetDay(id)) +1
-    return self.currday
+    local offday= self:GetoffsetDay(id)
+    if offday~=nil then
+        self.currday = tonumber(CTime:GetOffsetDay()) -tonumber(offday) +1
+        return self.currday
+        else
+            self.currday=0
+             return self.currday
+    end
 end
 
 function Activity:GetCurActivityLevelId()
@@ -66,19 +72,39 @@ function Activity:GetOpenWarmUpLevelId() --获取第六封印预热的UID
     local cTimeID = Player:GetWarmUpActivityTimeID()
     local isOpen = CTime:IsOpen(cTimeID)
     if isOpen then
-        return Operation.ActivityID.WarmUp;
+        local activityid= Player:GetWarmUpActivityID()
+        local activityCfg =self:GetActivity()
+        return activityCfg[activityid].info.UID
+       -- return Operation.ActivityID.WarmUp;
     end
+
     return 0;
 end
 
 function Activity:GetOpenActivityLevelId() --获取第六封印正式开启的UID
     local typeCfg = Activity:GetActivityLevelTypeCfgByUid(Operation.ActivityID.SixthSeal);
     if(Operation:GetActiveIsOpenByUid(typeCfg.shopUid))then
+        self._activityOpenId=Operation.ActivityID.SixthSealid
         return Operation.ActivityID.SixthSeal;
     end
+    --   typeCfg = Activity:GetActivityLevelTypeCfgByUid(Operation.ActivityID.fullmoon);
+    -- if(Operation:GetActiveIsOpenByUid(typeCfg.shopUid))then
+    --     return Operation.ActivityID.fullmoon;
+    -- end
+   
     return 0;
 end
-
+--获取开启的活动的预告活动id
+function Activity:GetactivityOpenId()
+    local uid=self:GetOpenWarmUpLevelId()
+    if uid >0 then
+        return  self:GetActivityIdByUid(uid)
+    else
+        return 0
+    end
+     
+  
+end
 -------------------------------------------红点相关--------------------------------------------
 --获得第一次打开的特殊关卡ID
 function Activity:GetFirstOpenSpecialLevelId()
@@ -124,16 +150,21 @@ function Activity:GetLevelRedState_Main()
     return false;
 end
 function Activity:GetLevelAllRedState_Main()    --活动正式开启的红点
-    if Player:IsSysFuncOpen(Player.SYS_FUNC.syc_activity_level) then
+    local uid= Activity:GetOpenActivityLevelId()
+    if uid~=0 then
+        local isOpenSign=Activity:GetActivityLevelLayerCfgisOpen(uid ,Activity.ActivityLevelType_Sign)
         if Activity:GetOpenActivityLevelId() > 0 then
+          if isOpenSign then
             return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0)
+          else
+            return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or  (Activity:GetFirstOpenSpecialLevelId() > 0)
+          end
+          --return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0)
         else
             return false
         end
-    else
-        return false
     end
-    
+
 end
 
 

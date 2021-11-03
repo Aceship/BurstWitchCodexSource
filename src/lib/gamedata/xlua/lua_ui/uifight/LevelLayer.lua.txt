@@ -664,6 +664,7 @@ function LevelLayer:showAutoLayer()
             remain = self._level.remain
         end
     end
+    local isActivLevel = Chapter:LevelIsActivity(self._level.id);
     core.require("xlua/lua_UI/UIFight/LevelAutoLayer.txt"):new():show(remain,
         function(clayer)
             self._heroids = Chapter:OnCheckFightTeam(self._teams)
@@ -675,7 +676,7 @@ function LevelLayer:showAutoLayer()
                     end
                 end
             end
-        end,self._level.cost_power, self._isPlot, self._level.id)
+        end,self._level.cost_power, self._isPlot, self._level.id,isActivLevel)
 end
 
 return LevelLayer

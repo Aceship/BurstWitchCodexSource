@@ -115,8 +115,19 @@ function Operation:GetActiveIsOpenByUid(uid) --通过UID获取活动是否开启
             end
         end
     end
-    if cfg.charges == nil then return isOpen end
-
+    if cfg.charges == nil or #cfg.charges <= 0 then return isOpen end
+    local charge = Recharge:GetData(cfg.charges[1]);
+    --重复礼包
+    if(charge.itype == Recharge.ChargeType.Repeat)then
+        local openState = Operation:GetRepeatBagIsOpen(charge);
+        --小田说重复礼包随时间消失, 不受领取状态影响, 第一次进入红点不要了, 吃书开箱, 20
+        if(openState ~= nil)then
+            if(openState)then--未领取完, 返回true
+                return true;
+            end
+            return isOpen;
+        end
+    end
     if cfg.Finished == "1" then
         local _cnt, _chargecfg = 0, nil
         local isSellOut = true
@@ -129,13 +140,12 @@ function Operation:GetActiveIsOpenByUid(uid) --通过UID获取活动是否开启
                 if _chargecfg.stock <= 0 then
                     isSellOut = false
                 else
-                    isSellOut = isSellOut and (_chargecfg.stock - _cnt <= 0)                    
+                    isSellOut = isSellOut and (_chargecfg.stock - _cnt <= 0)
                 end
             end
         end
         if isSellOut then return false end
     end
-    local charge;
     local buyNum = 0;
     local oneGetNum = 0;
     -- 检测是否拥有礼包
@@ -354,4 +364,15 @@ end
 
 function Operation:InitLastBloodCycleLv()
     self._lastBloodCycleLv = Operation:GetBloodCycleLv() or 0;
+end
+
+--活动是否是重复礼包(购买一次分多日领取)
+function Operation:ActivityIsRepeat(uid)
+    local cfg = Operation:GetActiveCfgByUID(uid);
+    --无有效的礼包
+    if(cfg.charges == nil or #cfg.charges <= 0)then
+        return false;
+    end
+    local change = Recharge:GetData(cfg.charges[1]);
+    return change.itype == Recharge.ChargeType.Repeat;
 end

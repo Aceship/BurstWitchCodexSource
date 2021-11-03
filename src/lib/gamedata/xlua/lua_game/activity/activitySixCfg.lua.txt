@@ -1,0 +1,65 @@
+
+----活动预告-----
+Activity = Activity or {}
+-- 初始化配置数据
+
+function Activity:LoadActiveSixthSeal()
+    --读取活动预告配置表
+    self._activeSpTotalConfig = {};
+    for k,v in pairs(CfgLoader:LoadCfg("Active_sixthnotice")) do
+        local data = {
+            id = tonumber(v.id),
+            days = tonumber(v.days),
+            activeid = tonumber(v.activeid),
+            itemAwards = lua_parse_cfg(v.itemAwards,true),
+            Blankscreentext = lua_parse_cfg(v.Blankscreentext,true),
+            UItextTitle = v.UItextTitle,
+            UItextSubtitle =v.UItextSubtitle,
+            UItext1 = v.UItext1,
+            UItext2 = v.UItext2,
+           --Video = v.Video,
+            Video  =lua_str_split(v.Video,"&"),
+            Sound = v.Sound,
+            TitleIcon = lua_str_split(v.TitleIcon,"&"),
+            TitleIcon_effect = v.TitleIcon_effect,
+            Bg_effect = v.Bg_effect,
+        }
+        self._activeSpTotalConfig[data.id] = data
+    end
+    -- 第六封印预告数据
+    self._activeSixthSealCfg = {};
+    
+    self:InitSixthSealRewardData()
+end
+
+--获取第六封印预告数据
+function Activity:GetSixnotice(activeid)
+    if self._activeSixthSealCfg[activeid] == nil then
+        for k,v in pairs(self._activeSpTotalConfig) do
+            if(v.activeid == activeid) then
+                self._activeSixthSealCfg[v.days] = v;
+            end
+        end
+    end 
+    return self._activeSixthSealCfg
+end
+
+function Activity:InitSixthSealRewardData()
+    --添加一个是否可领取的bool添加到一个数据结构表中
+    self._sixthSealRewardData = {}
+    for k, v in pairs(self._activeSpTotalConfig) do
+        if self._sixthSealRewardData[v.activeid] == nil then
+            self._sixthSealRewardData[v.activeid] = {}
+        end
+        self._sixthSealRewardData[v.activeid][v.days] = {
+            isCanGetAward = false,
+            cfg = v
+        }
+    end
+end
+
+function Activity:GetSixthSealRewardArray(activeid)
+    --获取第六封印的包装配置表
+    return self._sixthSealRewardData[activeid];
+end
+

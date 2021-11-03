@@ -9,7 +9,8 @@ local RankFightLayer = class("RankFightLayer", CBaseLayer)
 local BUTTON_TYPE = {
     fight   = "viewInfo/button_fight",
     clock   = "viewInfo/info_clock/button_clock",
-    rule2   = "viewInfo/info_self/image_attr"
+    rule2   = "viewInfo/info_self/image_attr",
+    BtnRule = "btn_rule",
 }
 
 function RankFightLayer:ctor(super)
@@ -63,6 +64,7 @@ function RankFightLayer:onEnter()
         end)
     MidNight:UpdateLastRanking();--此处更新上次排名
     MidNight:UpdateIsNewMaxScore();
+    CS.UnityHelper.NotchfitY(self.layer:Get("btn_rule"));
 end
 
 function RankFightLayer:onExit()
@@ -103,10 +105,13 @@ function RankFightLayer:onButtonClick(buttontype)
             self:doFight()
         end
     elseif buttontype == BUTTON_TYPE.clock then
-        core.require("xlua/lua_UI/HomeScene/rankfight/RankClockLayer.txt"):new():show(Clock.CLOCK_TYPE_SY, 
-            function(clockid)
-                self:refreshClockUi(clockid)
+        core.require("xlua/lua_UI/HomeScene/rankfight/RankClockLayer.txt"):new():show(Clock.CLOCK_TYPE_SY,
+        function(clockid)
+            self:refreshClockUi(clockid)
             end)
+    elseif buttontype == BUTTON_TYPE.BtnRule then
+        --策划需求
+        Groble_UIMgr:ShowRuleTipsLayer(407);
     end
 end
 
@@ -165,8 +170,11 @@ function RankFightLayer:showLayer()
 end
 
 function RankFightLayer:initLevelView()
+    local danId = MidNight:GetDanId()
+    local groupId = MidNight:GetDanGradingCfgById(danId).groupId
+
     self._levelAddition = Chapter:InitLevelAddition(self.layer:Get("viewInfo/trans_level_addition"));
-    self._levelAddition:SetLevelId(tonumber(self._chapter.levelids[1]));
+    self._levelAddition:SetLevelId(400000 + groupId) --tonumber(self._chapter.levelids[1]));
     self._levelAddition:SetUI();
 end
 

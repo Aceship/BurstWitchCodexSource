@@ -108,6 +108,11 @@ function WorldBossLayer:show()
     self:showLayer();
 end
 
+function WorldBossLayer:showLayer()
+    CBaseLayer.showLayer(self);
+    WorldBoss:SetBossShow(true);
+end
+
 --释放
 function WorldBossLayer:onExit()
 
@@ -126,6 +131,7 @@ end
 ---------------------------------------------------------BtnClick------------------------------------------------------------------------------
 
 function WorldBossLayer:OnBtnShopClick()
+    WorldBoss:SetBossShow(false);
     Operation:OpenOperationMainLayer(nil,Operation.ActivityID.ShopWorldBoss,true);
  end
 function WorldBossLayer:OnBtnRankClick()

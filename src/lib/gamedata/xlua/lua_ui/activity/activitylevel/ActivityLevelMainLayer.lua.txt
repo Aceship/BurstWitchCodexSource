@@ -101,6 +101,8 @@ function ActivityLevelMainLayer:InitUI()
     self._imgEnterRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnEnterBtm,"img_enter_red"));
     self._imgSignInRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnSignInBottom,"img_sign_in_red"));
     self._imgTaskRed = self.layer:GetImageComponent(string.format("%s/%s",BTNS.BtnTaskBottom,"img_task_red"));
+    self._BtnSignInBottom = self.layer:Get("trans_container/btn_sign_in_bottom")
+    self._BtnSpecialBtm =  self.layer:Get("trans_container/btn_special_level")
 	--@TextEnd
 
 	self._orientTask = Lottery:InitOrientTaskItem(self.layer:Get("trans_container/trans_orient_task"));
@@ -170,6 +172,7 @@ end
 --释放
 function ActivityLevelMainLayer:onExit()
 
+    Activity:SetActivityId();
     Activity:SetCurSelectUid();
     self._typeCfg = nil;
     self._layerCfg = nil;
@@ -249,8 +252,16 @@ function ActivityLevelMainLayer:SetUI()
         end
     end
 
-    --特殊关卡
-    self:SetSpecialLevelUI();
+    --特殊关卡 
+    if(self._typeCfg.specialType > 0)then
+        self:SetSpecialLevelUI();
+        self._BtnSpecialBtm:SetVisible(true)
+    else
+        self._BtnSpecialBtm:SetVisible(false)
+    end
+       
+    --签到按钮判断 
+    self._BtnSignInBottom:SetVisible(Activity:GetActivityLevelLayerCfgisOpen(self._uid ,Activity.ActivityLevelType_Sign));
     --bg
     --[[if(self._layerCfg.bgPath ~= nil)then
         self._imgMaskBg:LoadSprite(string.format("source_common/ActivityLevel/%s",self._layerCfg.bgPath));

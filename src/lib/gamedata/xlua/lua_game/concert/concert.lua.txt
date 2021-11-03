@@ -1108,7 +1108,7 @@ function Concert:GetHeroByStar(ownHeros,minusHeros)
     if lua_table_len(result) > 0 then
         return result[1]
     end
-    return nil
+    return 0
 end
 
 function Concert:SortHeroByStar(heros)

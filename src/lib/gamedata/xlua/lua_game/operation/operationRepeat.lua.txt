@@ -54,6 +54,7 @@ function Operation:GetRepeatRep(id,pos)
     else
         data.dgot = 1;
     end
+    GEvent:fireEvent(EVENT_NAME.UI_REFRESH_REDTIP);
     GEvent:fireEvent(EVENT_TYPE.UPDATE_GIFT_BAG);
 end
 
@@ -74,7 +75,11 @@ end
 
 function Operation:GetFirstRedState()
     local firstBuyCfg = Recharge:GetFirstBuyCfg();
-    local serverData = Operation:GetRepeatDataById(firstBuyCfg.cfgid);
+    return Operation:GetRepeatBagRedState(firstBuyCfg.cfgid);
+end
+
+function Operation:GetRepeatBagRedState(cfgid)
+    local serverData = Operation:GetRepeatDataById(cfgid);
     local showRed = false;
     if(serverData ~= nil)then
         if(serverData.dgot <= 0)then
@@ -82,6 +87,20 @@ function Operation:GetFirstRedState()
         end
     end
     return showRed;
+end
+
+--获取重复礼包开放状态
+function Operation:GetRepeatBagIsOpen(charge)
+    local giftState = Operation:GetRepeatGetStateById(charge.cfgid);
+    if(giftState ~= Recharge.RepeatState.UnBuy)then--为购买, 走通用逻辑
+        if(giftState == Recharge.RepeatState.Buy)then--购买但未领取结束, 直接打开
+            return true;
+        end
+        if(giftState == Recharge.RepeatState.GetOver)then--领取结束, 直接关闭
+            return false;
+        end
+    end
+    return nil;
 end
 
 c2s[c2s.CHARGE_GET_REPEAT_GIFTS_RES]        = {Operation, Operation.GetRepeatRep}

@@ -257,8 +257,13 @@ function WitchSkinLayer:RegisterHandler()
 
     self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.BUY_SKIN_REP,
         function()
-            --购买皮肤礼包
-            Hero:CutSkinReq(self.m_heroid, self.m_itemcfgs[self.m_currentSelectIndex].id)
+            if(self.m_hero.owner)then
+                --购买皮肤礼包
+                Hero:CutSkinReq(self.m_heroid, self.m_itemcfgs[self.m_currentSelectIndex].id);
+            else
+                self:SelectSkin();
+                self.m_skinItems[self.m_currentSelectIndex]:Get("img_new"):SetVisible(Hero:IsNewSkin(self.m_heroid, tonumber(self.m_skinCfg[self.m_currentSelectIndex].id)))
+            end
         end)
 
     self:addEventListener(EVENT_TYPE.BACK_TIPS_LAYER, self.__cname,
@@ -286,63 +291,56 @@ end
 
 ---切换皮肤时调用
 function WitchSkinLayer:SelectSkin()
-    self.m_gainPathTxt:SetVisible(false) ---关闭礼包获得提示    
-
     self.m_currentSelectIndex = self.m_group.m_CurrentSelectIndex + 1 ---设置当前选中的皮肤Index
     self._curSelectSkinId = tonumber(self.m_skinCfg[self.m_currentSelectIndex].id)
 
     Comment:SetCommentData(Comment.CommentMod.MODULE_SKINS, self._curSelectSkinId, 1) ---此处设置评论ID数据
     Comment:GetModeCommentNumReq(
-        function()
-            self._comps.numberText:SetText(Comment:GetCommentNumStr(self._curSelectSkinId))
-        end)
+    function()
+        self._comps.numberText:SetText(Comment:GetCommentNumStr(self._curSelectSkinId))
+    end)
 
-    self._isOwner = false
-    if self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.NIL then
-        self._isOwner = true
-    else
-        self._isOwner = Item:GetCount(self.m_itemcfgs[self.m_currentSelectIndex].id) > 0
-    end
-    
-    if tonumber(self.m_hero.skinid) == tonumber(self.m_itemcfgs[self.m_currentSelectIndex].id) then
-        self._comps.buyTrans:SetVisible(false)
-        self._comps.wearTrans:SetVisible(true)
-        self._comps.corssTrans:SetVisible(false)
-    else
-        if self._isOwner then
-            self._comps.buyTrans:SetVisible(false)
-            self._comps.wearTrans:SetVisible(false)
-            self._comps.corssTrans:SetVisible(true)
-        else
-            self._comps.buyTrans:SetVisible(false)
-            self._comps.wearTrans:SetVisible(false)
-            self._comps.corssTrans:SetVisible(false)
-            if self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.GOID then
-                -- 皮肤券可购买
-                self._comps.buyTrans:SetVisible(true)
-                
-                local charge = Recharge:GetData(self.m_skinCfg[self.m_currentSelectIndex].buyId)
-                local curPrice = math.ceil(charge.price * charge.discount)
-                self._txtBuyPrice:SetText(curPrice)
-                Item:SetItemIcon(self._imgPriceIcon.transform, charge.priceId)
-                local curNum = Item:GetCount(charge.priceId)
-                if (curNum < curPrice) then
-                    self._txtBuyPrice:SetTextColor(1.00, 0.40, 0.32, 1.00)
-                else
-                    self._txtBuyPrice:SetTextColor(0, 0, 0, 1)
-                end
+    local curSkinId = tonumber(self.m_itemcfgs[self.m_currentSelectIndex].id);
+    local getPatPathStr = "";--获取途径
+    local skinIsGet = Item:GetCount(curSkinId) > 0;--皮肤是否获取
+    local isWear = tonumber(self.m_hero.skinid) == curSkinId;    --是否装备
 
-            elseif self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.ACTIVITY then
-                -- 活动获得
-                self.m_gainPathTxt:SetVisible(true)
-                self.m_gainPathTxt.text = self.m_skinCfg[self.m_currentSelectIndex].buyDes
+    self._comps.wearTrans:SetVisible(isWear and self.m_hero.owner and skinIsGet);
+    self._comps.corssTrans:SetVisible(not isWear and self.m_hero.owner and skinIsGet);
+    self._comps.buyTrans:SetVisible(self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.GOID and not skinIsGet);
+    if(not skinIsGet)then--皮肤未获取
+        if self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.GOID then
+            -- 皮肤券可购买
+            local charge = Recharge:GetData(self.m_skinCfg[self.m_currentSelectIndex].buyId)
+            local curPrice = math.ceil(charge.price * charge.discount)
+            self._txtBuyPrice:SetText(curPrice)
+            Item:SetItemIcon(self._imgPriceIcon.transform, charge.priceId)
+            local curNum = Item:GetCount(charge.priceId)
+            if (curNum < curPrice) then
+                self._txtBuyPrice:SetTextColor(1.00, 0.40, 0.32, 1.00)
             else
-                -- 没有获得途径
+                self._txtBuyPrice:SetTextColor(0, 0, 0, 1)
+            end
+        elseif self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.ACTIVITY then
+            -- 活动获得
+            getPatPathStr = self.m_skinCfg[self.m_currentSelectIndex].buyDes;
+        else
+            -- 没有获得途径(小田说这个类型的都是默认皮肤, 有问题让他开箱)
+            if(not self.m_hero.owner)then
+                getPatPathStr = LanguageMgr:GetTextByID(80000020);
+            end
+        end
+    else
+        if(not self.m_hero.owner)then
+            if(self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.NIL)then
+                getPatPathStr = LanguageMgr:GetTextByID(80000020);
+            else
+                getPatPathStr = LanguageMgr:GetTextByID(80000022);
             end
         end
     end
-
-    local spineId = self._curSelectSkinId
+    self.m_gainPathTxt:SetText(getPatPathStr);
+    local spineId = self._curSelectSkinId;
     if self.m_skinCfg[self.m_currentSelectIndex].buyType == Hero.SKIN_BUY_TYPE.NIL then
         spineId = tonumber(self.m_heroid)
         self._comps.shareTrans:SetVisible(true)

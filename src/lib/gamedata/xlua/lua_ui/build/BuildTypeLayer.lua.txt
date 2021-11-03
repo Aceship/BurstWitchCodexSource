@@ -7,6 +7,7 @@ local BuildTypeLayer = class("BuildTypeLayer", CBaseLayer)
 --按钮
 local BTNS = {
 	BtnCloseBuildSelect = "trans_container/btn_close_build_select",
+    BtnRule = "trans_top_title/btn_rule",
 	--@ButtonEnd
 }
 
@@ -38,7 +39,10 @@ end
 
 --按钮事件
 function BuildTypeLayer:onButtonClick(itype)
-    if(itype == BTNS.BtnCloseBuildSelect)then
+    if(itype == BTNS.BtnRule)then
+        local atkCfg = Build:GetAtkTypeCfgById( self._atkType);
+        Groble_UIMgr:ShowRuleTipsLayer(atkCfg.ruleId);
+    elseif(itype == BTNS.BtnCloseBuildSelect)then
         self:OnBtnCloseBuildSelectClick();
     else--@ButtonCallBackEnd
 	end--RemoveEnd

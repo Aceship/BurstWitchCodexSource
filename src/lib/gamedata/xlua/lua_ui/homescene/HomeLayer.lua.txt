@@ -402,7 +402,6 @@ function HomeLayer:registerButtonEvent()
         },
         [HOME_BUTTON_TYPE.TYPE_Sixth_Seal] = {
             name = "btn_right/Home_ButtonWarmUp",
-            sysid = Player.SYS_FUNC.syc_activity_level
         },
     }
     for k,v in pairs(self.buttons) do
@@ -644,8 +643,8 @@ function HomeLayer:refreshTalkMsg()
     local strs = Talk:GetLastWorldMsg()
     self.txtInfoEmpty:SetVisible(#strs == 0)
     for i = 1, 2 do
-        if strs[i] ~= nil then
-            self.txtChatInfo[i].text = strs[i].sender.name .. ":" .. (strs[i].msgstr or "")
+        if strs[i] ~= nil and strs[i].sender ~= nil then
+            self.txtChatInfo[i].text = (strs[i].sender.name or "") .. ":" .. (strs[i].msgstr or "")
             self._imgtxtbg:SetVisible(true)
         else
             self.txtChatInfo[i].text = ""
@@ -853,77 +852,87 @@ function HomeLayer:SetNewerTaskTime()
     end
     self._txtNewerTaskTime.text = string.format(LanguageMgr:GetTextByID(50027),day);
 end
-function HomeLayer:SetActivityLevelTimeAndEffectAndSprite() --设置预热活动的txt、img和effect
+function HomeLayer:SetActivityLevelTimeAndEffectAndSprite() --设置活动的txt、img和effect
     local actitvityCfg = Activity:GetActivity()
-    local warmUpId = Player:GetWarmUpActivityID()
-    if self._imgWarmUp == nil then
-        self._imgWarmUp = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp");
-    end
-    self._imgWarmUp:LoadAtlasSprite("source_atlas/atlas_home_layer",actitvityCfg[warmUpId].info.Mainpageicon)
-    if self._imgTitle == nil then
-        self._imgTitle = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp/img_title");
-    end
-    if self._txtLableTitle == nil then
-        self._txtLableTitle = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title");
-    end
-    self._txtLableTitle.text = actitvityCfg[warmUpId].info.Name
-    if self._txtLableTitleEn == nil then
-        self._txtLableTitleEn = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title_en");
-    end
-    if self._effectYuGao == nil then
-        self._effectYuGao = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_yugao");
-    end
-    if self._effectIsStart == nil then
-        self._effectIsStart = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_zhengshikaiqi");
-    end
-    self._txtLableTitleEn.text = actitvityCfg[warmUpId].info.EnglishName
-
-    local uid = Activity:GetOpenActivityLevelId();
-    if(self._txtTime == nil)then
-        self._txtTime = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/txt_time");
-    end
-    if uid > 0 then
-        local activityCfg = Operation:GetActiveCfgByUID(uid);
-        local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
-        self._isActivity = Operation:GetActiveIsOpenByUid(typeCfg.uid);
-        if(self._isActivity)then
-            self._countDown = CTime:GetRemainTime(activityCfg.Time);
-        else
-            local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
-            if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
-                if(tempCfg.openConditions[1] == Operation.OpenConditionType.Time)then
-                    self._countDown = CTime:GetRemainTime(tempCfg.openConditions[2]);
-                end
-            end
-        end
-        if self._isActivity then
-            self._effectYuGao:SetVisible(false)
-            self._effectIsStart:SetVisible(true)
-            self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
-            self._txtTime.text = CTime:Time2Str_3(self._countDown)
-        else
-            self._effectYuGao:SetVisible(false)
-            self._effectIsStart:SetVisible(true)
-            self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
-            if(self._countDown~=nil)then
-                if(self._countDown < 0)then
-                    self._countDown = 100;
-                end
-                if(self._countDown >= 0)then
-                    self._txtTime:SetText(LanguageMgr:GetTextByID(901040));
-                else
-                    self._txtTime:SetText(LanguageMgr:GetTextByID(90380));
-                end
-            end
-        end
+    local warmUpId 
+    local auid=Activity:GetOpenActivityLevelId()
+    local noticeid=Activity:GetactivityOpenId()
+    if auid>0 then
+    warmUpId=Activity:GetActivityIdByUid(auid)
     else
-        if Activity:GetOpenWarmUpLevelId() > 0 then
-            self._effectIsStart:SetVisible(false)
-            self._effectYuGao:SetVisible(true)
-            local day = Activity:GetSixthSealDaysRemaining()
-            self._txtTime.text = string.format(LanguageMgr:GetTextByID(50027),day);
+        warmUpId=noticeid
+    end
+    if warmUpId>0 then
+        if self._imgWarmUp == nil then
+            self._imgWarmUp = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp");
+        end
+        self._imgWarmUp:LoadAtlasSprite("source_atlas/atlas_home_layer",actitvityCfg[warmUpId].info.Mainpageicon)
+        if self._imgTitle == nil then
+            self._imgTitle = self.layer:GetImageComponent("btn_right/Home_ButtonWarmUp/img_title");
+        end
+        if self._txtLableTitle == nil then
+            self._txtLableTitle = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title");
+        end
+        self._txtLableTitle.text = actitvityCfg[warmUpId].info.Name
+        if self._txtLableTitleEn == nil then
+            self._txtLableTitleEn = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/label_title_en");
+        end
+        if self._effectYuGao == nil then
+            self._effectYuGao = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_yugao");
+        end
+        if self._effectIsStart == nil then
+            self._effectIsStart = self.layer:Get("btn_right/Home_ButtonWarmUp/img_title/ui103_shaoguang_zhengshikaiqi");
+        end
+        self._txtLableTitleEn.text = actitvityCfg[warmUpId].info.EnglishName
+    
+        local uid = Activity:GetOpenActivityLevelId();
+        if(self._txtTime == nil)then
+            self._txtTime = self.layer:GetTextComponent("btn_right/Home_ButtonWarmUp/txt_time");
+        end
+        if uid > 0 then
+            local activityCfg = Operation:GetActiveCfgByUID(uid);
+            local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
+            self._isActivity = Operation:GetActiveIsOpenByUid(typeCfg.uid);
+            if(self._isActivity)then
+                self._countDown = CTime:GetRemainTime(activityCfg.Time);
+            else
+                local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
+                if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
+                    if(tempCfg.openConditions[1] == Operation.OpenConditionType.Time)then
+                        self._countDown = CTime:GetRemainTime(tempCfg.openConditions[2]);
+                    end
+                end
+            end
+            if self._isActivity then
+                self._effectYuGao:SetVisible(false)
+                self._effectIsStart:SetVisible(true)
+                self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
+                self._txtTime.text = CTime:Time2Str_3(self._countDown)
+            else
+                self._effectYuGao:SetVisible(false)
+                self._effectIsStart:SetVisible(true)
+                self._imgTitle:LoadSprite("source_common/ImageText/text_diliudengyi_zhengshikaiqi")
+                if(self._countDown~=nil)then
+                    if(self._countDown < 0)then
+                        self._countDown = 100;
+                    end
+                    if(self._countDown >= 0)then
+                        self._txtTime:SetText(LanguageMgr:GetTextByID(901040));
+                    else
+                        self._txtTime:SetText(LanguageMgr:GetTextByID(90380));
+                    end
+                end
+            end
+        else
+            if Activity:GetOpenWarmUpLevelId() > 0 then
+                self._effectIsStart:SetVisible(false)
+                self._effectYuGao:SetVisible(true)
+                local day = Activity:GetSixthSealDaysRemaining()
+                self._txtTime.text = string.format(LanguageMgr:GetTextByID(50027),day);
+            end
         end
     end
+   
 end
 
 function HomeLayer:SetXueTime()
@@ -1257,10 +1266,14 @@ function HomeLayer:OnBtnActivityLevelClick()
         self._isDoTodoList = false
         Activity:CloseActivityLevelIsFirstOpen()--打开预告, 清空状态
         Activity:OpenSixthSealLayer();
-    elseif(Activity:GetOpenActivityLevelId() > 0)then
-        self._isDoTodoList = false
-        Activity:SetActivityId(Activity:GetOpenActivityLevelId())
-        Activity:OpenActivityLevelMainLayer();
+    elseif(Activity:GetOpenActivityLevelId() > 0) then
+        if not Groble_UIMgr:ShowUnlockTipsLayer(Activity:GetOpenActivityLevelId()) then
+            return 
+       else
+            self._isDoTodoList = false
+            Activity:SetActivityId(Activity:GetOpenActivityLevelId())
+            Activity:OpenActivityLevelMainLayer();
+        end
     else
         Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032));
     end

@@ -8,7 +8,7 @@ local MainWitchLayer = class("MainWitchLayer", CBaseLayer)
 
 local BUTTON_TYPE = {
     Story           = "container/main_buttons/button_story",          -- 魔女传记
-    Skin            = "container/main_buttons/button_skin",           -- 皮肤
+    Skin            = "container/button_skin",           -- 皮肤
     Evaluate        = "container/main_buttons/button_evaluate",       -- 魔女评价
     SkillShow       = "container/main_buttons/btn_skill_show",   -- 技能展示
     GetWitch        = "container/GetPanel/button_get",                -- 获取魔女碎片
@@ -89,7 +89,7 @@ function MainWitchLayer:initObj()
     self._txtLvTitleE   = self._infoLevel:GetTextComponent("button_lv/text_en")
     self._objLvEffect   = self._infoLevel:Get("obj_effect")
     -- 皮肤
-    self._objSkin       = self.layer:Get("container/main_buttons/button_skin")
+    self._objSkin       = self.layer:Get("container/button_skin")
     self._objSkinTips   = self._objSkin:Get("image_red_tips")
     self._objSkinEffect = self._objSkin:Get("obj_effect")
 
@@ -184,7 +184,7 @@ function MainWitchLayer:onEnter()
     CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_evaluate"))
     CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_story"))
     CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_favour"))
-    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_skin"))
+    CS.UnityHelper.NotchfitY(self.layer:Get("container/button_skin"))
 end
 
 function MainWitchLayer:onExit()

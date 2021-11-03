@@ -22,6 +22,7 @@ function HeroSelectController:ctor(super, trans, showUp)
     self._enabled = true
     self._txtType = HeroTxtType.Name
     self._showUp = showUp
+    self._jumpCallBack = nil;
 end
 
 function HeroSelectController:setHeroId(index, heroId)
@@ -68,6 +69,9 @@ end
 function HeroSelectController:doJumpLayer(heroId)
     self._timerId = nil
     self._enabled = false
+    if(self._jumpCallBack ~= nil)then
+        self._jumpCallBack();
+    end
     uimgr:showMainWitchLayerWithHid(heroId)
 end
 
@@ -201,11 +205,15 @@ function HeroSelectController:onEndDrag(cls, arg)
     end
 end
 
+function HeroSelectController:SetJumpCallBack(callBack)
+    self._jumpCallBack = callBack;
+end
+
 function HeroSelectController:OnDestroy()
     self._btnClick = nil;
     self._onBeginDragClick = nil;
     self._onEndDragClick = nil;
-
+    self._jumpCallBack = nil;
     self._transform = nil
     self._judgePosX = nil
     if self._heroItems ~= nil then

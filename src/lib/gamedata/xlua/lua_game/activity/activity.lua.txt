@@ -16,7 +16,7 @@ function Activity:Ctor()
 	self._getItems = {};
 	self._dialData = {};
 	Activity:CloseActivityLevelTitleLayer();
-
+	Activity:InitData();
 	self._daySignDisplayed = {}
 end
 
@@ -84,25 +84,32 @@ function Activity:GetLvAwardRedState()
     return next(self:GetLevelAwardsList()) ~= nil
 end
 --------------------------------------------------------------
---获得萌新福利可领取列表
-function Activity:GetNewPlayerAwardsList()
-	local canAwardList = {};
-	local logindays = Player:GetLoginDays();
-	for kkk,vvv in pairs(Activity:GetActivity()[tonumber(Operation:GetActiveCfgByUID(Operation.ActivityID.NewWelfare).id)].formCfg) do
-		if logindays >= tonumber(vvv.Count) and self._getItems[tonumber(vvv.id)] == nil  then
-			--等级满足条件并且没有领过
-			canAwardList[tonumber(vvv.id)] = tonumber(vvv.id);
+
+function Activity:_doGetAwardsList(activityId, days)
+    local canAwardList = {}
+    local uid = tonumber(Operation:GetActiveCfgByUID(activityId).id)
+    local id
+    for kkk,vvv in pairs(self:GetActivity()[uid].formCfg) do
+        id = tonumber(vvv.id)
+		if days~=nil then
+			if days >= tonumber(vvv.Count) and self._getItems[id] == nil  and tonumber(vvv.Group) == uid then
+				-- 登录满足条件并且没有领过
+				canAwardList[id] = id
+			end
 		end
-	end
-	return canAwardList;
+    end
+    return canAwardList
 end
 
+--获得萌新福利可领取列表
+function Activity:GetNewPlayerAwardsList()
+    return self:_doGetAwardsList(Operation.ActivityID.NewWelfare, Player:GetLoginDays())
+end
+
+
+-- 新手7日签到
 function Activity:GetNewWelfareRedState()
-	local list = Activity:GetNewPlayerAwardsList()
-	for k,j in pairs(list) do
-		return true;
-	end
-	return false;
+    return next(self:GetNewPlayerAwardsList()) ~= nil
 end
 
 --7日签到是否结束
@@ -115,6 +122,21 @@ function Activity:GetNewWelfareIsOver()
 	end
 	return false;
 end
+
+--万圣节7日签到是否结束
+function Activity:GetNewWelfareIsOver_AcvitySign()
+	if Activity:GetActivitySignDay()==nil then
+		return false;
+	end
+	if(Activity:GetActivitySignDay() >= Activity.NewWelfareMaxDay)then
+		local list = Activity:GetActivityNewPlayerAwardsList();
+		if(list == nil or lua_table_len(list) == 0)then
+			return true;
+		end
+	end
+	return false;
+end
+
 
 --------------------------------------------------------------
 --转盘活动
@@ -274,12 +296,40 @@ function Activity:GetRedStateByActivityId(itype)
             AppMgr:LogInfo("-------------------战令红点-------------------")
 			return true;
 		end
+	elseif(itype == Operation.ActivityID.ThousandHolyNight )then--万圣节签到红点
+		local  awarded = Activity:GetActivitySignDayState()
+   		if  Activity:GetNewWelfareIsOver_AcvitySign()==false then
+			
+			local _days = Activity:GetActivitySignDay()
+
+			if Activity:GetActivitySignDay()==1 and awarded==nil then
+			AppMgr:LogInfo("-------------------万圣节签到红点1-------------------")
+		   return true;
+	    end
+			if _days ~=nil then
+				for i = 1, _days, 1 do
+					for _, v in pairs(awarded) do
+					end
+					if  awarded[i] == nil then
+						AppMgr:LogInfo("-------------------万圣节签到红点2-------------------")
+						return true;
+					end
+				end
+			end
+		-- for i=1,Activity:GetActivitySignDay() do
+			
+		-- end
+   end      
 	elseif itype == Operation.ActivityID.UpgradePackage then
 		-- 等级礼包
 		return self:IsUpgradePackageTips()
 	elseif itype == Operation.ActivityID.ValueSummon then
 		-- 超值召唤
 		return false
+	elseif itype == Operation.ActivityID.SkinGiftBag_1 then
+		--重复礼包
+		local cfg = Operation:GetActiveCfgByUID(itype);
+		return Operation:GetRepeatBagRedState(cfg.charges[1]) or false;
 	end
 	return false;
 end

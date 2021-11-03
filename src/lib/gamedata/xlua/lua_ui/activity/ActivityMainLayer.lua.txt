@@ -181,6 +181,11 @@ function ActivityMainLayer:OnLeftTogClick(isOn,cls)
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/UpgradePackageLayer.txt"):new(self._transUIParent);
             elseif(self._curSelectUid == Operation.ActivityID.ValueSummon)then--超值召唤
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/ValueSummonLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.SkinGiftBag_1)then--皮肤礼包
+                if(self._skinGiftBagLayer == nil)then
+                    self._skinGiftBagLayer = core.require("xlua/lua_UI/UIOperation/SkinGiftBagLayer.txt"):new(self._transUIParent);
+                end
+                self._allLayers[self._curSelectUid] = self._skinGiftBagLayer;
             end
         end
         if(self._allLayers[self._curSelectUid] ~= nil)then
@@ -188,28 +193,16 @@ function ActivityMainLayer:OnLeftTogClick(isOn,cls)
         end
         self:UpdateSelectTogBgPos();
         if(cls.data.ad_Image ~= nil)then--设置广告字
-            Activity:SetImgTitle(self._imgTitle,self._rectTitle,cls.data);
+            Activity:SetImgTitle(self._imgTitle,self._rectTitle,cls.data.ad_Image);
             self._imgTitle.color = CS.UnityEngine.Color(1,1,1,0);
             self._imgTitle:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
-            --[[local tempV;
-            Operation:SetOperationImage(self._imgTitle,cls.data.ad_Image[1],Operation.AD_IMAGE_FILE);--加载广告字图片
-            if(cls.data.ad_Image[4] == nil)then
-                tempV = CS.UnityEngine.Vector2(0.5, 1);
-            else
-                tempV = CS.UnityEngine.Vector2(tonumber(cls.data.ad_Image[4]), tonumber(cls.data.ad_Image[5]));
-            end
-            self._imgTitle.color = CS.UnityEngine.Color(1,1,1,0);
-            self._imgTitle:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
-            self._rectTitle.anchorMax = tempV;
-            self._rectTitle.anchorMin = tempV;
-            self._rectTitle.pivot = tempV;
-            self._rectTitle.anchoredPosition = CS.UnityEngine.Vector2(tonumber(cls.data.ad_Image[2]), tonumber(cls.data.ad_Image[3]));]]--
         end
         if(cls.data.Picture ~= "-1")then
             self:SetBGImage(cls.data.Picture);
         end
         if(cls.data.spine ~= nil)then--设置spine
             self:LoadHeroSpine(cls.data.spine[1],cls.data);
+            self._transSpineBg:SetPosition(0,0,0,true);
         else
             if(self._curModel ~= nil)then
                 self.currHeroId = nil;
@@ -250,6 +243,7 @@ function ActivityMainLayer:onExit()
         v:onBackClick();
     end
     self._allLayers = nil;
+    self._skinGiftBagLayer = nil;
     if(self._GatherLayer ~= nil)then
         self._GatherLayer:onBackClick();
     end
@@ -497,6 +491,10 @@ function ActivityMainLayer:RegisterHandler()
         UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(99000060));
         self:UpdateRed();
     end);
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SET_ACTIVITY_MAIN_LAYER_ANIM,
+            function(animName)
+                self:playAni(animName);
+            end)
 end
 
 return ActivityMainLayer;

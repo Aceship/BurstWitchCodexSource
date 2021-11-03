@@ -1,0 +1,202 @@
+--
+-- author: haosun
+-- date  : 2021-10-25 17:43:19
+-- brief : 通用7日活动签到
+--
+Activity = Activity or {}
+
+-- 初始化配置数据
+function Activity:ActivityComSignCtor()
+    if self._isActivityComSignCtor then
+        return
+    end
+
+    self._isActivityComSignCtor = true
+
+    if self._allActivitySignIds == nil then
+        self._allActivitySignIds = {Operation.ActivityID.ThousandHolyNight}
+    end
+    self._allActivitySignTimeIds = {}
+    local config
+    for _, uid in pairs(self._allActivitySignIds) do
+        config = self:GetActivityByUId(uid)
+        if config ~= nil and config.info.Time ~= 0 then
+            self._allActivitySignTimeIds[uid] = {
+                timeId = config.info.Time,
+                activityId = config.info.id
+            }
+        end
+    end
+end
+
+function Activity:InitActivityComSignAfterLogin()
+    self:ActivityComSignCtor()
+    --初始化
+    self._curSignId = self:GetActivitySginLevelId()
+    --开启的签到活动ID
+    self._lastSignId = self._curSignId
+    self:CalcActivitySignUid()
+
+    -- 数据修正
+    if -1 ~= self._curSignId then
+        if self.timelogindays[self._curSignId] == nil then
+            for uid, data in pairs(self._allActivitySignTimeIds) do
+                if CTime:IsOpen(data.timeId) then
+                    self:NewActivityComSignOpen(data.activityId)
+                    break
+                end
+            end
+        end
+    end
+end
+
+--活动当前开启的签到活动的UID
+function Activity:CalcActivitySignUid()
+    self._curSignUid = -1
+    if -1 ~= self._curSignId then
+        for uid, data in pairs(self._allActivitySignTimeIds) do
+            if data.activityId == self._curSignId then
+                self._curSignUid = uid
+                self.time=data.timeId
+                break
+            end
+        end
+    end
+end
+
+-- 签到数据{
+--     timelogindays = {
+--         [1008(活动id)] =   {   sday= 登录几天,  awarded =   {  [1] = true, [3] = true }   }
+--         [1009(活动id)] =   {   sday= 登录几天,  awarded =   {  [1] = true, [3] = true }   }
+--         [1010(活动id)] =   {   sday= 登录几天,  awarded =   {  [1] = true, [3] = true }   }
+--     }
+-- }
+--获取所有签到活动的数据
+function Activity:SetActivityComSignData(timelogindays)
+    self.timelogindays = timelogindays or {}
+    -- print("万圣节数据")
+    -- table.print(self.timelogindays)
+end
+--初始化签到活动数据表
+function Activity:NewActivityComSignOpen(activityId)
+    if self.timelogindays[activityId] == nil then
+        self.timelogindays[activityId] = {
+            sday = Player:GetLoginDays(),
+            awarded = {}
+        }
+    end
+    -- 重新计算当前开启的签到活动
+    self._curSignId = self:GetActivitySginLevelId()
+    self:CalcActivitySignUid()
+end
+
+-- 获取通用活动签到ID  --开启的签到活动ID
+function Activity:GetActivitySginLevelId()
+    local rst = -1
+    for uid, data in pairs(self._allActivitySignTimeIds) do
+        if CTime:IsOpen(data.timeId) then
+            rst = data.activityId
+            break
+        end
+    end
+    if -1 == rst then
+        AppMgr:LogInfo("============当前没有正在开启的签到活动============")
+    end
+    return rst
+end
+
+-- 获取通用签到的奖励状态数据 awarded =   {  [1] = true, [3] = true }
+function Activity:GetActivitySignDayState()
+    if self.timelogindays == nil then
+        return nil
+    end
+
+    if -1 == self._curSignId then
+        return nil
+    end
+
+    local data = self.timelogindays[self._curSignId]
+    if data == nil then
+        return nil
+    end
+
+    return data.awarded
+end
+
+-- 检查是否有签到活动开启
+function Activity:CheckSignTimeid(timeId)
+    for uid, data in pairs(self._allActivitySignTimeIds) do
+        if data.timeId == timeId and CTime:IsOpen(timeId) then
+            self:NewActivityComSignOpen(data.activityId)
+            break
+        end
+    end
+end
+
+local _max_days = 7
+
+--
+-- 当前签到活动累计天数：万圣节、
+--
+function Activity:GetActivitySignDay()
+    -- 活动未开启
+    if self.timelogindays == nil then
+        return 0
+    end
+
+    if -1 == self._curSignId then
+        return 0
+    end
+
+    -- 活动开启后的天数
+    local activid = self._curSignId
+    if activid ~= nil and self.timelogindays[activid] ~= nil and self.timelogindays[activid].sday ~= nil then
+        -- print((Player:GetLoginDays()- self.timelogindays[activid].sday+1) or 0)
+        return (Player:GetLoginDays() - self.timelogindays[activid].sday + 1) or 0
+    else
+        return 0
+    end
+end
+
+-- 通用活动7天签到弹窗控制
+function Activity:ActivitySignLayer()
+    if -1 == self._curSignId then
+        uimgr:CheckTodoList()
+    else
+        if self._isFirstEnterActivitySevenSign then
+            self._isFirstEnterActivitySevenSign = false
+
+            local list = self:GetActivityNewPlayerAwardsList(self._curSignId)
+            -- 累计登录天数
+            local currday = self:GetActivitySignDay()
+            -- 累计签到的天数
+            local enddays = lua_table_len(self:GetActivitySignDayState())
+            --
+            if next(list) ~= nil and currday > enddays and enddays<_max_days then
+                core.require("xlua/lua_UI/Activity/ActivitySignLayer.txt"):new():show(true)
+            else
+                uimgr:CheckTodoList()
+            end
+        else
+            uimgr:CheckTodoList()
+        end
+    end
+end
+
+-- 获得通用签到福利可领取列表：万圣节
+function Activity:GetActivityNewPlayerAwardsList()
+    if -1 == self._curSignId then
+        return nil
+    end
+
+    return self:_doGetAwardsList(self._curSignUid, self:GetActivitySignDay())
+end
+
+-- 通用活动签到：万圣节
+function Activity:GetNewWelfareRedStatewsj()
+    return next(self:GetActivityNewPlayerAwardsList()) ~= nil
+end
+
+function Activity:ActivitySignLayerConfig()
+    return self:GetActivityByUId(self._curSignUid)
+end

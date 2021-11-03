@@ -112,6 +112,8 @@ function ActiveGatherLayer:OnBtnItemClick(cfg)
             Activity:OpenChessBoardMainLayer();
         elseif(cfg.uid == Operation.ActivityID.Dial)then  --转盘
             core.require("xlua/lua_UI/Activity/DialLayer.txt"):new():show();
+        elseif(cfg.uid == Operation.ActivityID.ThousandHolyNight)then  --萬聖節簽到
+            core.require("xlua/lua_UI/Activity/ActivitySignLayer.txt"):new():show(false);
         end
     elseif(cfg.itype == Activity.JobType.JobOperation)then
         if(cfg.uid == Operation.ActivityID.BloodCycle)then

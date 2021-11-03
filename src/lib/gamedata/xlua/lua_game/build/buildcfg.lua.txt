@@ -337,6 +337,7 @@ function Build:LoadAtkTypeCfg()
             previewHeroId = tonumber(cfg.monv_id),
             initPointNum = tonumber(cfg.initial_points),
             buildUnlockLv = lua_str_split(cfg.buildLevel_unlock,"|",true),
+            ruleId = tonumber(cfg.rule),
         }
         self._atkTypeCfg[id] = data;
     end

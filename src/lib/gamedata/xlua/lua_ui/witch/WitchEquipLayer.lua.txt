@@ -11,6 +11,9 @@ local TogUiPath = {
     --[2] = "xlua/lua_UI/UIEquip/EquipSelectLayer.txt",
     --[3] = "xlua/lua_UI/UIEquip/EquipSuitLayer.txt",
 }
+local BTNS = {
+    BtnRule = "info_attrs/attrs/IntroPanel/text_name/btn_rule",
+}
 local Attr   = {
     CAttr.TYPE_HP,
     CAttr.TYPE_ATK,
@@ -19,6 +22,7 @@ local Attr   = {
     CAttr.TYPE_DMG,
 }
 
+local ruleId = 7001;
 
 function WitchEquipLayer:ctor(super)
     CBaseLayer.ctor(self)
@@ -129,7 +133,7 @@ function WitchEquipLayer:onEnter()
     self:initTog()
     self.togIndex = nil
     self:initObj()
-
+    self:registerButtonEvent(BTNS);
     self.attrActive = nil
     self:setAttrActive(true, true)
 
@@ -142,6 +146,12 @@ function WitchEquipLayer:onEnter()
     end)
 
     CS.UnityHelper.NotchfitY(self.layer:Get("info_attrs"))
+end
+
+function WitchEquipLayer:onButtonClick(buttontype)
+    if buttontype == BTNS.BtnRule then
+        Groble_UIMgr:ShowRuleTipsLayer(ruleId);
+    end
 end
 
 function WitchEquipLayer:show(heroid)
@@ -162,7 +172,6 @@ end
 
 function WitchEquipLayer:doUpdateHero(heroid)
     self._heorid = heroid
-    local cfg = Hero:GetCfg(heroid)
     self._hero = Hero:GetHero(heroid)
     if(self.introInfo == nil)then
         self.introInfo = Hero:NewIntroInfo(self.layer:Get("info_attrs/attrs/IntroPanel"));

@@ -5,35 +5,35 @@
     {#each Array(6) as _,i}
         {#if starnum<=i}
             <button class="starbutton" on:click={starclick(i+1)}>
-                <img class="star starinactive" alt="star">
+                <img class="star" src="./data/img/ui/rarity/StarInactive.png" alt="star">
             </button>
-            {:else}
+        {:else}
             {#if i<parseInt(chara.Quality)-2}
-                    <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
-                        <img class="star staractive" alt="star">
-                    </button>
-                {:else}
-                    <button class="starbutton" on:click={starclick(i+1)}>
-                        <img class="star staractive" alt="star">
-                    </button>
+                <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
+                    <img class="star" src="./data/img/ui/rarity/StarActive.png" alt="star">
+                </button>
+            {:else}
+                <button class="starbutton" on:click={starclick(i+1)}>
+                    <img class="star" src="./data/img/ui/rarity/StarActive.png" alt="star">
+                </button>
             {/if}
         {/if}
     {/each}
 </div>
 <div class="charactercard">
     <img class="cardpic" src={card} alt="">
-    <img class="cardframe" src="/data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-    <img class="elementframe" alt="{element}">
-    <img class="element element-{element}" alt="{element}">
-    <img class="typeframe" alt="{attacktype}">
-    <img class="type type-{attacktype}" alt="{attacktype}">
+    <img class="cardframe" src="./data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+    <img class="elementframe" src="./data/img/ui/element/elementframe1.png" alt="{element}">
+    <img class="element" src="./data/img/ui/element/element{element}.png" alt="{element}">
+    <img class="typeframe" src="./data/img/ui/element/elementframe1.png" alt="{attacktype}">
+    <img class="type" src="./data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
 </div>
 
 <div class="characteravatar">
     <img class="displaypic" src={avatar} alt="">
-    <img class="avatarframe" src="/data/img/ui/chara_frame/avatarframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-    <img class="elementframe" alt="{element}">
-    <img class="element element-{element}" alt="{element}">
+    <img class="avatarframe" src="./data/img/ui/chara_frame/avatarframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+    <img class="elementframe" src="./data/img/ui/element/elementframe1.png" alt="{element}">
+    <img class="element" src="./data/img/ui/element/element{element}.png" alt="{element}">
 </div>
 <div class="charainfo">
     {charaName}
@@ -44,15 +44,15 @@
     {#each charaskill as eachskill,i}
         <div>
             <div style="background:#444;margin:10px;padding:10px" >
-                <img class="" style="width: 50px;" src ='/data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                <img class="" style="width: 50px;" src ='./data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
                 {#if eachskill.skillshow.length==1}
-                        {lang.cn[eachskill.skillshow[0].skill_name]}
-                        <br>
-                        {lang.cn[eachskill.skillshow[0].SkillInfo]}
-                    {:else}
-                        {lang.cn[eachskill.skillshow[starnum-1].skill_name]}
-                        <br>
-                        {lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}
+                    {lang.cn[eachskill.skillshow[0].skill_name]}
+                    <br>
+                    {lang.cn[eachskill.skillshow[0].SkillInfo]}
+                {:else}
+                    {lang.cn[eachskill.skillshow[starnum-1].skill_name]}
+                    <br>
+                    {lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}
                 {/if}
             </div>
         </div>
@@ -62,10 +62,10 @@
     <h1>Talents</h1>
     {#each charatalent as eachtalent,i}
         <div style="background:#444;margin:10px;padding:10px" >
-            <img class="" style="width: 50px;" src ='/data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+            <img class="" style="width: 50px;" src ='./data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
             <div class="starContainer starHorizontal">
                 {#each Array(parseInt(eachtalent.talentdata.Star)-1) as _,sn}
-                    <img class="star staractive starSmall" alt="star">
+                    <img class="star starSmall" src="./data/img/ui/rarity/StarActive.png" alt="star">
                 {/each}
             </div>
             <br>
@@ -89,7 +89,7 @@
     data.charaTalent = ParseCSVtoObject(_talent)
     lang.cn = ParseLuaLang(_localization_CHS)
     
-    let chara = data.cardCharacter[3]
+    let chara = data.cardCharacter[0]
     let charaName = chara.Name_EN
     let id = chara.id+"0001"
     let element = chara.attri_type
@@ -100,10 +100,10 @@
     $: console.log(starnum)
 
     console.log(chara.OrgSkills)
-    let avatar = "/data/img/source_avatar/hero_main/head_"+id+".png"
+    let avatar = "./data/img/source_avatar/hero_main/head_"+id+".png"
 
     // console.log(cardCharacter)
-    let card = "/data/img/source_avatar/hero/card_"+id+".png"
+    let card = "./data/img/source_avatar/hero/card_"+id+".png"
 
     const starclick = num=>() => {
         starnum = num
@@ -298,12 +298,6 @@
         pointer-events: none;
         transition: filter 0.2s;
     }
-    .starContainer .staractive{
-        content: url("/data/img/ui/rarity/StarActive.png");
-    }
-    .starContainer .starinactive{
-        content: url("/data/img/ui/rarity/StarInactive.png");
-    }
     .starContainer .starbutton{
         width: 38px;
         background: none;
@@ -324,43 +318,6 @@
         margin:-5px !important;
     }
 
-    .elementframe{
-        content: url("/data/img/ui/element/elementframe1.png");
-    }
-    .element-0{
-        content: url("/data/img/ui/element/element0.png");
-    }
-    .element-1{
-        content: url("/data/img/ui/element/element1.png");
-    }
-    .element-2{
-        content: url("/data/img/ui/element/element2.png");
-    }
-    .element-3{
-        content: url("/data/img/ui/element/element3.png");
-    }
-
-    .typeframe{
-        content: url("/data/img/ui/element/elementframe1.png");
-    }
-    .type-1{
-        content: url("/data/img/ui/class/comm_atk_1.png");
-    }
-    .type-2{
-        content: url("/data/img/ui/class/comm_atk_2.png");
-    }
-    .type-3{
-        content: url("/data/img/ui/class/comm_atk_3.png");
-    }
-    .type-4{
-        content: url("/data/img/ui/class/comm_atk_4.png");
-    }
-    .type-5{
-        content: url("/data/img/ui/class/comm_atk_5.png");
-    }
-    .type-6{
-        content: url("/data/img/ui/class/comm_atk_6.png");
-    }
     
 
 </style>

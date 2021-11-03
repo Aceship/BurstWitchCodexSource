@@ -347,6 +347,26 @@ function Hero:CalcEquipAddAttr(hero)
     return attrs
 end
 
+
+--
+-- Brief 装备附加属性（武器和符石）
+--
+function Hero:ReCalcEquipAddAttr(hero)
+    local attrs = CAttr:NewAttrs()
+    local equip
+    for _, uid in pairs(hero.equipids) do
+        if uid ~= nil and uid ~= 0 then
+            equip = Equip:GetEquip(uid)
+            if equip ~= nil then
+                CAttr:AddAttrs(attrs, Equip:CalcEquipAttr(equip, equip.level))
+                CAttr:AddAttrs(attrs, Equip:CalcSecondAttr(equip))
+            end
+        end
+    end
+
+    return attrs
+end
+
 --
 -- Brief: 计算魔女被动属性
 --
@@ -457,7 +477,59 @@ function Hero:CalcTempFightAttr(heroId)
     local tempAttrs = CAttr:NewAttrs()
     local hero = Hero:GetHero(heroId)
 
-    CAttr:AddAttrs(tempAttrs, self:CalcAttr(hero))
+    local attrs = CAttr:NewAttrs()
+
+    -- cfg attr
+    local cfgAttrs = self:GetCfgAttrs(hero.id)
+    CAttr:AddAttrs(attrs, cfgAttrs)
+
+    -- level
+    local lvAttrs = self:CalcLevelAddAttr(hero.id, hero.level)
+    CAttr:AddAttrs(attrs, lvAttrs)
+
+    -- step
+    local stepAttrs = self:CalcStepAddAttr(hero.id, hero.step)
+    CAttr:AddAttrs(attrs, stepAttrs)
+
+    -- star
+    local starAttrs = self:CalcStarAddAttr(hero.id, hero.star)
+    CAttr:AddAttrs(attrs, starAttrs)
+
+    -- star_mark
+    local starMarkAttrs = self:CalcMarkAddAttr(hero.id, hero.star, hero.star_mark)
+    CAttr:AddAttrs(attrs, starMarkAttrs)
+
+    -- equip
+    local equipAttrs = self:ReCalcEquipAddAttr(hero)
+    CAttr:AddAttrs(attrs, equipAttrs)
+
+    local deskillAttrs = self:CalcDeskillAttr(hero)
+    CAttr:AddAttrs(attrs, deskillAttrs)
+
+    local buildAttrs = lua_deep_copy(Build:GetBuildLvDataByAtkType(tonumber(hero.config.AtkType)).attrAddsEx or {})
+    for i, v in pairs(buildAttrs) do
+        buildAttrs[i] = v / 33
+    end
+    CAttr:AddAttrs(attrs, buildAttrs)
+
+    if(next(hero.intimacy_data))then
+        if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_favour) and hero.intimacy_data.raise > 0 then
+            local sublimationAttrs = self:CalcSublimationAddAttr(hero)
+            CAttr:AddAttrs(attrs, sublimationAttrs)
+        end
+    end
+
+    --图鉴加成为全体魔女
+    local archiveAddAttrs = self:CalcArchiveAddAttr()
+    CAttr:AddAttrs(attrs, archiveAddAttrs)
+
+    -- fetter
+    if Player:IsSysFuncOpen(Player.SYS_FUNC.sys_fetter) or hero.other == true then
+        local fetterAttrs = self:CalcFetterAttr(hero)
+        CAttr:AddAttrs(attrs, fetterAttrs)
+    end
+
+    CAttr:AddAttrs(tempAttrs, attrs)
 
     local cfg
     for attrtype , value in pairs(tempAttrs) do

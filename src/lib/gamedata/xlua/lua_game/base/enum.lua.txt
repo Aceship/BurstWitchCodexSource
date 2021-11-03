@@ -267,6 +267,7 @@ EVENT_NAME = {
     Concert_StartShow = "Concert_StartShow", --开始演奏
     Concert_EndShow = "Concert_EndShow",
     Concert_GetNewBook = "Concert_GetNewBook", --获得新的乐谱
+    SET_ACTIVITY_MAIN_LAYER_ANIM = "SET_ACTIVITY_MAIN_LAYER_ANIM",--设置活动主界面动画
 }
 
 local Color = CS.UnityEngine.Color

@@ -11,13 +11,12 @@ local _instance = nil
 local _main = nil
 
 function CameraController:InitCameraController()
-    if self._inited then return end
+    if _instance ~= nil then return end
     _instance = CS.CameraBehaviour.Instance
     self._prefab    = _instance:Creator("prefab_comframeWork/fight_preload/FightInfo")
     self._cameraObj = self._prefab:Get("Camera").gameObject
     CS.BehaviourMgr.AddAnimatorKeyFrameCall(self._cameraObj, self)
     self._prefab:SetVisible(false)
-    self._inited = true
     self._camTransData = {};
     self._curCamPosType = nil;
     self:SaveCamTransformData(CamPosType.Normal);
