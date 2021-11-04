@@ -98,7 +98,6 @@ import Characteravatar from "./components/characteravatar.svelte";
 
     const selectWitch = () => {
         open(witchselection,{
-                message:"",
                 changeChara
             },{
                 styleBg: {
