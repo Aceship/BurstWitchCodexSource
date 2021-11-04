@@ -61,10 +61,10 @@
                     <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
                     {#if eachskill.skillshow.length==1}
                         <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
-                        <div>{lang.cn[eachskill.skillshow[0].SkillInfo]}</div>
+                        <div>{@html ChangeDescriptionformat(lang.cn[eachskill.skillshow[0].SkillInfo])}</div>
                     {:else}
                         <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
-                        <div>{lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}</div>
+                        <div>{@html ChangeDescriptionformat(lang.cn[eachskill.skillshow[starnum-1].SkillInfo])}</div>
                     {/if}
                 </div>
             </div>
@@ -81,7 +81,7 @@
                     {/each}
                 </div>
                 <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
-                <div>{lang.cn[eachtalent.talentdata.desc]}</div>
+                <div>{@html ChangeDescriptionformat(lang.cn[eachtalent.talentdata.desc])}</div>
             </div>
         {/each}
     </div>
@@ -179,6 +179,18 @@
         });
     }
     
+    function ChangeDescriptionformat(desc) {
+        console.log(desc)
+        desc = desc.replace(/<color=\#(.+?)>(.+?)<\/color>/g, function(m, rtf, text) {
+            console.log(rtf)
+            return `<span class="" style="color:#${rtf}">${text}</span>`
+        })
+        desc = desc.replace(/<#(.+?)#>/g, function(m, text) {
+            // if(text ="%d") text = "Damage"
+            return `<span class="" style="color:#FF5522">${text}</span>`
+        })
+        return desc
+    }
 </script>
 
 <style>
