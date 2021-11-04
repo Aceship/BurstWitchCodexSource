@@ -1,6 +1,3 @@
-
-
-
 <div class="starContainer">
     {#each Array(6) as _,i}
         {#if starnum<=i}
@@ -21,23 +18,19 @@
     {/each}
 </div>
 <div class="charactercard">
-    <img class="cardpic" src={card} alt="">
+    <img class="cardpic" src="./data/img/source_avatar/hero/card_{charaId}.png" alt="">
     <img class="cardframe" src="./data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-    <img class="elementframe" src="./data/img/ui/element/elementframe1.png" alt="{element}">
-    <img class="element" src="./data/img/ui/element/element{element}.png" alt="{element}">
+    <img class="elementframe" src="./data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+    <img class="element" src="./data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
     <img class="typeframe" src="./data/img/ui/element/elementframe1.png" alt="{attacktype}">
     <img class="type" src="./data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
 </div>
-<div class="characteravatar">
-    <Modal>
-        <Content quality={quality-1}/>
-    </Modal>
-</div>
+<button class="invisibleButton" on:click={selectWitch}>
+    <Characteravatar chara={chara} quality={quality} starnum={starnum} withname={false}>
+    </Characteravatar>
+</button>
 
 
-<div class="charainfo">
-    {charaName}
-</div>
 
 <div style="background:#333;padding:1px 5px;margin:5px">
     <h1>Skills</h1>
@@ -74,10 +67,14 @@
 
 
 <script>
-    import Content from './modalselect.svelte';
-    import Modal from 'svelte-simple-modal';
+    import { getContext } from "svelte";
+    const {open} = getContext('simple-modal');
     import { dataglobal , langglobal , charaGlobal } from './js/stores.js';
     import './css/maincodex.css'
+    import witchselection from './witchselection.svelte';
+
+    import characteravatar from './components/characteravatar.svelte'
+import Characteravatar from "./components/characteravatar.svelte";
 
     let data = $dataglobal
     let lang = $langglobal
@@ -85,27 +82,53 @@
     let chara = $charaGlobal
     let charaName = chara.Name_EN
     let charaId = chara.id+"0001"
-    let element = chara.attri_type
     let attacktype = chara.AtkType
     let starnum = parseInt(chara.Star)
     let quality = parseInt(chara.Quality) 
+    let charaskill = []
+    let charatalent = []
+
+    changeChara($charaGlobal)
 
     console.log(chara.OrgSkills)
-    let avatar = "./data/img/source_avatar/hero_main/head_"+charaId+".png"
-
-    // console.log(cardCharacter)
-    let card = "./data/img/source_avatar/hero/card_"+charaId+".png"
 
     const starclick = num=>() => {
         starnum = num
     }
 
+    const selectWitch = () => {
+        open(witchselection,{
+                message:"",
+                changeChara
+            },{
+                styleBg: {
+                    background: '#000000aa'
+                },
+                styleWindow:{
+                    background: '#222222',
+                    width: '105vw',
+                    height: 'calc( 100vh - 5em )',
+                    'text-align' : 'center'
+                }
+            }
+        );
+    };
 
+    function changeChara(character) {
+        chara = character
+        charaId = chara.id+"0001"
+        attacktype = chara.AtkType
+        starnum = parseInt(chara.Star)
+        quality = parseInt(chara.Quality) 
+        updateSkill() 
+        updateTalent()
+    }
     ////Character stuff 
 
     //Skill
-    let charaskill = []
-    chara.OrgSkills.forEach(element => {
+    function updateSkill() {
+        charaskill = []
+        chara.OrgSkills.forEach(element => {
         let skillObject = {
             icon:element
         }
@@ -116,17 +139,125 @@
 
         charaskill.push(skillObject)
     });
+    }
+    
 
     //Talent
-    let charatalent = []
-    chara.NewTalentID.forEach(element => {
-        let talentObject = {}
+    function updateTalent() {
+        charatalent = []
+        chara.NewTalentID.forEach(element => {
+            let talentObject = {}
 
-        talentObject.talentdata = data.charaTalent.filter(obj =>{
-            return obj.id == element[1]
-        })[0]
-        console.log(talentObject)
-        talentObject.icon = talentObject.talentdata.Talent_ICON
-        charatalent.push(talentObject)
-    });
+            talentObject.talentdata = data.charaTalent.filter(obj =>{
+                return obj.id == element[1]
+            })[0]
+            console.log(talentObject)
+            talentObject.icon = talentObject.talentdata.Talent_ICON
+            charatalent.push(talentObject)
+        });
+    }
+    
 </script>
+
+<style>
+    :global(body) {
+        background-color: #222;
+        color: #dddddd;
+        transition: background-color 0.3s
+    }
+    .charainfo{
+        display: inline-flex;
+    }
+    .charactercard{
+        position: relative;
+        display: inline-flex;
+        justify-content: center;
+
+        width: 120px;
+        height: 220px;
+        margin : 0px 0px 0px 0px;
+        padding: 0px 0px 8px 0px;
+    }
+    .charactercard .cardpic{
+        width: 100px;
+        object-fit: scale-down;
+        margin: -5px 0px 0px 0px;
+    }
+    .charactercard .cardframe{
+        position: absolute;
+        width: 120px;
+        margin: 0px 0px 0px 0px;
+        pointer-events: none;
+    }
+    .charactercard .elementframe{
+        position: absolute;
+        width: 50px;
+        left: 5px;
+        bottom: 10px;
+    }
+    .charactercard .element{
+        position: absolute;
+        width: 44px;
+        left: 7px;
+        bottom: 13px;
+    }
+    .charactercard .typeframe{
+        position: absolute;
+        width: 50px;
+        right: 5px;
+        bottom: 10px;
+    }
+    .charactercard .type{
+        position: absolute;
+        width: 44px;
+        right: 7px;
+        bottom: 13px;
+    }
+
+    .starContainer{
+        display:inline-flex;
+        flex-direction: column-reverse;
+    }
+    .starHorizontal{
+        flex-direction: row;
+    }
+
+    .starContainer .star{
+        display: flex;
+        width:50px;
+        margin:-10px;
+        pointer-events: none;
+        transition: filter 0.2s;
+    }
+    .starContainer .starbutton{
+        width: 38px;
+        background: none;
+        border:none;
+        cursor:pointer;
+        border-radius: 50%;
+    }
+    .starContainer .starunbutton{
+        cursor:not-allowed;
+    }
+
+    .starContainer .starbutton:hover .star{
+        filter: drop-shadow(0 0 2px #ffffff);
+    }
+
+    .starSmall{
+        width:30px !important;
+        margin:-5px !important;
+    }
+
+    .invisibleButton{
+        background: #00000000;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, filter 0.2s;
+    }
+
+    .invisibleButton:hover{
+        filter: drop-shadow(1px 1px 2px #ddd);
+        transform: scale(1.1);
+    }
+</style>

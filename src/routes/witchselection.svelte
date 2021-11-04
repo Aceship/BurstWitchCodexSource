@@ -2,8 +2,11 @@
     import { getContext } from 'svelte';
     import { dataglobal , langglobal , charaGlobal } from './js/stores.js';
     import './css/maincodex.css'
+
+    import Characteravatar from './components/characteravatar.svelte'
     let data = $dataglobal
     let lang = $langglobal
+    export let changeChara;
 
     const { close } = getContext('simple-modal');
 
@@ -11,6 +14,7 @@
         $charaGlobal = data.cardCharacter.find(char=>{
             return char.id == num
         })
+        changeChara($charaGlobal)
         close();
     }
 </script>
@@ -18,15 +22,22 @@
 <p>
     {#each data.cardCharacter as chara,i}
         <button class='invisibleButton' on:click="{witchid(chara.id)}">
-            <div class="characteravatar">
-                <img class="displaypic" src="./data/img/source_avatar/hero_main/head_{chara.id+"0001"}.png" alt={chara.id+"0001"} >
-                <img class="avatarframe" src="./data/img/ui/chara_frame/avatarframe_{parseInt(chara.Quality)-1}.png" alt="">
-                <img class="elementframe" src="./data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-                <img class="element" src="./data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
-            </div>
+            <Characteravatar chara={chara} quality={chara.Quality} starnum={chara.Quality}>
+            </Characteravatar>
         </button>
     {/each}
 </p>
 
 <style>
+    .invisibleButton{
+        background: #00000000;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, filter 0.2s;
+    }
+
+    .invisibleButton:hover{
+        filter: drop-shadow(1px 1px 2px #ddd);
+        transform: scale(1.1);
+    }
 </style>
