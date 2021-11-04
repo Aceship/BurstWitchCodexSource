@@ -1,7 +1,14 @@
 <svelte:head>
-    <meta property="og:image" content="../data/img/source_avatar/hero/body_{chara.id}.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <title>
+        {chara.Name_EN} - Burst Witch Codex
+    </title>
+    <meta property="og:title" content="Burst Witch Codex - {chara.Name_EN}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="../data/img/source_avatar/hero_book/body_{chara.id}.png" />
+    <meta name="twitter:card" content="summary_large_image">
+
+    <meta name="description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
+    <meta name="og:description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
 </svelte:head>
 
 
@@ -260,6 +267,8 @@
         background: #00000000;
         border: none;
         cursor: pointer;
+        text-decoration: none;
+        color: inherit;
         transition: transform 0.2s, filter 0.2s;
     }
 

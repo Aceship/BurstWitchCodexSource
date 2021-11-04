@@ -33,6 +33,8 @@
         background: #00000000;
         border: none;
         cursor: pointer;
+        text-decoration: none;
+        color: inherit;
         transition: transform 0.2s, filter 0.2s;
     }
 
