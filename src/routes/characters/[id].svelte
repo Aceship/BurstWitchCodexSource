@@ -1,0 +1,263 @@
+<div class="starContainer">
+    {#each Array(6) as _,i}
+        {#if starnum<=i}
+            <button class="starbutton" on:click={starclick(i+1)}>
+                <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
+            </button>
+        {:else}
+            {#if i<parseInt(chara.Quality)-2}
+                <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
+                    <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                </button>
+            {:else}
+                <button class="starbutton" on:click={starclick(i+1)}>
+                    <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                </button>
+            {/if}
+        {/if}
+    {/each}
+</div>
+<div class="charactercard">
+    <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
+    <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+    <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+    <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+    <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
+    <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+</div>
+<button class="invisibleButton" on:click={selectWitch}>
+    <Characteravatar chara={chara} quality={quality} starnum={starnum} withname={false}>
+    </Characteravatar>
+</button>
+
+
+
+<div style="background:#333;padding:1px 5px;margin:5px">
+    <h1>Skills</h1>
+    {#each charaskill as eachskill,i}
+        <div>
+            <div style="background:#444;margin:10px;padding:10px" >
+                <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                {#if eachskill.skillshow.length==1}
+                    <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
+                    <div>{lang.cn[eachskill.skillshow[0].SkillInfo]}</div>
+                {:else}
+                    <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
+                    <div>{lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}</div>
+                {/if}
+            </div>
+        </div>
+    {/each}
+</div>
+<div style="background:#333;padding:1px 5px;margin:5px">
+    <h1>Talents</h1>
+    {#each charatalent as eachtalent,i}
+        <div style="background:#444;margin:10px;padding:10px" >
+            <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+            <div class="starContainer starHorizontal">
+                {#each Array(parseInt(eachtalent.talentdata.Star)-1) as _,sn}
+                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                {/each}
+            </div>
+            <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+            <div>{lang.cn[eachtalent.talentdata.desc]}</div>
+        </div>
+    {/each}
+</div>
+
+
+<script>
+    import { dataglobal , langglobal , charaGlobal } from '../js/stores.js';
+    import { getContext } from "svelte";
+    const {open} = getContext('simple-modal');
+    import witchselection from '../witchselection.svelte';
+
+    import Characteravatar from "../components/characteravatar.svelte";
+    import { page } from '$app/stores';
+    let id = $page.params.id;
+
+    let data = $dataglobal
+    let lang = $langglobal
+
+    console.log(id)
+    let chara = $dataglobal.cardCharacter.find(character=>{
+            return character.Name_EN == id.replace("_"," ")
+        })
+    let charaName = chara.Name_EN
+    let charaId = chara.id+"0001"
+    let attacktype = chara.AtkType
+    let starnum = parseInt(chara.Star)
+    let quality = parseInt(chara.Quality) 
+    let charaskill = []
+    let charatalent = []
+
+    changeChara(chara)
+
+    const starclick = num=>() => {
+        starnum = num
+    }
+
+    const selectWitch = () => {
+        open(witchselection,{
+                changeChara
+            },{
+                styleBg: {
+                    background: '#000000aa'
+                },
+                styleWindow:{
+                    background: '#222222',
+                    width: '105vw',
+                    height: 'calc( 100vh - 5em )',
+                    'text-align' : 'center'
+                }
+            }
+        );
+    };
+
+    function changeChara(character) {
+        chara = character
+        charaId = chara.id+"0001"
+        attacktype = chara.AtkType
+        starnum = parseInt(chara.Star)
+        quality = parseInt(chara.Quality) 
+        updateSkill() 
+        updateTalent()
+    }
+    ////Character stuff 
+
+    //Skill
+    function updateSkill() {
+        charaskill = []
+        chara.OrgSkills.forEach(element => {
+        let skillObject = {
+            icon:element
+        }
+
+        skillObject.skillshow = data.witchskillshow.filter(obj =>{
+            return obj.id ==element
+        })
+
+        charaskill.push(skillObject)
+    });
+    }
+    
+
+    //Talent
+    function updateTalent() {
+        charatalent = []
+        chara.NewTalentID.forEach(element => {
+            let talentObject = {}
+
+            talentObject.talentdata = data.charaTalent.filter(obj =>{
+                return obj.id == element[1]
+            })[0]
+            // console.log(talentObject)
+            talentObject.icon = talentObject.talentdata.Talent_ICON
+            charatalent.push(talentObject)
+        });
+    }
+    
+</script>
+
+<style>
+    :global(body) {
+        background-color: #222;
+        color: #dddddd;
+        transition: background-color 0.3s
+    }
+    .charainfo{
+        display: inline-flex;
+    }
+    .charactercard{
+        position: relative;
+        display: inline-flex;
+        justify-content: center;
+
+        width: 120px;
+        height: 220px;
+        margin : 0px 0px 0px 0px;
+        padding: 0px 0px 8px 0px;
+    }
+    .charactercard .cardpic{
+        width: 100px;
+        object-fit: scale-down;
+        margin: -5px 0px 0px 0px;
+    }
+    .charactercard .cardframe{
+        position: absolute;
+        width: 120px;
+        margin: 0px 0px 0px 0px;
+        pointer-events: none;
+    }
+    .charactercard .elementframe{
+        position: absolute;
+        width: 50px;
+        left: 5px;
+        bottom: 10px;
+    }
+    .charactercard .element{
+        position: absolute;
+        width: 44px;
+        left: 7px;
+        bottom: 13px;
+    }
+    .charactercard .typeframe{
+        position: absolute;
+        width: 50px;
+        right: 5px;
+        bottom: 10px;
+    }
+    .charactercard .type{
+        position: absolute;
+        width: 44px;
+        right: 7px;
+        bottom: 13px;
+    }
+
+    .starContainer{
+        display:inline-flex;
+        flex-direction: column-reverse;
+    }
+    .starHorizontal{
+        flex-direction: row;
+    }
+
+    .starContainer .star{
+        display: flex;
+        width:50px;
+        margin:-10px;
+        pointer-events: none;
+        transition: filter 0.2s;
+    }
+    .starContainer .starbutton{
+        width: 38px;
+        background: none;
+        border:none;
+        cursor:pointer;
+        border-radius: 50%;
+    }
+    .starContainer .starunbutton{
+        cursor:not-allowed;
+    }
+
+    .starContainer .starbutton:hover .star{
+        filter: drop-shadow(0 0 2px #ffffff);
+    }
+
+    .starSmall{
+        width:30px !important;
+        margin:-5px !important;
+    }
+
+    .invisibleButton{
+        background: #00000000;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, filter 0.2s;
+    }
+
+    .invisibleButton:hover{
+        filter: drop-shadow(1px 1px 2px #ddd);
+        transform: scale(1.1);
+    }
+</style>

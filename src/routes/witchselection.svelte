@@ -21,10 +21,10 @@
 
 <p>
     {#each data.cardCharacter as chara,i}
-        <button class='invisibleButton' on:click="{witchid(chara.id)}">
+        <a class='invisibleButton' on:click="{witchid(chara.id)}" href="/characters/{chara.Name_EN.replace(" ","_")}">
             <Characteravatar chara={chara} quality={chara.Quality} starnum={chara.Quality}>
             </Characteravatar>
-        </button>
+        </a>
     {/each}
 </p>
 
