@@ -11,71 +11,77 @@
 </svelte:head>
 
 
-<div class="starContainer">
-    {#each Array(6) as _,i}
-        {#if starnum<=i}
-            <button class="starbutton" on:click={starclick(i+1)}>
-                <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
-            </button>
-        {:else}
-            {#if i<parseInt(chara.Quality)-2}
-                <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
-                    <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+
+<div>
+    <div class="charactercard">
+        <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
+        <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+        <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+        <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+        <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
+        <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+    </div>
+    
+    <div class="starContainer">
+        {#each Array(6) as _,i}
+            {#if starnum<=i}
+                <button class="starbutton" on:click={starclick(i+1)}>
+                    <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
                 </button>
             {:else}
-                <button class="starbutton" on:click={starclick(i+1)}>
-                    <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
-                </button>
-            {/if}
-        {/if}
-    {/each}
-</div>
-<div class="charactercard">
-    <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
-    <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-    <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-    <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
-    <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
-    <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
-</div>
-<button class="invisibleButton" on:click={selectWitch}>
-    <Characteravatar chara={chara} quality={quality} starnum={starnum} withname={false}>
-    </Characteravatar>
-</button>
-
-
-
-<div style="background:#333;padding:1px 5px;margin:5px">
-    <h1>Skills</h1>
-    {#each charaskill as eachskill,i}
-        <div>
-            <div style="background:#444;margin:10px;padding:10px" >
-                <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
-                {#if eachskill.skillshow.length==1}
-                    <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
-                    <div>{lang.cn[eachskill.skillshow[0].SkillInfo]}</div>
+                {#if i<parseInt(chara.Quality)-2}
+                    <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
+                        <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                    </button>
                 {:else}
-                    <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
-                    <div>{lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}</div>
+                    <button class="starbutton" on:click={starclick(i+1)}>
+                        <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                    </button>
                 {/if}
-            </div>
-        </div>
-    {/each}
+            {/if}
+        {/each}
+    </div>
+    
+    <img class="characterfull" src="../data/img/source_avatar/hero_book/body_{chara.id}.png" alt="body">
+    <button class="invisibleButton" on:click={selectWitch}>
+        <Characteravatar chara={chara} quality={quality} starnum={starnum} withname={true}>
+        </Characteravatar>
+    </button>    
 </div>
-<div style="background:#333;padding:1px 5px;margin:5px">
-    <h1>Talents</h1>
-    {#each charatalent as eachtalent,i}
-        <div style="background:#444;margin:10px;padding:10px" >
-            <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
-            <div class="starContainer starHorizontal">
-                {#each Array(parseInt(eachtalent.talentdata.Star)-1) as _,sn}
-                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
-                {/each}
+
+<div style="display:inline-flex;width:100%">
+    <div style="background:#333;padding:1px 5px;margin:5px;width:30%">
+        <h1>Skills</h1>
+        {#each charaskill as eachskill,i}
+            <div>
+                <div style="background:#444;margin:10px;padding:10px" >
+                    <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                    {#if eachskill.skillshow.length==1}
+                        <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
+                        <div>{lang.cn[eachskill.skillshow[0].SkillInfo]}</div>
+                    {:else}
+                        <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
+                        <div>{lang.cn[eachskill.skillshow[starnum-1].SkillInfo]}</div>
+                    {/if}
+                </div>
             </div>
-            <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
-            <div>{lang.cn[eachtalent.talentdata.desc]}</div>
-        </div>
-    {/each}
+        {/each}
+    </div>
+    <div style="background:#333;padding:1px 5px;margin:5px;width:30%">
+        <h1>Talents</h1>
+        {#each charatalent as eachtalent,i}
+            <div style="background:#444;margin:10px;padding:10px" >
+                <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+                <div class="starContainer starHorizontal">
+                    {#each Array(parseInt(eachtalent.talentdata.Star)-1) as _,sn}
+                        <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                    {/each}
+                </div>
+                <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                <div>{lang.cn[eachtalent.talentdata.desc]}</div>
+            </div>
+        {/each}
+    </div>
 </div>
 
 
@@ -180,6 +186,14 @@
     }
     .charainfo{
         display: inline-flex;
+    }
+    .characterfull{
+        position: fixed;
+        right:50px;
+        top:10%;
+        z-index: -10;
+        /* max-width: 900px; */
+        object-fit: scale-down;
     }
     .charactercard{
         position: relative;
