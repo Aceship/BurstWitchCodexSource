@@ -5,7 +5,6 @@
     <meta property="og:title" content="Burst Witch Codex - {chara.Name_EN}" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="../data/img/source_avatar/hero_book/body_{chara.id}.png" />
-    <meta name="twitter:card" content="summary_large_image">
 
     <meta name="description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
     <meta name="og:description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
