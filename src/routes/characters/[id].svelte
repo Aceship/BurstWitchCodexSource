@@ -1,3 +1,10 @@
+<svelte:head>
+    <meta property="og:image" content="../data/img/source_avatar/hero/body_{chara.id}.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+</svelte:head>
+
+
 <div class="starContainer">
     {#each Array(6) as _,i}
         {#if starnum<=i}
