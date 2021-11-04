@@ -5,6 +5,9 @@
     <meta property="og:title" content="Burst Witch Codex - {chara.Name_EN}" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://aceship-burstwitchcodex.vercel.app/data/img/source_icon/player/player_icon_{chara.id}.png" />
+    <meta property="og:image:type" content="image/png"> 
+    <meta property="og:image:width" content="220">
+    <meta property="og:image:height" content="220">
 
     <meta name="description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
     <meta name="og:description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
