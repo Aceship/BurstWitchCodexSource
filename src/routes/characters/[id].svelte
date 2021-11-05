@@ -69,8 +69,8 @@
     parseFloat(chara.StepUpAttrRates[0][starnum])} -->
 </div>
 
-<div style="display:inline-flex;width:100%">
-    <div style="background:#333;padding:1px 5px;margin:5px;width:30%">
+<div class="fullinfo">
+    <div class="halfinfo">
         <h1>Skills</h1>
         {#each charaskill as eachskill,i}
             <div>
@@ -90,7 +90,7 @@
             </div>
         {/each}
     </div>
-    <div style="background:#333;padding:1px 5px;margin:5px;width:30%">
+    <div class="halfinfo">
         <h1>Talents</h1>
         {#each charatalent as eachtalent,i}
             <div style="background:#444;margin:10px;padding:10px" >
@@ -383,5 +383,24 @@
     .breachFont{
         font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
         font-size: 40px;
+    }
+    .fullinfo{
+        display:inline-flex;
+        width:100%
+    }
+    .halfinfo{
+        background:#333;
+        padding:1px 5px;
+        margin:5px;
+        width:30%
+    }
+    @media (max-width: 1000px ){
+        .fullinfo{
+            display:unset;
+        }
+        .halfinfo{
+            display:flexbox;
+            width:100%
+        }
     }
 </style>
