@@ -97,7 +97,7 @@
             <div style="background:#444;margin:10px;padding:10px" >
                 <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
                 <div class="starContainer starHorizontal">
-                    {#each Array(parseInt(eachtalent.talentdata.Star)-1) as _,sn}
+                    {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
                         <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
                     {/each}
                 </div>
@@ -211,7 +211,7 @@
             talentObject.talentdata = data.charaTalent.filter(obj =>{
                 return obj.id == element[1]
             })[0]
-            // console.log(talentObject)
+            console.log(talentObject)
             talentObject.icon = talentObject.talentdata.Talent_ICON
             charatalent.push(talentObject)
         });
@@ -225,7 +225,7 @@
         }else{
             skilldesc = ChangeDescriptionformat(lang.cn[skill.skillshow[0].SkillInfo])
         }
-        console.log(skilldesc)
+        // console.log(skilldesc)
         skilldesc = skilldesc.replace(/<#(.+?)#>/g, function(m, text) {
             if(text =="%d") text = Math.floor(attack * parseFloat(skill.skill[skillstar].showRate) * (1 + (skillLevel -1) * parseFloat(skill.skill[skillstar].UpRaate)/100)) 
             return `<span class="" style="color:#FF5522">${text}</span>`
@@ -243,7 +243,7 @@
     function ChangeDescriptionformat(desc) {
         console.log(desc)
         desc = desc.replace(/<color=\#(.+?)>(.+?)<\/color>/g, function(m, rtf, text) {
-            console.log(rtf)
+            // console.log(rtf)
             return `<span class="" style="color:#${rtf}">${text}</span>`
         })
         
