@@ -54,6 +54,7 @@
 <div>
     <!-- <div>
         <label>
+            level : 
             <input type=number bind:value={level} min=1 max=70>
             <input type=range bind:value={level} min=1 max=70>
         </label>
@@ -284,6 +285,7 @@
         z-index: -10;
         /* max-width: 900px; */
         object-fit: scale-down;
+        transition: opacity 0.5s, top 0.5s, bottom 0.5s, left 0.5s, right 0.5s;
     }
     .charactercard{
         position: relative;
@@ -392,15 +394,23 @@
         background:#333;
         padding:1px 5px;
         margin:5px;
-        width:30%
+        max-width:600px
     }
     @media (max-width: 1000px ){
+        .characterfull{
+            right:-200px;
+            top:5%;
+            opacity:10% ;
+        }
         .fullinfo{
             display:unset;
+            width: 90%;
         }
         .halfinfo{
             display:flexbox;
-            width:100%
+            max-width: unset;
+            width: calc(100% - 10px);
+            margin:0px
         }
     }
 </style>
