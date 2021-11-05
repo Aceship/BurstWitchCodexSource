@@ -2,12 +2,14 @@ import { readable, writable } from 'svelte/store'
 
 import _cardCharacter from '$lib/gamedata/source_gameconfig/CardCharacter.txt?raw'
 import _witchskillshow from '$lib/gamedata/source_gameconfig/witch_skill_show.txt?raw'
+import _witch_skill from '$lib/gamedata/source_gameconfig/witch_skill.txt?raw'
 import _localization_CHS from '$lib/gamedata/xlua/lua_game/language/localization_CHS.lua.txt?raw'
 import _talent from '$lib/gamedata/source_gameconfig/Talent.txt?raw'
 let data2 = {};
 let lang = {}
 data2.cardCharacter = ParseCSVtoObject(_cardCharacter)
 data2.witchskillshow = ParseCSVtoObject(_witchskillshow)
+data2.witchskill = ParseCSVtoObject(_witch_skill)
 data2.charaTalent = ParseCSVtoObject(_talent)
 lang.cn = ParseLuaLang(_localization_CHS)
 let chara = data2.cardCharacter[0]

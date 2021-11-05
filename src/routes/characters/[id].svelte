@@ -51,6 +51,23 @@
         </Characteravatar>
     </button>    
 </div>
+<div>
+    <!-- <div>
+        <label>
+            <input type=number bind:value={level} min=1 max=70>
+            <input type=range bind:value={level} min=1 max=70>
+        </label>
+    </div>
+    <div class="breachFont">
+        I II III IV V VI VII VIII
+    </div> -->
+    <div>
+        Attack : <input type=number bind:value={charastat.stat.attack} min=1>
+    </div>
+    <!-- {parseFloat(chara.OrgAttribute[0][1])+
+    (parseFloat(chara.OrgAttribute[0][1])*parseFloat(chara.LvUpAttrRates[0][starnum])*level)+
+    parseFloat(chara.StepUpAttrRates[0][starnum])} -->
+</div>
 
 <div style="display:inline-flex;width:100%">
     <div style="background:#333;padding:1px 5px;margin:5px;width:30%">
@@ -59,12 +76,15 @@
             <div>
                 <div style="background:#444;margin:10px;padding:10px" >
                     <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                    
                     {#if eachskill.skillshow.length==1}
                         <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
-                        <div>{@html ChangeDescriptionformat(lang.cn[eachskill.skillshow[0].SkillInfo])}</div>
+                        Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                        <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                     {:else}
                         <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
-                        <div>{@html ChangeDescriptionformat(lang.cn[eachskill.skillshow[starnum-1].SkillInfo])}</div>
+                        Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                        <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                     {/if}
                 </div>
             </div>
@@ -81,7 +101,7 @@
                     {/each}
                 </div>
                 <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
-                <div>{@html ChangeDescriptionformat(lang.cn[eachtalent.talentdata.desc])}</div>
+                <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
             </div>
         {/each}
     </div>
@@ -105,11 +125,25 @@
     let chara = $dataglobal.cardCharacter.find(character=>{
             return character.Name_EN == id.replace("_"," ")
         })
+    let charastat = {
+        stat:{
+            hp:chara.OrgAttribute[0][1],
+            attack:chara.OrgAttribute[1][1],
+            defense:chara.OrgAttribute[2][1],
+            critHit:chara.OrgAttribute[3][1],
+            critDmg:chara.OrgAttribute[4][1]
+        },
+        level:{
+            skill:[1,1,1]
+        }
+    }
+    console.log(chara)
     let charaName = chara.Name_EN
     let charaId = chara.id+"0001"
     let attacktype = chara.AtkType
     let starnum = parseInt(chara.Star)
     let quality = parseInt(chara.Quality) 
+    let level = 1
     let charaskill = []
     let charatalent = []
 
@@ -158,6 +192,9 @@
         skillObject.skillshow = data.witchskillshow.filter(obj =>{
             return obj.id ==element
         })
+        skillObject.skill = data.witchskill.filter(obj=>{
+            return obj.id == element
+        })
 
         charaskill.push(skillObject)
     });
@@ -178,18 +215,56 @@
             charatalent.push(talentObject)
         });
     }
-    
+    function SkillDescParser(skill,skillnumber,starnum,attack){
+        let skillLevel = charastat.level.skill[skillnumber]
+        let skilldesc 
+        let skillstar = skill.skillshow.length>1?starnum-1:0
+        if(skill.skillshow.length>1){
+            skilldesc = ChangeDescriptionformat(lang.cn[skill.skillshow[starnum-1].SkillInfo])
+        }else{
+            skilldesc = ChangeDescriptionformat(lang.cn[skill.skillshow[0].SkillInfo])
+        }
+        console.log(skilldesc)
+        skilldesc = skilldesc.replace(/<#(.+?)#>/g, function(m, text) {
+            if(text =="%d") text = Math.floor(attack * parseFloat(skill.skill[skillstar].showRate) * (1 + (skillLevel -1) * parseFloat(skill.skill[skillstar].UpRaate)/100)) 
+            return `<span class="" style="color:#FF5522">${text}</span>`
+        })
+
+        return skilldesc
+    }
+    function TalentDescParser(desc) {
+        desc = ChangeDescriptionformat(desc)
+        desc = desc.replace(/<#(.+?)#>/g, function(m, text) {
+            return `<span class="" style="color:#FF5522">${text}</span>`
+        })
+        return desc
+    }
     function ChangeDescriptionformat(desc) {
         console.log(desc)
         desc = desc.replace(/<color=\#(.+?)>(.+?)<\/color>/g, function(m, rtf, text) {
             console.log(rtf)
             return `<span class="" style="color:#${rtf}">${text}</span>`
         })
-        desc = desc.replace(/<#(.+?)#>/g, function(m, text) {
-            // if(text ="%d") text = "Damage"
-            return `<span class="" style="color:#FF5522">${text}</span>`
-        })
+        
         return desc
+    }
+
+    //MarkUp
+    CheckMarkUp()
+    function CheckMarkUp() {
+        charastat.MarkUpAttrUp = []
+        chara.MarkUpAttrUp.forEach(charaStar => {
+            let eachStep = []
+            for (let i = 0; i < charaStar.length; i+=2) {
+                
+                let attrType = charaStar[i]
+                let attrStat = charaStar[i+1]
+                eachStep.push([attrType,attrStat])
+            }
+            // console.log(eachStep)
+            charastat.MarkUpAttrUp.push(eachStep)
+        });
+        // console.log(charastat)
     }
 </script>
 
@@ -303,5 +378,10 @@
     .invisibleButton:hover{
         filter: drop-shadow(1px 1px 2px #ddd);
         transform: scale(1.1);
+    }
+
+    .breachFont{
+        font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+        font-size: 40px;
     }
 </style>
