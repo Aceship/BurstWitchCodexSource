@@ -4,7 +4,8 @@
     export let chara = $charaGlobal
     export let quality = 2
     export let starnum = 1
-    export let withname = true;
+    export let withname = false;
+    export let withelement = false;
 </script>
 
 <div class="characteravatar {withname?"withname":""}">
@@ -14,8 +15,10 @@
     {#if withname}
         <div class="name">{chara.Name_EN}</div>
     {/if}
-    <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-    <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+    {#if withelement}
+        <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+        <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+    {/if}
 </div>
 <style>
      .characteravatar{

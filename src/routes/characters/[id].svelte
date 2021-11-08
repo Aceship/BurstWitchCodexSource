@@ -16,95 +16,135 @@
 
 
 <div>
-    <div class="charactercard">
-        <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
-        <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-        <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-        <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
-        <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
-        <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
-    </div>
-    
-    <div class="starContainer">
-        {#each Array(6) as _,i}
-            {#if starnum<=i}
-                <button class="starbutton" on:click={starclick(i+1)}>
-                    <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
-                </button>
-            {:else}
-                {#if i<parseInt(chara.Quality)-2}
-                    <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
-                        <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+    <!-- Header -->
+    <div class="Quickmenu">
+        <!-- <div class="charactercard">
+            <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
+            <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+            <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+            <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+            <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
+            <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+        </div> -->
+        <div class="charaDetails">
+            <div class="elementMain charadetailback">
+                <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+                <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+            </div>
+            <div class="typeMain charadetailback">
+                <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
+                <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+            </div>
+            <div class="instrumentList">
+                {#each chara.MusicInstrument as instrument,i}
+                    <div class="instrumentMain">
+                        <img class="instrumentframe" src="../data/img/ui/musicframe/frame2.png" alt="{instrument[0]}">
+                        <img class="instrument" src="../data/img/source_icon/musictype/{instrument[0]}.png" alt="{instrument[0]}">
+                    </div>
+                {/each}
+            </div>
+        </div>
+        <div class="characterName characterNameBG"> </div>
+        <div class="charaBg"> </div>
+
+        <div class="characterName">
+            <div class="characterNameEN">{chara.Name_EN}</div>
+            <div class="characterNameCN">{lang.cn[chara.Name]}</div>
+        </div>
+        
+        <div class="starContainer">
+            {#each Array(6) as _,i}
+                {#if starnum<=i}
+                    <button class="starbutton" on:click={starclick(i+1)}>
+                        <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
                     </button>
                 {:else}
-                    <button class="starbutton" on:click={starclick(i+1)}>
-                        <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
-                    </button>
-                {/if}
-            {/if}
-        {/each}
-    </div>
-    
-    <img class="characterfull" src="../data/img/source_avatar/hero_book/body_{chara.id}.png" alt="body">
-    <button class="invisibleButton" on:click={selectWitch}>
-        <Characteravatar chara={chara} quality={quality} starnum={starnum} withname={true}>
-        </Characteravatar>
-    </button>    
-</div>
-<div>
-    <!-- <div>
-        <label>
-            level : 
-            <input type=number bind:value={level} min=1 max=70>
-            <input type=range bind:value={level} min=1 max=70>
-        </label>
-    </div>
-    <div class="breachFont">
-        I II III IV V VI VII VIII
-    </div> -->
-    <div>
-        Attack : <input type=number bind:value={charastat.stat.attack} min=1>
-    </div>
-    <!-- {parseFloat(chara.OrgAttribute[0][1])+
-    (parseFloat(chara.OrgAttribute[0][1])*parseFloat(chara.LvUpAttrRates[0][starnum])*level)+
-    parseFloat(chara.StepUpAttrRates[0][starnum])} -->
-</div>
-
-<div class="fullinfo">
-    <div class="halfinfo">
-        <h1>Skills</h1>
-        {#each charaskill as eachskill,i}
-            <div>
-                <div style="background:#444;margin:10px;padding:10px" >
-                    <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
-                    
-                    {#if eachskill.skillshow.length==1}
-                        <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
-                        Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
-                        <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                    {#if i<parseInt(chara.Quality)-2}
+                        <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
+                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                        </button>
                     {:else}
-                        <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
-                        Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
-                        <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                        <button class="starbutton" on:click={starclick(i+1)}>
+                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                        </button>
                     {/if}
+                {/if}
+            {/each}
+        </div>
+        <div class="characterIcon">
+            <button class="invisibleButton" on:click={selectWitch}>
+                <div class="rotateicon">
+                    <Characteravatar chara={chara} quality={quality} starnum={starnum}>
+                    </Characteravatar>
                 </div>
-            </div>
-        {/each}
+            </button>  
+        </div>
+        
     </div>
-    <div class="halfinfo">
-        <h1>Talents</h1>
-        {#each charatalent as eachtalent,i}
-            <div style="background:#444;margin:10px;padding:10px" >
-                <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
-                <div class="starContainer starHorizontal">
-                    {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
-                        <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
+    <div class="MenuFull">
+        <!-- Left Side -->
+        <div class="MenuCharaPic">
+            <img class="characterfull" src="../data/img/source_avatar/hero_book/body_{chara.id}.png" alt="body">
+        </div>
+        <!-- Right Side -->
+        <div class="MenuCharaStats">
+            <div style="padding:10px 10px 10px 10px">
+                <!-- <div>
+                    <label>
+                        level : 
+                        <input type=number bind:value={level} min=1 max=70>
+                        <input type=range bind:value={level} min=1 max=70>
+                    </label>
+                </div>
+                <div class="breachFont">
+                    I II III IV V VI VII VIII
+                </div> -->
+                <div>
+                    Attack : <input type=number bind:value={charastat.stat.attack} min=1>
+                </div>
+                <!-- {parseFloat(chara.OrgAttribute[0][1])+
+                (parseFloat(chara.OrgAttribute[0][1])*parseFloat(chara.LvUpAttrRates[0][starnum])*level)+
+                parseFloat(chara.StepUpAttrRates[0][starnum])} -->
+            </div>
+            
+            <div class="fullinfo">
+                <div class="halfinfo">
+                    <h1>Skills</h1>
+                    {#each charaskill as eachskill,i}
+                        <div>
+                            <div style="background:#444;margin:10px;padding:10px" >
+                                <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                                
+                                {#if eachskill.skillshow.length==1}
+                                    <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
+                                    Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                                    <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                                {:else}
+                                    <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
+                                    Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                                    <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                                {/if}
+                            </div>
+                        </div>
                     {/each}
                 </div>
-                <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
-                <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
+                <div class="halfinfo">
+                    <h1>Talents</h1>
+                    {#each charatalent as eachtalent,i}
+                        <div style="background:#444;margin:10px;padding:10px" >
+                            <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+                            <div class="starContainer starHorizontal">
+                                {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                                {/each}
+                            </div>
+                            <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                            <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
+                        </div>
+                    {/each}
+                </div>
             </div>
-        {/each}
+        </div>
     </div>
 </div>
 
@@ -271,22 +311,199 @@
 
 <style>
     :global(body) {
-        background-color: #222;
+        background-color: #111;
         color: #dddddd;
         transition: background-color 0.3s
     }
-    .charainfo{
+    .Quickmenu {
+        position: absolute;
+        left:650px;
+        top:8px;
+        filter: drop-shadow(1px 1px 2px #111);
+    }
+    
+    .Quickmenu .charaBg {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border: 70px solid transparent;
+      border-color:#333;
+      top: -70px;
+
+      filter: drop-shadow(1px 1px 2px #111);
+    }
+    .Quickmenu .charaBg:before {
+      content: '';
+      position: absolute;
+      left: -70px;
+      top: 70px;
+      width: 0;
+      height: 0;
+      border: 35px solid transparent;
+      background: #333;
+    }
+    .Quickmenu .charaBg:after {
+      content: '';
+      position: absolute;
+      left: -70px;
+      top: 70px;
+      width: 0;
+      height: 0;
+      border: 70px solid transparent;
+      border-top-color: #333;
+    }
+    
+    .Quickmenu .characterIcon{
+        /* padding:5px 0px 10px 0px; */
+        position:absolute;
+        top:20px;
+        left:20px;
+        z-index: 20;
+    }
+    .Quickmenu .charaDetails{
+        position: absolute;
         display: inline-flex;
+        top:80px;
+        left:40px;
+        padding:6px 10px 10px 75px;
+        height:35px;
+        background:#444;
+        filter: drop-shadow(1px 1px 2px #111);
+    }
+    .Quickmenu .charaDetails:after{
+      content: '';
+      position: absolute;
+      right:-51px;
+      top:0px;
+      /* left: -70px;
+      top: 70px; */
+      width: 0;
+      height: 0;
+      border: 26px solid transparent;
+      border-top-color: #444;
+      border-left-color: #444;
+    }
+
+    .Quickmenu .characterName{
+        position: absolute;
+        top:-20px;
+        left:120px;
+        background:#333;
+        padding:12px;
+        padding-top:22px;
+        height:66px;
+        width:calc(100vw - 820px);
+    }
+    .Quickmenu .characterNameBG{
+        filter: drop-shadow(1px 1px 2px #111);
+    }
+    .characterName .characterNameEN{
+        font-size: 2.5em;
+    }
+    .Quickmenu .starContainer{
+        position: absolute;
+        left:0px;
+        top:110px;
+        background: #333;
+        padding:5px;
+        border-radius: 5px;
+    }
+
+    .MenuFull{
+        display:grid;
+        grid-template-columns: 680px ;
+        grid-template-areas: "CharacterPic CharacterStats";
+        height: calc(100vh - 20px);
+    }
+    .MenuCharaPic{
+        grid-area: "CharacterPic";
+        text-align: center ;
+    }
+    .MenuCharaStats{
+        grid-area: "CharacterStats";
+        background-color: #222;
+        height: calc(100vh - 180px);
+        padding: 150px 0px 0px 10px;
     }
     .characterfull{
-        position: fixed;
+        /* position: fixed;
         right:50px;
         top:10%;
-        z-index: -10;
-        /* max-width: 900px; */
+        z-index: -10; */
+        height: calc(100vh - 20px);
+        width: 680px;
         object-fit: scale-down;
-        transition: opacity 0.5s, top 0.5s, bottom 0.5s, left 0.5s, right 0.5s;
+        /* transition: opacity 0.5s, top 0.5s, bottom 0.5s, left 0.5s, right 0.5s; */
     }
+    .charadetailback{
+        width:42px !important;
+        height:42px !important;
+        background:#00000033;
+        margin:-5px 2px 0px 2px;
+        padding:4px 4px 4px 4px;
+    }
+
+    .elementMain{
+        position: relative;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+    }
+    .elementMain .elementframe{
+        position: absolute;
+        width: 40px;
+    }
+    .elementMain .element{
+        position: absolute;
+        width: 34px;
+    }
+    .typeMain{
+        position: relative;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+    }
+    .typeMain .typeframe{
+        position: absolute;
+        width: 40px;
+    }
+    .typeMain .type{
+        position: absolute;
+        width: 34px;
+    }
+    .instrumentList{
+        display:inline-flex;
+        margin-top:-5px;
+        margin-left:2px;
+        padding:4px 10px 4px 10px;
+        background:#00000033;
+        height:42px;
+        /* min-width:60px; */
+        justify-content: center;
+    }
+    .instrumentMain{
+        position: relative;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+    }
+    .instrumentMain .instrumentframe{
+        position: absolute;
+        width: 40px;
+    }
+    .instrumentMain .instrument{
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+    }
+
     .charactercard{
         position: relative;
         display: inline-flex;
@@ -369,17 +586,28 @@
     }
 
     .invisibleButton{
-        background: #00000000;
+        background: #222;
         border: none;
         cursor: pointer;
         text-decoration: none;
         color: inherit;
+        transform:rotate(45deg);
         transition: transform 0.2s, filter 0.2s;
+        width:90px;
+        height:90px;
+        border-radius: 10px;
+    }
+    .rotateicon{
+        position:absolute;
+        left:-14px;
+        top:-14px;
+        pointer-events: none;
+        transform:rotate(-45deg);
     }
 
     .invisibleButton:hover{
         filter: drop-shadow(1px 1px 2px #ddd);
-        transform: scale(1.1);
+        transform: rotate(45deg) scale(1.1);
     }
 
     .breachFont{
@@ -394,17 +622,40 @@
         background:#333;
         padding:1px 5px;
         margin:5px;
-        max-width:600px
+        width:50%
     }
     @media (max-width: 1000px ){
+        .Quickmenu{
+            position: fixed;
+            left:0px;
+            top:0px;
+        }
+        .Quickmenu .characterName{
+            width: 72vw;
+        }
+        .Quickmenu .starContainer{
+            left:0px
+        }
+        .MenuFull{
+            grid-template-areas: "CharacterPic" "CharacterStats";
+        }
+        .MenuCharaPic{
+            width:100vw;
+            height: min(70vh,800px);
+            padding-top: 80px;
+        }
         .characterfull{
-            right:-200px;
-            top:5%;
-            opacity:10% ;
+            width:100vw;
+            height: min(70vh,800px)
+        }
+        .MenuCharaStats{
+            padding:2px 2px 2px 50px;
+            width: calc(100vw - 80px);
+            height:unset;
         }
         .fullinfo{
             display:unset;
-            width: 90%;
+            
         }
         .halfinfo{
             display:flexbox;
