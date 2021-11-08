@@ -44,8 +44,8 @@
                 {/each}
             </div>
         </div>
-        <div class="characterName characterNameBG"> </div>
-        <div class="charaBg"> </div>
+        <div class="characterName characterNameBG"></div>
+        <div class="charaBg"></div>
 
         <div class="characterName">
             <div class="characterNameEN">{chara.Name_EN}</div>
@@ -113,15 +113,44 @@
                     {#each charaskill as eachskill,i}
                         <div>
                             <div style="background:#444;margin:10px;padding:10px" >
-                                <img class="" style="width: 50px;" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
-                                
                                 {#if eachskill.skillshow.length==1}
-                                    <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
-                                    Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                                    <div class="infotitle">
+                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                                        <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
+                                    </div>
+                                    <br>
+                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                    <br>
+                                    <div class="infotext">
+                                        <div class="infoMP">
+                                            <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
+                                            <span>{eachskill.skill[0].skill_cost?eachskill.skill[0].skill_cost/10000:"--"}</span>
+                                        </div>
+                                        <div class="infoCD">
+                                            <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
+                                            <span> {eachskill.skill[0].skillCD==0?"--":eachskill.skill[0].skillCD}</span>
+                                        </div>
+                                    </div>  
                                     <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                                 {:else}
-                                    <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
-                                    Skill Level : <input type=number bind:value={charastat.level.skill[i]} min=1 max=20>
+                                    <div class="infotitle">
+                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                                        <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
+                                    </div>
+                                    <br>
+                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                    <br>
+                                    <div class="infotext">
+                                        <div class="infoMP">
+                                            <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
+                                            <span>{eachskill.skill[starnum-1].skill_cost/10000}</span>
+                                        </div>
+                                        <div class="infoCD">
+                                            <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
+                                            <span> {eachskill.skill[starnum-1].skillCD}s</span>
+                                        </div>
+                                    </div>                  
+                                    <br>
                                     <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                                 {/if}
                             </div>
@@ -132,13 +161,19 @@
                     <h1>Talents</h1>
                     {#each charatalent as eachtalent,i}
                         <div style="background:#444;margin:10px;padding:10px" >
-                            <img class="" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
-                            <div class="starContainer starHorizontal">
+                            <div class="infotitle">
+                                <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+                                <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                            </div>
+                            <br>
+                            <div class="starContainer starHorizontal infostar">
                                 {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
                                     <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
                                 {/each}
+                                {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                    <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="star">
+                                {/each}
                             </div>
-                            <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
                             <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
                         </div>
                     {/each}
@@ -226,22 +261,22 @@
     function updateSkill() {
         charaskill = []
         chara.OrgSkills.forEach(element => {
-        let skillObject = {
-            icon:element
-        }
+            let skillObject = {
+                icon:element
+            }
 
-        skillObject.skillshow = data.witchskillshow.filter(obj =>{
-            return obj.id ==element
-        })
-        skillObject.skill = data.witchskill.filter(obj=>{
-            return obj.id == element
-        })
+            skillObject.skillshow = data.witchskillshow.filter(obj =>{
+                return obj.id ==element
+            })
+            skillObject.skill = data.witchskill.filter(obj=>{
+                return obj.id == element
+            })
 
-        charaskill.push(skillObject)
-    });
+            charaskill.push(skillObject)
+        });
     }
     
-
+    console.log(charaskill)
     //Talent
     function updateTalent() {
         charatalent = []
@@ -251,7 +286,7 @@
             talentObject.talentdata = data.charaTalent.filter(obj =>{
                 return obj.id == element[1]
             })[0]
-            console.log(talentObject)
+            // console.log(talentObject)
             talentObject.icon = talentObject.talentdata.Talent_ICON
             charatalent.push(talentObject)
         });
@@ -505,7 +540,7 @@
         object-fit: contain;
     }
 
-    .charactercard{
+    /* .charactercard{
         position: relative;
         display: inline-flex;
         justify-content: center;
@@ -549,7 +584,7 @@
         width: 44px;
         right: 7px;
         bottom: 13px;
-    }
+    } */
 
     .starContainer{
         display:inline-flex;
@@ -625,6 +660,81 @@
         margin:5px;
         width:50%
     }
+    .infotitle{
+        background:#222;
+        margin:2px 0px;
+        /* padding:5px; */
+        display:inline-flex;
+        align-items:center;
+        min-width:200px;
+    }
+    .infotitle .titleimage{
+        width: 60px;
+        margin:5px;
+    }
+
+    .infotext{
+        display:inline-flex;
+        align-items:center;
+        min-height:30px;
+    }
+    .infoimg{
+        width: 30px;
+        height:30px;
+        object-fit: contain;
+    }
+    .infoMP{
+        position: relative;
+        background:#2E2E2E;
+        padding:2px 10px 2px 30px;
+    }
+    .infoMP img{
+        position:absolute;
+        left:-2px;
+        top:-5px;
+    }
+    .infoCD{
+        position: relative;
+        background:#222;
+        padding:2px 10px 2px 30px;
+    }
+    .infoCD img{
+        position:absolute;
+        left:-2px;
+        top:-3px;
+    }
+    .infoLevel{
+        display:inline-flex;
+        background:#222;
+        padding:4px 4px 4px 4px;
+        align-items:center;
+    }
+    .levelinput[type=number]{
+        padding:2px;
+        margin-left:4px;
+        width:30px;
+        text-align: center;
+    }
+
+    .infostar{
+        display: inline-flex;
+        min-width:190px;
+        padding:4px 5px;
+        background:#222;
+    }
+    input[type=number]{
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+        background-color: #111;
+        border: solid 1px #888;
+        font-size:15px;
+        min-width:unset;
+        width:unset;
+        color: white;
+    }
+    /* .infotext img{
+        
+    } */
     @media (max-width: 1400px){
         .Quickmenu{
             left:calc(50vw - 40px);
