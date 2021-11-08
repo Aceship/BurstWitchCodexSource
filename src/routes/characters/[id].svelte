@@ -424,6 +424,7 @@
         background-color: #222;
         height: calc(100vh - 180px);
         padding: 150px 0px 0px 10px;
+        overflow-y: scroll;
     }
     .characterfull{
         /* position: fixed;
@@ -433,7 +434,7 @@
         height: calc(100vh - 20px);
         width: 680px;
         object-fit: scale-down;
-        /* transition: opacity 0.5s, top 0.5s, bottom 0.5s, left 0.5s, right 0.5s; */
+        transition: opacity 0.5s, width 0.5s, height 0.5s;
     }
     .charadetailback{
         width:42px !important;
@@ -624,6 +625,27 @@
         margin:5px;
         width:50%
     }
+    @media (max-width: 1400px){
+        .Quickmenu{
+            left:calc(50vw - 40px);
+        }
+        .MenuFull{
+            grid-template-columns: 50vw ;
+        }
+        .characterfull{
+            width:500px;
+        }
+        .fullinfo{
+            display:unset;
+            
+        }
+        .halfinfo{
+            display:flexbox;
+            max-width: unset;
+            width: calc(100% - 10px);
+            margin:0px
+        }
+    }
     @media (max-width: 1000px ){
         .Quickmenu{
             position: fixed;
@@ -640,18 +662,19 @@
             grid-template-areas: "CharacterPic" "CharacterStats";
         }
         .MenuCharaPic{
-            width:100vw;
+            width:calc(100vw - 30px);
             height: min(70vh,800px);
             padding-top: 80px;
         }
         .characterfull{
-            width:100vw;
+            width:calc(100vw - 30px);
             height: min(70vh,800px)
         }
         .MenuCharaStats{
             padding:2px 2px 2px 50px;
             width: calc(100vw - 80px);
             height:unset;
+            overflow-y:visible;
         }
         .fullinfo{
             display:unset;
