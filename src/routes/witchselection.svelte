@@ -106,7 +106,7 @@
             <img class="filter" src="/data/img/ui/element/element{i+1}.png" alt="element">
         </button>
     {/each}
-    {#each Array(3) as _,i}
+    {#each Array(6) as _,i}
         <button class="filterbutton {typefilter==i+1?"active":""}" on:click={()=>{typefilter==(i+1)?filterType(0):filterType(i+1)}}>
             <img class="filter" src="/data/img/ui/class/comm_atk_{i+1}.png" alt="types">
         </button>
