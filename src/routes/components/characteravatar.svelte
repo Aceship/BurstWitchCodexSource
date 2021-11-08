@@ -6,6 +6,7 @@
     export let starnum = 1
     export let withname = false;
     export let withelement = false;
+    export let withtype = false;
 </script>
 
 <div class="characteravatar {withname?"withname":""}">
@@ -16,8 +17,16 @@
         <div class="name">{chara.Name_EN}</div>
     {/if}
     {#if withelement}
-        <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-        <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+        <div class="elementMain">
+            <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+            <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+        </div>
+    {/if}
+    {#if withtype}
+        <div class="typeMain">
+            <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.AtkType}">
+            <img class="type" src="../data/img/ui/class/comm_atk_{chara.AtkType}.png" alt="{chara.AtkType}">
+        </div>
     {/if}
 </div>
 <style>
@@ -56,16 +65,40 @@
         margin: -13px 0px 0px 2px;
         pointer-events: none;
     }
-    .characteravatar .elementframe{
+    .elementMain{
         position: absolute;
-        width: 40px;
-        right:-5px;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+        right:0px;
         bottom: 20px;
     }
-    .characteravatar .element{
+    .elementMain .elementframe{
+        position: absolute;
+        width: 40px;
+    }
+    .elementMain .element{
         position: absolute;
         width: 34px;
-        right: -2px;
-        bottom: 23px;
+    }
+    .typeMain{
+        position: absolute;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+        left:0px;
+        bottom: 20px;
+    }
+    .typeMain .typeframe{
+        position: absolute;
+        width: 40px;
+    }
+    .typeMain .type{
+        position: absolute;
+        width: 34px;
     }
 </style>
