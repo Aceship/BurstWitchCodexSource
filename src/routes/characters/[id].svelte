@@ -43,6 +43,21 @@
                     </div>
                 {/each}
             </div>
+            <div class="buildtypeList">
+                {#each chara.Builddotadd as build,i}
+                    <div class="buildtypeMain">
+                        <img class="buildtypeframe" src="../data/img/ui/musicframe/frame2.png" alt="{build[1]}">
+                        <img class="buildtype" src="../data/img/ui/modifier/icon_gouzhu_{build[1]}.png" alt="{build[1]}">
+                        
+                        <div class="buildstar"> 
+                            <!-- {#each Array(parseInt(build[0])) as _,sn}
+                                <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="star">
+                            {/each} -->
+                            {build[0]} <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="star">
+                        </div>
+                    </div>
+                {/each}
+            </div>
         </div>
         <div class="characterName characterNameBG"></div>
         <div class="charaBg"></div>
@@ -538,6 +553,55 @@
         width: 30px;
         height: 30px;
         object-fit: contain;
+    }
+
+    .buildtypeList{
+        display:inline-flex;
+        margin-top:-5px;
+        margin-left:2px;
+        padding:4px 10px 4px 10px;
+        background:#00000033;
+        height:42px;
+        /* min-width:60px; */
+        justify-content: center;
+    }
+    .buildtypeMain{
+        position: relative;
+        display:inline-flex;
+        width:40px;
+        height:40px;
+        justify-content: center;
+        align-items: center;
+        padding:0px 8px 0px 0px;
+    }
+    .buildtypeMain .buildtypeframe{
+        position: absolute;
+        width: 40px;
+    }
+    .buildtypeMain .buildtype{
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+    }
+    .buildtypeMain .buildstar{
+        position:absolute;
+        right:0px;
+        bottom:-5px;
+        background: #222;
+        padding:1px;
+        border-radius: 4px;
+        /* transform: rotate(45deg); */
+    }
+    .buildtypeMain .star{
+        width:16px;
+        height:16px;
+        object-fit: contain;
+        padding:0px;
+        margin:-2px;
+        margin-left: -7px;
+        /* margin-left: -4px; */
+        /* transform: rotate(-45deg); */
     }
 
     /* .charactercard{
