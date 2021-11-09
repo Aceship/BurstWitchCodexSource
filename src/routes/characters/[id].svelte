@@ -134,7 +134,7 @@
                                         <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
                                     </div>
                                     <br>
-                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                     <br>
                                     <div class="infotext">
                                         <div class="infoMP">
@@ -153,7 +153,7 @@
                                         <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
                                     </div>
                                     <br>
-                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                     <br>
                                     <div class="infotext">
                                         <div class="infoMP">
