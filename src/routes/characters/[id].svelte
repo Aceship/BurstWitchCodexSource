@@ -212,7 +212,7 @@
     let data = $dataglobal
     let lang = $langglobal
 
-    console.log(id)
+    // console.log(id)
     let chara = $dataglobal.cardCharacter.find(character=>{
             return character.Name_EN == id.replace("_"," ")
         })
@@ -229,6 +229,8 @@
         }
     }
     console.log(chara)
+
+    // console.log($dataglobal.buildDot)
     let charaName = chara.Name_EN
     let charaId = chara.id+"0001"
     let attacktype = chara.AtkType
@@ -291,7 +293,7 @@
         });
     }
     
-    console.log(charaskill)
+    // console.log(charaskill)
     //Talent
     function updateTalent() {
         charatalent = []
