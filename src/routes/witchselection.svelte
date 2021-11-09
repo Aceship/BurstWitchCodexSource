@@ -155,7 +155,7 @@
         object-fit: contain;
     }
     .filterbutton:hover{
-        background: #666;
+        background: #4a4a4a;
     }
     .active{
         border-top: solid 4px #888;
