@@ -6,18 +6,25 @@ import _witch_skill from '$lib/gamedata/source_gameconfig/witch_skill.txt?raw'
 import _localization_CHS from '$lib/gamedata/xlua/lua_game/language/localization_CHS.lua.txt?raw'
 import _talent from '$lib/gamedata/source_gameconfig/Talent.txt?raw'
 import _buildDot from '$lib/gamedata/source_gameconfig/BuildDot.txt?raw'
-let data2 = {};
-let lang = {}
-data2.cardCharacter = ParseCSVtoObject(_cardCharacter)
-data2.witchskillshow = ParseCSVtoObject(_witchskillshow)
-data2.witchskill = ParseCSVtoObject(_witch_skill)
-data2.charaTalent = ParseCSVtoObject(_talent)
-data2.buildDot = ParseCSVtoObject(_buildDot)
-lang.cn = ParseLuaLang(_localization_CHS)
+import _jobTranslate from '$lib/custom/translate/Job.json'
+let data2 = {
+    cardCharacter   : ParseCSVtoObject(_cardCharacter),
+    witchskillshow  : ParseCSVtoObject(_witchskillshow),
+    witchskill      : ParseCSVtoObject(_witch_skill),
+    charaTalent     : ParseCSVtoObject(_talent),
+    buildDot        : ParseCSVtoObject(_buildDot)
+};
+let lang = {
+    cn : ParseLuaLang(_localization_CHS)
+}
+let translate = {
+    jobTranslate : _jobTranslate
+};
 let chara = data2.cardCharacter[0]
 
 export const dataglobal = readable(data2)
 export const langglobal = readable(lang)
+export const translateglobal = readable(translate)
 export let charaGlobal = writable(chara)
 ////Data Parser
 

@@ -51,9 +51,9 @@
                         
                         <div class="buildstar"> 
                             <!-- {#each Array(parseInt(build[0])) as _,sn}
-                                <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="star">
+                                <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="">
                             {/each} -->
-                            {build[0]} <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="star">
+                            {build[0]} <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="">
                         </div>
                     </div>
                 {/each}
@@ -71,16 +71,16 @@
             {#each Array(6) as _,i}
                 {#if starnum<=i}
                     <button class="starbutton" on:click={starclick(i+1)}>
-                        <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="star">
+                        <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="">
                     </button>
                 {:else}
                     {#if i<parseInt(chara.Quality)-2}
                         <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
-                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="">
                         </button>
                     {:else}
                         <button class="starbutton" on:click={starclick(i+1)}>
-                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="">
                         </button>
                     {/if}
                 {/if}
@@ -103,7 +103,7 @@
         </div>
         <!-- Right Side -->
         <div class="MenuCharaStats">
-            <div style="padding:10px 10px 10px 10px">
+            <div style="padding:2px">
                 <!-- <div>
                     <label>
                         level : 
@@ -114,6 +114,10 @@
                 <div class="breachFont">
                     I II III IV V VI VII VIII
                 </div> -->
+                <div class="jobinfo job-{chara.job}">
+                    <div class="jobtitle ">{TranslateJobTitle(chara.Name_job)}</div>
+                    <div class="jobdesc">{TranslateJobDesc(chara.Name_job_des)}</div>
+                </div>
                 <div>
                     Attack : <input type=number bind:value={charastat.stat.attack} min=1>
                 </div>
@@ -130,7 +134,7 @@
                             <div style="background:#444;margin:10px;padding:10px" >
                                 {#if eachskill.skillshow.length==1}
                                     <div class="infotitle">
-                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
                                         <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
                                     </div>
                                     <br>
@@ -149,7 +153,7 @@
                                     <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                                 {:else}
                                     <div class="infotitle">
-                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="{eachskill.icon}">
+                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
                                         <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
                                     </div>
                                     <br>
@@ -177,16 +181,16 @@
                     {#each charatalent as eachtalent,i}
                         <div style="background:#444;margin:10px;padding:10px" >
                             <div class="infotitle">
-                                <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="{eachtalent.icon}">
+                                <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="">
                                 <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
                             </div>
                             <br>
                             <div class="starContainer starHorizontal infostar">
                                 {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="star">
+                                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
                                 {/each}
                                 {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                    <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="star">
+                                    <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
                                 {/each}
                             </div>
                             <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
@@ -200,7 +204,7 @@
 
 
 <script>
-    import { dataglobal , langglobal , charaGlobal } from '../js/stores.js';
+    import { dataglobal , langglobal , charaGlobal, translateglobal } from '../js/stores.js';
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
     import witchselection from '../witchselection.svelte';
@@ -359,6 +363,38 @@
         });
         // console.log(charastat)
     }
+
+    function TranslateJobTitle(text){
+        var tl = lang.cn[text]
+        var jobsplit = tl.split("，")
+        
+        console.log(jobsplit)
+        var jobs = []
+        jobsplit.forEach(job => {
+            let jobtl = $translateglobal.jobTranslate.title[job]
+            console.log(job)
+            if(!jobtl){
+                jobtl = job
+            }
+            jobs.push(jobtl)
+        });
+        return jobs.join(", ")
+    }
+    function TranslateJobDesc(text) {
+        var tl = lang.cn[text]
+        var jobsplit = tl.split(/[，]/g)
+        
+        var jobs = []
+        jobsplit.forEach(job => {
+            let jobtl = $translateglobal.jobTranslate.description[job]
+            console.log(job)
+            if(!jobtl){
+                jobtl = job
+            }
+            jobs.push(jobtl)
+        });
+        return jobs.join(", ")
+    }
 </script>
 
 <style>
@@ -375,34 +411,36 @@
     }
     
     .Quickmenu .charaBg {
-      position: absolute;
-      width: 0;
-      height: 0;
-      border: 70px solid transparent;
-      border-color:#333;
-      top: -70px;
-
-      filter: drop-shadow(1px 1px 2px #111);
+        position: absolute;
+        width: 0;
+        height: 0;
+        border: 70px solid transparent;
+        border-color:#333;
+        top: -70px;
+        pointer-events: none;
+        filter: drop-shadow(1px 1px 2px #111);
     }
     .Quickmenu .charaBg:before {
-      content: '';
-      position: absolute;
-      left: -70px;
-      top: 70px;
-      width: 0;
-      height: 0;
-      border: 35px solid transparent;
-      background: #333;
+        content: '';
+        position: absolute;
+        left: -70px;
+        top: 70px;
+        width: 0;
+        height: 0;
+        border: 35px solid transparent;
+        background: #333;
+        pointer-events: none;
     }
     .Quickmenu .charaBg:after {
-      content: '';
-      position: absolute;
-      left: -70px;
-      top: 70px;
-      width: 0;
-      height: 0;
-      border: 70px solid transparent;
-      border-top-color: #333;
+        content: '';
+        position: absolute;
+        left: -70px;
+        top: 70px;
+        width: 0;
+        height: 0;
+        border: 70px solid transparent;
+        border-top-color: #333;
+        pointer-events: none;
     }
     
     .Quickmenu .characterIcon{
@@ -423,17 +461,17 @@
         filter: drop-shadow(1px 1px 2px #111);
     }
     .Quickmenu .charaDetails:after{
-      content: '';
-      position: absolute;
-      right:-51px;
-      top:0px;
-      /* left: -70px;
-      top: 70px; */
-      width: 0;
-      height: 0;
-      border: 26px solid transparent;
-      border-top-color: #444;
-      border-left-color: #444;
+        content: '';
+        position: absolute;
+        right:-51px;
+        top:0px;
+        /* left: -70px;
+        top: 70px; */
+        width: 0;
+        height: 0;
+        border: 26px solid transparent;
+        border-top-color: #444;
+        border-left-color: #444;
     }
 
     .Quickmenu .characterName{
@@ -475,7 +513,7 @@
         grid-area: "CharacterStats";
         background-color: #222;
         height: calc(100vh - 180px);
-        padding: 150px 0px 0px 10px;
+        padding: 140px 0px 0px 10px;
         overflow-y: scroll;
     }
     .characterfull{
@@ -798,6 +836,44 @@
         width:unset;
         color: white;
     }
+
+
+    .jobinfo{
+        display:inline-flex;
+        margin: 6px 1px;
+        padding:2px 2px;
+        /* background:#444; */
+        align-items: center;
+        justify-content: center;
+        box-shadow: 2px 2px 2px black;
+        flex-direction: column;
+    }
+    .jobtitle{
+        display:inline-flex;
+        padding:2px 8px;
+        /* background:#444; */
+        color:black;
+        font-weight: 100;
+        break-after: always;
+        page-break-after: always;
+        /* border: solid 2px transparent */
+        
+    }
+    .job-1{  /*Attack*/
+        background:rgb(249, 100, 42);
+    }
+    .job-2{  /*Defense*/
+        background:rgb(103, 189, 244);
+    }
+    .job-3{  /*Support*/
+        background:rgb(197, 244, 150);
+    }
+    .jobdesc{
+        padding:2px 8px;
+        background:#999;
+        color:black;
+    }
+
     /* .infotext img{
         
     } */
