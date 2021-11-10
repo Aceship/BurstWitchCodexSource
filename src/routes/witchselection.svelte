@@ -85,8 +85,8 @@
         if(musicfilter!=0){
             filteredchara = filteredchara.filter(char=>{
                 let check = false
-                char.MusicInstrument.forEach(instr => {
-                    if(instr[0] == musicfilter) check = true
+                char.musical_use.forEach(instr => {
+                    if(instr == musicfilter) check = true
                 });
                 return check
             })

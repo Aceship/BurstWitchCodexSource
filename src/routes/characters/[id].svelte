@@ -36,10 +36,10 @@
                 <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
             </div>
             <div class="instrumentList">
-                {#each chara.MusicInstrument as instrument,i}
+                {#each chara.musical_use as instrument,i}
                     <div class="instrumentMain">
-                        <img class="instrumentframe" src="../data/img/ui/musicframe/frame2.png" alt="{instrument[0]}">
-                        <img class="instrument" src="../data/img/source_icon/musictype/{instrument[0]}.png" alt="{instrument[0]}">
+                        <img class="instrumentframe" src="../data/img/ui/musicframe/frame2.png" alt="{instrument.toString()}">
+                        <img class="instrument" src="../data/img/source_icon/musictype/{instrument}.png" alt="{instrument.toString()}">
                     </div>
                 {/each}
             </div>
