@@ -1,4 +1,5 @@
-id,活动关联,活动uid,活动商城栏,任务子类1-外围任务,任务子类2-弹窗任务,卡池关联,剧情关卡小类,梦魇关卡小类
+id,活动关联,活动uid,活动商城栏,任务子类1-外围任务,任务子类2-弹窗任务,卡池关联,剧情关卡ID,梦魇关卡小类
 id,activeid,activeUid,ActivechargeUid,Quest_child_class_1,Quest_child_class_2,GashaponListId,Story_Level_type,Nightmare_Level_type
 number,number,number,number,array_&,array_&,number,array_&_|,number
 1,2002,50002,60001,2001&source_common/ActivityLevel/icon_diliufengyin_jifen,2002&source_common/ActivityLevel/icon_diliufengyin_jifentub,10,801&Img_GuanQia_XuanQuDi|802&Img_GuanQia_XuanQuDi,803
+2,2004,50004,60002,2101&source_common/ActivityLevel/img_myj_fangkuai,-1,1001,804&Img_GuanQia_XuanQuDi|805&Img_GuanQia_XuanQuDi,0

@@ -1,0 +1,13 @@
+--
+-- author: haosun
+-- date  : 2021-11-06 13:26:47
+-- brief : 
+--
+Drop = Drop or {}
+
+function Drop:_LoadDropConfig()
+    -- 掉落配置
+    self._drop_config = Config.GetConfigDropitem()
+    -- 时间控制的全局掉落
+    self._time_drop_config = Config.GetConfigTimeDrop()
+end

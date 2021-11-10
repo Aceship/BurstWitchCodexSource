@@ -98,6 +98,9 @@ function WitchNewLvUpLayer:onEnter()
             self:CutShowType(showType);
 
         end)
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname,function()
+            self:UpdateCost()
+        end)
     self._sendMessageCD = 0;
     self:addPrefabClickListener()
 end
@@ -153,7 +156,10 @@ function WitchNewLvUpLayer:onButtonClick(itype)
         self:SetStepUpItems();
     end
 end
-
+function WitchNewLvUpLayer:UpdateCost()
+    local stepUpCosts = Hero:GetStepUpCostsByAttrAndStep(self._hero.attri_type,self._curStep);
+    self._uicostctrl:UpdateUICostCtrl(stepUpCosts)
+end
 
 function WitchNewLvUpLayer:onUpdateCurrency()
     self:setLvCostItems()
@@ -359,6 +365,7 @@ end
 
 
 function WitchNewLvUpLayer:setLvCostItems()
+    -- self:dataGen()
     for i, cobj in ipairs(self._itemsCObj) do
         if self._datas ~= nil and self._datas[i] ~= nil then
             Bag:SetComSimpleGoodsUi(cobj,Bag.TYPE_ITEM,self._datas[i].cfgid,self._datas[i].count)

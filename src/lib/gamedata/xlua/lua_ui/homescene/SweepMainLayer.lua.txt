@@ -1,0 +1,375 @@
+---
+--- Author:admin
+--- Create Time:2021-11-04 15:02:38
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local SweepMainLayer = class("SweepMainLayer", CBaseLayer)
+--按钮
+local BTNS = {
+    back = "btn_return",
+    ok = "container/img_bg/trans_buttom/button_ok",
+    no = "container/img_bg/trans_buttom/button_no",
+    add = "container/img_bg/trans_title/trans_sweepCount/button_add",
+    sub = "container/img_bg/trans_title/trans_sweepCount/button_sub",
+    power = "container/img_bg/trans_title/trans_sweepConsume/item1/img_icon",
+    cost = "container/img_bg/trans_title/trans_sweepConsume/item2/img_icon",
+}
+--构造函数
+function SweepMainLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiHome/ui_fight/UI_SweepMainLayer"
+    }
+    self._uitype = 2
+    self._dropItems = {}
+    self._fading = false
+    self._update = false
+    self._dt = 0.5
+    self._index = 1
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function SweepMainLayer:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+--按钮事件
+function SweepMainLayer:onButtonClick(itype)
+    if itype == BTNS.ok then
+		self:OnSweep()
+    elseif itype == BTNS.no then
+        self:onPopLayer()
+    elseif itype == BTNS.add then
+        self:CheckMaxCount()
+        
+        self._count = math.min(self._count + 1, self._maxSweepCount)
+        self:setDrops()
+    elseif itype == BTNS.sub then
+        self:CheckMaxCount()
+        if self._count > 1 then
+            self._count = self._count - 1
+            self:setDrops()
+        end
+    elseif itype == BTNS.power then
+        -- Groble_UIMgr:ShowBuyPowerLayer()
+    elseif itype == BTNS.cost then
+        -- Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,self.wipeItem[1],Item:GetCfg(self.wipeItem[1]).itemType,Item:GetCount(self.wipeItem[1]))
+    elseif itype == BTNS.back then
+        self:onPopLayer()
+    end
+end
+
+--初始化
+function SweepMainLayer:Init()
+    self:InitUI()
+end
+
+--初始化UI
+function SweepMainLayer:InitUI()
+	self._transContainer = self.layer:Get("container")
+    self._transImgBg = self.layer:Get("container/img_bg")
+    self._trans_title = self.layer:Get("container/img_bg/trans_title")
+    self._transItem2 = self.layer:Get("container/img_bg/trans_title/trans_sweepConsume/item2")
+    self._trans_need = self.layer:Get("container/img_bg/trans_title/trans_need")
+    self._trans_alreadyDrop = self.layer:Get("container/img_bg/trans_title/trans_alreadyDrop")
+    self._trans_trans_isStop = self.layer:Get("container/img_bg/trans_title/trans_isStop")
+
+    self._scrollview = self.layer:Get("container/img_bg/trans_middle/scrollview")
+	
+	self._txtCount = self.layer:GetTextComponent("container/img_bg/trans_title/trans_sweepCount/txt_num")
+    self._txtCost1 = self.layer:GetTextComponent("container/img_bg/trans_title/trans_sweepConsume/item1/txt_num")
+    self._txtCost2 = self.layer:GetTextComponent("container/img_bg/trans_title/trans_sweepConsume/item2/txt_num")
+    self._txtDrop = self.layer:GetTextComponent("container/img_bg/trans_title/trans_alreadyDrop/txt_num")
+
+
+    self._imgIconCost1 = self.layer:GetImageComponent("container/img_bg/trans_title/trans_sweepConsume/item1/img_icon")
+    self._imgIconCost2 = self.layer:GetImageComponent("container/img_bg/trans_title/trans_sweepConsume/item2/img_icon")
+    self._imgIconDrop = self.layer:GetImageComponent("container/img_bg/trans_title/trans_alreadyDrop/img_icon")
+
+    self._isStopToggle = self.layer:GetToggleComponent("container/img_bg/trans_title/trans_isStop/toggle")
+	self._isStopToggle.isOn = true
+
+    --@ImageEnd
+
+    --@TextEnd
+
+    --@TransformEnd
+
+    --@RectTransformEnd
+
+    --@GameObjectEnd
+
+    --@MToggleEnd
+
+    --@MToggleCallBackEnd
+end
+
+--显示UI
+function SweepMainLayer:show(levelid, callback, heroIds)
+    self._level = Chapter:GetLevel(levelid)
+
+    if heroIds == nil then
+        self._teamHeroIds = {0, 0, 0}
+        for i, v in ipairs(Chapter:GenFightTeam(levelid)) do
+            if(v.hero ~= nil)then
+                self._teamHeroIds[i] = v.hero.id
+            end
+        end
+    else
+        self._teamHeroIds = heroIds
+    end
+    self._chapter = Chapter:GetChapter(self._level.chapterid)
+    self._callback = callback
+	self._count = 0
+    self._predictCount = 0
+    self._maxSweepCount = 1
+    self._powerCount = 0
+    self._propCount = 0
+    self.canSweep, self._cost, self.wipeItem, self.dropsData = SweepingCtro:SweepDataByLevel(levelid)
+    self.dropsData = nil
+    self._showUp    = Drop:ChapterSubTypeExistTimeDrop(self._chapter.sub_type)
+    local StartDrops    = Drop:GetLevelDrops(tonumber(self._level.rewards[2]), self._chapter.sub_type)
+
+    self._drops = {}
+    for i = 1, #StartDrops do
+        local key = #StartDrops + 1 - i
+        self._drops[i] = StartDrops[key]
+    end
+
+	self:checkMat(levelid)
+	self:SetMaxSweepCountAndDrops()
+    self:setDrops()
+
+    self:showLayer()
+end
+
+--退出按钮事件
+function SweepMainLayer:onBackClick()
+    if self._callback ~= nil then
+        self._callback()
+    end
+    self:onPopLayer()
+end
+--释放
+function SweepMainLayer:onExit()
+    self._transContainer = nil
+    self._transImgBg = nil
+    self._trans_title = nil
+    self._transItem2 = nil
+    self._trans_need = nil
+    self._trans_alreadyDrop = nil
+    self._trans_trans_isStop = nil
+    self._txtCount = nil
+    self._txtCost1 = nil
+    self._txtCost2 = nil
+    self._txtDrop = nil
+    self._imgIconCost1 = nil
+    self._imgIconCost2 = nil
+    self._imgIconDrop = nil
+    self._isStopToggle = nil
+    --@CloseEnd
+
+    self._drops     = nil
+    self._level     = nil
+    self._chapter   = nil
+
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function SweepMainLayer:RegisterHandler()
+    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
+    --end);
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+-- function SweepMainLayer:refreshUse(bcheck)
+--     self._useAddCom.interactable = bcheck
+--     self._useSubCom.interactable = bcheck    
+--     if bcheck then
+--         self._useAlpha.alpha = 1
+--     else
+--         self._useAlpha.alpha = 0.3
+--     end
+--     self:refreshCostPower()
+-- end
+--检查体力够不够
+function SweepMainLayer:CheckMaxCount()
+	if self._maxSweepCount < 1 then
+		return
+	end
+end
+--设置界面上的部分数据
+function SweepMainLayer:checkMat(levelid)
+    self._cfgid     = 0
+	self._maybeDrop = false
+	self._recommendCnt  = 0         -- 推荐次数
+	self.isDropEnought  = false         -- 所需材料是否满足条件
+	local data = GTemp:GetSweepTmpData()
+	self.layer:Get("container/img_bg/trans_title/trans_need"):SetVisible(data ~= nil)
+	self.layer:Get("container/img_bg/trans_title/trans_alreadyDrop"):SetVisible(data ~= nil)
+	-- self.layer:Get("container/img_bg/trans_title/trans_isStop"):SetVisible(data ~= nil)
+    self._targetItemId = 0
+    if data ~= nil then
+        self._targetItemId = data.cfgid
+        local go = Item:CreateSimpleItemPrefab(self.layer:Get("container/img_bg/trans_title/trans_need"), -310, 32, 0.6)
+        local iconPath = Item:GetItemIconPath(data.cfgid)
+        self._imgIconDrop:LoadSprite(iconPath)
+        Item:OnceSetSimpleItemPrefab(go, data.cfgid, "")
+        self.layer:GetTextComponent("container/img_bg/trans_title/trans_need/txt_name"):SetText(Item:GetCfg(data.cfgid).Name)
+        if Item:GetCount(data.cfgid) < data.costCnt then
+            local colorStr =string.format("<color=#FF6652FF>%d%s",Item:GetCount(data.cfgid),"</color>")
+            self.layer:GetTextComponent("container/img_bg/trans_title/trans_need/txt_hasNum"):SetText(
+                string.format(LanguageMgr:GetTextByID(3002046), colorStr,  data.costCnt))
+        else
+            self.layer:GetTextComponent("container/img_bg/trans_title/trans_need/txt_hasNum"):SetText(
+                string.format(LanguageMgr:GetTextByID(3002046), Item:GetCount(data.cfgid),  data.costCnt))
+        end
+        self._cfgid = tonumber(data.cfgid)
+        local level = Chapter:GetLevel(levelid)
+        self.dropsData = Drop:GetDropNumberMinById(level.rewards[2], self._cfgid)
+        if data.lackCnt > 0 then
+            self._recommendCnt = math.ceil(data.lackCnt /  (self.dropsData[1] * (self.dropsData[2]/10000)))
+        else
+            self._recommendCnt = 0
+            self.isDropEnought  = true
+        end
+	else
+		self:CutHeight(self._transContainer)
+		self:CutHeight(self._transImgBg)
+		self:CutHeight(self._trans_title)
+        AppMgr:LogInfo("--------------------不存在目标材料")
+	end
+    if self._recommendCnt == 0 then
+        self._predictCount = self._recommendCnt + 1
+    else
+        self._predictCount = self._recommendCnt
+    end
+    self._imgIconCost1:LoadSprite(Item:GetItemIconPath(Player.ITEM_VALUE_POWER))
+    self._imgIconCost2:LoadSprite(Item:GetItemIconPath(self.wipeItem[1]))
+	self:checkAndSetCost()
+end
+--设置默认可扫荡次数
+function SweepMainLayer:SetMaxSweepCountAndDrops()
+    if Player:GetValue(Player.VALUE_POWER) < self._cost then
+        self._powerCount = 1
+    else
+        self._powerCount = math.floor(Player:GetValue(Player.VALUE_POWER) / self._cost)
+    end
+	if self.wipeItem[1] == -1 then
+		self._maxSweepCount = math.min(self._powerCount,self._level.remain)
+	else
+		self._propCount = math.floor(Item:GetCount(self.wipeItem[1]) / self.wipeItem[2])
+        local tmpCount = math.min(self._powerCount,self._level.remain)
+		self._maxSweepCount = math.min(tmpCount,self._propCount)
+	end
+	if self._maxSweepCount == 0 then
+		self._count = 1 or math.min(1,self._predictCount)
+    elseif self._recommendCnt == 0 then
+        if self.isDropEnought then
+            self._count = self._predictCount
+        else
+            self._count = self._maxSweepCount
+        end
+	else
+		self._count = math.min(self._maxSweepCount,self._predictCount)
+	end
+end
+
+function SweepMainLayer:CutHeight(trans)
+	trans.sizeDelta = CS.UnityEngine.Vector2(trans.sizeDelta.x , trans.sizeDelta.y - 511.5)
+end
+
+--点击了扫荡执行按钮
+function SweepMainLayer:OnSweep()
+    if self._level.has_star < Chapter.LEVEL_STAR_NUM then
+        Groble_UIMgr:ShowGameWordTipsLayer(76000080)
+        return
+    end
+    if Item:GetCount(Player.ITEM_VALUE_POWER) < self._cost * self._count then
+        Groble_UIMgr:ShowGameWordTipsLayer(3009026)
+        return
+    end
+    if self._level.remain < 1 then
+        Groble_UIMgr:ShowGameWordTipsLayer(31221)
+        return
+    end
+	if self.wipeItem[1] ~= -1 then
+		if Item:GetCount(self.wipeItem[1]) < self.wipeItem[2] * self._count then
+            Groble_UIMgr:ShowGameWordTipsLayer(3002048)
+            return
+        end
+    end
+
+    -- 检查是否出战队伍
+    local heroIds = self._teamHeroIds
+    local _hasTeam = false
+    for i, v in ipairs(heroIds) do
+        if v ~= 0 then
+            _hasTeam = true
+            break
+        end
+    end
+    if not _hasTeam then
+		Groble_UIMgr:ShowGameWordTipsLayer(21003)
+        return
+    end
+
+    -- 发送扫荡数据
+    Chapter:LevelSweepReq(self._level.id,self._count,heroIds,function()
+            self:onBackClick()
+        end,true,true)
+end
+
+--检查是否需要消耗品，如果需要设置消耗显示
+function SweepMainLayer:checkAndSetCost()
+	if tonumber(self.wipeItem[1]) == -1 then
+		self._transItem2:SetVisible(false)
+	else
+		if Item:GetCount(self.wipeItem[1]) < self.wipeItem[2] * self._count then
+			self._txtCost2:SetText(string.format("<color=#FF6652FF>%d%s%s%d",Item:GetCount(self.wipeItem[1]),"</color>","/", self.wipeItem[2] * self._count))
+		else
+			self._txtCost2:SetText(string.format("%d/%d",Item:GetCount(self.wipeItem[1]), self.wipeItem[2] * self._count))
+		end
+	end
+end
+--设置显示掉落物
+function SweepMainLayer:setDrops()
+    self._txtCount.text = string.format(LanguageMgr:GetTextByID(3002024), self._count)
+	local energy = Player:GetValue(Player.VALUE_POWER)
+	if self._cost * self._count > energy then	
+		self._txtCost1.text = string.format("<color=#FF6652FF>%d%s",(self._count * self._cost),"</color>")
+	else
+		self._txtCost1.text = self._count * self._cost
+	end
+    self:checkAndSetCost()
+    self._dropItems = Bag:SetScrollGoods(self._dropItems,self._scrollview, self._drops, 4, 780, 130, 0.45, 70,nil,true)
+
+    if self.dropsData ~= nil then
+        local number = math.floor((self.dropsData[1] * (self.dropsData[2]/10000)))
+        self._txtDrop.text = self._count * number
+    end
+
+    Bag:RefreshDropCursor(self._showUp, self._dropItems.items, self._teamHeroIds, self._drops, 1)
+    -- for i, cls in ipairs(self._dropItems.items) do
+    --     dataDrop = self._drops[i]
+    --     if dataDrop[4] ~= Bag.TYPE_EXDROP and dataDrop[4] ~= Bag.TYPE_ACTIVITY then
+    --         cls.clsbag.numCom:SetText(dataDrop[3])
+    --     end
+    -- end
+end
+
+return SweepMainLayer

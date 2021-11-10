@@ -25,7 +25,6 @@ function Task:_LoadCfg()
             nextid      = tonumber(v.Next_id),
             listid      = tonumber(v.Quest_list),
             Quest_des   = tonumber(v.Quest_des),
-            itype       = tonumber(v.Quest_type),
             Quest_times = tonumber(v.Quest_completion_times),           -- 任务可领取次数
             Type_cmp    = tonumber(v.Type_cmp),
             Count_cmp   = tonumber(v.Count_cmp),
@@ -37,6 +36,7 @@ function Task:_LoadCfg()
             Statistics_id   = tonumber(v.Statistics_quest_id),
             ActivePiece_point   = tonumber(v.ActivePiece_point),
             Activity_points = lua_str_split(v.Activity_points, "&", true),
+            Quest_type  = tonumber(v.Quest_type),
             -- client data
             state       = 0,
             cmpValue    = -1,
@@ -75,19 +75,31 @@ function Task:_LoadCfg()
             local bsDes = tonumber(strs[3])
             table.insert(self._banners, {index = tonumber(v.Bannershow), id = cfgid, name = Language:GetTxtBuyId(bsID), path = bsPath,desId = bsDes})
         end
-        -- 数据统计表反向关联
-        Stats:ContactTask(task.Statistics_id, task.cfgid)
-        -- 客户端使用数据
-        _statsdata = Stats:GetStatisticsQuestConfig(task.Statistics_id)
-        task.cmpValue = task.Count_cmp
-        task.taskTimeId = _statsdata.TimeId
-        if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_MAX_FIX) then
-            task.cmpValue = 1
+        if task.Quest_type == Task.TASK_TYPE_SELF then
+            -- 数据统计表反向关联
+            Stats:ContactTask(task.Statistics_id, task.cfgid)
+            -- 客户端使用数据
+            _statsdata = Stats:GetStatisticsQuestConfig(task.Statistics_id)
+            task.cmpValue = task.Count_cmp
+            task.taskTimeId = _statsdata.TimeId
+            if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_MAX_FIX) then
+                task.cmpValue = 1
+            end
+            task.showValue = task.Count_cmp
+            if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_SHOW_COUNT_FIX) then
+                task.showValue = 1
+            end
+        elseif task.Quest_type == Task.TASK_TYPE_SERVER then
+            -- 全服任务
+            Stats:ContactServerTask(task.Statistics_id, task.cfgid)
+            
+            task.cmpValue = task.Count_cmp
+            task.showValue = task.Count_cmp
+            _statsdata = Stats:GetQuestAllDataById(task.Statistics_id)
+            task.taskTimeId = _statsdata.config.Timeid
+        else
+            AppMgr:LogError("=========未处理的任务类型Quest_type=========")
         end
-        task.showValue = task.Count_cmp
-        if lua_value_in_tbl(_statsdata.Type, Stats.STATS_TASK_SHOW_COUNT_FIX) then
-            task.showValue = 1
-        end        
     end
 
     table.sort(self._banners, function (a, b)

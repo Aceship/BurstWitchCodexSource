@@ -7,7 +7,7 @@
 Item = Item or {}
 
 function Item:SyncItems(data)
-    if Network:IsNotHandleNotify() then return end
+    -- if Network:IsNotHandleNotify() then return end
 
     AppMgr:LogInfo("----------同步道具数据----------")
     for _, v in pairs(data.items) do
@@ -96,7 +96,7 @@ function Item:ItemUseReq(configid, count,index)
             isEquip = true;
         end
     else
-        local drops = Item:GetAllDrops(tonumber(cfg.dropID));
+        local drops = Drop:GetAllDrops(tonumber(cfg.dropID));
         for _, v in pairs(drops) do
             if(v[1] == Bag.TYPE_EQUIP)then
                 isEquip= true;

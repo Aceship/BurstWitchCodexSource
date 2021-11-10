@@ -204,3 +204,4 @@ number,string,number,number
 16010101,prefab_barrage/Boss_Skill/XueYueYaNuXiYa/Xueyue_Skill03_LHand,-1,-1
 16010102,prefab_barrage/Boss_Skill/XueYueYaNuXiYa/Xueyue_Skill02_RHand_1,-1,-1
 16010103,prefab_barrage/Boss_Skill/XueYueYaNuXiYa/Xueyue_Skill03_Spine1,-1,-1
+1026001,prefab_fightEffect/skillHitEffect/skill_hit_effect_blue,66001,0.5

@@ -78,7 +78,6 @@ function Recharge:SetGiftPagItem(cls,cfgId)
         end
         cls.bgPath = cfg.bgPath[2];
     end
-
     cls.txtName:SetText(cfg.name);
     --折扣
     cls.imgDiscountBg:SetEnabled(cfg.discount < 1);
@@ -118,7 +117,7 @@ function Recharge:SetGiftPagItem(cls,cfgId)
     cls.imgBuyIcon:SetEnabled(not isSellOut);
     cls.txtCurPrice:SetEnabled(not isSellOut);
     if(not isSellOut)then
-        cls.imgBuyIcon.sprite = Item:LoadSprite(cfg.priceId);
+        cls.imgBuyIcon:LoadSprite(Item:GetItemIconPath(cfg.priceId));
         cls.txtCurPrice:SetText(math.ceil(cfg.price * cfg.discount));
     end
     cls.imgIsGet:SetEnabled(isSellOut);

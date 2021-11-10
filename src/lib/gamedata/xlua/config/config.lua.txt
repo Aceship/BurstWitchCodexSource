@@ -1,0 +1,12 @@
+--
+-- author: haosun
+-- date  : 2021-11-03 11:00:55
+-- brief : 
+--
+Config = Config or {}
+
+AssetLoader:LoadLuaAsset("xlua/config/active_sixthmaintype.txt")
+AssetLoader:LoadLuaAsset("xlua/config/active_triggerad.txt")
+AssetLoader:LoadLuaAsset("xlua/config/dropitem.txt")
+AssetLoader:LoadLuaAsset("xlua/config/questall.txt")
+AssetLoader:LoadLuaAsset("xlua/config/timedrop.txt")

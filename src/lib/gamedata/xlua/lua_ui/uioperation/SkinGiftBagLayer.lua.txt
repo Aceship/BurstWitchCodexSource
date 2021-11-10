@@ -20,7 +20,6 @@ function SkinGiftBagLayer:ctor(super,parent)
         trans = parent,
         obj = true
     };
-    self._init = true;
     self._fading = false;
     self:onEnter();
 end
@@ -81,9 +80,9 @@ function SkinGiftBagLayer:InitUI()
     --@TextEnd
 
     --self._transVideoPlayer = self.layer:Get("trans_video_player");
-    self._transAwardBg = self.layer:Get("trans_content/trans_award_bg");
+    self._transAwardBg = self.layer:Get("trans_content/trans_award_scroll/trans_award_bg");
     --@TransformEnd
-
+    self._rectAwardBg = self._transAwardBg:GetComponent("RectTransform");
     self._rectTitle1 = self.layer:GetRectTransformComponent("trans_content/trans_title_1");
     self._rectTitle2 = self.layer:GetRectTransformComponent("trans_content/trans_title_2");
     self._rectTxtTitle = self.layer:GetRectTransformComponent("trans_content/img_txt_title");
@@ -97,13 +96,17 @@ function SkinGiftBagLayer:InitUI()
 
     --@MToggleCallBackEnd
     --self._videoPlayer = self._transVideoPlayer:GetComponent("CriVideoHelperEx");
+    self._awardItemWith = self._objAwardItem.transform:GetSizeDeltaX();
+    self._awardScrollX = self._transAwardBg.parent:GetSizeDeltaX();
+    CS.UnityHelper.NotchfitY(self._txtCountDown.transform);
 end
 
 --显示UI
 function SkinGiftBagLayer:show()
-    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+    --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
     self:UpdateData();
     self:SetUI();
+    self:SetAwardItemUI();
     self:showLayer();
     --self:SetVideo();
     self:playAni("SkinGiftBagAnim");
@@ -133,10 +136,18 @@ function SkinGiftBagLayer:onExit()
 	self._txtTitle2 = nil;
 	self._imgTxtTitle = nil;
 	self._rectTxtTitle = nil;
+    self._rectAwardBg = nil;
 	--@CloseEnd
     --[[if(self._videoPlayer ~= nil) then
         self._videoPlayer:ClearVideoClip()
     end]]--
+
+    if(self._awardItems ~= nil)then
+        for _, v in pairs(self._awardItems) do
+            v:clear();
+        end
+        self._awardItems = nil;
+    end
     CBaseLayer.onExit(self);
 end
 
@@ -164,12 +175,12 @@ function SkinGiftBagLayer:OnBtnBuyClick()
     end
 end
 function SkinGiftBagLayer:OnBtnSkillShowClick()
-    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+    --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
     GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SET_ACTIVITY_MAIN_LAYER_ANIM,Activity.MainLayerOutAnim1);
     self:playAni("SkinShowPlayAnim");
 end
 function SkinGiftBagLayer:OnBtnSkillHideClick()
-    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
+    --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,true);
     GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SET_ACTIVITY_MAIN_LAYER_ANIM,Activity.MainLayerInAnim1);
     self:playAni("SkinHidePlayAnim");
 end
@@ -240,28 +251,53 @@ function SkinGiftBagLayer:SetBuyBtnState()
     end
 end
 
-local MaxAwardItemNum = 3;
 function SkinGiftBagLayer:SetAwardItemUI()
     if(self._awardItems == nil)then
         self._awardItems = {};
     end
-    for i = 1, MaxAwardItemNum do
+    local endDt;
+    local num = #self._dropCfg.dropIds;
+    self._transAwardBg:SetSizeX(self._awardItemWith * #self._dropCfg.dropIds);
+    if(num < #self._awardItems)then
+        num = #self._awardItems;
+    end
+    --设置奖励
+    for i = 1, num do
         local cls = self._awardItems[i];
         if(cls == nil)then
             cls = self:NewAwardItem(self._transAwardBg:AddChild(self._objAwardItem));
             self._awardItems[i] = cls;
-            self:SetAwardItem(cls,i);
         end
-        self._awardItems[i].transform:SetScale(0,0,0);
-        self._awardItems[i].transform:DOScale(1,0.1):SetDelay(0.05*i);
-        self:UpdateAwardItemState(cls);
+        cls:Visible(self._dropCfg.dropIds[i] ~= nil);
+        if(self._dropCfg.dropIds[i] ~= nil)then
+            self:SetAwardItem(cls,i);
+            cls.transform:SetScale(0,0,0);
+            endDt = cls.transform:DOScale(1,0.1):SetDelay(0.05*i);
+            self:UpdateAwardItemState(cls);
+        end
+    end
+    --计算定位
+    local getX = 0;
+    if(self._getPos > 0)then
+        getX = math.min(self._awardItemWith * #self._dropCfg.dropIds - self._awardScrollX,(self._getPos - 1) * self._awardItemWith);
+    end
+    if(getX > 0)then
+        if(endDt ~= nil)then
+            endDt:OnComplete(function ()
+                self._rectAwardBg:DOAnchorPosX(-getX,0.2);
+            end);
+        else
+            self._rectAwardBg:SetAnchoredPosX(0);
+        end
+    else
+        self._rectAwardBg:SetAnchoredPosX(0);
     end
 end
 
 local MaxItemNum = 2;
 function SkinGiftBagLayer:NewAwardItem(trans)
     local cls = clsbase:new(trans);
-    cls.imgBg = cls.transform:GetComponent("Image");
+    cls.imgBg = cls:GetImageComponent("img_bg");
     cls.imgNum = cls:GetImageComponent("img_num");
     cls.txtDayTitle = cls:GetTextComponent("txt_day_title");
     cls.transItemBg = cls:Find("trans_item_bg");
@@ -291,9 +327,6 @@ function SkinGiftBagLayer:SetAwardItem(cls,index)
 end
 
 function SkinGiftBagLayer:UpdateAwardItemState(cls)
-    if(self._giftState == Recharge.RepeatState.UnBuy)then
-        return;
-    end
     if(cls.index <= self._getNum or self._giftState == Recharge.RepeatState.GetOver)then--可领取或已领取
         if(cls.index <= self._getPos or self._giftState == Recharge.RepeatState.GetOver)then--已领取
             cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
@@ -316,17 +349,13 @@ function SkinGiftBagLayer:UpdateAwardItemState(cls)
 end
 -------------------------
 
-function SkinGiftBagLayer:KeyFrameCall(intkey)
+--[[function SkinGiftBagLayer:KeyFrameCall(intkey)
     if(intkey == 1)then
-        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
-        if(self._init)then
-            self:SetAwardItemUI();
-            self._init = false;
-        end
+        --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
     elseif(intkey == 99)then
-        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
+        --GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.FROST_VIEW,false);
     end
-end
+end]]--
 
 --[[function SkinGiftBagLayer:SetVideo()
     self._transVideoPlayer:SetVisible(self._activityCfg.VideoPath ~= "-1");

@@ -69,7 +69,7 @@ Player.SYS_FUNC= {
     sys_concert     = 1024,    -- 音乐厅
 
     syc_activity_level    = 50002,   -- 活动关卡
-    syc_activity_moon    = 50004,   -- 活动关卡满月祭预告
+    syc_activity_moon     = 50004,   -- 活动关卡满月祭
 
     chapter3        = 888003,  --第3章
     chapter4        = 888004,

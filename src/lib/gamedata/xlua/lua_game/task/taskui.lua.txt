@@ -62,20 +62,25 @@ function Task:_onInitComTaskCell(transform, count)
     cls.clsitems    = {}
     cls.state       = -99
     cls.taskcfgid   = 0
-    cls.obj_exps    = {
-        {
-            transform   = transform:Get("img_exp1"),
-            txt_exp     = transform:GetTextComponent("img_exp1/txt_exp1"),
-        },
-        {
-            transform   = transform:Get("img_exp2"),
-            txt_exp     = transform:GetTextComponent("img_exp2/txt_exp2"),
-        },
-        {
-            transform   = transform:Get("img_exp3"),
-            txt_exp     = transform:GetTextComponent("img_exp3/txt_exp3"),
-        },
-    }
+    if transform:Get("img_exp1") == nil then
+        cls.obj_exps    = {}
+    else
+        cls.obj_exps    = {
+            {
+                transform   = transform:Get("img_exp1"),
+                txt_exp     = transform:GetTextComponent("img_exp1/txt_exp1"),
+            },
+            {
+                transform   = transform:Get("img_exp2"),
+                txt_exp     = transform:GetTextComponent("img_exp2/txt_exp2"),
+            },
+            {
+                transform   = transform:Get("img_exp3"),
+                txt_exp     = transform:GetTextComponent("img_exp3/txt_exp3"),
+            },
+        }
+    end
+    
     for i = 1, count do
         local obj = transform:Get("content/item_" .. i)
         cls.clsitems[i] = {
@@ -154,18 +159,18 @@ function Task:_onSetComTaskCell(cls, data)
     local posx, cnt = -422, 0
     for i, obj_exp in ipairs(cls.obj_exps) do
         local reward = data.ExpRewards[cnt+1]
-        if reward ~= nil then
-            if Player.TaskExpReward[i] == reward[1] then
-                obj_exp.txt_exp:SetText(reward[2])
-                obj_exp.transform:SetPositionX(posx + cnt * 150, true)
-                cnt = cnt + 1
-                obj_exp.transform:SetVisible(true)
+            if reward ~= nil  then
+                if Player.TaskExpReward[i] == reward[1] then
+                    obj_exp.txt_exp:SetText(reward[2])
+                    obj_exp.transform:SetPositionX(posx + cnt * 150, true)
+                    cnt = cnt + 1
+                    obj_exp.transform:SetVisible(true)
+                else
+                    obj_exp.transform:SetVisible(false)
+                end
             else
                 obj_exp.transform:SetVisible(false)
             end
-        else
-            obj_exp.transform:SetVisible(false)
-        end
     end
     
     cls.btn_recv:SetVisible(brecv)
@@ -243,3 +248,29 @@ function Task:onSpecialTaskClick(cls)
     end
 end
 
+function Task:InitActivityLevelTaskCell(transform, count)
+    local cls = self:_onInitComTaskCell(transform, count)
+    for i = 1, count do
+        local obj = transform:Get("content/item_" .. i)
+        cls.clsitems[i].recvEffect = cls.clsitems[i].transform:CreateChild("prefab_item_spine/spine_item_recv")
+        cls.clsitems[i].recvEffect:SetScale(0.45, 0.45, 0.45)
+    end
+
+    return cls
+end
+
+function Task:SetActivityLevelTaskCell(cls, taskid)
+    self:SetTaskCell(cls, taskid)
+
+    local data = self:GetTask(taskid)
+    local canrecv = data.state == Task.STATE_HAS_DONE
+    cls.txt_per:SetTextColor(0.85, 0.85, 0.85, 1)
+    cls.txt_name:SetTextColor(0.85, 0.85, 0.85, 1)
+    if canrecv then
+        cls.img_slider:SetImageColor(0.85, 0.8, 0.7, 1)
+        cls.img_slider:SetVisible(true)
+    end
+    for i, v in ipairs(cls.clsitems) do
+        v.recvEffect:SetVisible(canrecv)
+    end
+end

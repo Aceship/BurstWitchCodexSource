@@ -60,7 +60,7 @@ function BloodCycleLayer:onButtonClick(itype)
     elseif(itype == BTNS.BtnBuyLv)then
         self:OnBuyExpBtnClick(self.cfgDatas[self.Lv + 1])
     elseif(itype == BTNS.BtnRule)then
-        Groble_UIMgr:ShowRuleTipsLayer(6001);
+        Groble_UIMgr:ShowRuleTipsLayer(9001);
     elseif(itype == BTNS.BtnGetAll)then
         self:OnBtnGetAllClick();
     else--@ButtonCallBackEnd

@@ -4,6 +4,7 @@
 ---
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Stats/stats.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Stats/stats_c2s.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Stats/statsall.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Stats/statscfg.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Stats/statsdef.txt")
 

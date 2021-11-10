@@ -228,7 +228,11 @@ function Hero:_LoadCardCharacterSublimation()
             RaiseUpCosts = lua_parse_cfg(v.RaiseUpCosts,true),
             lvUpAward = lua_parse_cfg(v.RaiseUpGifts,true),
             lvUpAttrAdd = lua_parse_cfg(v.SubliAttribute,true),
-            lvUpMaxLevel = tonumber(v.WitchLevel)
+            lvUpMaxLevel = tonumber(v.WitchLevel),
+            Characteristic = v.Characteristic,
+            Characteristic_des = tonumber(v.Characteristic_des),
+            pic_title = tonumber(v.pic_title),
+            pic_des = tonumber(v.pic_des),
         }
     end
 end
@@ -245,17 +249,8 @@ end
 
 function Hero:GetCurSublimationCfgByHeroId(heroId)
     local hero = Hero:GetHero(tonumber(heroId))
-    local curLv = 0;
     local cfgs = Hero:GetSublimationCfgsByGroupId(hero.Intimacy[4]);
-    if(hero.intimacy_data.raise == 0)then
-        curLv = 1;
-    elseif(hero.intimacy_data.raise < 0)then
-        curLv = math.abs(hero.intimacy_data.raise);
-    elseif(#cfgs < hero.intimacy_data.raise)then
-        curLv = hero.intimacy_data.raise + 1;
-    else
-        curLv = hero.intimacy_data.raise;
-    end
+    local curLv = self:GetCurRaiseByHeroId(heroId)
     return cfgs[curLv];
 end
 

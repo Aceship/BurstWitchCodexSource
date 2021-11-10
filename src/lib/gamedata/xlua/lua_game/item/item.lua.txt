@@ -168,10 +168,9 @@ function Item:OnItemTdOper(cfgid, value, reason, param, oldCount, allCount)
     if reason == nil or reason == 0 then reason = -1 end
     
     local cfg = self:GetCfg(cfgid)
-    local count = self:GetCount(cfgid)
     if value > 0 then
         GZSDKHelper:itemFlowWithPlayerInfo("add", cfgid, cfg.Name, cfg.itemType, value, oldCount, allCount, logmsg[reason])
     elseif value < 0 then
-        GZSDKHelper:itemFlowWithPlayerInfo("add", cfgid, cfg.Name, cfg.itemType, value, oldCount, allCount, logmsg[reason])
+        GZSDKHelper:itemFlowWithPlayerInfo("reduce", cfgid, cfg.Name, cfg.itemType, value, oldCount, allCount, logmsg[reason])
     end
 end

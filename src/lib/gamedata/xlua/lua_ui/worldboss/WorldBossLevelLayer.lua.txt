@@ -136,6 +136,7 @@ end
 
 function WorldBossLevelLayer:showLayer()
     self:playAni("WorldBossLevelLayerAnim");
+    WorldBoss:SetBossShow(true);
     if self._heroSelectCtrl ~= nil then
         self._heroSelectCtrl:OnEnabled()
     end
@@ -240,7 +241,7 @@ function WorldBossLevelLayer:onHeroClick(i)
         self:SetHeroData()
         WorldBoss:SetBossShow(true);
         self._heroSelectCtrl:UpdateHeroItem(self._curHeroIds)
-    end, self._curChapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD)
+    end, lua_value_in_tbl(self._curChapter.sub_type, Chapter.MODE_ACTIVITY_HARD_IDS))
 end
 
 function WorldBossLevelLayer:onFightClick()

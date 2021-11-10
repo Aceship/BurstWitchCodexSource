@@ -42,35 +42,36 @@ function ChapterRewardLayer:show(chapter)
 end
 
 function ChapterRewardLayer:initRewardItems()
-    local reward_item = self.layer.transform:Find("reward_item")
-    reward_item.gameObject:SetActive(false)
-    local content = self.layer.transform:Find("scrollview/viewport/content")
+    local reward_item = self.layer:Get("reward_item").gameObject
+    reward_item:SetVisible(false)
+    local content = self.layer:Get("scrollview/viewport/content")
     local posy = -128
     for i = 1, #self._data.rewards do
-        local item = Groble_ResMgr:Instantiate(reward_item, content)
+        local item = content:AddChild(reward_item)
         item.name = "item" .. i
-        item.transform:Find("button_click"):GetComponent("Button").onClick:AddListener(function()
+        item:GetButtonComponent("button_click"):AddButtonListener(
+            function()
                 self:onClickRecv(i)
             end)
-        item:GetComponent("RectTransform").localPosition = CS.UnityEngine.Vector3(540, posy, 0)
+        item:SetPosition(540, posy, 0, true)
         posy = posy - 230
         self:setRewardItems(item, self._data.rewards[i])
 
-        item:GetComponent("RectTransform").localScale = CS.UnityEngine.Vector3(0, 0, 0)
-        set_obj_active(item, true)
+        item:SetScale(0, 0, 0)
+        item:SetVisible(true)
         self._itemObj[i] = item
     end
     self:refreshItems()
-    self.layer.transform:Find("scrollview"):GetComponent("ScrollRect").vertical = #self._data.rewards > 3
+    self.layer:Get("scrollview"):GetComponent("ScrollRect").vertical = #self._data.rewards > 3
 end
 
 function ChapterRewardLayer:refreshItems()
     for i = 1, #self._data.rewards do
         local data = self._data.rewards[i]
         local item = self._itemObj[i]
-        local text_num= item.transform:Find("text_num"):GetComponent("Text")
+        local text_num= item:GetTextComponent("text_num")
         text_num.text = data.star
-        local text_tips= item.transform:Find("text_tips"):GetComponent("Text")
+        local text_tips= item:GetTextComponent("text_tips")
 
         local showbg = false
         local showDark=false
@@ -98,23 +99,14 @@ function ChapterRewardLayer:refreshItems()
                  showWhite=true
             end
         end
-        set_obj_active(item.transform:Find("rev_bg"),showbg)
-        set_obj_active(item.transform:Find("button_click"),showbg)
-        set_obj_active(item.transform:Find("text_revd"),showDark)
-        for j=1,content.transform.childCount do
-            local prefab_item=content.transform:Find("prefab_item"..j)
-            if prefab_item~= nil then
-                --set_obj_active(prefab_item.transform:Find("image_gg"),false)
-              --  set_obj_active(prefab_item.transform:Find("image_dark"),showDark)
-               -- set_obj_active(prefab_item.transform:Find("bg_white"),showWhite)
-              --  set_obj_active(prefab_item.transform:Find("bg_black"),showBlack)
-            end
-        end
+        item:Get("rev_bg"):SetVisible(showbg)
+        item:Get("button_click"):SetVisible(showbg)
+        item:Get("text_revd"):SetVisible(showDark)
     end
 end
 
 function ChapterRewardLayer:setRewardItems(item, data)
-    local drops = Item:GetDrops(data.dropid)
+    local drops = Drop:GetDropsById(tonumber(data.dropid))
     local scrollview = item.transform:Find("scrollview")
     self._dropItems = Bag:SetScrollGoods(self._dropItems ,scrollview, drops, 4, 730, 150, 0.5, 92,nil,true)
     scrollview:GetComponent("ScrollRect").horizontal = false

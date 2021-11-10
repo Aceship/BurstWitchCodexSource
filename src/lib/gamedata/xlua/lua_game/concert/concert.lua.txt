@@ -230,12 +230,15 @@ end
 
 ------------------------乐谱-------------------------
 -----获取所有乐谱
-function Concert:GetAllConcetBooks()
+function Concert:GetAllConcetBooks(hallId)
 
     local tbl = {}
     local books = {}
     local book,sortid;
-
+    local specialBookId;
+    if hallId then
+        specialBookId = Groble_SceneMgr:PrefsGetString("concertbood_" .. tostring(hallId));
+    end
     for _, v in pairs(self._concertBooks) do
         book = v
         sortid = 0
@@ -248,7 +251,11 @@ function Concert:GetAllConcetBooks()
         if self:checkBookItemCost(book) or book.isOpen then
             studyId = 0
         end
-        sortid = openId * 10000 + studyId * 1000 + book.SortId;
+        local special = 1
+        if tonumber(specialBookId) == tonumber(book.id) then
+            special = 0
+        end
+        sortid = openId * 10000 + studyId * 1000 + special * 1000 + book.SortId;
 
         table.insert(tbl, {id = book.id, sortid = sortid,index = book.index})
     end

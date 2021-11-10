@@ -8,6 +8,7 @@ number,number,number,string,number,number,string,number,number,string,string,num
 1006,20005,10010005,TURNTABLE ACTIVITY,6,0,Activeitem,500002,0,-1,-1,30009,20004|113|-345,-1,0&0&0,1&1&1,10002,0,100,8999997,-1,-1
 1007,20006,10010006,WHITE NIGHT CINCERTO,7,0,Activeitem,101,0,-1,-1,20003,20003|-42|-128,-1,0&0&0,1&1&1,9901,0,0,8999999,-1,-1
 2001,50001,10010006,Teiz sime,8,1,Active_sixthnotice,0,0,-1,-1,0,-1,-1,0&0&0,1&1&1,9901,0,0,-1,-1,Img_ZhuYe_HuoDong_BaiYe
-2002,50002,10010007,Teiz sime,9,0,Activeitem,37002,0,我名为雅努西娅，是不应诞生的罪恶之子。为什么要唤醒我？,-1,0,img_diliufengyin_biaoti|-258|-76,-1,205&1038&0,150&150&150,9901,0,0,-1,6003,Img_ZhuYe_HuoDong_BaiYe
+2002,50002,10010007,Teiz sime,9,0,Activeitem,101,0,我名为雅努西娅，是不应诞生的罪恶之子。为什么要唤醒我？,-1,0,img_diliufengyin_biaoti|-258|-76,-1,205&1038&0,150&150&150,9901,0,0,-1,6003,Img_ZhuYe_HuoDong_BaiYe
 1008,20008,10010008,Sinehue tioncik,10,0,Activeitem,70001,0,-1,-1,40011,40013|-5|652|0.5|0,10280002,110&-887&0,130&130&130,10002,0,0,-1,-1,-1
 2003,50003,10010009,Teiz sime,11,1,Active_sixthnotice,0,0,-1,-1,0,-1,-1,0&0&0,1&1&1,9901,0,0,-1,-1,Img_ZhuYe_HuoDong_manyueji
+2004,50004,10010010,UMKAMARISI,12,0,Activeitem,37002,0,黑暗中没有光明，绝望中没有希冀，罪人只能落入死地。,-1,0,text_shilian_xuanzhuanghui_biaoti|-280|-76,-1,205&1038&0,150&150&150,9901,0,0,-1,-1,Img_ZhuYe_HuoDong_manyueji

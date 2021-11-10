@@ -5,6 +5,73 @@
 --
 GZSDKHelper = GZSDKHelper or {}
 
+local _resons = {
+    [1101] = "修改昵称",
+    [1118] = "钻石增加体力",
+    [1120] = "兑换激活码",
+    [1124] = "引导奖励",
+    [1126] = "身份证验证奖励",
+    [1132] = "领取分享奖励",
+    [1136] = "导师选择",
+    [1140] = "领取url奖励邮件",
+    [1204] = "使用物品",
+    [1206] = "出售物品",
+    [1303] = "魔女解锁",
+    [1305] = "魔女升级",
+    [1307] = "魔女升阶",
+    [1309] = "魔女升星",
+    [1321] = "魔女技能升级",
+    [1341] = "魔女获得好感度礼物",
+    [1343] = "魔女好感度升华",
+    [1345] = "魔女奇遇领取",
+    [101603] = "关卡开始",
+    [1605] = "关卡结束",
+    [1607] = "关卡扫荡",
+    [1609] = "关卡三星奖励",
+    [1611] = "副本大章星级阶段奖励",
+    [1617] = "结算幽暗秘境上周层数奖励",
+    [1619] = "增加幽暗秘境奖励次数",
+    [1621] = "增加章节次数",
+    [1625] = "领取幽暗秘境层数奖励",
+    [1804] = "购买深夜buff",
+    [1904] = "装备强化",
+    [1910] = "出售装备",
+    [2107] = "领取邮件附件",
+    [2109] = "一键领取附件",
+    [2210] = "排行 深夜结算深夜币",
+    [2200] = "排行 深夜登记",
+    [2230] = " 排行 深夜赛季奖励领取",
+    [2231] = "排行 深夜大赛季奖励领取",
+    [2309] = " 抽奖",
+    [2311] = " 自主购买",
+    [2313] = "领取排行商店礼包",
+    [2317] = "魔女碎片兑换",
+    [2321] = "领取深夜抽奖许愿位奖励",
+    [2405] = "领取奖励",
+    [2702] = "活动物品领取",
+    [2704] = "活动夜莺巡查投骰子",
+    [2706] = "活动夜莺巡查领取圈数奖励",
+    [2708] = "活动契约水晶转盘",
+    [2710] = "活动契约水晶领取次数奖励",
+    [2712] = "活动日签到",
+    [2714] = "活动预测礼包领取",
+    [2716] = "第六封印类 活动天礼包领取",
+    [2927] = "接受好友币",
+    [2931] = "一键接受好友币",
+    [3617] = "充值获取首充礼包",
+    [3602] = "充值购买魔女币礼包",
+    [3623] = "充值领取手书奖励等级礼包",
+    [3625] = "充值手书礼包解锁",
+    [3627] = "充值打包礼包天领取",
+    [3631] = "充值领取重复礼包",
+    [3808] = "子弹构筑升级",
+    [3901] = "关卡使用翻牌",
+    [4103] = "演奏开始演奏",
+    [4105] = "演奏结束演奏",
+    [4107] = "演奏领取魔女奖励",
+    [4109] = "演奏合成乐谱",
+}
+
 function GZSDKHelper:InitGZSDKHelper()
     self._isBiliSDK = GameSdkMgr:IsBiliSdk()
 
@@ -206,7 +273,7 @@ function GZSDKHelper:playerExpWithPlayerInfo(level)
 end
 
 -- 货币发生变化
-function GZSDKHelper:goldFlowWithPlayerInfo(act_type, gold_id, gold_name, gold_type, gold_num, before_count, after_count, reason)
+function GZSDKHelper:goldFlowWithPlayerInfo(act_type, gold_id, gold_name, gold_type, gold_num, before_count, after_count, reason, param)
     if not self._isBiliSDK then return end
 
     self._goldFlowData["act_type"]      = act_type
@@ -216,8 +283,19 @@ function GZSDKHelper:goldFlowWithPlayerInfo(act_type, gold_id, gold_name, gold_t
     self._goldFlowData["gold_num"]      = tostring(gold_num)
     self._goldFlowData["before_count"]  = tostring(before_count)
     self._goldFlowData["after_count"]   = tostring(after_count)
-    self._goldFlowData["reason"]        = reason
-
+    if param ~= nil then
+        local str = ""
+        if type(param) == "table" then
+            for i, v in pairs(param) do
+                str = str .. ":" .. v
+            end
+            self._goldFlowData["reason"] = reason .. str
+        else
+            self._goldFlowData["reason"] = reason .. ":" .. param
+        end
+    else
+        self._goldFlowData["reason"] = reason
+    end    
     GameSdkMgr:OnTdOper(self._goldFlowData)
 end
 

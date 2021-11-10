@@ -199,7 +199,7 @@ function ChessBoardMainLayer:RegisterHandler()
     self:addEventListener(EVENT_TYPE.UTIME_ACTION, self.__cname,
             function()
                 local activity = Activity:GetActivityByUId(Operation.ActivityID.ChessBoard).info;
-                self._curRemainTime = Activity:GetChessBoardOverTime() - CTime:GetServerTime();
+                self._curRemainTime = Activity:GetChessBoardOverTime();
                 if(not CTime:IsOpen(activity.Time))then
                     Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90099));
                     self:onPopLayer();

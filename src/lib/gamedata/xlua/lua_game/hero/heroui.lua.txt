@@ -536,6 +536,54 @@ function Hero:SetSkillLvUpCostUi(cls, count, items)
     return cfgid
 end
 
+function Hero:NewSublimationWakeUpCostUi(obj, count)
+    local cls = {};
+    for i = 1, count, 1 do
+        cls[i] = {};
+        cls[i].itemObj = obj.transform:Find("cost/item_cost_" .. i)
+        cls[i].imgIcon = cls[i].itemObj.transform:Find("image_icon"):GetComponent("Image");
+        cls[i].txtNum = cls[i].itemObj.transform:Find("text_number"):GetComponent("Text");
+        cls[i].btn = cls[i].itemObj:GetComponent("Button");
+        local UIButtonSFX = cls[i].itemObj:GetComponent("UIButtonSFX")
+        if UIButtonSFX ~= nil then
+            cls[i].btn.onClick:AddListener(function()
+                if cls[i].items[i] ~= nil then
+                    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,cls[i].items[i][1], Item:GetCfg(cls[i].items[i][1]).itemType,cls[i].items[i][2])
+                end
+            end)
+        else
+            cls[i].btn.onClick:AddListener(function()
+                if cls[i].items[i] ~= nil then
+                    Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,cls[i].items[i][1], Item:GetCfg(cls[i].items[i][1]).itemType,cls[i].items[i][2])
+                end
+            end)
+        end
+    end
+    return cls;
+end
+
+function Hero:SetSublimationWakeUpCostUi(cls, count, items)
+    local cfgid, lack = 0, false
+    for i = 1, count, 1 do
+        cls[i].items = items;
+        cls[i].itemObj:SetVisible(items[i] ~= nil)
+        if items[i] ~= nil then
+            local has = Item:GetCount(items[i][1])
+            lack = has < items[i][2]
+
+            Item:SetItemIcon(cls[i].imgIcon, items[i][1])
+            if lack then
+                cfgid = items[i][1]
+                cls[i].txtNum.text = "<color=#FF6751FF>"..items[i][2].."</color>"
+            else
+                cls[i].txtNum.text = items[i][2]
+            end
+
+        end
+    end
+    return cfgid
+end
+
 function Hero:OpenWitchesLayer(param, callback)
     local params =  {
         intype      = param.intype,
@@ -653,18 +701,18 @@ end
 --新建半身展示Item
 function Hero:HalfItemClassNew(trans, callBack, pressCall, pressDelay)
     local cls           = clsbase:new(trans)
-    cls.imgBust         = cls:GetComponent("img_bust", "Image");
-    cls.txtLv           = cls:GetComponent("txt_lv_title/txt_lv", "Text");
-    cls.imgAttr         = cls:GetComponent("img_attr_bg/img_attr", "Image");
-    cls.txtName         = cls:GetComponent("txt_name", "Text");
-    cls.imgObj          = cls:Find("img_border")
-    cls.imgAtkType      = cls:GetComponent("img_attack_type_bg/img_attack_type","Image");
-    cls.imgBorder       = cls:GetComponent("img_border", "Image");
-    cls.maskCom         = cls:GetComponent("img_mask", "Image")
-    cls.maskTxtCom      = cls:GetComponent("txt_mask", "Text")
-    cls.maskTxtEnCom    = cls:GetComponent("txt_mask_en", "Text")
+    cls.imgBust         = trans:GetImageComponent("img_bust");
+    cls.txtLv           = trans:GetTextComponent("txt_lv_title/txt_lv");
+    cls.imgAttr         = trans:GetImageComponent("img_attr_bg/img_attr");
+    cls.txtName         = trans:GetTextComponent("txt_name");
+    cls.imgObj          = trans:Get("img_border")
+    cls.imgAtkType      = trans:GetImageComponent("img_attack_type_bg/img_attack_type");
+    cls.imgBorder       = trans:GetImageComponent("img_border");
+    cls.maskCom         = trans:GetImageComponent("img_mask")
+    cls.maskTxtCom      = trans:GetTextComponent("txt_mask")
+    cls.maskTxtEnCom    = trans:GetTextComponent("txt_mask_en")
     cls.clickCom        = cls.obj:GetComponent("Button")
-    if cls:Find("trans_star_bg") ~= nil then
+    if trans:Get("trans_star_bg") ~= nil then
         cls.imgStar         = {};
         for i = 1, 6 do
             cls.imgStar[i] = cls:Find("trans_star_bg/img_star_"..i).gameObject;

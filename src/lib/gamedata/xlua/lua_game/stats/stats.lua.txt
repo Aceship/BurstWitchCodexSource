@@ -6,15 +6,26 @@ Stats = Stats or {}
 
 function Stats:StatsCreator()
     self:_LoadStatisticsQuestConfig()
+
+    self:_AnalysisQuestAllConfig()
 end
 
 function Stats:StatsDestructor()
     for _, data in pairs(self._StatisticsQuest) do
-        data.count = 0
+        data.Count = 0
         for i, v in pairs(data.TaskIds) do
             data[i] = nil
         end
     end
+    -- 全服统计数据
+    for _, data in pairs(self._configQuestAll) do
+        data.Count = 0
+    end
+
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+    end
+    self._timerId = nil
 end
 
 function Stats:GetStatsDataById(id)

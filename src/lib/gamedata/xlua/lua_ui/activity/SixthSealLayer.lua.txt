@@ -82,8 +82,8 @@ function SixthSealLayer:InitUI()
     rect.sizeDelta = sizeDelta
 
     -- 黑幕特效
-    local _go = self._aniSixthSeal:Get("root"):CreateChild("prefab_uiEffect/uiEffect/UI10_sxjs")
-    _go:SetPosition(0, -600, 0, true)
+    self._sxjs = self._aniSixthSeal:Get("root"):CreateChild("prefab_uiEffect/uiEffect/UI10_sxjs")
+    self._sxjs:SetPosition(0, -600, 0, true)
     -- local _go = self._aniSixthSeal:Get("root"):CreateChild("prefab_uiEffect/uiEffect/UI10_sxjs")
     -- _go:SetPosition(0, -600, 0, true)
 
@@ -137,7 +137,8 @@ function SixthSealLayer:show()
 
     self:showLayer()
 
-    self.layer:DelayInvoke(10.7, function()
+    self.layer:DelayInvoke(9.6, function()
+            self._sxjs:SetVisible(false)
             self.layer:Get("bg_effect"):SetVisible(true)
         end)
 end

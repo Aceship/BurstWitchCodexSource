@@ -12,4 +12,3 @@ AssetLoader:LoadLuaAsset("xlua/lua_Game/Item/itemui.txt")
 
 Item:Ctor()
 Item:_LoadCfg()
-Item:_LoadDropConfig()

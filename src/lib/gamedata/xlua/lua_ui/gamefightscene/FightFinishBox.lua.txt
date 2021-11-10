@@ -8,6 +8,7 @@ FightFinishBox = FightFinishBox or {}
 local DROPS_TYPE_NORMAL = 1     -- 普通掉落
 local DROPS_TYPE_FIRST  = 2     -- 首次获得
 local DROPS_TYPE_CG     = 3     -- 每日奖励
+local DROPS_TYPE_TIME   = 4     -- 全局掉落
 
 function FightFinishBox:FightFinishBoxCreator(data, finishCall)
     self._showDrops = {}
@@ -29,6 +30,10 @@ function FightFinishBox:FightFinishBoxCreator(data, finishCall)
         tempDorps.drops = v;
         table.insert(self._showDrops,tempDorps);
     end
+    for k,v in pairs(data.time_drops or {}) do
+        table.insert(self._showDrops, {droptype = DROPS_TYPE_TIME, drops = v})
+    end
+
     self._finishCall = finishCall
     self.layer = CanvasMgr:CreateCanvasChild("prefab_uiHome/ui_fight/UI_FightFinishBox")
     self._hasDestoryed = false
@@ -48,6 +53,7 @@ function FightFinishBox:FightFinishBoxDestructor()
     self.cGItem     = nil
     self.firstItem  = nil
     self.comItem    = nil
+    self._timeDrops = nil
     if self._awardList ~= nil then
         for i, v in pairs(self._awardList) do
             v.cls:clear()
@@ -93,6 +99,7 @@ function FightFinishBox:refreshScrollView()
     self.cGItem = {}
     self.firstItem = {};
     self.comItem = {};
+    self._timeDrops = {}
     local itemBg = self.layer:Get("content/item_bg")
     self._awardList = {};
     for k,v in pairs(self._showDrops) do
@@ -111,6 +118,8 @@ function FightFinishBox:refreshScrollView()
         elseif (v.droptype == DROPS_TYPE_CG) then
             item:Find("img_new"):SetVisible(true)
             table.insert(self.cGItem,self._awardList[k]);
+        elseif (v.droptype == DROPS_TYPE_TIME) then
+            table.insert(self._timeDrops, self._awardList[k]);
         end
     end
 end
@@ -127,6 +136,9 @@ function FightFinishBox:onFadeInEnd()
     end);
 end
 
+-- 
+-- brief: 通用掉落
+--  
 function FightFinishBox:ShowComItems()
     if(#self.comItem > 0)then
         for i, v in ipairs(self.comItem) do
@@ -144,6 +156,9 @@ function FightFinishBox:ShowComItems()
     end
 end
 
+-- 
+-- brief: 首次掉落
+--  
 function FightFinishBox:ShowFirstItems()
     if(#self.firstItem > 0)then
         Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.FIRST_REWARD,function ()
@@ -163,11 +178,37 @@ function FightFinishBox:ShowFirstItems()
     end
 end
 
+-- 
+-- brief: 额外掉落
+--  
 function FightFinishBox:ShowCGItems()
     if(#self.cGItem > 0)then
         Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.CG_REWARD,function ()
             for i, v in ipairs(self.cGItem) do
                 if(i == #self.cGItem)then
+                    local itemDt = v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+                    itemDt:OnComplete(function ()
+                        self:ShowTimeItems()
+                    end);
+                    break;
+                end
+                v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
+            end
+        end);
+    else
+        self:ShowTimeItems()
+    end
+end
+
+
+-- 
+-- brief: 全局掉落
+--  
+function FightFinishBox:ShowTimeItems()
+    if(#self._timeDrops > 0)then
+        Groble_UIMgr:ShowCommonEffectLayer(EFFECT_TYPE.TIME_REWARD, function ()
+            for i, v in ipairs(self._timeDrops) do
+                if(i == #self._timeDrops)then
                     local itemDt = v.item:DOScale(0.6,0.1):SetDelay(0.05*i);
                     itemDt:OnComplete(function ()
                         self:onAniEnd()

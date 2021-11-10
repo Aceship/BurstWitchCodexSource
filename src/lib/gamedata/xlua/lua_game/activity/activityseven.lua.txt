@@ -44,6 +44,9 @@ function Activity:GetSixSignstate()
     local _activityId = self:GetActivityIdByUid(self:GetOpenActivityLevelId())--活动id
     local _curSignDay = self:GetCurrActivityDay(self:GetActivityIdByUid(self:GetOpenActivityLevelId()))--当前可以签到的天数
     local _signIds = self:GetSixSigninConfigsByUID(self:GetOpenActivityLevelId())--可以签到的总天数
+    if _curSignDay<=0 then
+        return false
+    end
     if self:DayIsSigned(_activityId, _curSignDay) or #_signIds < _curSignDay then--当前已经签到 or  可签到天数小于当前天数
         return false
     else

@@ -410,7 +410,6 @@ end
 function LotteryEffectLayer:FirstShareOrWeekFirstShare()
     if Player:IsFirstShare() then
         self.img_tip:SetVisible(true)
-        print("十连抽游戏首次分享")
         self.img_:LoadSprite("source_icon/item/" .. Player.FirstShare[1])
         self.txt_tipinfo:SetText(LanguageMgr:GetTextByID(888033))
         self.txt_tipnum.text = Player.FirstShare[2]

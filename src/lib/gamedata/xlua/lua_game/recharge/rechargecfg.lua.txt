@@ -64,6 +64,7 @@ function Recharge:_LoadCfg()
             monthFirst = monthFirst,
             chargeMoneyId = tonumber(v.ChargeMoney_id),
             extras = extra,
+            isNew = tonumber(v.Isnew),
         }
         if(data.bgPath == "-1")then
             data.bgPath = -1;

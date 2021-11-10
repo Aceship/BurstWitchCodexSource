@@ -13,8 +13,12 @@ function Stats:_onUpdateData(id, cnt)
     end
 end
 
-function Stats:SyncStats(data)
-    if Network:IsNotHandleNotify() then return end
+-- 
+-- data：个人任务统计数据
+-- pdata2：全服统计任务数据
+-- 
+function Stats:SyncStats(data, pdata2)
+    -- if Network:IsNotHandleNotify() then return end
     
     AppMgr:LogInfo("----------同步统计数据----------")
     -- clear old data
@@ -26,6 +30,9 @@ function Stats:SyncStats(data)
     for id, cnt in pairs(data) do
         self:_onUpdateData(id, cnt)
     end
+
+    self:_onUpdateQuestAllData(pdata2 or {})
+    self:_onOpenTimer()
 end
 
 function Stats:UpdateStateData(data)
@@ -38,6 +45,27 @@ function Stats:UpdateStateData(data)
     GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.TASK_RECV_NOTIFY)
 end
 
+-- 
+-- brief：请求全服统计数据
+-- 
+function Stats:StatsServerDataReq()
+    Network:CallServerScript({c2s.STATISTICS_GET_F_GLOBAL_DATA_REQ})
+end
+
+-- 
+-- brief：全服统计数据处理
+-- 
+function Stats:StatsServerDataRes(pdata)
+    self:_onUpdateQuestAllData(pdata or {})
+
+    self:_refreshQuestAllData()
+    
+    -- 任务红点提示
+    GEvent:fireEvent(EVENT_TYPE.UPDATE_TIPS)
+    GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.TASK_RECV_NOTIFY)
+end
+
 ----------------------------------------注册回调----------------------------------------
 c2s[c2s.STATISTICS_DATA_SYNC]               = {Stats,Stats.SyncStats}
 c2s[c2s.STATISTICS_DATA_CHANGE_NTF]         = {Stats,Stats.UpdateStateData}
+c2s[c2s.STATISTICS_GET_F_GLOBAL_DATA_RES]   = {Stats,Stats.StatsServerDataRes}

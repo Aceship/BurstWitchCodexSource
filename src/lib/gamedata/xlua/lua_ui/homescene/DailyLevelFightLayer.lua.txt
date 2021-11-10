@@ -36,6 +36,8 @@ function DailyLevelFightLayer:ctor(super)
     self._addStack = true;
     self._hideOtherLayer = true;
     self._update = false
+
+    self._teamHeroIds = {0, 0, 0}
     self:onEnter()
 end
 
@@ -75,6 +77,8 @@ function DailyLevelFightLayer:onEnter()
     self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
         self:_onUpdateCurrency()
     end)
+
+    Chapter:InitTeamPrefab(self.layer:Get("info_self"), {{-364, 2}, {-185, 2}, {-5, 2}})
 end
 
 function DailyLevelFightLayer:onExit()
@@ -98,6 +102,14 @@ function DailyLevelFightLayer:onExit()
 
     self._panel_remain = nil
     self._txt_remain = nil
+
+    self._teamHeroIds   = nil
+    self._basicsItems   = nil
+    
+    DoArrayClassClear(self._clsDrops)
+    self._clsDrops      = nil
+    DoArrayClassClear(self._clsExtraDrops)
+    self._clsExtraDrops = nil
 
     self._heroSelectCtrl:OnDestroy();
     CBaseLayer.onExit(self)
@@ -124,10 +136,12 @@ function DailyLevelFightLayer:show(levelid, callback, levellayer)
     self._levellayer = levellayer
     self._buffStrId = 76000050;
     self._callback  = callback
+    self._chapter = Chapter:GetChapter(self._level.chapterid)
+    self._showUp    = Drop:ChapterSubTypeExistTimeDrop(self._chapter.sub_type)
+
     if(self._heroSelectCtrl == nil)then
         self:InitHeroSelectController();
     end
-    self._chapter = Chapter:GetChapter(self._level.chapterid)
 
     self.layer:GetImageComponent("image_bg"):LoadSprite(self._chapter.imgbg)
     self:setTitle()
@@ -211,7 +225,6 @@ function DailyLevelFightLayer:setScore()
         end
     end
  
-    --set_obj_active(self._scoreLevel,  self._chapter.sub_type ~= Chapter.Chapter.MODE_EQUIP_CID)
     if self:IsFirstInLevel() then
         level = 4
         local undefined = 9999999999
@@ -281,7 +294,7 @@ function DailyLevelFightLayer:setTitle()
         self._remain = CTime:GetRemainTime(self._level.timeid)
       
         self._scoreTime.text = "<size=90>" .. CTime:Time2Str( self._remain) .. "</size>"
-        set_obj_active(self._scoreLevel,self._chapter.sub_type ~= Chapter.MODE_EQUIP)
+        self._scoreLevel:SetVisible(self._chapter.sub_type ~= Chapter.MODE_EQUIP)
     end
     if self._level.open then
         self.layer:Get("button_auto"):SetVisible(self._level.Is_Auto == Chapter.AUTO_FIGHT_DEPOSIT)
@@ -292,14 +305,6 @@ function DailyLevelFightLayer:setTitle()
 
     --掉落相关标题
     self.layer:Get(BUTTON_TYPE.BtnHighAward):SetVisible(self._level.rewards[1] == Chapter.DROP_SCORE);
-    --self:setScore()
-    if(self._level.rewards[1] == Chapter.DROP_SCORE)then
-        --self.layer:GetTextComponent("info_score/txt_title"):SetTextById(3002030)
-        --self.layer:GetTextComponent("info_score/txt_title_E"):SetTextById(3002031)
-    else
-        --self.layer:GetTextComponent("info_score/txt_title"):SetTextById(3002039)
-        --self.layer:GetTextComponent("info_score/txt_title_E"):SetTextById(3002040)
-    end
 end
 
 function DailyLevelFightLayer:SetDropsUi()
@@ -330,35 +335,52 @@ function DailyLevelFightLayer:SetDropsUi()
         basicDropId = Chapter:GetScoreDrop(self._level.rewards[2], score)
         extraDropId = Chapter:GetScoreDrop(self._level.fight_rewards[2], score)
     end
-    local basicsItems = Item:GetDrops(basicDropId)
-    local extraItems = Item:GetDrops(extraDropId)
+    self._basicsItems = Drop:GetLevelDrops(tonumber(basicDropId), self._chapter.sub_type)
+    local extraItems = Drop:GetDropsById(tonumber(extraDropId))
 
     -- 基础奖励
+    local _number = #self._basicsItems
     local _transBasicsItemBg = self.layer:Get("info_drop/scroll_basics/viewport/content");
-    _transBasicsItemBg:SetVisible(#basicsItems > 0);
-    self.layer:Get("info_drop/text_empty_basics"):SetVisible(#basicsItems <= 0);
-    if(#basicsItems > 0)then
-        for _, v in ipairs(basicsItems) do
+    _transBasicsItemBg:SetVisible(_number > 0);
+    self.layer:Get("info_drop/text_empty_basics"):SetVisible(_number <= 0);
+    if(_number > 0)then
+        self._clsDrops = {}
+        _transBasicsItemBg:SetSizeX(math.max(728, _number * 130))
+        for i, v in ipairs(self._basicsItems) do
             local pitem = _transBasicsItemBg:CreateChild("prefab_comframeWork/prefab_item")
             pitem:SetScale(0.46, 0.46, 0.46)
+            pitem:SetPosition(70 + (i-1)*130, 50, 0, true)
             local cls = Bag:CtorComSimpleGoodsUi(pitem)
-            Bag:SetComSimpleGoodsUi(cls,v[1],v[2],v[3],true);
+            Bag:SetComSimpleGoodsUi(cls, v[1], v[2], v[3], true)
+
+            self._clsDrops[i] = cls
         end
+
+        self:refreshDropCursor()
     end
     -- 额外奖励
+    local _number = #extraItems
     local _transExtraItemBg = self.layer:Get("info_drop/scroll_extra/viewport/content");
-    _transExtraItemBg:SetVisible(#extraItems > 0);
-    self.layer:Get("info_drop/text_empty_extra"):SetVisible(#extraItems <= 0);
-    if(#extraItems > 0)then
-        for _, v in ipairs(extraItems) do
+    _transExtraItemBg:SetVisible(_number > 0);
+    self.layer:Get("info_drop/text_empty_extra"):SetVisible(_number <= 0);
+    if(_number > 0)then
+        _transExtraItemBg:SetSizeX(math.max(728, _number * 130))
+        self._clsExtraDrops = {}
+        for i, v in ipairs(extraItems) do
             local pitem = _transExtraItemBg:CreateChild("prefab_comframeWork/prefab_item")
             pitem:SetScale(0.46, 0.46, 0.46)
+            pitem:SetPosition(70 + (i-1)*130, 50, 0, true)
             local cls = Bag:CtorComSimpleGoodsUi(pitem)
             Bag:SetComSimpleGoodsUi(cls,v[1],v[2],v[3],true);
+
+            self._clsExtraDrops[i] = cls
         end
     end
 end
 
+function DailyLevelFightLayer:refreshDropCursor()
+    Bag:RefreshDropCursor(self._showUp, self._clsDrops, self._teamHeroIds, self._basicsItems, 1)
+end
 
 function DailyLevelFightLayer:onAtkTypeClick(trans,atktype)
     local atkcfg = Build:GetAtkTypeCfgById( atktype)
@@ -366,7 +388,7 @@ function DailyLevelFightLayer:onAtkTypeClick(trans,atktype)
 end
 
 function DailyLevelFightLayer:InitHeroSelectController()
-    self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(self.layer:Get("info_self"));
+    self._heroSelectCtrl = core.require("xlua/lua_UI/Controller/HeroSelectController.txt"):new(self.layer:Get("info_self"), self._showUp);
 
     local btnClick = function(index)
         self:onHeroClick(index);
@@ -394,13 +416,15 @@ function DailyLevelFightLayer:InitHeroSelectController()
 end
 
 function DailyLevelFightLayer:GetCurHeroIds()
-    local retArr = {0,0,0};
+    self._teamHeroIds[1] = 0
+    self._teamHeroIds[2] = 0
+    self._teamHeroIds[3] = 0
     for i, v in ipairs(self._teams) do
         if(v.hero ~= nil)then
-            retArr[i] = v.hero.id;
+            self._teamHeroIds[i] = v.hero.id
         end
     end
-    return retArr;
+    return self._teamHeroIds
 end
 
 
@@ -465,16 +489,16 @@ function DailyLevelFightLayer:onHeroClick(i)
         end
         self:onLayerFadeInEndCall()
         self._heroSelectCtrl:UpdateHeroItem(self:GetCurHeroIds())
-
+        self:refreshDropCursor()
         self:SetForbear()
-    end)
+    end, self._showUp)
 
 end
 
 function DailyLevelFightLayer:setFightCost()
     local bcost = self._level.cost_items ~= "-1"
-    set_obj_active(self.layer.transform:Find("button_fight/info_cost_1"), not bcost)
-    set_obj_active(self.layer.transform:Find("button_fight/info_cost_2"), bcost)
+    self.layer:Get("button_fight/info_cost_1"):SetVisible(not bcost)
+    self.layer:Get("button_fight/info_cost_2"):SetVisible(bcost)
     local uipower
     if bcost then
         uipower = self.layer.transform:Find("button_fight/info_cost_2/text_power")
@@ -556,14 +580,15 @@ function DailyLevelFightLayer:onSweep()
         return
     end
     self._oldLv = Player:GetLevel()
-    core.require("xlua/lua_UI/HomeScene/DailySweepLayer.txt"):new():show(self._level.id,function () 
-        self:setRemain()
-        self:setFightRemain()
-        Player:IgnoreLevelUp(false)
-        if Player:GetLevel() > self._oldLv then
-            Player:ShowLevelUpLayer()
-        end
-    end)
+    core.require("xlua/lua_UI/HomeScene/DailySweepLayer.txt"):new():show(self._level.id,
+        function () 
+            self:setRemain()
+            self:setFightRemain()
+            Player:IgnoreLevelUp(false)
+            if Player:GetLevel() > self._oldLv then
+                Player:ShowLevelUpLayer()
+            end
+        end, self._teamHeroIds)
 end
 
 function DailyLevelFightLayer:onLayerFadeInEndCall()

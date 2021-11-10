@@ -1,0 +1,80 @@
+--
+-- author: haosun
+-- date  : 2021-11-06 13:24:57
+-- brief : 
+--
+Drop = Drop or {}
+
+-- 
+-- brief: 全局掉落检测 
+-- 
+function Drop:CheckTimeDrop()
+    self._time_drop_id= 0
+    for _, v in pairs(self._time_drop_config) do
+        if CTime:IsOpen(v.id) then
+            self._time_drop_id = v.id
+            break
+        end
+    end
+    if self._time_drop_id ~= 0 then
+        AppMgr:LogInfo("===========当前存在全局掉落===========" .. self._time_drop_id)
+    end
+end
+
+function Drop:GetTimeDropConfig()
+    if 0 == self._time_drop_id then return nil end
+
+    return self._time_drop_config[self._time_drop_id]
+end
+
+-- 
+-- brief: 通过关卡小类型获得全局掉落ID
+-- 
+function Drop:TryGetTimeDropId(chapterSubType)
+    local _config = self:GetTimeDropConfig()
+
+    if _config == nil then return 0 end
+
+    for i, v in ipairs(_config["TimeDrop"]) do
+        if v[1] == chapterSubType then
+            return v[2]
+        end
+    end
+    return 0
+end
+
+-- 
+-- brief: 通过关卡小类型是否存在全局掉落
+-- 
+function Drop:ChapterSubTypeExistTimeDrop(chapterSubType)
+    local _config = self:GetTimeDropConfig()
+
+    if _config == nil then return false end
+
+    for i, v in ipairs(_config["TimeDrop"]) do
+        if v[1] == chapterSubType then
+            return true
+        end
+    end
+    return false
+end
+
+-- 
+-- brief: 上阵魔女Up道具加成
+-- 
+function Drop:GetTimeDropHeroUpValue(heroIds)
+    local _config = self:GetTimeDropConfig()
+
+    if _config == nil then return 0 end
+
+    local _upValue = 0
+    for i, heroId in ipairs(heroIds) do
+        for _, v in ipairs(_config["DropWitchAdd"]) do
+            if v[1] == heroId then
+                _upValue = _upValue + v[2]
+            end
+        end
+    end
+
+    return _upValue
+end

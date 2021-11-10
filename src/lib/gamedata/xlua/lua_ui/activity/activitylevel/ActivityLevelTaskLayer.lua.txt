@@ -57,8 +57,8 @@ end
 --初始化数据
 function ActivityLevelTaskLayer:InitData()
     self._uid = Activity:GetOpenActivityLevelId()
-    self._mathTypeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid)
-    self._subType = tonumber(self._mathTypeCfg.taskType_1[1])
+    self._mathTypeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid)
+    self._subType = self._mathTypeCfg.Quest_child_class_1[1]
     self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
 end
 
@@ -96,13 +96,10 @@ function ActivityLevelTaskLayer:showLayer()
     Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Task)
     CBaseLayer.showLayer(self)
 end
---退出按钮事件
-function ActivityLevelTaskLayer:onBackClick()
-    self:onPopLayer()
-end
 
 --释放
 function ActivityLevelTaskLayer:onExit()
+    self._mathTypeCfg = nil
     self._imgFlower = nil
     self._txtGrade = nil
     self._imgAllScore = nil
@@ -166,12 +163,12 @@ function ActivityLevelTaskLayer:GetAward()
     end
 end
 function ActivityLevelTaskLayer:SetUI()
-    self._imgFlower:LoadSprite(self._mathTypeCfg.taskType_1[2])
+    self._imgFlower:LoadSprite(self._mathTypeCfg.Quest_child_class_1[2])
     self.lastSorce = Stats:GetSixthSealTaskScore()
     self:GetAward()
 end
 function ActivityLevelTaskLayer:RefreshScoreAndSlider()
-    local _subType = tonumber(self._mathTypeCfg.taskType_2[1])
+    local _subType = self._mathTypeCfg.Quest_child_class_2[1]
     local _taskIds = Task:SortTaskIds(Task:GetSubTasks(_subType))
     local topScore = 0
     for _, v in pairs(_taskIds) do
@@ -240,7 +237,7 @@ function ActivityLevelTaskLayer:NewTaskCell(trans)
     return cls
 end
 function ActivityLevelTaskLayer:SetTaskCellData(cls, index)
-    cls.imgIcon:LoadSprite(self._mathTypeCfg.taskType_1[2])
+    cls.imgIcon:LoadSprite(self._mathTypeCfg.Quest_child_class_1[2])
     local taskId = self._taskIds[index]
     local recNum = Task:GetTaskCanRecvCount(taskId) or 1
     local task = Task:GetTask(taskId)

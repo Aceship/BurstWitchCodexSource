@@ -22,7 +22,6 @@ function DailySweepLayer:ctor(super)
     }
    
     self._uitype = 2
-    self._dropItems = {}
     self._update = false
     self._index = 1
     self:onEnter()
@@ -31,13 +30,49 @@ end
 function DailySweepLayer:onEnter()
     self:createPnl()
     self:registerButtonEvent(BTNS)
-    self:initObj()
+    self._txtTime = self.layer:GetTextComponent("container/time/txt_time")
+    self._txtCost = self.layer:GetTextComponent("container/cost/txt_cost")
+    self._scrollview = self.layer:Get("container/reward/scrollview")
+    
+    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SWEEP_LEVEL,
+        function()
+           self:onBackClick()
+        end)
 end
 
+function DailySweepLayer:onExit()
+    self._txtTime = nil
+    self._txtCost = nil
+    self._scrollview = nil
+
+    if self._clsDrops ~= nil then
+        for i, v in ipairs(self._clsDrops.items) do
+            v.clsbag:clear()
+        end
+    end
+    self._clsDrops  = nil
+    self._level     = nil
+    self._chapter   = nil
+    self._drops     = nil
+
+    CBaseLayer.onExit(self)
+end
 
 function DailySweepLayer:onButtonClick(itype)
     if itype == BTNS.ok then
-        Chapter:LevelSweepReq( self._level.id, self._count,  self._callback, false, false)
+        -- 检查是否出战队伍
+        local _hasTeam = false
+        for i, v in ipairs(self._teamHeroIds) do
+            if v ~= 0 then
+                _hasTeam = true
+                break
+            end
+        end
+        if not _hasTeam then
+            Groble_UIMgr:ShowGameWordTipsLayer(21003)
+            return
+        end
+        Chapter:LevelSweepReq( self._level.id, self._count, self._teamHeroIds, self._callback, false, false)
         self:onPopLayer()
     elseif itype == BTNS.no then
         self:onBackClick()
@@ -57,17 +92,13 @@ function DailySweepLayer:onButtonClick(itype)
 end
 
 function DailySweepLayer:onBackClick()
-    
     if self._callback ~= nil then
         self._callback()
     end
     self:onPopLayer()
 end
 
-
-
-
-function DailySweepLayer:show( levelid ,callback )
+function DailySweepLayer:show(levelid, callback, heroIds)
     self._level = Chapter:GetLevel(levelid)
     self._chapter = Chapter:GetChapter(self._level.chapterid)
     self._callback = callback
@@ -80,6 +111,7 @@ function DailySweepLayer:show( levelid ,callback )
         local remain = chapter.fight_count - chapter.pass_count
         self._maxcount = math.min(self._maxcount, remain)
     end
+    self:doGenHeroIds(levelid, heroIds)
 
     self._cost =  self._level.cost_power
     local levelList = Chapter:GetAllScoreDrop(self._level.rewards[2])    
@@ -107,51 +139,62 @@ function DailySweepLayer:show( levelid ,callback )
         suffix = LanguageMgr:GetTextByID(20094)
     end
     self._score = score
-    local dropid = Chapter:GetScoreDrop(self._level.rewards[2] , self._score)
-    self._drops = Item:GetDrops(dropid)
+    self:doGenDrops()
     self.layer:GetTextComponent("container/txt_score").text = "="..score .. suffix
     self:setDrops()
     self:showLayer()
     self:playAni("CommonLayerFadeInAni")
 end
 
-function DailySweepLayer:TimesDrops()
-    local drops = {}
-    for _, v in pairs(self._drops) do
-        table.insert(drops, {v[1],v[2],v[3] * self._count, v[4]})
+function DailySweepLayer:doGenHeroIds(levelId, heroIds)
+    if heroIds == nil then
+        self._teamHeroIds = {0, 0, 0}
+        for i, v in ipairs(Chapter:GenFightTeam(levelId)) do
+            if(v.hero ~= nil)then
+                self._teamHeroIds[i] = v.hero.id
+            end
+        end
+    else
+        self._teamHeroIds = heroIds
     end
+end
+
+function DailySweepLayer:doGenDrops()
+    self._drops = {}
+    -- 基础+全局掉落
+    local dropid = Chapter:GetScoreDrop(self._level.rewards[2] , self._score)
+    local _drops = Drop:GetLevelDrops(tonumber(dropid), self._chapter.sub_type)
+    for _, v in pairs(_drops) do
+        table.insert(self._drops, {v[1], v[2], v[3], v[4]})
+    end
+    -- 额外掉落
     local remain = math.max(0, self._chapter.count - self._chapter.pass_count)
     if remain > 0 then
-        local dropid = Chapter:GetScoreDrop(self._level.fight_rewards[2], self._score)
-        local fdrop = Item:GetDrops(dropid)
-        for _, v in pairs(fdrop) do
-            table.insert(drops, {v[1], v[2], v[3] * math.min(remain, self._count), Bag.TYPE_EXDROP})
+        dropid = Chapter:GetScoreDrop(self._level.fight_rewards[2], self._score)
+        _drops = Drop:GetDropsById(tonumber(dropid), false)
+        for _, v in pairs(_drops) do
+            table.insert(self._drops, {v[1], v[2], v[3] * math.min(remain, self._count), Bag.TYPE_EXDROP})
         end
     end
-    return drops
+
+    self._showUp = Drop:ChapterSubTypeExistTimeDrop(self._chapter.sub_type)
 end
-
-function DailySweepLayer:initObj()
-    self._txtTime = self.layer:GetTextComponent("container/time/txt_time")
-    self._txtCost = self.layer:GetTextComponent("container/cost/txt_cost")
-    self._scrollview = self.layer:Get("container/reward/scrollview")
-    
-    self:addEventListener(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.SWEEP_LEVEL,
-            function()
-               self:onBackClick()
-            end)
-    
-end
-
-
-
 
 function DailySweepLayer:setDrops()
-    local drops = self:TimesDrops()
     self._txtTime.text = string.format(LanguageMgr:GetTextByID(3002024), self._count)
     self._txtCost.text = self._count * self._cost
-    self._dropItems = Bag:SetScrollGoods(self._dropItems ,self._scrollview, drops, 3, 715, 160, 0.55, 90, false, true)
-  
+    if self._clsDrops == nil then
+        self._clsDrops = Bag:SetScrollGoods(nil ,self._scrollview, self._drops, 3, 715, 160, 0.55, 90, false, true)
+    end
+
+    Bag:RefreshDropCursor(self._showUp, self._clsDrops.items, self._teamHeroIds, self._drops, self._count)
+    local dataDrop
+    for i, cls in ipairs(self._clsDrops.items) do
+        dataDrop = self._drops[i]
+        if dataDrop[4] ~= Bag.TYPE_EXDROP and dataDrop[4] ~= Bag.TYPE_ACTIVITY then
+            cls.clsbag.numCom:SetText(dataDrop[3] * self._count)
+        end
+    end
 end
 
 return DailySweepLayer

@@ -12,7 +12,7 @@ function Activity:OpenActivityLevelMainLayer()
         Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(880032));
         return false;
     end
-    if(Activity:GetActivityLevelIsFirstOpen())then
+    if(Activity:GetActivityLevelIsFirstOpen() and Activity:GetOpenActivityLevelId()==Operation.ActivityID.SixthSeal )then
         uimgr:ShowInterimLayer(CTime.delayTime,function ()
             uimgr:hideHomeLayer();
             Groble_SoundMgr:StopBgm();
@@ -29,14 +29,21 @@ function Activity:OpenActivityLevelShopLayer()
     core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelShopLayer.txt"):new():show();
 end
 --打开活动关卡任务界面
-function Activity:OpenActivityLevelTaskLayer()
-    core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelTaskLayer.txt"):new():show();
+function Activity:OpenActivityLevelTaskLayer(activityUID)
+    if activityUID==Operation.ActivityID.SixthSeal then
+         core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelTaskLayer.txt"):new():show();
+    end
+
+    if activityUID==Operation.ActivityID.fullmoon then
+        core.require("xlua/lua_UI/Activity/ActivityLevel/ActivityLevelTaskLayer_xiao.txt"):new():show();
+    end
 end
 
 --打开活动关卡界面
 function Activity:OpenActivityLevelLayer()
-    local chapterIds = Activity:GetActivityChapterIds();
+    local chapterIds = self:GetActivityChapterIds();
     local chapter;
+    -- lua_table_print(chapterIds)
     if(chapterIds[1] ~= nil or chapterIds[1] ~= 0)then
         chapter = Chapter:GetChapter(chapterIds[1]);
     end
@@ -48,13 +55,13 @@ function Activity:OpenActivityLevelLayer()
             Groble_UIMgr:ShowTipsLayer(lockStr);
         end
     else
-        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90395));
+        Groble_UIMgr:ShowGameWordTipsLayer(90395);
     end
 end
 
 --打开活动关卡特殊界面
 function Activity:OpenActivityLevelSpecialLayer()
-    local chapterIds = Activity:GetActivityChapterIds();
+    local chapterIds = self:GetActivityChapterIds();
     local chapter;
     for _, v in ipairs(chapterIds) do
         chapter = Chapter:GetChapter(v);
@@ -70,7 +77,7 @@ function Activity:OpenActivityLevelSpecialLayer()
             Groble_UIMgr:ShowTipsLayer(lockStr);
         end
     else
-        Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90395));
+        Groble_UIMgr:ShowGameWordTipsLayer(90395);
     end
 end
 
@@ -132,5 +139,7 @@ function Activity:SetActivityLevelImgTitle(img,rect,layerCfg)
         rect.anchorMin = tempV;
         rect.pivot = tempV;
         img:SetAnchoredPosition(tonumber(layerCfg.adImg[2]),tonumber(layerCfg.adImg[3]));
+    else
+        img:SetVisible(false)
     end
 end

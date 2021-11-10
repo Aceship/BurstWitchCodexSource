@@ -195,6 +195,11 @@ function Operation:AddCfg(cfgs)
         else
             AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!配表出错了" .. v.Interface)
         end
+
+        if(v.homeLayerIcon ~= nil)then
+            self._homeActivityCfg[tonumber(v.UID)] = v;
+        end
+
         self._configTemp[tonumber(v.UID)] = v
     end
 end
@@ -217,9 +222,18 @@ function Operation:LoadActiveChargeCfg()
         else
             v.uiTxtPos = lua_parse_cfg(v.UItextPos);
         end
+
+        v.Sort = tonumber(v.Sort);
+        --主界面活动
+        if(v.Homelayericon ~= "-1")then
+            v.homeLayerIcon = lua_str_split(v.Homelayericon,"&");
+            v.homeLayerIcon[1] = tonumber(v.homeLayerIcon[1]);
+        end
+
         v.mutualExclusionId = tonumber(v.BuyIds);
         local adword = lua_str_split(v.Adword,"&");
-        v.charges = Recharge:GetDataIdsByType(tonumber(v.id));
+        v.id = tonumber(v.id);
+        v.charges = Recharge:GetDataIdsByType(v.id);
         v.award = lua_parse_cfg(v.award,true);
         v.curGet = adword[1];
         v.allGet = adword[2];

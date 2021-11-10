@@ -488,6 +488,8 @@ c2s.CHARGE_GET_REPEAT_GIFTS_RES         = 3632          -- 请求领取重复礼
 
 c2s.STATISTICS_DATA_SYNC                = 3701          -- 同步统计数据
 c2s.STATISTICS_DATA_CHANGE_NTF          = 3702          -- 统计数据改变
+c2s.STATISTICS_GET_F_GLOBAL_DATA_REQ    = 3703          -- 请求 获取f全局统计数据
+c2s.STATISTICS_GET_F_GLOBAL_DATA_RES    = 3704          -- 返回 获取f全局统计数据
 
 c2s.BULLETBUILD_DATA_SYNC               = 3801          -- 子弹构筑 数据 同步
 c2s.BULLETBUILD_HERO_LIST_CHANGED_REQ   = 3802          -- 构筑点魔女队列更换 请求 p1:build_id p2:{ hero_id, ... };

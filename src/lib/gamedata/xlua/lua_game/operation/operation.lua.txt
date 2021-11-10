@@ -4,6 +4,7 @@ function Operation:Ctor()
     self._operation = {}
     self.isSetUpLvRed = false;
     self._timeLimitRed = true;
+    self._homeActivityCfg = {};
     self._lastBloodCycleLv = 0;
     Operation:InitData();
 end
@@ -62,6 +63,14 @@ function Operation:GetActiveListIsOpenById(id)
     return isOpen,timeId;
 end
 
+-- 
+-- 创角后持续N天的活动
+-- 
+function Operation:ActiveIsOpen(duration)
+    -- 创角天偏移 + 持续天数 - 当前天偏移
+    return Player:GetCreateDay() + duration - Player:GetOffsetDay() - 1 >= 0
+end
+
 function Operation:GetActiveIsOpenByUid(uid) --通过UID获取活动是否开启状态
     local cfg = self:GetActiveCfgByUID(uid);
     if cfg == nil then return end
@@ -72,8 +81,7 @@ function Operation:GetActiveIsOpenByUid(uid) --通过UID获取活动是否开启
             if(cfg.duration <= 0)then--活动有持续时间
                 isOpen = true;
             else
-                local overTime = Operation:GetActiveOverTime(uid);
-                isOpen = overTime > 0;
+                isOpen = Operation:ActiveIsOpen(cfg.duration)
             end
         else
             --活动为限时活动,并且处于开启状态
@@ -176,9 +184,7 @@ end
 function Operation:GetActiveOverTime(uid)
     local cfg = Operation:GetActiveCfgByUID(uid);
     if(cfg.duration > 0)then
-        local day = Player:GetOffsetDay();
-		--计算公式 : (创建时间 + 配置持续时间 - 当前天偏移) * 天秒数 + 天偏移秒数 - 今天已经过去的时间 
-        return (Player:GetCreateDay() + cfg.duration - day) * CTime.DAY_SEC + CTime.OFFSET_SEC - Lib:GetDayPassTime(CTime:GetServerTime()) or 0;
+        return cfg.duration * CTime.DAY_SEC - (CTime:GetServerTime() - Player:GetCreateDay() * CTime.DAY_SEC + CTime.HOUR_SEC * 3)
     end
     return 0;
 end
@@ -375,4 +381,18 @@ function Operation:ActivityIsRepeat(uid)
     end
     local change = Recharge:GetData(cfg.charges[1]);
     return change.itype == Recharge.ChargeType.Repeat;
+end
+
+--获取所有打开的主界面活动
+function Operation:GetAllOpenHomeActivityCfg()
+    local retArr = {};
+    for i, v in pairs(self._homeActivityCfg) do
+        if(Operation:GetActiveIsOpenByUid(i))then
+            table.insert(retArr,v);
+        end
+    end
+    table.sort(retArr,function (a,b)
+        return a.Sort < b.Sort;
+    end);
+    return retArr;
 end

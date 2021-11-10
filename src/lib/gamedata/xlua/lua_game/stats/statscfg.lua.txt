@@ -3,6 +3,7 @@
 -- date  : 2021-05-18 11:44:55
 -- brief : 
 --
+Stats = Stats or {}
 
 function Stats:_LoadStatisticsQuestConfig()
     self._StatisticsQuest = {}

@@ -470,17 +470,17 @@ function Chapter:GetLevelDrops(levelid,isShow)
     if lua_table_len(level.rewards) > 0 then
         if level.rewards[1] == Chapter.DROP_SCORE then
             local dropid = self:GetScoreDrop(level.rewards[2], level.max_score)
-            return Item:GetDrops(dropid,isShow)
+            return Item:GetDrops(tonumber(dropid), isShow)
         else
-            return Item:GetDrops(level.rewards[2],isShow)
+            return Item:GetDrops(tonumber(level.rewards[2]), isShow)
         end
     end
     if lua_table_len(level.fight_rewards) > 0 then
         if level.fight_rewards[1] == Chapter.DROP_SCORE then
             local dropid = self:GetScoreDrop(level.fight_rewards[2], level.max_score)
-            return Item:GetDrops(dropid,isShow)
+            return Item:GetDrops(tonumber(dropid), isShow)
         else
-            return Item:GetDrops(level.fight_rewards[2],isShow)
+            return Item:GetDrops(tonumber(level.fight_rewards[2]), isShow)
         end
     end
     return {}
@@ -640,7 +640,7 @@ end
 
 function Chapter:GetLevelStarReward(levelid)
     local level = Chapter:GetLevel(levelid)
-    local drops = Item:GetDrops(level.star_rewards)
+    local drops = Item:GetDrops(level.ThreeStarReward)
     local ret = {itype = 0, cfgid = 0, num = 0}
     for i, v in ipairs(drops) do
         if tonumber(v[2]) ~= Player.ITEM_VALUE_EXP then
@@ -1073,8 +1073,9 @@ function Chapter:GetActivityLevelIsOpen(levelid, onlyUnlock)
         local y,m,d = CTime:GetYearMonthDay(CTime:GetStartTime(level.timeid));
         lockstr = string.format(LanguageMgr:GetTextByID(90387),m,d);
     elseif level.prev_levelid ~= 0 then
-        if(Chapter:GetChapterByLevelId(levelid).sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD)then
-            if(Chapter:GetChapterByLevelId(level.prev_levelid).sub_type == Chapter.MODE_ACTIVITY_LEVEL_COMMON)then--通关普通关卡开启
+
+        if lua_value_in_tbl(Chapter:GetChapterByLevelId(levelid).sub_type, Chapter.MODE_ACTIVITY_HARD_IDS) then
+            if lua_value_in_tbl(Chapter:GetChapterByLevelId(level.prev_levelid).sub_type, Chapter.MODE_ACTIVITY_COMMON_IDS)then--通关普通关卡开启
                 lockstr = string.format(LanguageMgr:GetTextByID(90388),level.sortid);
             else
                 lockstr = LanguageMgr:GetTextByID(20027)
@@ -1124,12 +1125,14 @@ function Chapter:GetChapterIsLock(chapterId)
     if Player:GetLevel() < chapter.open_level then --等级不够
         return false, string.format(LanguageMgr:GetTextByID(20087),chapter.open_level)
     end
-
+    
     --章节解锁
-    if(chapter.open_id > 0)then
-        local tmpChapter = Chapter:GetChapter(chapter.open_id);
-        if(not tmpChapter.open)then
-            return false, string.format(LanguageMgr:GetTextByID(90394),tmpChapter.name_simple);
+    if next(chapter.prev_ids) ~= nil then
+        for i, prevId in ipairs(chapter.prev_ids) do
+            local tmpChapter = Chapter:GetChapter(prevId)
+            if not tmpChapter.open then
+                return false, string.format(LanguageMgr:GetTextByID(90394), tmpChapter.name_simple)
+            end
         end
     end
 

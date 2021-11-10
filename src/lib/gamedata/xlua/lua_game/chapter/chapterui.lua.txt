@@ -357,3 +357,15 @@ end
 function Chapter:InitLevelAddition(trans)
     return core.require("xlua/lua_UI/Comframework/LevelAddition.txt"):new(trans:CreateChild("prefab_comframeWork/UI_LevelAddition"));
 end
+
+function Chapter:InitTeamPrefab(trans, arrPos)
+    if #arrPos ~= 3 then 
+        AppMgr:LogError("传入位置数据错误")
+    end
+    for i = 1, 3, 1 do
+        local prefab = trans:CreateChild("prefab_comframeWork/prefab_heroitem")
+        prefab.name = "heroitem_" .. i
+        prefab:SetPosition(arrPos[i][1], arrPos[i][2], 0, true)
+    end
+end
+

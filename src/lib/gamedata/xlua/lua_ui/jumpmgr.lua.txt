@@ -169,7 +169,7 @@ function JumpMgr:JumpCheck(jumpData)
                 Activity:SetCurMainType(tonumber(cfg.Interface));
                 Activity:SetActivityId(jumpData[2]);
             else
-                Groble_UIMgr:ShowTipsLayer(90086);
+                Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90086));
                 return false;
             end
         end

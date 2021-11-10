@@ -179,7 +179,7 @@ function Player:OnCurrencyTdOper(key, value, reason, param)
     if Player.TD_OPER[key] ~= nil then
         local oldvalue = self:GetValue(key)
         local dis = value - oldvalue
-        if key == Player.VALUE_MONEY then
+        if key == Player.VALUE_WITCH_COIN then
             local eventName = "store_increase"
             if dis < 0 then
                 eventName = "store_decrease"
@@ -189,9 +189,9 @@ function Player:OnCurrencyTdOper(key, value, reason, param)
                 increase_number = dis,
                 reasons         = reason
             })
-
-            GZSDKHelper:goldFlowWithPlayerInfo(dis > 0 and "add" or "reduce", key, Player.TD_OPER[key], Player.TD_OPER[key], dis, oldvalue, value ,reason)
         end
+        GZSDKHelper:goldFlowWithPlayerInfo(dis > 0 and "add" or "reduce", key, Player.TD_OPER[key], 
+            Player.TD_OPER[key], dis, oldvalue, value, reason, param)
     end
 end
 

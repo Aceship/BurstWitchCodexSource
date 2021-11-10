@@ -181,7 +181,7 @@ function ActivityMainLayer:OnLeftTogClick(isOn,cls)
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/UpgradePackageLayer.txt"):new(self._transUIParent);
             elseif(self._curSelectUid == Operation.ActivityID.ValueSummon)then--超值召唤
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/ValueSummonLayer.txt"):new(self._transUIParent);
-            elseif(self._curSelectUid == Operation.ActivityID.SkinGiftBag_1)then--皮肤礼包
+            elseif(self._curSelectUid == Operation.ActivityID.SkinGiftBag_1 or self._curSelectUid == Operation.ActivityID.SkinGiftBag_2 or self._curSelectUid == Operation.ActivityID.SkinGiftBag_3)then--皮肤礼包
                 if(self._skinGiftBagLayer == nil)then
                     self._skinGiftBagLayer = core.require("xlua/lua_UI/UIOperation/SkinGiftBagLayer.txt"):new(self._transUIParent);
                 end
@@ -193,7 +193,10 @@ function ActivityMainLayer:OnLeftTogClick(isOn,cls)
         end
         self:UpdateSelectTogBgPos();
         if(cls.data.ad_Image ~= nil)then--设置广告字
-            Activity:SetImgTitle(self._imgTitle,self._rectTitle,cls.data.ad_Image);
+            local setY = Activity:SetImgTitle(self._imgTitle,self._rectTitle,cls.data.ad_Image);
+            if(setY)then
+                CS.UnityHelper.NotchfitY(self._rectTitle.transform);
+            end
             self._imgTitle.color = CS.UnityEngine.Color(1,1,1,0);
             self._imgTitle:DOColor(CS.UnityEngine.Color(1,1,1,1),0.5);
         end

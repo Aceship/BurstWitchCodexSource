@@ -110,7 +110,7 @@ function BuyTipsLayer:InitUI()
         self._txtUnitPrice = self.layer:GetTextComponent("trans_container/trans_item_info/txt_unit_price");
         self._txtBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_buy_num");
         self._txtAllPrice = self.layer:GetTextComponent("trans_container/trans_num_info/txt_all_price");
-        self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num");
+        --self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num");
         self._txtHaveNum = self.layer:GetTextComponent("trans_container/trans_item_info/txt_have_num");
         self._rectSlider = self.layer:GetRectTransformComponent("trans_container/trans_num_info/slider");
         self._scrollTableView = self.layer:GetScrollRectComponent("trans_container/trans_goods/TableView");
@@ -122,9 +122,9 @@ function BuyTipsLayer:InitUI()
             value = math.floor(value);
             self._buyItemNum = value;
             self._txtBuyNum:SetText(value.."/"..self._oneMaxBuyNum);
-            if(self._limitBuyStr ~= "")then
-                self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum));
-            end
+            --[[if(self._limitBuyStr ~= "")then
+                --self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum));
+            end]]--
             local curAllPrice = math.floor(self._chargeCfg.price * value * self._chargeCfg.discount);
             if(Item:GetCount(self._chargeCfg.priceId) < curAllPrice)then
                 self._txtAllPrice:SetTextColor(1.00, 0.40, 0.32, 1.00);
@@ -180,7 +180,7 @@ function BuyTipsLayer:onExit()
     self._imgPriceIcon = nil;
     self._txtBuyNum = nil;
     self._txtAllPrice = nil;
-    self._txtLimitBuyNum = nil;
+    --self._txtLimitBuyNum = nil;
 	self._transItem = nil;
 	self._txtHaveNum = nil;
 	self._rectContainer = nil;
@@ -334,7 +334,7 @@ function BuyTipsLayer:SetItemInfo()
         self._txtItemName:SetText(self._chargeCfg.name);
     end
     self._txtUnitPrice:SetText(math.ceil(self._chargeCfg.price * self._chargeCfg.discount));
-    self._imgUnitPriceIcon.sprite = Item:LoadSprite(self._chargeCfg.priceId);
+    self._imgUnitPriceIcon:LoadSprite(Item:GetItemIconPath(self._chargeCfg.priceId));
 end
 
 
@@ -388,7 +388,7 @@ function BuyTipsLayer:SetNumInfoUI()
     end
     self._maxBuyNum = 0;
     self._oneMaxBuyNum = 0;
-    self._limitBuyStr = "";
+    --[[self._limitBuyStr = "";
     if(self._chargeCfg.buytype == Recharge.BuyType.day)then
         self._limitBuyStr = LanguageMgr:GetTextByID(90223);
     elseif(self._chargeCfg.buytype == Recharge.BuyType.Week)then
@@ -403,9 +403,9 @@ function BuyTipsLayer:SetNumInfoUI()
         self._limitBuyStr = LanguageMgr:GetTextByID(90228);
     end
     if(self._limitBuyStr == "")then
-        self._txtLimitBuyNum:SetText("");
-    end
-    self._imgPriceIcon.sprite = Item:LoadSprite(self._chargeCfg.priceId);
+        --self._txtLimitBuyNum:SetText("");
+    end]]--
+    self._imgPriceIcon:LoadSprite(Item:GetItemIconPath(self._chargeCfg.priceId));
     self._oneMaxBuyNum = Recharge:GetGiftBagBuyNum(self._chargeId);
     if(self._chargeCfg.stock > 0)then
         self._maxBuyNum = self._chargeCfg.stock;
@@ -423,7 +423,7 @@ function BuyTipsLayer:SetNumInfoUI()
     self._slider.minValue = 0;
     self._slider.maxValue = self._oneMaxBuyNum;
     --self._sliderV2.x = self._maxSlierX * (self._oneMaxBuyNum / self._chargeCfg.oneBuyNum);
-    --self._rectSlider.sizeDelta = self._sliderV2;
+    --self._rectSlider.sizeDelta = self._sliderV2;--tem:GetItemIconPath
 end
 -----------------------------------------------------------皮肤礼包---------------------------------------------------------------
 

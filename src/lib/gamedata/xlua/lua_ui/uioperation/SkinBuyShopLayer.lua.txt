@@ -195,7 +195,7 @@ function SkinBuyShopLayer:SetSkinItemData(cls,id)
     --头像
     cls.imgIcon:LoadSprite(string.format("source_avatar/hero/card_%s" , data.goods[1][2]));
     local cfg = Hero:GetCfg(Hero:GetHeroIdBySkinId(data.goods[1][2]));
-    cls.txtName.text = string.format("%s<color=#84A3D9FF>%s</color>",cfg.Name,data.name);
+    cls.txtName.text = string.format("%s\n<color=#84A3D9FF>%s</color>",cfg.Name,data.name);
     local skinconfig = Hero:GetSkinCfg(tonumber(data.goods[1][2]))
     -- 皮肤品质
     if skinconfig.SkinRare == nil then

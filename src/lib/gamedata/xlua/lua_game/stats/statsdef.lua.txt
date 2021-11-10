@@ -55,3 +55,5 @@ Stats.STATS_TASK_SHOW_COUNT_FIX  = {
     Stats.STATS_TYPE_RANK_PASS_LEVEL,
     Stats.STATS_TYPE_ETHER_PASS_LEVEL,
 }
+
+Stats.STATS_SERVER_REQ_INTERVAL     = 1800      -- 间隔30分钟请求一次全服任务数据

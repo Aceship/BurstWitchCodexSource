@@ -1,6 +1,7 @@
 g_msgpack = require('source_static.LuaLib.msgpack')
 luajson = require('source_static.LuaLib.json')
 LuaCSharpArr = require("source_static.LuaLib.LuaCSharpArr")
+AssetLoader:LoadLuaAsset("xlua/config/config.txt")
 AssetLoader:LoadLuaAsset("xlua/util.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Utils/init.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_UI/Comframework/UI_Loading.txt")
@@ -41,7 +42,9 @@ AssetLoader:LoadLuaAsset("xlua/lua_UI/UIBaseNode.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_UI/Concert/Hall/ConcertHallNode.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_UI/Concert/Hall/ConcertBookNode.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/GameMgr/HttpUpload.txt")
-
+AssetLoader:LoadLuaAsset("xlua/lua_UI/LibraryScene/SublimationWakeUpNode.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_UI/Controller/SweepingCtro.txt")
+-- AssetLoader:LoadLuaAsset("xlua/lua_Game/GameMgr/HttpUpload.txt")
 
 Groble_ProtoMgr = ProtoMgr:new();
 Groble_ResMgr   = ResourceMgr:new();

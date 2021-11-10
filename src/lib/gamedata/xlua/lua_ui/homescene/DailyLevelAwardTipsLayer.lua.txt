@@ -193,8 +193,8 @@ function DailyLevelAwardTipsLayer:NewCellItem(trans)
 end
 
 function DailyLevelAwardTipsLayer:SetCellItem(cls,index)
-    local basics = Item:GetDrops(self._allBasicsDrops[index].id);
-    local extra = Item:GetDrops(self._allExtraDrops[index].id);
+    local basics = Drop:GetDropsById(tonumber(self._allBasicsDrops[index].id), false);
+    local extra = Drop:GetDropsById(tonumber(self._allExtraDrops[index].id), false);
     local desc1 = self._allExtraDrops[index].desc1
     local desc2 = self._allExtraDrops[index].desc2
     if(desc1 == -1) then

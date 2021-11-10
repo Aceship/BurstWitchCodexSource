@@ -8,7 +8,7 @@ local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
 local ActivityPushLayer = class("ActivityPushLayer", CBaseLayer)
 --按钮
 local BTNS = {
-	--@ButtonEnd
+	button_jump = "button_jump"
 }
 
 local RewardItemNum = 2
@@ -23,7 +23,7 @@ function ActivityPushLayer:ctor(super)
         showPlayerInfo  = false,
         showTopInfo     = false,
         --topInfo        = Player.CURRENCY_MAIN,
-    };
+    }
     self._addStack = true;
     self:onEnter();
 end
@@ -55,8 +55,6 @@ function ActivityPushLayer:onExit()
     self._push_1 = nil
     self._push_2 = nil
     self._stepUpItems = nil
-    self._button_close = nil
-    self._jumpBtn = nil
     if self._curMoudle ~= nil then
         self._curMoudle:Release()
     end
@@ -65,8 +63,27 @@ function ActivityPushLayer:onExit()
 end
 
 --按钮事件
-function ActivityPushLayer:onButtonClick(itype)
+function ActivityPushLayer:onButtonClick(buttontype)
+    if  self.m_CurData ~= nil then
+        local jumpData = self.m_CurData["Is_jump"]
+        if jumpData ~= nil then
+            if jumpData[1] == 0 then
+                self:RefreshView()
+            else
+                JumpMgr:JumpCheck(jumpData)
+            end
+        end
+    end
     --@ButtonCallBackEnd
+end
+
+function ActivityPushLayer:onBackClick()
+    if #self.m_PopupList <= 0 then
+        self:onPopLayer()
+        uimgr:CheckTodoList()
+    else
+        self:RefreshView()
+    end
 end
 
 --初始化
@@ -94,6 +111,7 @@ function ActivityPushLayer:InitUI()
     self._transQltySpine:CreateChild("prefab_item_spine/spine_qlty_ssr");
     self._gunType   = self.layer:GetTextComponent("container/push_1/txt_gun")
     self._gunIcon = self.layer:GetImageComponent("container/push_1/logo")
+    self._imgTitleTop = self.layer:GetImageComponent("container/img_title_top")
     --@ImageEnd
 
 	--@TextEnd
@@ -114,31 +132,6 @@ function ActivityPushLayer:InitUI()
         end
     end
 	--@MToggleCallBackEnd
-
-    self._button_close   = self.layer:GetButtonComponent("button_mask");
-    self._button_close:AddButtonListener(function ()
-        --print("点击关闭")
-        if #self.m_PopupList <= 0 then
-            self:onPopLayer()
-            uimgr:CheckTodoList()
-        else
-            self:RefreshView()
-        end
-    end);
-
-    self._jumpBtn = self.layer:GetButtonComponent("container/img_mask")
-    self._jumpBtn:AddButtonListener(function ()
-        if  self.m_CurData ~= nil then
-            local jumpData = self.m_CurData.jumpTo
-            if jumpData ~= nil then
-                if jumpData[1] == 0 then
-                    self:RefreshView()
-                else
-                    JumpMgr:JumpCheck(jumpData)
-                end
-            end
-        end
-    end);
 
     local button = self.layer.transform:Find("container/toggle_sel")
     local UIButtonSFX = button:GetComponent("UIButtonSFX")
@@ -161,17 +154,9 @@ function ActivityPushLayer:show(params)
     --print("当前活动数量  ： "..#self.m_PopupList)
     self:showLayer();
     self:RefreshView()
-end
-
---退出按钮事件
-function ActivityPushLayer:onBackClick()
-    self:Close();
-    self:onPopLayer();
-end
-
---释放
-function ActivityPushLayer:Close()
-    --@CloseEnd
+    self.layer:DelayInvoke(0.5, function()
+            self._fading = false
+        end)
 end
 
 ---------------------------------------------------------BtnClick------------------------------------------------------------------------------
@@ -196,29 +181,33 @@ end
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
 function ActivityPushLayer:RefreshView()
     if #self.m_PopupList == 0 then return end
+
     self.m_CurData = self.m_PopupList[1]
 
     table.remove(self.m_PopupList, 1)
 
     if self.m_CurData ~= nil then
-        local isHero = self.m_CurData.picture ~= nil and self.m_CurData.picture > 0;
+        local _infos = self.m_CurData["SpineInfo"]
+        local isHero = _infos ~= nil and _infos[1] > 0;
         --加载spine
         self._spine:SetVisible(isHero);
         if isHero then
-            local heroId = tonumber(self.m_CurData.picture)
-            print("=====heroId = ", heroId)
-            Hero:LoadSpineAsync(self.__cname,self._spine, heroId,Hero.SPINE_NEWUP,
-            function(obj)
-                self._curMoudle = obj
-            end,true)
-            local spinePos = self.m_CurData.spinePos
-            self._spine:SetPosition(spinePos[1],spinePos[2], 0,true);
-            self._spineParent:SetScale(self.m_CurData.spinePos[3],self.m_CurData.spinePos[3],1)
-        else
-
+            Hero:LoadSpineAsync(self.__cname, self._spine, _infos[1], Hero.SPINE_NEWUP,
+                function(obj)
+                    self._curMoudle = obj
+                end,true)
+            self._spine:SetPosition(_infos[2], _infos[3], 0, true)
+            self._spineParent:SetScale(_infos[4], _infos[4], 1)
         end
         --设置item
-        local itemShowType = Activity:GetPushViewType(self.m_CurData);
+        local itemShowType
+        local items = self.m_CurData["Itemid"]
+        if items == nil or items[1] == nil then
+            itemShowType = Activity.PushType.Picture
+        else
+            itemShowType = Activity.PushType.PictureItems
+        end
+
         self._push_1:SetVisible(itemShowType == Activity.PushType.Picture and isHero);
         self._push_2:SetVisible(itemShowType == Activity.PushType.PictureItems);
         if(itemShowType == Activity.PushType.PictureItems)then
@@ -230,7 +219,7 @@ function ActivityPushLayer:RefreshView()
 end
 
 function ActivityPushLayer:SetPicItemView()
-    local items = self.m_CurData.items
+    local items = self.m_CurData["Itemid"]
     local data
     for i = 1, #self._stepUpItems do
         data = items[i]
@@ -246,8 +235,8 @@ function ActivityPushLayer:SetPicItemView()
 end
 
 function ActivityPushLayer:SetCommonInfo()
-    local beginTime =  Lib:Str2Time(self.m_CurData.beginTime)
-    local endTime = Lib:Str2Time(self.m_CurData.endTime)
+    local beginTime =  Lib:Str2Time(self.m_CurData["Begintime"])
+    local endTime = Lib:Str2Time(self.m_CurData["Endtime"])
 
     local beginDate = lua_str_split(os.date("%m-%d", beginTime), "-")
     local endDate = lua_str_split(os.date("%m-%d", endTime), "-")
@@ -255,47 +244,60 @@ function ActivityPushLayer:SetCommonInfo()
     self._beginTime.text = string.format("%s.%s",beginDate[1], beginDate[2])
     self._endTime.text = string.format("%s.%s",endDate[1], endDate[2])
 
-    local moonPath = self.m_CurData.moonPath
-    local moonPos = self.m_CurData.moonPos
-    self._moonImg:LoadSprite(moonPath)
-    self._moonImg:SetNativeSize()
-    self._moonTrans:SetPosition(moonPos[1], moonPos[2], 0, true)
-    self._moonTrans:SetScale(self.m_CurData.moonPos[3],self.m_CurData.moonPos[3],1)
-
-    self._titleImg:SetEnabled(self.m_CurData.titlePath ~= nil);
-    if(self.m_CurData.titlePath ~= nil)then
-        self._titleImg:LoadSprite(self.m_CurData.titlePath);
-        self._titleImg:SetNativeSize()
-        self._titleTrans:SetPosition(self.m_CurData.namePos[1], self.m_CurData.namePos[2], 0, true)
+    -- 月亮背景图
+    local _infos = self.m_CurData["MoonPathInfo"]
+    self._moonImg:SetVisible(_infos ~= nil)
+    if _infos ~= nil then
+        self._moonImg:LoadSprite(_infos[1])
+        self._moonImg:SetNativeSize()
+        self._moonTrans:SetPosition(_infos[2], _infos[3], 0, true)
+        self._moonTrans:SetScale(_infos[4], _infos[4], 1)
     end
 
+    -- 左上部的标题
+    local _infos = self.m_CurData["TitlePathInfo"]
+    self._titleImg:SetVisible(_infos ~= nil)
+    if _infos ~= nil then
+        self._titleImg:LoadSprite(_infos[1])
+        self._titleImg:SetNativeSize()
+        self._titleTrans:SetPosition(_infos[2], _infos[3], 0, true)
+    end
 
-    --nameImage
-    self._nameImg:SetEnabled(self.m_CurData.namePath ~= nil);
-    if self.m_CurData.namePath ~= nil then
-        self._nameImg:LoadSprite(self.m_CurData.namePath);
+    -- 下边的标题信息
+    local _infos = self.m_CurData["NamePathInfo"]    
+    self._nameImg:SetEnabled(_infos ~= nil)
+    if _infos ~= nil then
+        self._nameImg:LoadSprite(_infos[1])
         self._nameImg:SetNativeSize()
+        self._nameImg.transform:SetPosition(_infos[2], _infos[3], 0, true)
     end
 
     --MaskBg
-    self._maskImg:SetEnabled(self.m_CurData.maskPath ~= nil);
-    if(self.m_CurData.maskPath ~= nil)then
-        self._maskImg:LoadSprite(self.m_CurData.maskPath)
+    local _infos = self.m_CurData["MaskPathInfo"]
+    self._maskImg:SetEnabled(_infos ~= nil)
+    if _infos ~= nil then
+        self._maskImg:LoadSprite(_infos[1])
         self._maskImg:SetNativeSize()
+        self._maskImg.transform:SetPosition(_infos[2], _infos[2], 0, true)
     end
 
-    set_obj_active(self._fightObj,self.m_CurData.activityType == 3)
-    set_obj_active(self._chargeObj,self.m_CurData.activityType == 2)
-    set_obj_active(self._transQltySpine,self.m_CurData.activityType == 1)
-    self._transQltySpine:SetPosition(self.m_CurData.qltyPos[1],self.m_CurData.qltyPos[2],0,true)
+    local actiType = self.m_CurData["actiType"]
+    self._fightObj:SetVisible(actiType == 3)
+    self._chargeObj:SetVisible(actiType == 2)
+    local _infos = self.m_CurData["QltyPos"]
+    self._transQltySpine:SetVisible(actiType == 1 and _infos ~= nil)
+    if _infos ~= nil then
+        self._transQltySpine:SetPosition(_infos[1], _infos[2], 0, true)
+    end
 
-    if self.m_CurData.picture ~= nil and self.m_CurData.picture > 0 and self.m_CurData.picture < 10000 then
-        local heroCfg = Hero:GetCfg(self.m_CurData.picture)
+    local _infos = self.m_CurData["SpineInfo"]
+    if _infos ~= nil and _infos[1] > 0 and _infos[1] < 10000 then
+        local heroCfg = Hero:GetCfg(_infos[1])
         self._gunType:SetText(heroCfg.Name_UP) --枪型文字
         Hero:SetHeroAtkType(self._gunIcon,tonumber(heroCfg.AtkType));
         local path = self:GetGunIconPath(tonumber(heroCfg.AtkType))
         if path ~= "" then
-            self._gunIcon.sprite = AtlasMgr:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
+            self._gunIcon:LoadAtlasSprite("source_atlas/atlas_activity_layer_2", path);
         end
         self._gunIcon:SetNativeSize()
         self._gunIcon:SetVisible(true)

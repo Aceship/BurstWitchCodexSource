@@ -74,34 +74,6 @@ function Activity:_LoadCfg()
     self:LoadActivityLevelMainTypeCfg();
     self:LoadActiveSixthSeal_Sign_in()
 end
--- function Activity:LoadActiveSixthSeal()--读取第六封印配置表
---     self._activeSpTotalConfig = {};
---     for k,v in pairs(CfgLoader:LoadCfg("Active_sixthnotice")) do
---         local data = {
---             id = tonumber(v.id),
---             days = tonumber(v.days),
---             activeid = tonumber(v.activeid),
---             itemAwards = lua_parse_cfg(v.itemAwards,true),
---             Blankscreentext = lua_parse_cfg(v.Blankscreentext,true),
---             UItextTitle = v.UItextTitle,
---             UItextSubtitle =v.UItextSubtitle,
---             UItext1 = v.UItext1,
---             UItext2 = v.UItext2,
---             Video = v.Video,
---             Sound = v.Sound,
---             TitleIcon = lua_str_split(v.TitleIcon,"&"),
---             TitleIcon_effect = v.TitleIcon_effect
---         }
---         self._activeSpTotalConfig[data.id] = data
---     end
---     self._activeSixthSealCfg = {};
---     -- for k,v in pairs(self._activeSpTotalConfig) do
---     --     if(v.activeid == 2001) then
---     --         self._activeSixthSealCfg[v.days] = v;
---     --     end
---     -- end
---     self:InitSixthSealRewardData()
--- end
 
 function Activity:LoadActiveSixthSeal_Sign_in()--读取第六封印签到配置表
     self._Active_sixthsigned = {};
@@ -141,69 +113,6 @@ function Activity:GetSixSigninConfigsByUID(activityId)
     return self._Active_sixthsignedArray[activityId]
 end
 
-
-function Activity:LoadActiveTriggerAD()
-    self._activeTriggerCfg = {}
-    local id = 0
-    local titlePath,namePath,maskPath,spinePos,namePos;
-    for i, v in pairs(CfgLoader:LoadCfg("Active_triggerAD")) do
-        id = tonumber(v.id)
-
-        --活动标题
-        if(v.TitlePath == "-1")then
-            titlePath = nil;
-        else
-            titlePath = v.TitlePath;
-        end
-
-        --名字路径
-        if(v.NamePath == "-1")then
-            namePath = nil;
-        else
-            namePath = v.NamePath;
-        end
-
-        --遮罩路径
-        if(v.MaskPath == "-1")then
-            maskPath = nil;
-        else
-            maskPath = v.MaskPath;
-        end
-
-        --spine位置
-        if(v.SpinePos == "-1")then
-            spinePos = nil;
-        else
-            spinePos = lua_str_split(v.SpinePos,"&",true);
-        end
-
-        --name位置
-        if(v.NamePos == "-1")then
-            namePos = nil;
-        else
-            namePos = lua_str_split(v.NamePos,"&",true);
-        end
-        self._activeTriggerCfg[id] = {
-            id = id,
-            order = tonumber(v.Order),
-            picture = tonumber(v.Picture),
-            jumpTo = lua_str_split(v.Is_jump,"&",true);--v.Is_jump,
-            beginTime = v.Begintime,
-            endTime = v.Endtime,
-            items = lua_parse_cfg(v.Itemid,true),
-            moonPath = v.MoonPath,
-            titlePath = titlePath,
-            namePath = namePath,
-            maskPath = maskPath,
-            moonPos = lua_str_split(v.MoonPos,"&",true),
-            spinePos = spinePos,
-            namePos = namePos,
-            activityType = tonumber(v.actiType),
-            qltyPos = lua_str_split(v.QltyPos,"&",true),
-        }
-    end
-    --self:GetTriggerActivites()
-end
 --加载活动集合配置
 function Activity:LoadActiveGatherCfg()
     self._activeGatherCfg = {};
@@ -237,65 +146,6 @@ function Activity:LoadActiveQuanShuCfg()
             itemsShow = lua_str_split(v.ItemShow,"&",true),
         }
         self._activeQSShow[tonumber(v.id)] = data
-    end
-end
-
---获取可弹窗广告
-function Activity:GetTriggerActivites()
-    local result = {}
-    for _, v in pairs(self._activeTriggerCfg) do
-        if self:IsShowActivity(v) then
-            table.insert(result,v)
-        end
-    end
-    table.sort(result,function (a,b)
-        return a.order < b.order;
-    end);
-    return result
-end
-
---指定活动是否弹窗
-function Activity:IsShowActivity(cfg)
-    if cfg == nil then
-        return false
-    end
-    local beginTime = Lib:Str2Time(cfg.beginTime)
-    local curTime = CTime:GetServerTime()
-    local endTime = Lib:Str2Time(cfg.endTime)
-    --print("开始时间  : "..beginTime.." : 当前时间 ： "..curTime.." ： 结束时间 ： "..endTime)
-    --未开始
-    if curTime < beginTime then
-        return false
-    end
-    --已结束
-    if curTime > endTime then
-        return false
-    end
-    --[[if cfg.jumpTo[1] == JumpMgr.Jump_Activity then
-        if(cfg.jumpTo[2] > 0)then
-            if(Operation:ActivityIsRepeat(cfg.jumpTo[2]))then--重复礼包, 如果领取完毕不弹
-                local activity = Operation:GetActiveCfgByUID(cfg.jumpTo[2]);
-                if(activity.charges ~= nil or #activity.charges > 0)then
-                    if(Operation:GetRepeatGetStateById(activity.charges[1]) ~= Recharge.RepeatState.GetOver)then
-                        return true;
-                    end
-                end
-            end
-        end
-    end]]--
-    return true
-end
-
---获取扑脸广告界面类型
-function Activity:GetPushViewType(cfg)
-    if cfg == nil then
-        return -1
-    end
-    local items = cfg.items
-    if items[1] == nil then
-        return Activity.PushType.Picture
-    else
-        return Activity.PushType.PictureItems
     end
 end
 
@@ -337,8 +187,9 @@ function Activity:GetAllActiveGatherCfg()
         elseif(cfg.itype == Activity.JobType.JobActivity)then--万圣节
             if(cfg.uid  == Operation.ActivityID.ThousandHolyNight )then
                 local TimeId = self:GetActivityByUId(Operation.ActivityID.ThousandHolyNight).info.Time
-                if  Activity:GetNewWelfareIsOver_AcvitySign()==false and  CTime:IsOpen(tonumber(TimeId)) then
-                    print("万圣节活动有效")
+                local _days = Activity:GetActivitySignDay()
+                if  Activity:GetNewWelfareIsOver_AcvitySign()==false and  CTime:IsOpen(tonumber(TimeId)) and  _days<=Activity.NewWelfareMaxDay then
+                  --  print("万圣节活动有效")
                     isAdd = true;
                 end
             end
@@ -655,6 +506,10 @@ function Activity:LoadActivityLevelLayerCfg()
         if(cfg.topInfo ~= "-1")then
             topInfo = lua_str_split(cfg.topInfo,"&",true)
         end
+        local Entranceeffects;
+        if(cfg.Entranceeffects ~= "-1")then
+            Entranceeffects = lua_str_split(cfg.Entranceeffects,"&",false)
+        end
 
         id = tonumber(cfg.id);
         data = {
@@ -678,6 +533,7 @@ function Activity:LoadActivityLevelLayerCfg()
           effect = cfg.effects,
           bossImgPos = bossImgPos,
           topInfo = topInfo,
+          Entranceeffects=Entranceeffects,
         };
         if(self._layerCfgs[data.activityUID] == nil)then
             self._layerCfgs[data.activityUID] = {};
@@ -711,33 +567,17 @@ function Activity:GetActivityLevelLayerCfgisOpen(uid,layerType)
 end
 
 function Activity:LoadActivityLevelMainTypeCfg()
-    local cfgs = CfgLoader:LoadCfg("Active_sixthmaintype");
-    self._mainTypeCfg = {};
-    local data,id;
-    for _, cfg in pairs(cfgs) do
-        id = tonumber(cfg.id);
-        data = {
-            id = id,
-            uid = tonumber(cfg.activeUid),--活动UID
-            shopUid = tonumber(cfg.ActivechargeUid),
-            taskType_1 = lua_str_split(cfg.Quest_child_class_1,"&"),--外围任务
-            taskType_2 = lua_str_split(cfg.Quest_child_class_2,"&"),--弹窗任务
-            levelTypes = lua_parse_cfg(cfg.Story_Level_type),--普通关卡类型
-            specialType = tonumber(cfg.Nightmare_Level_type),--特殊关卡类型
-            gashaponListId = tonumber(cfg.GashaponListId),
-        };
-        self._mainTypeCfg[data.uid] = data;
+    self._active_sixthmaintype_config = {}
+    for i, config in pairs(Config.GetConfigActive_sixthmaintype()) do
+        self._active_sixthmaintype_config[config.activeUid] = config
     end
 end
 
-function Activity:GetActivityLevelTypeCfgByUid(uid)
-    if(uid == nil or uid <= 0)then
-        AppMgr:LogError("uid is nil !!!   path = **Activity:GetActivityLevelTypeCfgByUid**")
-        return;
+function Activity:GetActive_sixthmaintypeConfigByUid(uid)
+    if uid == nil or uid <= 0 then return nil end
+
+    if self._active_sixthmaintype_config[uid] == nil then
+        AppMgr:LogError("！！！！！！[Active_sixthmaintype]配置表错误。未找到activeUid = "..uid)
     end
-    local retCfg = self._mainTypeCfg[uid];
-    if(retCfg == nil)then
-        AppMgr:LogError("retCfg is nil!!!   path = **Activity:GetActivityLevelTypeCfgByUid(uid)**   uid = "..uid)
-    end
-    return retCfg;
+    return self._active_sixthmaintype_config[uid]
 end

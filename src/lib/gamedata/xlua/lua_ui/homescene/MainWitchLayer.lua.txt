@@ -7,7 +7,6 @@ local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
 local MainWitchLayer = class("MainWitchLayer", CBaseLayer)
 
 local BUTTON_TYPE = {
-    Story           = "container/main_buttons/button_story",          -- 魔女传记
     Skin            = "container/button_skin",           -- 皮肤
     Evaluate        = "container/main_buttons/button_evaluate",       -- 魔女评价
     SkillShow       = "container/main_buttons/btn_skill_show",   -- 技能展示
@@ -182,7 +181,6 @@ function MainWitchLayer:onEnter()
 
     CS.UnityHelper.NotchfitY(self.layer:Get("container/IntroPanel"))
     CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_evaluate"))
-    CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_story"))
     CS.UnityHelper.NotchfitY(self.layer:Get("container/main_buttons/button_favour"))
     CS.UnityHelper.NotchfitY(self.layer:Get("container/button_skin"))
 end
@@ -344,8 +342,6 @@ function MainWitchLayer:onButtonClick(itype)
         end
     elseif itype == BUTTON_TYPE.Evaluate then
         Comment:GetServerDataReq();
-    elseif itype == BUTTON_TYPE.Story then
-        core.require("xlua/lua_UI/Witch/WitchStoryLayer.txt"):new():show(self._hero.id)
     elseif itype == BUTTON_TYPE.Skin then
         self._objSkinEffect:SetVisible(false)
         Hero:OpenWitchSkinLayer(self._hero.skinid);

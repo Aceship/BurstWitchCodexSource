@@ -150,3 +150,6 @@ Task.TASK_SUB_TYPE_NAME = {
     [Task.EtherTask_Turns]      = "以太轮换任务",
     [Task.EtherTask_Achieve]    = "以太轮换任务",
 }
+
+Task.TASK_TYPE_SELF     = 0     -- 个人任务
+Task.TASK_TYPE_SERVER   = 1     -- 全服任务

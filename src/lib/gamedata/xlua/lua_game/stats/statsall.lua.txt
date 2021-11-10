@@ -1,0 +1,72 @@
+--
+-- author: haosun
+-- date  : 2021-11-04 15:36:29
+-- brief : 全服统计数据
+--
+Stats = Stats or {}
+
+-- 
+-- brief：处理全服统计表
+-- 
+function Stats:_AnalysisQuestAllConfig()
+    self._configQuestAll = {}
+    local _configs = Config.GetConfigQuestAll()
+    for _, config in pairs(_configs) do
+        self._configQuestAll[config.id] = {
+            config = config,
+            Count = 0,
+            TaskIds = {},
+        }
+    end
+end
+
+function Stats:GetQuestAllDataById(cfgid)
+    if self._configQuestAll[cfgid] == nil then
+        AppMgr:LogError("[QuestAll]配置表配置错误，找不到！！！！！！！" .. cfgid)
+    end
+    return self._configQuestAll[cfgid]
+end
+
+-- 
+-- brief: 设置全服任务进的
+-- 
+function Stats:_onUpdateQuestAllData(pdata)
+    for id, count in pairs(pdata) do
+        local data = self:GetQuestAllDataById(id)
+        if data ~= nil then
+            data.Count = count
+        end
+    end    
+end
+
+-- 
+-- brief：开启定时器获取全服统计数据
+-- 
+function Stats:_onOpenTimer()
+    if self._timerId ~= nil then
+        Timer:RemoveTimerCall(self._timerId)
+    end
+    self._timerId = Timer:AddRepeatTimerCall(Stats.STATS_SERVER_REQ_INTERVAL, 
+        function()
+            self:StatsServerDataReq()
+        end, 100)
+end
+
+-- 
+-- brief：刷新全服统计数据
+-- 
+function Stats:_refreshQuestAllData()
+    for _, data in pairs(self._configQuestAll) do
+        self:_onUpdateTasks(data)
+    end
+end
+
+-- 
+-- brief：关联全服任务与统计数据
+-- 
+function Stats:ContactServerTask(id, taskid)
+    local data = self:GetQuestAllDataById(id)
+    if data ~= nil then
+        table.insert(data.TaskIds, taskid)
+    end
+end

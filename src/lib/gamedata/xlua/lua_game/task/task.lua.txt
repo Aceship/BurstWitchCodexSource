@@ -359,8 +359,16 @@ end
 
 function Task:UpdateTask(taskid)
     local task = self:GetTask(taskid)
+    if task.Quest_type == Task.TASK_TYPE_SELF then
+        self:_handleSelfTask(task)
+    elseif task.Quest_type == Task.TASK_TYPE_SERVER then
+        self:_handleServerTask(task)
+    end
+end
+
+function Task:_handleSelfTask(task)
     local _statsdata = Stats:GetStatsDataById(task.Statistics_id)
-    self:CheckTaskRedTips(taskid)    
+    self:CheckTaskRedTips(task.cfgid)
     if _statsdata.Type < Stats.STATS_TYPE_10000 then
         -- 客户端模块数据
         if _statsdata.Type == Stats.STATS_TYPE_PLAYER_LVEL then
@@ -484,13 +492,20 @@ function Task:_refreshTaskState(task)
     end
 end
 
+function Task:_handleServerTask(task)
+    local _statsdata = Stats:GetQuestAllDataById(task.Statistics_id)
+    if _statsdata == nil then return end
+
+    task.hasValue = _statsdata.Count
+    self:_refreshTaskState(task)
+end
+
 function Task:UpdateTasks()
     for id, data in pairs(self._tasks) do
         self:UpdateTask(id)
     end
 end
 
-local _debug = true
 -- brief: 获取任务可以领取的次数
 function Task:GetTaskCanRecvCount(taskid)
     local task = self:GetTask(taskid)

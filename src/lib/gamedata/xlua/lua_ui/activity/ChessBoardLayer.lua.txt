@@ -263,6 +263,10 @@ function ChessBoardLayer:onExit()
 	self._imgExpendIcon = nil;
     self._txtExpendNum = nil;
 
+    if(self._moveTimeId ~= nil)then
+        Timer:RemoveTimerCall(self._moveTimeId);
+        self._moveTimeId = nil;
+    end
 	--@CloseEnd
     CBaseLayer.onExit(self);
 end
@@ -790,7 +794,7 @@ end
 
 --移动
 function ChessBoardLayer:DoMoveData()
-    if(not self._isMove)then
+    if(not self._isMove or self._posData == nil)then
         return;
     end
     if(#self._posData <= 0)then--结束
@@ -901,7 +905,9 @@ function ChessBoardLayer:SetCurPosUI()
                 self._isDouble = false;
             end
             -- self._transDouble:SetVisible(self._isDouble);
-            Timer:AddTimerCall(0.05, function() 
+
+            self._moveTimeId = Timer:AddTimerCall(0.05, function()
+                self._moveTimeId = nil;
                 self:DoMoveData();
             end)
         else

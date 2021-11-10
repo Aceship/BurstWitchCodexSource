@@ -388,8 +388,6 @@ end
 
 function GmLayer:onGmCheck()
     -- Chapter:GmCheckOper()
-    -- Item:CheckBlackMarket()
-    Item:CheckItemOrigin()
 end
 
 function GmLayer:unlockLevel()

@@ -45,9 +45,10 @@ function Chapter:_LoadChapterMode()
                 end
                 table.insert(self._modes[mode], tmp)
             end
-
         end
     end
+
+    self._subTypeChapterIds = {}
 end
 
 function Chapter:_LoadLevels()
@@ -74,7 +75,7 @@ function Chapter:_LoadLevels()
             cost_items      = v.CostItem,
             sortid          = tonumber(v.ListID),
             rewards         = lua_parse_cfg(v.Rewards,true)[1],
-            star_rewards    = v.ThreeStarReward,
+            ThreeStarReward = tonumber(v.ThreeStarReward),
             fight_rewards   = lua_parse_cfg(v.ChallengeRewards, true)[1],
             first_rewards   = lua_parse_cfg(v.Rewards_once,true)[1],
             enemyids        = v.Enemey_id,
@@ -114,6 +115,7 @@ function Chapter:_LoadLevels()
             addEffDes       = tonumber(v.LevEffectDes), --加成效果描述
             monsterType     = tonumber(v.monstertype),
             levelAddEnv     = lua_str_split(v.MD_LevEffect,"&",true), --关卡加成
+            wipeItem        = lua_str_split(v.wipeItem, "&", true), --扫荡消耗额外道具 
         }
         memoryInfo =lua_str_split(v.Memory_level,"&")
         level.memory_level = tonumber(memoryInfo[1])
@@ -406,6 +408,19 @@ function Chapter:GetChaptersIdByMainType(mainType)
         return a < b;
     end)
     return retArr;
+end
+
+function Chapter:GetChapterIdBySubType(subType)
+    if self._subTypeChapterIds[subType] == nil then
+        self._subTypeChapterIds[subType] = {}
+        for id, v in pairs(self._chapters) do
+            if v.sub_type == subType then
+               table.insert(self._subTypeChapterIds[subType], id)
+            end
+        end
+        table.sort(self._subTypeChapterIds[subType], function(a, b) return a < b end)
+    end
+    return self._subTypeChapterIds[subType]
 end
 
 function Chapter:_LoadScoreDrop()

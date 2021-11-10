@@ -42,15 +42,15 @@ end
 --按钮事件
 function ActivityLevelMainLayer:onButtonClick(itype)
     if(itype == BTNS.BtnShopTop)then
-        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.shopUid))then
-            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90396));
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.ActivechargeUid))then
+            Groble_UIMgr:ShowGameWordTipsLayer(90396);
             return;
         end
-        Activity:SetCurSelectUid(self._typeCfg.shopUid);
+        Activity:SetCurSelectUid(self._typeCfg.ActivechargeUid);
         self:OnBtnShopTopClick();
     else
-        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.uid))then
-            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90396));
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.activeUid))then
+            Groble_UIMgr:ShowGameWordTipsLayer(90396);
             return;
         end
         if(itype == BTNS.BtnTaskBottom)then
@@ -71,7 +71,6 @@ end
 --初始化
 function ActivityLevelMainLayer:Init()
     self:InitData();
-    self:UpdateData();
     self:InitUI();
 end
 
@@ -79,14 +78,8 @@ end
 function ActivityLevelMainLayer:InitData()
     self._uid = Activity:GetOpenActivityLevelId();
     self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity.ActivityLevelType_Main);
-    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
+    self._typeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid);
 end
-
---更新数据
-function ActivityLevelMainLayer:UpdateData()
-
-end
-
 --初始化UI
 function ActivityLevelMainLayer:InitUI()
 
@@ -107,6 +100,8 @@ function ActivityLevelMainLayer:InitUI()
 
 	self._orientTask = Lottery:InitOrientTaskItem(self.layer:Get("trans_container/trans_orient_task"));
 	self._transEnterBtm = self.layer:Get("trans_container/btn_enter_btm");
+    self._btn_myj_jiepofengyin=self.layer:GetImageComponent("trans_container/btn_enter_btm/btn_myj_jiepofengyin")
+    self._btn_myj_jiepofengyintra = self.layer:Get("trans_container/btn_enter_btm/btn_myj_jiepofengyin");
 	--self._videoPlayer = self.layer:Get("trans_container/obj_video_player"):GetComponent("CriVideoHelper");
 	--@TransformEnd
 
@@ -127,7 +122,7 @@ end
 function ActivityLevelMainLayer:show()
     local chapter
     if(Activity:GetActivityLevelIsJump())then--跳转关卡
-        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.uid))then--活动关闭, 清空界面关卡ID
+        if(not Operation:GetActiveIsOpenByUid(self._typeCfg.activeUid))then--活动关闭, 清空界面关卡ID
             Activity:CloseCurActivityLevelId();
             Groble_UIMgr:ShowGameWordTipsLayer(880032);
         else
@@ -155,9 +150,12 @@ end
 
 function ActivityLevelMainLayer:showLayer()
     Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Main);
-    Activity:SetCurSelectUid(self._typeCfg.uid);
+    Activity:SetCurSelectUid(self._typeCfg.activeUid);
     self:UpdateRedState();
-    self._orientTask:UpdateOrientTaskUI(self._typeCfg.gashaponListId);
+    
+    if Activity:GetOpenActivityLevelId() > 0 then
+        self._orientTask:UpdateOrientTaskUI(self._typeCfg.GashaponListId);
+    end
     CBaseLayer.showLayer(self)
 end
 
@@ -202,7 +200,7 @@ function ActivityLevelMainLayer:OnBtnShopTopClick()
 end
 function ActivityLevelMainLayer:OnBtnTaskBottomClick()
     -- AppMgr:LogInfo("打开任务界面");
-    Activity:OpenActivityLevelTaskLayer()
+    Activity:OpenActivityLevelTaskLayer(self._uid)
 end
 function ActivityLevelMainLayer:OnBtnSignInBottomClick()
    -- AppMgr:LogInfo("打开签到界面");
@@ -212,7 +210,7 @@ end
 function ActivityLevelMainLayer:OnBtnLotteryBottomClick()
     --AppMgr:LogInfo("打开召唤界面");
     Activity:HideActivityLevelTitleLayer();
-    Lottery:EnterLotteryLayer(self._typeCfg.gashaponListId or 0)
+    Lottery:EnterLotteryLayer(self._typeCfg.GashaponListId or 0)
 end
 function ActivityLevelMainLayer:OnBtnEnterBtmClick()
     --AppMgr:LogInfo("进入关卡");
@@ -235,6 +233,10 @@ function ActivityLevelMainLayer:RegisterHandler()
     --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
 
     --end);
+    self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
+        function()
+            self._orientTask:UpdateOrientTaskUI(self._typeCfg.GashaponListId);
+        end)
 end
 
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
@@ -249,11 +251,20 @@ function ActivityLevelMainLayer:SetUI()
         if(tonumber(self._layerCfg.enterPath[1]) == EnterImgType.Spine)then--spine
             local rect = self._transEnterBtm:CreateChild(string.format("prefab_item_spine/%s",self._layerCfg.enterPath[2])):GetComponent("RectTransform");
             rect:SetAnchoredPosition(self._layerCfg.enterPath[3],self._layerCfg.enterPath[4]);
+            self._btn_myj_jiepofengyin:SetVisible(false)
+        end
+        if(tonumber(self._layerCfg.enterPath[1]) == EnterImgType.Effect)then--spine
+            self._btn_myj_jiepofengyin:LoadSprite(self._layerCfg.enterPath[2])
+            if self._layerCfg.Entranceeffects~=-1 then
+                local rect =self._btn_myj_jiepofengyintra:CreateChild(self._layerCfg.Entranceeffects[1])
+                rect:SetPosition(tonumber(self._layerCfg.Entranceeffects[2]) ,30,0,true)
+            end
+            self._btn_myj_jiepofengyin:SetVisible(true)
         end
     end
 
     --特殊关卡 
-    if(self._typeCfg.specialType > 0)then
+    if(self._typeCfg.Nightmare_Level_type > 0)then
         self:SetSpecialLevelUI();
         self._BtnSpecialBtm:SetVisible(true)
     else
@@ -315,9 +326,8 @@ function ActivityLevelMainLayer:SetSpecialLevelUI()
         self._txtSpecialLevelTitleE:SetTextColor(61/255,61/255,61/255,1);
     end
 end
-
 function ActivityLevelMainLayer:UpdateRedState()
-    self._imgTaskRed:SetEnabled(Task:IsBetterOper(Task.TYPE_ACTIVIT));
+    self._imgTaskRed:SetEnabled(Activity:IsTaskBetterOper());
     self._imgEnterRed:SetEnabled(Activity:GetLevelRedState_Main());
     self._imgSignInRed:SetEnabled(Activity:GetSixSignstate());
     self._imgSpecialLevelRed:SetEnabled(Activity:GetFirstOpenSpecialLevelId() > 0);

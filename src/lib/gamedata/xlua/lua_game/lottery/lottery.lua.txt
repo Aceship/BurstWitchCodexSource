@@ -31,7 +31,7 @@ end
 
 function Lottery:GetShowLottery()
     local ret = {}
-    for _, v in ipairs(self._lotterytypes) do
+    for _, v in pairs(self._lotterytypes) do
         if v.ntype == Lottery.LOTTERY_NOR then
             if v.timeid == 0 or CTime:IsOpen(v.timeid) then
                 if(v.lifeCycle <= 0)then
@@ -44,7 +44,7 @@ function Lottery:GetShowLottery()
             end
         end
     end
-    for i, v in ipairs(ret) do
+    for i, v in pairs(ret) do
         if v.id == Lottery.LotteryType.FirstTime then
             if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_lottery10) then
                 table.remove(ret, i)
@@ -52,7 +52,7 @@ function Lottery:GetShowLottery()
             end
         end
     end
-
+    
     table.sort(ret, function(a, b)
             return a.sortid < b.sortid
         end)

@@ -54,7 +54,6 @@ end
 --初始化
 function ActivityLevelLayer:Init()
     self:InitData();
-    self:UpdateData();
     self:InitUI();
 end
 
@@ -62,11 +61,17 @@ end
 function ActivityLevelLayer:InitData()
     self._isInit = true;
     self._uid = Activity:GetOpenActivityLevelId();
-    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
-    self._levelType = {
-        Common = tonumber(self._typeCfg.levelTypes[1][1]),
-        Hard = tonumber(self._typeCfg.levelTypes[2][1]),
-    }
+    self._typeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid);
+    if(#self._typeCfg.Story_Level_type == 1)then
+        self._levelType = {
+            Common = tonumber(self._typeCfg.Story_Level_type[1][1]),
+        }
+    elseif(#self._typeCfg.Story_Level_type == 2)then
+        self._levelType = {
+            Common = tonumber(self._typeCfg.Story_Level_type[1][1]),
+            Hard = tonumber(self._typeCfg.Story_Level_type[2][1]),
+        }
+    end
 
     self._chapters = {};
     self._levels = {};
@@ -100,9 +105,6 @@ function ActivityLevelLayer:InitData()
     end);
 end
 
---更新数据
-function ActivityLevelLayer:UpdateData()
-end
 
 --初始化UI
 function ActivityLevelLayer:InitUI()
@@ -279,6 +281,11 @@ end
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
 
 function ActivityLevelLayer:SetDegreeUI()
+    self.layer:Get("trans_container/trans_level_bg"):SetVisible(#self._typeCfg.Story_Level_type > 1);
+    if(#self._typeCfg.Story_Level_type == 1)then
+        self:CutLevelDegree(self._levelType.Common);
+        return;
+    end
     local btnImgs = {
         self.layer:GetImageComponent("trans_container/trans_level_bg/btn_common"),
         self.layer:GetImageComponent("trans_container/trans_level_bg/btn_hard"),
@@ -287,14 +294,10 @@ function ActivityLevelLayer:SetDegreeUI()
         self.layer:GetImageComponent("trans_container/trans_level_bg/image_title_common"),
         self.layer:GetImageComponent("trans_container/trans_level_bg/image_title_hard"),
     };
-    local tempLevelType =
-    {
-        self._levelType.Common,
-        self._levelType.Hard,
-    }
+    local tempLevelType = { self._levelType.Common, self._levelType.Hard }
     local openSubId = tempLevelType[1];
     for i, v in ipairs(tempLevelType) do
-        if(self:IsUnLockChapter(v))then
+        if self:IsUnLockChapter(v, false) then
             btnImgs[i].material = nil;
             btnTitleImgs[i]:SetEnabled(true);
         else
@@ -303,16 +306,10 @@ function ActivityLevelLayer:SetDegreeUI()
         end
     end
     local selectId = Activity:GetCurActivityLevelId();
-    if(selectId <= 0)then
-        local isUnLockAll = true;
-        for _, v in ipairs(self._levels[Chapter.MODE_ACTIVITY_LEVEL_COMMON]) do
-            if(not Chapter:GetActivityLevelIsOpen(v))then
-                isUnLockAll = false;
-                break;
-            end
-        end
-        if(isUnLockAll)then
-            openSubId = self._levelType.Hard;
+    if selectId <= 0 then
+        -- 判断困难本是否开启
+        if self._levelType.Hard ~= nil and self:IsUnLockChapter(self._levelType.Hard, false) then
+            openSubId = self._levelType.Hard
         end
     else
         local chapter = Chapter:GetChapterByLevelId(selectId);
@@ -351,7 +348,6 @@ function ActivityLevelLayer:CutLevelDegree(subId)
     self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity:GetActivityLevelLayerType());
     self._objCommentUiEffect:SetVisible(subId == self._levelType.Common);
     self._objHardUiEffect:SetVisible(subId == self._levelType.Hard);
-    self:SetHeroAddUI();
     self:SetStarProgress();
     self:UpdateRed();
 end
@@ -363,8 +359,7 @@ function ActivityLevelLayer:IsUnLockChapter(subId,showtip)
     local chapter = self._chapters[subId]
     if Player:GetLevel() < chapter.open_level then
         if showtip then
-            local str = string.format(LanguageMgr:GetTextByID(20030), chapter.open_level)
-            Groble_UIMgr:ShowTipsLayer(str);
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(20030), chapter.open_level))
         end
         return false
     end
@@ -376,10 +371,8 @@ function ActivityLevelLayer:IsUnLockChapter(subId,showtip)
                 if not cfg.pass then
                     name_temp = name_temp .. cfg.name_simple .." " ;
                 end
-
             end
-            local str = string.format(LanguageMgr:GetTextByID(20025), name_temp)
-            Groble_UIMgr:ShowTipsLayer(str)
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(20025), name_temp))
         end
         return false
     end
@@ -433,9 +426,9 @@ function ActivityLevelLayer:SetLevelItem()
             self._levelItems[i].transform:SetScale(1,0,1);
             self._levelItems[i].transform:DOScale(1, 0.05):SetDelay(0.02 * i);
             if(self._curDegree == self._levelType.Common)then
-                self._levelItems[i].imgBg:LoadSprite(Activity:GetActivityLevelImgPath(self._typeCfg.levelTypes[1][2]));
+                self._levelItems[i].imgBg:LoadSprite(Activity:GetActivityLevelImgPath(self._typeCfg.Story_Level_type[1][2]));
             elseif(self._curDegree == self._levelType.Hard)then
-                self._levelItems[i].imgBg:LoadSprite(Activity:GetActivityLevelImgPath(self._typeCfg.levelTypes[2][2]));
+                self._levelItems[i].imgBg:LoadSprite(Activity:GetActivityLevelImgPath(self._typeCfg.Story_Level_type[2][2]));
             end
 
             level = Chapter:GetLevel(levelIds[i]);
@@ -455,33 +448,6 @@ function ActivityLevelLayer:SetLevelItem()
     end
 end
 
-function ActivityLevelLayer:SetHeroAddUI()
-    self._transHeroAdd:SetVisible(self._layerCfg.isShowHeroAdd);
-    if(self._layerCfg.isShowHeroAdd)then
-        self:SetAddHero();
-    end
-end
-
-function ActivityLevelLayer:SetAddHero()
-    --local attrAdd = Player:GetActivityLevelAttrAdd();小田说给它干掉, 要是以后加回来, 开箱20元以上
-    local itemAdd = Player:GetActivityLevelItemAdd();
-    for i = 1, #itemAdd do
-        local cls = self._addHeros[i];
-        if(cls == nil)then
-            cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objAddHero,self._transHeroAddBg));
-            cls.imgIcon = cls:GetImageComponent("img_icon");
-            cls.imgBorder = cls:GetImageComponent("img_border");
-            cls.imgAddIcon = cls:GetImageComponent("img_add_icon");
-            cls.txtAddItemNum = cls:GetTextComponent("txt_item_add_num");
-            self._addHeros[i] = cls;
-        end
-        Hero:SetHeroHeadSprite(cls.imgIcon, itemAdd[i][1], false,true, true);
-        Hero:SetBorderUi(cls.imgBorder.transform, Hero:GetCfg(itemAdd[i][1]));
-        Item:SetItemIcon(cls.imgAddIcon, itemAdd[i][3]);
-        cls.txtAddItemNum.text = itemAdd[i][2].."%";
-    end
-end
-
 --设置奖励进度
 function ActivityLevelLayer:SetStarProgress()
     self._txtAwardPlan:SetText(
@@ -493,6 +459,10 @@ function ActivityLevelLayer:UpdateRed()
     self._imgAllGetRed:SetEnabled(Chapter:OneButtonRedTip(self._curChapter));
     self._imgCommonRed:SetEnabled(Chapter:ChapterRedTip(self._chapters[self._levelType.Common].id) or
             Chapter:IsExistOperLevel(self._chapters[self._levelType.Common].id, false));
+            if(#self._typeCfg.Story_Level_type == 1)then
+                -- self:CutLevelDegree(self._levelType.Common);
+                 return;
+             end
     self._imgHardRed:SetEnabled(
             Chapter:ChapterRedTip(self._chapters[self._levelType.Hard].id) or
                     Chapter:IsExistOperLevel(self._chapters[self._levelType.Hard].id, false) )

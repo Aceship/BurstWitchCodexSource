@@ -1,0 +1,120 @@
+--
+-- author: haosun
+-- date  : 2021-11-06 13:24:30
+-- brief : 
+--
+Drop = Drop or {}
+
+function Drop:DropCtor()
+    self._cache_all_drops = {}
+
+    self:_LoadDropConfig()
+end
+
+--isShow:是否是显示掉落
+function Drop:GetDropsById(dropid, isShow)
+    local config = self._drop_config[dropid]
+    if config == nil then
+        CS.Logger.LogError("can't find Dropitem config!!! id = " .. dropid)
+        return {}
+    end
+    
+    local drops = {}        
+    if config["show_prop"] ~= nil then
+        for _, v in ipairs(config["show_prop"]) do
+            table.insert(drops, {v[1], v[2], v[3], v[4] or Bag.TYPE_NORMAL})
+        end
+    end
+    if isShow then return drops end
+
+    if config["may_show_prop"] ~= nil then
+        drops = {}
+        for _, v in ipairs(config["may_show_prop"]) do
+            table.insert(drops, {v[1], v[2], v[3], v[4]})
+        end
+    end
+    return drops
+end
+
+function Drop:AddEndDrops(ds,endDropId)
+    local config = self._drop_config[endDropId]
+    if config ~= nil  then
+        local tmp = config["show_prop"];
+        if(tmp ~= nil) then
+            for _, v in ipairs(tmp) do
+                table.insert(ds, {v[1], v[2], v[3], Bag.TYPE_NORMAL})
+            end
+        end
+    else
+        CS.Logger.LogError("can't find Dropitem config!!! id = " .. endDropId)
+    end
+end
+
+function Drop:GetAllDrops(id)
+    if self._cache_all_drops[id] == nil then
+        self._cache_all_drops[id] = {}
+
+        local config = self._drop_config[id]
+        if config ~= nil then
+            local props
+            for i = 1, 10 do
+                props = config["prop_"..i]
+                if props ~= nil then
+                    for _, v in ipairs(props) do
+                        table.insert(self._cache_all_drops[id], v)
+                    end
+                end
+            end
+        else
+            CS.Logger.LogError("can't find Dropitem config!!! id = " .. id)
+        end
+    end
+    return self._cache_all_drops[id]
+end
+
+function Drop:GetDropNumberById(dropid, cfgid)
+    local config = self._drop_config[dropid]
+    if config == nil then return 0, fasle end
+
+    local number, maybe = 0, false
+    for i, v in ipairs(self:GetAllDrops(dropid)) do
+        if v[2] == cfgid then
+            if v[5] < 10000 then
+                maybe = true
+            else
+                number = number + v[3]
+            end
+        end
+    end
+    return number, maybe
+end
+
+function Drop:GetDropNumberMinById(dropid, cfgid)
+    local config = self._drop_config[dropid]
+    if config == nil then return 0, fasle end
+
+    local numberData = {}
+    for i, v in ipairs(self:GetAllDrops(dropid)) do
+        if v[2] == cfgid then
+            numberData = {v[3], v[5]}
+        end
+    end
+    return numberData
+end
+
+function Drop:GetLevelDrops(dropId, chapterSubType)
+    local timeDrops
+    -- 全局掉落
+    local timeDropId = self:TryGetTimeDropId(chapterSubType)
+    if timeDropId ~= 0 then
+        timeDrops = self:GetDropsById(timeDropId)
+    end
+    local allDrops
+    if timeDrops == nil then
+        allDrops = self:GetDropsById(dropId)
+    else
+        allDrops = lua_merge_tables(false, timeDrops, self:GetDropsById(dropId))
+    end
+
+    return allDrops
+end

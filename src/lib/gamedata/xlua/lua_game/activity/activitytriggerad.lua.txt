@@ -1,0 +1,44 @@
+--
+-- author: haosun
+-- date  : 2021-11-09 11:39:38
+-- brief : 活动弹框
+--
+
+Activity = Activity or {}
+
+function Activity:LoadActiveTriggerAD()
+    self._confidActive_triggerAD = Config.GetConfigActive_triggerAD()
+end
+
+function Activity:GetActive_triggerADConfigById(id)
+    return self._confidActive_triggerAD[id]
+end
+
+-- 
+-- brief：指定活动是否弹窗
+-- 
+function Activity:IsShowActivity(id)
+    local cfg = self._confidActive_triggerAD[id]
+    if cfg == nil then return false end
+
+    local curTime = CTime:GetServerTime()
+    if curTime < Lib:Str2Time(cfg.Begintime) or curTime > Lib:Str2Time(cfg.Endtime) then
+        return false
+    end
+    return true
+end
+
+-- 获取可弹窗广告
+function Activity:GetTriggerActivites()
+    local result = {}
+    for _, v in pairs(self._confidActive_triggerAD) do
+        if self:IsShowActivity(v.id) then
+            table.insert(result, v)
+        end
+    end
+    table.sort(result, function(a, b) return a.Order < b.Order end)
+
+    return result
+end
+
+

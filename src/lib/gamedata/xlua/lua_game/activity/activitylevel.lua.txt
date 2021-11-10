@@ -14,11 +14,19 @@ function Activity:GetLevelTopData()
 end
 
 function Activity:InitActivityChapterIds()
-    self._activityChapterIds = Chapter:GetChaptersIdByMainType(Chapter.FIGHT_TYPE_ACTIVITY);
+    self._activityChapterIds = {}
+    local _uid = self:GetOpenActivityLevelId()
+    if _uid ~= 0 then
+        local _config = self:GetActive_sixthmaintypeConfigByUid(_uid)
+        for i, v in ipairs(_config.Story_Level_type) do
+            local ids = Chapter:GetChapterIdBySubType(v[1])
+            self._activityChapterIds = lua_merge_tables(false, self._activityChapterIds, ids)
+        end
+    end
 end
 
 function Activity:GetActivityChapterIds()
-    return self._activityChapterIds or {};
+    return self._activityChapterIds
 end
 
 --初始化活动关卡数据
@@ -41,10 +49,10 @@ function Activity:GetCurrActivityDay(id)
     local offday= self:GetoffsetDay(id)
     if offday~=nil then
         self.currday = tonumber(CTime:GetOffsetDay()) -tonumber(offday) +1
-        return self.currday
+            return self.currday
         else
             self.currday=0
-             return self.currday
+        return self.currday
     end
 end
 
@@ -81,18 +89,26 @@ function Activity:GetOpenWarmUpLevelId() --获取第六封印预热的UID
     return 0;
 end
 
-function Activity:GetOpenActivityLevelId() --获取第六封印正式开启的UID
-    local typeCfg = Activity:GetActivityLevelTypeCfgByUid(Operation.ActivityID.SixthSeal);
-    if(Operation:GetActiveIsOpenByUid(typeCfg.shopUid))then
-        self._activityOpenId=Operation.ActivityID.SixthSealid
-        return Operation.ActivityID.SixthSeal;
+-- 
+-- brief: 获取活动正式开启的UID
+-- 
+function Activity:GetOpenActivityLevelId()
+    if self._all_activity_uid == nil then
+        self._all_activity_uid = {
+            Operation.ActivityID.SixthSeal,     -- 第六封印
+            Operation.ActivityID.fullmoon,      -- 满月祭
+        }
     end
-    --   typeCfg = Activity:GetActivityLevelTypeCfgByUid(Operation.ActivityID.fullmoon);
-    -- if(Operation:GetActiveIsOpenByUid(typeCfg.shopUid))then
-    --     return Operation.ActivityID.fullmoon;
-    -- end
-   
-    return 0;
+    local _config
+    for i, uid in ipairs(self._all_activity_uid) do
+        _config = self:GetActive_sixthmaintypeConfigByUid(uid)
+        if _config ~= nil then
+            if Operation:GetActiveIsOpenByUid(_config.ActivechargeUid) then
+                return uid
+            end
+        end
+    end
+    return 0
 end
 --获取开启的活动的预告活动id
 function Activity:GetactivityOpenId()
@@ -102,8 +118,6 @@ function Activity:GetactivityOpenId()
     else
         return 0
     end
-     
-  
 end
 -------------------------------------------红点相关--------------------------------------------
 --获得第一次打开的特殊关卡ID
@@ -149,33 +163,60 @@ function Activity:GetLevelRedState_Main()
     end
     return false;
 end
-function Activity:GetLevelAllRedState_Main()    --活动正式开启的红点
-    local uid= Activity:GetOpenActivityLevelId()
-    if uid~=0 then
-        local isOpenSign=Activity:GetActivityLevelLayerCfgisOpen(uid ,Activity.ActivityLevelType_Sign)
-        if Activity:GetOpenActivityLevelId() > 0 then
-          if isOpenSign then
-            return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0)
-          else
-            return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or  (Activity:GetFirstOpenSpecialLevelId() > 0)
-          end
-          --return Task:IsBetterOper(Task.TYPE_ACTIVIT) or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0)
-        else
-            return false
+
+function Activity:GetTaskPool(uid)
+    local typeCfg = self:GetActive_sixthmaintypeConfigByUid(uid);
+    local lotteryCfg = Lottery:GetLotteryTypeCfg(typeCfg.GashaponListId);
+    local taskIds = Task:GetSubTasks(lotteryCfg.taskType);
+    if taskIds~=nil then
+       return  taskIds
+    end
+    return  0
+end
+--主界面Up进度条红点状态
+function Activity:GetLevelRedState_UPPool(uid)
+    if uid <=0 then
+        return false
+      end
+    local taskIds = self:GetTaskPool(uid)
+    local task = nil
+    for _, v in ipairs(taskIds) do
+        task = Task:GetTask(v);
+        if task.state == Task.STATE_HAS_DONE then
+            return true
         end
     end
-
+    return false
 end
 
+function Activity:GetLevelAllRedState_Main()    --活动正式开启的红点
+    local uid= Activity:GetOpenActivityLevelId()
+    if uid~=0 then  
+        local  Requles={ Activity.ActivityLevelType_Sign,Activity.ActivityLevelType_Common,Activity.ActivityLevelType_Hard}
+        for i, v in ipairs(Requles) do
+            local  isOpenSign=Activity:GetActivityLevelLayerCfgisOpen(uid ,v)
+            if uid > 0 then
+                if isOpenSign then
+                    return self:IsTaskBetterOper() or Activity:GetLevelRedState_Main() or Activity:GetSixSignstate() or (Activity:GetFirstOpenSpecialLevelId() > 0) or Activity:GetLevelRedState_UPPool(uid)
+                else
+                  return self:IsTaskBetterOper() or Activity:GetLevelRedState_Main() or Activity:GetLevelRedState_UPPool(uid)--or  (Activity:GetFirstOpenSpecialLevelId() > 0)
+                end
+            else
+                  return false
+            end
+        end
+    end
+end
 
+function Activity:IsTaskBetterOper()
+    local _uid = self:GetOpenActivityLevelId();
+    if _uid <= 0 then return false end
 
+    local _typeCfg = self:GetActive_sixthmaintypeConfigByUid(_uid)
+    if _typeCfg == nil then return false end
 
-
-
-
-
-
-
+    return Task:IsBetterOper(nil, tonumber(_typeCfg.Quest_child_class_1[1]))
+end
 
 function Activity:GetActivityLevelSaveStr()
     return string.format("%s_ActivityLevel",Player:GetId());
@@ -201,12 +242,12 @@ end
 
 --获得活动关卡商店倒计时
 function Activity:GetActivityLevelShopCountDown()
-    local uid = Activity:GetOpenActivityLevelId();
+    local uid = self:GetOpenActivityLevelId();
     if(uid <= 0)then
         return 0;
     end
-    local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
-    local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
+    local typeCfg = self:GetActive_sixthmaintypeConfigByUid(uid);
+    local tempCfg = Operation:GetActiveCfgByUID(typeCfg.ActivechargeUid);
     if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
         if(tempCfg.openConditions[1][1] == Operation.OpenConditionType.Time)then
             return CTime:GetRemainTime(tempCfg.openConditions[1][2]);

@@ -40,7 +40,7 @@ function GiftBuyTipsLayer:onExit()
     self._imgPriceIcon = nil
     self._txtBuyNum = nil
     self._txtAllPrice = nil
-    self._txtLimitBuyNum = nil
+    --self._txtLimitBuyNum = nil
     self._txtHaveNum = nil
     self._rectContainer = nil
     self._txtHeroName = nil
@@ -74,7 +74,7 @@ function GiftBuyTipsLayer:initLayer()
     self._imgPriceIcon = self.layer:GetImageComponent("trans_container/trans_num_info/img_price_icon")
     self._txtBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_buy_num")
     self._txtAllPrice = self.layer:GetTextComponent("trans_container/trans_num_info/txt_all_price")
-    self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num")
+    --self._txtLimitBuyNum = self.layer:GetTextComponent("trans_container/trans_num_info/txt_limit_buy_num")
     self._txtHaveNum = self.layer:GetTextComponent("trans_container/trans_item_info/txt_have_num")
     self._slider = self.layer:GetSliderComponent("trans_container/trans_num_info/slider")
     self._slider.onValueChanged:AddListener(function (value)
@@ -84,9 +84,9 @@ function GiftBuyTipsLayer:initLayer()
         value = math.floor(value)
         self._buyItemNum = value
         self._txtBuyNum:SetText(value.."/"..self._oneMaxBuyNum)
-        if(self._limitBuyStr ~= "")then
-            self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum))
-        end
+        --[[if(self._limitBuyStr ~= "")then
+            --self._txtLimitBuyNum:SetText(string.format(self._limitBuyStr,value,self._maxBuyNum))
+        end]]--
         local curAllPrice = math.floor(self._price * value * self._discount)
         if -1 == self._chargeCfg.chargeMoneyId then
             if(Item:GetCount(self._chargeCfg.priceId) < curAllPrice)then
@@ -131,7 +131,7 @@ function GiftBuyTipsLayer:doBuyGift()
     if(self._chargeCfg.timeId > 0)then
         local timeCfg = CTime:GetCfg(self._chargeCfg.timeId)
         if(CTime:GetServerTime() >= timeCfg.etime)then
-            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90315))
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(90182))
             return
         end
     end
@@ -214,7 +214,7 @@ function GiftBuyTipsLayer:SetNumInfoUI()
     end
     self._maxBuyNum = 0
     self._oneMaxBuyNum = 0
-    self._limitBuyStr = ""
+    --[[self._limitBuyStr = ""
     if(self._chargeCfg.buytype == Recharge.BuyType.day)then
         self._limitBuyStr = LanguageMgr:GetTextByID(90223)
     elseif(self._chargeCfg.buytype == Recharge.BuyType.Week)then
@@ -229,8 +229,8 @@ function GiftBuyTipsLayer:SetNumInfoUI()
         self._limitBuyStr = LanguageMgr:GetTextByID(90228)
     end
     if(self._limitBuyStr == "")then
-        self._txtLimitBuyNum:SetText("")
-    end
+        --self._txtLimitBuyNum:SetText("")
+    end]]--
     if -1 == self._chargeCfg.chargeMoneyId then
         self._imgPriceIcon:LoadSprite(Item:GetItemIconPathByName(self._chargeCfg.priceId))
         self._imgPriceIcon:SetEnabled(true)

@@ -152,8 +152,12 @@ function Operation:SetTogRedPoint()
     for itype, v in pairs(self.leftTogReds) do
         local cfgs = self:GetActiveCfgByUID(itype);
         if(Operation:GetActiveIsOpenByUid(itype))then-- 活动开启才会设置红点
+            if(not Recharge:GetNewChargeIsLookById(tonumber(cfgs.id)))then
+                self.leftTogReds[itype] = 1;
+                self.bottomTogReds[tonumber(cfgs.Interface)] = true;
+                self.isRed = true;
+            end
             if(itype == Operation.ActivityID.DailyDeal)then--每日特惠
-
                 local ids = Operation:GetChargeIdsByUID(Operation.ActivityID.DailyDeal);
                 local charge,mutualExclusionCfg;
                 for _, v in ipairs(ids) do--得到互斥礼包规则配置

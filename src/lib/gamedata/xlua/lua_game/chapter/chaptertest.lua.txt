@@ -60,7 +60,7 @@ end
 
 function Chapter:GmCheckItemOrigin(itemId, levelId)
     local level = self:GetLevel(levelId)
-    local baseDropCnt, maybeDrop = Item:GetDropNumberById(level.rewards[2], itemId)
+    local baseDropCnt, maybeDrop = Drop:GetDropNumberById(level.rewards[2], itemId)
     if not maybeDrop then
         if baseDropCnt == 0 then
             local msgErr = string.format("----------- 所需道具ID = %s 关卡ID = %d 掉落ID = %d", itemId, levelId, level.rewards[2])

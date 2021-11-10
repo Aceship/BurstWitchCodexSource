@@ -306,7 +306,7 @@ function Activity:GetRedStateByActivityId(itype)
 			AppMgr:LogInfo("-------------------万圣节签到红点1-------------------")
 		   return true;
 	    end
-			if _days ~=nil then
+			if _days ~=nil and _days <=Activity.NewWelfareMaxDay then
 				for i = 1, _days, 1 do
 					for _, v in pairs(awarded) do
 					end
@@ -326,7 +326,7 @@ function Activity:GetRedStateByActivityId(itype)
 	elseif itype == Operation.ActivityID.ValueSummon then
 		-- 超值召唤
 		return false
-	elseif itype == Operation.ActivityID.SkinGiftBag_1 then
+	elseif itype == Operation.ActivityID.SkinGiftBag_1 or itype == Operation.ActivityID.SkinGiftBag_2 or itype == Operation.ActivityID.SkinGiftBag_3 then
 		--重复礼包
 		local cfg = Operation:GetActiveCfgByUID(itype);
 		return Operation:GetRepeatBagRedState(cfg.charges[1]) or false;
@@ -336,10 +336,7 @@ end
 
 --获得棋盘活动结束时间
 function Activity:GetChessBoardOverTime()
-	if(self._chessOverTime == nil)then
-		self._chessOverTime = Operation:GetActiveOverTime(Operation.ActivityID.ChessBoard);
-	end
-	return self._chessOverTime;
+	return Operation:GetActiveOverTime(Operation.ActivityID.ChessBoard);
 end
 
 function Activity:GetChessWelfareRed()

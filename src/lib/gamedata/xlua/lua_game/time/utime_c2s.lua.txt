@@ -11,8 +11,8 @@ function CTime:SyncTime(datas)
     for _, v in pairs(datas) do
         self:_Add(v)
     end
-    --Chapter:_LoadChapterMode()
     CTime:FindNextDayTimeId()
+    Drop:CheckTimeDrop()
 end
 
 function CTime:_Add(data)
@@ -22,6 +22,7 @@ function CTime:_Add(data)
             remain  = data.time_point == 0 and 0 or data.time_point - CTime:GetServerTime(),
             state   = data.state,
             stime   = os.time(),
+            openNum = data.open_num,
         }
         self._datas[data.id] = tmp
     end
@@ -33,9 +34,22 @@ function CTime:_Update(data)
         _data.state = data.state
         _data.remain = data.time_point == 0 and 0 or data.time_point - CTime:GetServerTime()
         _data.stime = os.time()
+        _data.openNum = data.open_num;
     else
         self:_Add(data)
     end
+end
+
+--根据时间Id获取开启次数
+function CTime:GetOpenNumById(timeId)
+    if(timeId == nil or timeId <= 0)then
+        return 0;
+    end
+    if(self._datas[timeId] == nil)then
+        AppMgr:LogError("timeData is null!!!   id = "..timeId);
+        return 0;
+    end
+    return self._datas[timeId].openNum or 0;
 end
 
 function CTime:UpdateTime(datas)
@@ -51,6 +65,7 @@ function CTime:UpdateTime(datas)
         GEvent:fireEvent(EVENT_TYPE.UPDATE_TIME,v);
         Activity:CheckSignTimeid(v.id)
     end
+    Drop:CheckTimeDrop()
     GEvent:fireEvent(EVENT_TYPE.UTIME_ACTION)
 end
 

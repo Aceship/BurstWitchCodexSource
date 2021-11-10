@@ -6,6 +6,8 @@
 Recharge = Recharge or {}
 
 function Recharge:Ctor()
+    self._newCharges ={};
+    self._lookNewIds = {};
     Recharge:InitData();
 end
 
@@ -84,4 +86,90 @@ function Recharge:RechargeFailed()
     if self._orderData ~= nil then
         GZSDKHelper:operationalActivityWithPlayerInfo(self._orderData.code, self._orderData.code, "充值行为", "充值类", "失败")
     end
+end
+
+--初始化显示New标签礼包红点状态
+function Recharge:InitNewChargeState()
+    local isOpen = true;
+    for _, data in pairs(self._datas) do
+        if(data.isNew > 0)then
+            if(data.timeId > 0)then
+                isOpen = CTime:IsOpen(data.timeId);
+            else
+                isOpen = true;
+            end
+            if(isOpen)then
+                if(self._newCharges[data.shelfType] == nil)then
+                    self._newCharges[data.shelfType] = {};
+                end
+                self._newCharges[data.shelfType][data.cfgid] = 0;
+                self._lookNewIds[data.shelfType] = false;
+            end
+        end
+    end
+end
+
+function Recharge:SetNewChargeState()
+    Recharge:InitNewChargeState();
+    local charge;
+    local cacheData = {};
+    local data = CS.LocalTalkHelper.Instance():LoadText(Recharge:GetNewChargeCacheName());
+    if(data ~= nil)then
+        for _, v in pairs(data) do
+            cacheData = lua_table_unserialize(v);
+        end
+    end
+    local isLook = true;
+    for _, v in pairs(self._newCharges) do
+        isLook = false;
+        for id, vv in pairs(v) do
+            if(cacheData[_] ~= nil)then--缓存中有数据
+                if(cacheData[_][id] ~= nil)then
+                    charge = Recharge:GetData(id);
+                    if(cacheData[_][id] == CTime:GetOpenNumById(charge.timeId))then--开放次数和缓存中一致, 无需红点
+                        self._newCharges[_][id] = 1;
+                        isLook = true;
+                    end
+                end
+            end
+        end
+        if(isLook)then
+            self._lookNewIds[_] = true;
+        end
+    end
+end
+
+--打开界面后红点消失
+function Recharge:NewChargeIsLook(id)
+    if(self._lookNewIds[id])then
+        return;
+    end
+    if(self._newCharges[id] ~= nil)then
+        self._lookNewIds[id] = true;
+        local charge;
+        for i, v in pairs(self._newCharges[id]) do
+            charge = Recharge:GetData(i);
+            if(charge.timeId > 0)then
+                self._newCharges[id][i] = CTime:GetOpenNumById(charge.timeId);
+            else
+                self._newCharges[id][i] = 1;
+            end
+        end
+        CS.LocalTalkHelper.Instance():ClearTalkers(Recharge:GetNewChargeCacheName());
+        local str = lua_table_serialize(self._newCharges);
+        CS.LocalTalkHelper.Instance():AppendText(Recharge:GetNewChargeCacheName(), str);
+        GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
+    end
+end
+
+--获取栏位红点状态
+function Recharge:GetNewChargeIsLookById(id)
+    if(self._lookNewIds[id] == nil)then
+        return true;
+    end
+    return self._lookNewIds[id];
+end
+
+function Recharge:GetNewChargeCacheName()
+    return string.format("%s_%s",Player:GetId(),"NewCharge");
 end

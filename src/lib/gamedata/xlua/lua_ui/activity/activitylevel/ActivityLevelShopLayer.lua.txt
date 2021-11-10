@@ -10,7 +10,7 @@ local BTNS = {
 }
 --构造函数
 function ActivityLevelShopLayer:ctor(super)
-    CBaseLayer.ctor(self)
+    CBaseLayer.ctor(self) 
     self._prefab = {
         path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelShopLayer",
     }
@@ -20,7 +20,7 @@ function ActivityLevelShopLayer:ctor(super)
     --背景设置
     self._bgData = {
         showEffect = false,
-        bgType = BackBgPath.BG_MID_NIGHT_1,
+        bgType = BackBgPath.BG_MID_NIGHT_3,
     };
     self._hideOtherLayer = true;
     self._addStack = true;
@@ -53,13 +53,14 @@ end
 function ActivityLevelShopLayer:InitData()
     self._uid = Activity:GetOpenActivityLevelId();
     self._layerCfg = Activity:GetActivityLevelLayerCfg(self._uid,Activity.ActivityLevelType_Shop);
-    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
-    self._activityCfg = Operation:GetActiveCfgByUID(self._typeCfg.shopUid);
+    self._typeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid);
+    self._activityCfg = Operation:GetActiveCfgByUID(self._typeCfg.ActivechargeUid);
+    self._addHeros = {};
 end
 
 --更新数据
 function ActivityLevelShopLayer:UpdateData()
-    self._chargeIds = Operation:GetChargeIdsByUID(self._typeCfg.shopUid);
+    self._chargeIds = Operation:GetChargeIdsByUID(self._typeCfg.ActivechargeUid);
 end
 
 --初始化UI
@@ -76,8 +77,6 @@ function ActivityLevelShopLayer:InitUI()
 	--@TransformEnd
 
 	self._rectTitle = self.layer:GetRectTransformComponent("trans_container/img_title");
-	--@RectTransformEnd
-
 	--@GameObjectEnd
 
 	--@MToggleEnd
@@ -114,6 +113,8 @@ function ActivityLevelShopLayer:onExit()
     self._txtTitleNameE = nil;
 	self._transTableviewcontroller = nil;
 	self._rectTitle = nil;
+    self._objAddHero = nil;
+    self._transHeroAddBg=nil
 	--@CloseEnd
     self._tvController:Clear();
     self._tvController = nil;
@@ -189,5 +190,4 @@ function ActivityLevelShopLayer:UpdateCell(cell, row)
         Recharge:SetGiftPagItem(self._cellItems[cell][i],self._chargeIds[index]);
     end
 end
-
 return ActivityLevelShopLayer;

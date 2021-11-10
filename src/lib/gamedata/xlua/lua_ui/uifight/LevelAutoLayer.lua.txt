@@ -150,7 +150,7 @@ function LevelAutoLayer:checkMat(levelid)
         self._cfgid = tonumber(data.cfgid)
         self._costCount = data.costCnt
         local level = Chapter:GetLevel(levelid)
-        self._baseDropCnt, self._maybeDrop = Item:GetDropNumberById(level.rewards[2], self._cfgid)
+        self._baseDropCnt, self._maybeDrop = Drop:GetDropNumberById(level.rewards[2], self._cfgid)
         if self._maybeDrop then
             AppMgr:LogInfo("------------------概率掉落")
             -- todo

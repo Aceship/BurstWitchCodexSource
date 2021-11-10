@@ -42,7 +42,7 @@ function Activity:SetSignData(data)
     self._signData = data
 end
 function Activity:GetoffsetDay(id)
-    if self._offsetDay~=nil then
+    if self._offsetDay ~= nil then
         return self._offsetDay[id]
     end
 end
@@ -65,13 +65,20 @@ function Activity:SetSignDay(activityId, day)
     data[day] = true
 end
 function Activity:GetSixthSealRedState() --第六封印预告的红点
-    if Player:IsSysFuncOpen(Player.SYS_FUNC.syc_activity_level) then
+    local uid=self:GetOpenWarmUpLevelId()
+    if uid<=0 then
+       return false
+    end
+    if Player:IsSysFuncOpen(uid) then
         local curServerDay = Activity:GetCurSixthSealDay()
-        if Activity:GetOpenWarmUpLevelId() > 0 then
+        local _rewardData = Activity:GetSixthSealRewardArray(Activity:GetactivityOpenId())
+        if _rewardData==nil then
+           return false
+        end
+        if Activity:GetOpenWarmUpLevelId() > 0 and curServerDay<=#_rewardData then
             local notice = Activity:GetSixthSealNotice()
-           local _rewardData = Activity:GetSixthSealRewardArray(Activity:GetactivityOpenId())
             local flag = false
-            for i = 1, #_rewardData do
+            for i = 1, curServerDay do
                 if not notice[i] then
                     flag = true
                 end
@@ -81,13 +88,15 @@ function Activity:GetSixthSealRedState() --第六封印预告的红点
             return false
         end
     else
-        return false
+       return false
     end
 end
 
 function Activity:HeroIsInActivityUp(heroId)
-    local itemAdd = Player:GetActivityLevelItemAdd()
-    for i, v in ipairs(itemAdd) do
+    local _config = Drop:GetTimeDropConfig()
+    if _config == nil then return false end
+
+    for i, v in ipairs(_config["DropWitchAdd"]) do
         if heroId == v[1] then
             return true
         end
@@ -95,4 +104,3 @@ function Activity:HeroIsInActivityUp(heroId)
 
     return false
 end
-

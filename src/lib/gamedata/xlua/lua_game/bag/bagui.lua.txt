@@ -65,7 +65,7 @@ function Bag:GetQltySp(qlty)
 end
 
 -- items = {{bagtype, id, num}, ...}
-function Bag:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight,hideSkin)
+function Bag:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight, hideSkin)
     local count = math.max(content.childCount, #items)
     if cls == nil then cls = {} end
 
@@ -104,7 +104,7 @@ end
 --        scale: 物品缩小比例 posx: 指定起始位置
 --       showmay 显示可能掉落标识
 --       isRight 是否从右开始,默认从左
-function Bag:SetScrollGoods(cls, scrollview, items, max_num, width, disx, scale, posx, isuid, showMay, isRight,hideSkin)
+function Bag:SetScrollGoods(cls, scrollview, items, max_num, width, disx, scale, posx, isuid, showMay, isRight, hideSkin)
     local num = #items
     if posx == nil then
         posx = width/2 - (num - 1) * (disx / 2)
@@ -118,7 +118,7 @@ function Bag:SetScrollGoods(cls, scrollview, items, max_num, width, disx, scale,
     end
     scrollview:GetComponent("ScrollRect").horizontal = num > max_num
     scrollview:GetComponent("ScrollRect").horizontalNormalizedPosition = 0
-    cls = self:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight,hideSkin)
+    cls = self:SetShowGoods(cls, content, items, posx, disx, scale, isuid, showMay, isRight, hideSkin)
     return cls, posx
 end
 
@@ -140,6 +140,8 @@ function Bag:CtorComSimpleGoodsUi(obj, callback,hideSkin)
     cls.mayCom      = cls:Find("img_maydrop")
     cls.mayTxtCom   = cls:GetTextComponent("img_maydrop/txt")
     cls.fsBorderCom = cls:GetImageComponent("img_fsborder")
+    cls.objUp       = obj:Get("obj_up")
+    cls.objActivity = obj:Get("obj_activity")
     if cls.click ~= nil then
         cls.clickCall = callback or function()
             SingletonMgr:ShowItemTipsLayer(cls.obj, cls.data[1], cls.data[2],cls.isUid,nil,nil,hideSkin);
@@ -236,7 +238,7 @@ function Bag:SetComSimpleGoodsUi(cls, bagtype, cfgid, count, iscfg, isMayDrop, s
     end
     if cls.mayCom ~= nil then
         if isMayDrop ~= nil then
-            set_obj_active(cls.mayCom, isMayDrop > Bag.TYPE_NORMAL and showMay)
+            cls.mayCom:SetVisible(isMayDrop ~= Bag.TYPE_ACTIVITY and isMayDrop > Bag.TYPE_NORMAL and showMay)
             if isMayDrop == Bag.TYPE_EXDROP then
                 cls.mayTxtCom:SetTextById(881016)
             end
@@ -330,15 +332,46 @@ function Bag:SetGoodsUiEx(cls, bagtype, id, num, isUid, isMayDrop, showMay)
     end
 end
 
-function Bag:GetGoodsName(itype, id)
-    if itype == Bag.TYPE_HERO then
-        return Hero:GetHero(id).Name
-    elseif itype == Bag.TYPE_PET then
-        return nil
-    elseif itype == Bag.TYPE_EQUIP then
-        return Equip:GetCfg(id).Name
-    elseif itype == Bag.TYPE_ITEM then
-        return Item:GetCfg(id).Name
+function Bag:RefreshDropCursor(showUp, clsDrops, heroIds, drops, count)
+    if not showUp then return end
+
+    if clsDrops == nil then return end
+
+    local _upValue = Drop:GetTimeDropHeroUpValue(heroIds)
+
+    local _cls, _obj
+    for i, v in ipairs(drops) do
+        if v[4] == Bag.TYPE_ACTIVITY then
+            _cls = clsDrops[i].clsbag
+            if _cls == nil then
+                _cls = clsDrops[i]
+            end
+            if _upValue > 0 then
+                _obj = _cls.objUp
+                if _obj ~= nil then
+                    _obj:SetVisible(true)
+                    _obj = _cls.objActivity
+                    if _obj ~= nil then
+                        _obj:SetVisible(false)
+                    end
+                else
+                    _obj = _cls.objActivity
+                    if _obj ~= nil then
+                        _obj:SetVisible(true)
+                    end
+                end
+            else
+                _obj = _cls.objUp
+                if _obj ~= nil then
+                    _obj:SetVisible(false)
+                end
+                _obj = _cls.objActivity
+                if _obj ~= nil then
+                    _obj:SetVisible(true)
+                end
+            end
+            local _num = v[3] + math.ceil(v[3] * _upValue * 0.01)
+            _cls.numCom:SetText(_num * count)
+        end
     end
-    return nil
 end

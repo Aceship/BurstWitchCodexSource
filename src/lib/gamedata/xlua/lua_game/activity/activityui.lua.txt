@@ -77,8 +77,9 @@ end
 function Activity:SetImgTitle(img,rect,data)
 	if(data ~= nil)then--设置广告字
 		Operation:SetOperationImage(img,data[1],Operation.AD_IMAGE_FILE);--加载广告字图片
-		Activity:SetRect(rect,data);
+		return Activity:SetRect(rect,data);
 	end
+	return false;
 end
 
 function Activity:SetRect(rect,data)
@@ -87,13 +88,17 @@ function Activity:SetRect(rect,data)
 		return;
 	end
 	local tempV;
+	local isTop = false;
 	if(data[4] == nil)then
 		tempV = CS.UnityEngine.Vector2(0.5, 1);
+		isTop = true;
 	else
 		tempV = CS.UnityEngine.Vector2(tonumber(data[4]), tonumber(data[5]));
+		isTop = tonumber(data[5]) == 1;
 	end
 	rect.anchorMax = tempV;
 	rect.anchorMin = tempV;
 	rect.pivot = tempV;
 	rect.anchoredPosition = CS.UnityEngine.Vector2(tonumber(data[2]), tonumber(data[3]));
+	return isTop and tonumber(data[3]) >= -100;
 end

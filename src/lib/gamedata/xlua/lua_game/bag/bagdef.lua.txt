@@ -60,7 +60,8 @@ Bag.SPINE_SKIN_SHOP_FRAME   = "prefab_item_spine/spine_skin_frame"
 
 
 --item 上方提示文字
-Bag.TYPE_NORMAL  = 0  --无提示
-Bag.TYPE_MAYDROP = 1  --可能掉落
-Bag.TYPE_EXDROP  = 2  --额外掉落
-Bag.TYPE_SETTLEDROP = 3 --结算掉落
+Bag.TYPE_NORMAL     = 0     -- 无提示
+Bag.TYPE_MAYDROP    = 1     -- 可能掉落
+Bag.TYPE_EXDROP     = 2     -- 额外掉落
+Bag.TYPE_SETTLEDROP = 3     -- 结算掉落
+Bag.TYPE_ACTIVITY   = 4     -- 活动掉落

@@ -92,6 +92,10 @@ function HomeLayer:onEnter()
 
     self.Content1    = self.layer:Get("Obj_Buttons_1/Viewport/Content")
     self.Content2    = self.layer:Get("Obj_Buttons_2/Viewport/Content")
+    self.rectViewport1    = self.layer:GetRectTransformComponent("Obj_Buttons_1/Viewport")
+    self.rectViewport2    = self.layer:GetRectTransformComponent("Obj_Buttons_2/Viewport")
+
+    self._objActivityBtn = self.layer:Get("Obj_Buttons_1/item_hide/obj_activity_btn");
 
     self.ADdata = Operation:GetActiveADCfgs();
     if((self.ADdata == nil) or (#self.ADdata == 0))then
@@ -126,17 +130,20 @@ function HomeLayer:onEnter()
 
     -- 主界面修改5.1
     self:initInfo()
-    
+
     self.layer:GetButtonComponent("obj_tips/Home_TipsSell"):AddButtonListener(
-        function()
-            Operation:CheckValidTriggerPackage()
-            Operation:OpenTriggerPackageLayer(false)
-        end)
+    function()
+        Operation:CheckValidTriggerPackage()
+        Operation:OpenTriggerPackageLayer(false)
+    end)
     CS.UnityHelper.NotchfitY(self.layer:Get("Home_ButtonMenu"))
     CS.UnityHelper.NotchfitY(self.layer:Get("Obj_Buttons_1"))
     CS.UnityHelper.NotchfitY(self.layer:Get("Obj_Buttons_2"))
     CS.UnityHelper.NotchfitY(self.layer:Get("btn_right"))
     CS.UnityHelper.NotchfitY(self.layer:Get("AD_bg"))
+
+    self._allHomeActivityCfg = Operation:GetAllOpenHomeActivityCfg();
+    self._activityBtn = {};
 end
 
 function HomeLayer:onExit()
@@ -175,6 +182,8 @@ function HomeLayer:onExit()
     self.txtChatInfo    = nil
     self.txtNotice      = nil
     self.txtInfoEmpty   = nil
+    self.rectViewport1  = nil;
+    self.rectViewport2  = nil;
     self._btnAuthObj    = nil
     self.redAuth        = nil
     self.Content1       = nil
@@ -203,7 +212,7 @@ function HomeLayer:onExit()
     self.imgMenu = nil
     self.txtInfoNum = nil
     self.objInfoRed = nil
-    
+
 
     self._txtNewerTaskTime = nil
     self._imgWarmUp =nil
@@ -215,7 +224,15 @@ function HomeLayer:onExit()
     self._objFightTips = nil
     self.objWitchBook = nil
     self._objFightNewTips = nil
-
+    self._allHomeActivityCfg = nil;
+    self._homeActivity = nil;
+    self._objActivityBtn = nil;
+    if(self._activityBtn ~= nil)then
+        for _, cls in pairs(self._activityBtn) do
+            cls:clear();
+        end
+    end
+    self._activityBtn = nil;
     CBaseLayer.onExit(self)
 end
 
@@ -310,6 +327,9 @@ function HomeLayer:showLayer()
     self:refreshTaskInfo()
     self:doCheckFightTips()
     self:todoList()
+    --主页礼包
+    self:UpdateHomeActivityData();
+    self:SetHomeActivityUI();
 end
 
 function HomeLayer:SetOperationRedPoint()
@@ -747,6 +767,22 @@ function HomeLayer:onPerSecondUpdate()
     if self._isTipsSell then
         Operation:SetHomeTriggerPackageTips(self._objTipsSell, self._isTipsSell)
     end
+
+    --活动按钮倒计时
+    if(self._activityBtn ~= nil and #self._activityBtn > 0 and self._homeActivity ~= nil and #self._homeActivity > 0)then
+        for _, cls in ipairs(self._activityBtn) do
+            if(cls.countDown ~= nil and cls.cfg ~= nil)then
+                if(cls.countDown >= 0)then
+                    cls.countDown = cls.countDown -1;
+                    if(cls.countDown < 0)then
+                        self:SetActivityBtn(cls,nil);
+                    else
+                        self:SetActivityBtnCountDown(cls);
+                    end
+                end
+            end
+        end
+    end
 end
 
 function  HomeLayer:setSignWitch(skinid)
@@ -855,12 +891,14 @@ end
 function HomeLayer:SetActivityLevelTimeAndEffectAndSprite() --设置活动的txt、img和effect
     local actitvityCfg = Activity:GetActivity()
     local warmUpId 
+    --正式开启的活动的UID
     local auid=Activity:GetOpenActivityLevelId()
+    --预热活动的活动ID
     local noticeid=Activity:GetactivityOpenId()
     if auid>0 then
-    warmUpId=Activity:GetActivityIdByUid(auid)
+         warmUpId=Activity:GetActivityIdByUid(auid)
     else
-        warmUpId=noticeid
+         warmUpId=noticeid
     end
     if warmUpId>0 then
         if self._imgWarmUp == nil then
@@ -891,12 +929,12 @@ function HomeLayer:SetActivityLevelTimeAndEffectAndSprite() --设置活动的txt
         end
         if uid > 0 then
             local activityCfg = Operation:GetActiveCfgByUID(uid);
-            local typeCfg = Activity:GetActivityLevelTypeCfgByUid(uid);
-            self._isActivity = Operation:GetActiveIsOpenByUid(typeCfg.uid);
+            local typeCfg = Activity:GetActive_sixthmaintypeConfigByUid(uid);
+            self._isActivity = Operation:GetActiveIsOpenByUid(typeCfg.activeUid);
             if(self._isActivity)then
                 self._countDown = CTime:GetRemainTime(activityCfg.Time);
             else
-                local tempCfg = Operation:GetActiveCfgByUID(typeCfg.shopUid);
+                local tempCfg = Operation:GetActiveCfgByUID(typeCfg.ActivechargeUid);
                 if(tempCfg.openConditions ~= Operation.OpenConditionType.Null)then
                     if(tempCfg.openConditions[1] == Operation.OpenConditionType.Time)then
                         self._countDown = CTime:GetRemainTime(tempCfg.openConditions[2]);
@@ -970,6 +1008,9 @@ function HomeLayer:onUpdateDay()
     self:SetNewerTaskTime();
     self:SetActivityLevelTimeAndEffectAndSprite();
     self:SetXueTime()
+    self._allHomeActivityCfg = Operation:GetAllOpenHomeActivityCfg();
+    self:UpdateHomeActivityData();
+    self:SetHomeActivityUI();
 end
 
 ------------------------------ 主界面修改5.1
@@ -1083,11 +1124,11 @@ function HomeLayer:initInfo()
         self.imgMenu:SetRotation(0, 0, r, true)
         self:updateBtnMenuRed()
 
-        local close, open = self:getContent()
-        close:SetPosition(0, 0, 0, true)
-        open:SetPosition(0, 1000, 0, true)
-        close:DOLocalMoveY(1000, 0.2):OnComplete(function ()
-            open:DOLocalMoveY(0, 0.2):OnComplete(function ()
+        local close, open = self:getRectViewport()
+        open:SetAnchoredPosY(2000, true)
+        close:SetAnchoredPosY(0,true)
+        close:DOAnchorPosY(2000, 0.2):OnComplete(function ()
+            open:DOAnchorPosY(0, 0.2):OnComplete(function ()
                 self.menuClick = true
             end)
         end)
@@ -1177,13 +1218,13 @@ function HomeLayer:updateBtnMenuRed()
     end
 end
 
-function HomeLayer:getContent()
+function HomeLayer:getRectViewport()
     if self.curButtonMenu == 1 then
-        return self.Content2, self.Content1
+        return self.rectViewport2,self.rectViewport1
     end
 
     if self.curButtonMenu == 2 then
-        return self.Content1, self.Content2
+        return self.rectViewport1,self.rectViewport2
     end
 end
 
@@ -1303,5 +1344,84 @@ function HomeLayer:todoList()
     end
 end
 
+---------------------------------------------活动按钮相关---------------------------------
+function HomeLayer:UpdateHomeActivityData()
+    self._homeActivity = {};
+    local charge;
+    local giftState;
+    for i, v in ipairs(self._allHomeActivityCfg) do
+        if(v.charges ~= nil or v.charges[1] ~= nil or v.charges[1] > 0)then
+            charge = Recharge:GetData(v.charges[1]);
+            giftState = Operation:GetRepeatGetStateById(charge.cfgid);
+            if(giftState == Recharge.RepeatState.UnBuy)then
+                table.insert(self._homeActivity,v);
+            end
+        end
+    end
+
+end
+
+function HomeLayer:SetHomeActivityUI()
+    local num = #self._activityBtn;
+    if(num < #self._homeActivity)then
+        num = #self._homeActivity;
+    end
+    local cls
+    for i = 1, num do
+        cls = self._activityBtn[i];
+        if(cls == nil)then
+            cls = self:NewActivityBtn();
+            self._activityBtn[i] = cls;
+        end
+        cls:Visible(self._homeActivity[i] ~= nil);
+        if(self._homeActivity[i] ~= nil)then
+            self:SetActivityBtn(cls,self._homeActivity[i]);
+        end
+    end
+end
+
+function HomeLayer:NewActivityBtn()
+    local cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objActivityBtn,self.Content1));
+    cls.btn = cls.transform:GetComponent("Button");
+    cls.imgIcon = cls:GetImageComponent("img_icon");
+    cls.txtTitle = cls:GetTextComponent("txt_title");
+    cls.txtTitleE = cls:GetTextComponent("txt_title_E");
+    cls.txtTime = cls:GetTextComponent("txt_time");
+    cls.btn.onClick:AddListener(function ()
+        JumpMgr:JumpCheck({JumpMgr.Jump_Activity, cls.cfg.UID});
+    end);
+    return cls;
+end
+
+function HomeLayer:SetActivityBtn(cls,cfg)
+    if(cfg == nil)then--配置为空, 表示活动已失效
+        cls:Visible(false);
+        cls.countDown = nil;
+        return;
+    end
+    if(cls.cfg ~= nil and cls.cfg.UID == cfg.UID)then
+        return;
+    end
+    cls.cfg = cfg;
+    cls.txtTitle:SetText(cfg.Name);
+    cls.txtTitleE:SetText(cfg.EnglishName);
+    cls.countDown = nil;
+    if(cfg.openConditions ~= Operation.OpenConditionType.Null and cfg.openConditions[1][1] == Operation.OpenConditionType.Time)then
+        cls.countDown = CTime:GetRemainTime(cfg.openConditions[1][2]);
+    end
+    if(cls.countDown ~= nil)then
+        self:SetActivityBtnCountDown(cls);
+    else
+        cls.txtTime:SetText(nil);
+    end
+    if(cfg.homeLayerIcon[1] == 1)then--图片
+        cls.imgIcon:LoadSprite(cfg.homeLayerIcon[2]);
+    end
+end
+
+function HomeLayer:SetActivityBtnCountDown(cls)
+    cls.txtTime:SetText(CTime:Time2Str_3(cls.countDown));
+end
+-------------------------------------------------------------
 return HomeLayer
 

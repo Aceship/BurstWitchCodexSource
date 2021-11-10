@@ -80,6 +80,9 @@ function Lottery:_LoadLotteryShowCfg()
 end
 
 function Lottery:GetLotteryPoolCfg(cfgid)
+    if self._lotterypools[cfgid] == nil then
+        AppMgr:LogError("[Gashapon]配置表配置错误，找不到！！！！！！！" .. cfgid)
+    end
     return self._lotterypools[cfgid]
 end
 

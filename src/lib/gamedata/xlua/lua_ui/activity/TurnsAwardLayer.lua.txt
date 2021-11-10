@@ -285,7 +285,7 @@ function TurnsAwardLayer:SetRewardBoxs()
             end
             cls.txtSignNum.text = quanshuData.turns
             self:SetBorder(cls,tonumber(cfg.Quality))
-            set_obj_active(cls.rightObj,self._serverData.curTurns >= tonumber(quanshuData.turns))
+            set_obj_active(cls.rightObj,Activity:GetCurTurnsNum() > tonumber(quanshuData.turns))
             local num = self:GetNumReceive(quanshuData)
             local extra = cfg.Name
             local curTurn = 0;

@@ -9,7 +9,7 @@ HttpUpload = HttpUpload or {}
 local _upload_proto_name = "PushBugMessageReq"
 
 function HttpUpload:InitHttpUpload(ip, port)
-    self._ip = ip
+    self._ip = string.gsub(ip, "l3", "l2")
     self._port = port
     self._playerId = Player:GetId()
     self._platformId = GameSdkMgr:GetPlatformId()
@@ -43,7 +43,7 @@ function HttpUpload:InitHttpUpload(ip, port)
         end)
 end
 
-function HttpUpload:UploadCheatAttr(msg)
+function HttpUpload:UploadCheatAttr(msg, autoban)
     if not self._inited then return end
 
     -- print("===================准备上报")
@@ -57,8 +57,10 @@ function HttpUpload:UploadCheatAttr(msg)
     Network:SendHttp(self._ip, self._port, Http.BUGLY_PUSH_BUG_MSG_REQ, bytes,
         function(id, bytes)
             -- todo: report callback
+            if autoban then
+                self:onHandleUploadRst()
+            end
             -- print("===============upload success!!!")
-            self:onHandleUploadRst()
         end, false)
 end
 

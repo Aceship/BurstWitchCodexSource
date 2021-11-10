@@ -53,13 +53,14 @@ end
 function ActivityLevelTitleLayer:InitData()
     self._uid = Activity:GetOpenActivityLevelId();
     self._activityCfg = Operation:GetActiveCfgByUID(self._uid);
-    self._typeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid);
-    self._isActivity = Operation:GetActiveIsOpenByUid(self._typeCfg.uid);
+    local _typeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid);
+    self._isActivity = Operation:GetActiveIsOpenByUid(_typeCfg.activeUid);
     if(self._isActivity)then
         self._countDown = CTime:GetRemainTime(self._activityCfg.Time);
     else
         self._countDown = Activity:GetActivityLevelShopCountDown();
     end
+    self._addHeros = {}
 end
 
 --初始化UI
@@ -75,8 +76,12 @@ function ActivityLevelTitleLayer:InitUI()
 
     self._transSpine = self.layer:Get("trans_spine");
     self._transDesTop = self.layer:Get("trans_des_top");
+    
 	--@TransformEnd
-
+     --@RectTransformEnd--------20211/10/27
+    self._transHeroAddBg = self.layer:Get("trans_hero_add/trans_hero_add_bg");
+    self._objAddHero = self.layer:Get("item_hide/obj_add_hero").gameObject; 
+    self._transHeroAdd = self.layer:Get("trans_hero_add");
 	--@RectTransformEnd
 
 	--@GameObjectEnd
@@ -93,6 +98,7 @@ function ActivityLevelTitleLayer:InitUI()
     CS.UnityHelper.NotchfitY(self.layer:Get("txt_title_E"));
 
     self:SetUI();
+    CS.UnityHelper.NotchfitY(self._transHeroAdd);
     CS.UnityHelper.NotchfitY(self.layer:Get("img_title"));
 end
 
@@ -110,10 +116,28 @@ function ActivityLevelTitleLayer:onExit()
     self._txtDay = nil;
     self._txtChapterDes = nil;
     self._transDesTop = nil;
+    self._transHeroAddBg = nil;
+    self._objAddHero = nil; 
     --@CloseEnd
     if(self._curMoudle ~= nil)then
         u3d_destory_obj(self._curMoudle);
         self._curMoudle = nil;
+    end
+      --@CloseEnd-----------------------
+      if self._addHeros ~= nil then
+        for _, clsArr in pairs(self._addHeros) do
+            for _, cls in ipairs(clsArr) do
+                cls:clear()
+            end
+        end
+    end
+    self._addHeros = nil;
+    if self._levelItems ~= nil then
+        for _, clsArr in pairs(self._levelItems) do
+            for _, cls in ipairs(clsArr) do
+                cls:clear()
+            end
+        end
     end
     CBaseLayer .onExit(self);
 end
@@ -165,6 +189,7 @@ function ActivityLevelTitleLayer:UpdateShowType()
     end
     Groble_UIMgr:SetBgData(bgData);
     self:UpdateUI();
+    self:SetHeroAddUI();
     self:playAni("ActivityLevelTitleLayerAnim")
 end
 
@@ -281,6 +306,34 @@ end
 
 function ActivityLevelTitleLayer:onUpdateDay()
     self:UpdateUI();
+end
+
+-------------2021/10/27----lxb---------
+function ActivityLevelTitleLayer:SetHeroAddUI()
+    local _config = Drop:GetTimeDropConfig()
+    self._transHeroAdd:SetVisible(self._layerCfg.isShowHeroAdd and _config ~= nil);
+    ---額外掉落提示Tip
+    if self._layerCfg.isShowHeroAdd and _config ~= nil then
+    --local attrAdd = Player:GetActivityLevelAttrAdd();--小田说给它干掉, 要是以后加回来, 开箱20元以上
+   -- local itemAdd = Player:GetActivityLevelItemAdd(); 
+        local itemAdd = _config["DropItem"]
+        local heroAdd = _config["DropWitchAdd"]
+        for i = 1, #heroAdd do
+            local cls = self._addHeros[i];
+            if(cls == nil)then
+                cls = clsbase:new(CS.UnityEngine.GameObject.Instantiate(self._objAddHero,self._transHeroAddBg));
+                cls.imgIcon = cls:GetImageComponent("img_icon");
+                cls.imgBorder = cls:GetImageComponent("img_border");
+                cls.imgAddIcon = cls:GetImageComponent("img_add_icon");
+                cls.txtAddItemNum = cls:GetTextComponent("txt_item_add_num");
+                self._addHeros[i] = cls;
+            end
+            Hero:SetHeroHeadSprite(cls.imgIcon, heroAdd[i][1], false,true, true);
+            Hero:SetBorderUi(cls.imgBorder.transform, Hero:GetCfg(heroAdd[i][1]));
+            Item:SetItemIcon(cls.imgAddIcon, itemAdd[1])
+            cls.txtAddItemNum.text = heroAdd[i][2].."%";
+        end
+    end
 end
 
 return ActivityLevelTitleLayer;

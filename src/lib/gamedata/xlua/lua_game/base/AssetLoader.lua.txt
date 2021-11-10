@@ -115,6 +115,7 @@ local scripts = {
     "xlua/lua_Game/Language/languageinit.txt",
     "xlua/lua_Game/Attr/attrinit.txt",
     "xlua/lua_Game/Bag/baginit.txt",
+    "xlua/lua_Game/drop/dropinit.txt",
     "xlua/lua_Game/Player/playerinit.txt",
     "xlua/lua_Game/Skill/skillinit.txt",
     "xlua/lua_Game/Hero/heroinit.txt",

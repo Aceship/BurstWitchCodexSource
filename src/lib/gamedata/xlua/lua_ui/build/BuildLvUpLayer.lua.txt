@@ -222,7 +222,9 @@ function BuildLvUpLayer:RegisterHandler()
 	self:addEventListener(EVENT_TYPE.CUT_SELECT_BUILD_TYPE,self.__cname, function()
 		self:SetBuildUI();
 	end)
-
+	self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:SetExpendUI()
+    end)
 	self:addEventListener(EVENT_TYPE.UPDATE_BUILD_LV_DATA,self.__cname, function()
 		self._isSend = false;
 		local lvUpCfg = Build:GetBuildLevelUpCfgById(self._nextLvData.id);

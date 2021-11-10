@@ -133,7 +133,12 @@ end
 
 function Login:TestLogin()
     if AppMgr:IsEditor() then
-        self._last_login_id     = 3
+        local _last_id = Groble_SceneMgr:PrefsGetString("last_login_id")
+        if _last_id == nil or _last_id == "" then
+            self._last_login_id     = 3
+        else
+            self._last_login_id     = tonumber(_last_id)
+        end
     else
         self._last_login_id     = 1
     end
@@ -238,7 +243,8 @@ function Login:LoginSucc(uid)
     GTemp:SetAutoFightTalk(false)
     -- 触发礼包检测
     Operation:CheckTriggerPackageByMainTypes({Operation.TRIGGER_GIFT_TYPE_LOGIN_DAY})
-
+    --设置New标签礼包状态
+    Recharge:SetNewChargeState()
     GZSDKHelper:playerLoginWithPlayerInfo()
     HttpUpload:InitHttpUpload(ip, port)
 end

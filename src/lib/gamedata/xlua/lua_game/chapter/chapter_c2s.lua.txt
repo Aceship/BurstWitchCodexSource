@@ -311,6 +311,7 @@ end
 --     rift_drops = {}
 --     rift_buffs_choose = {id1,id2,id3} or nil
 --     2020-12-8 分数掉落合并至普通掉落
+--     time_drops 2021-11-7 增加全局掉落
 -- }
 function Chapter:ChapterLevelEndRep(param)
     local tempdata = GTemp:GetFightTmpData()
@@ -441,6 +442,13 @@ function Chapter:ChapterLevelEndRep(param)
                 ret.exp = ret.exp + exp
                 ret.cg_drops = lua_deep_copy(tmpdrops)
             end
+            -- 全局掉落（时间控制）
+            if param.time_drops ~= nil and next(param.time_drops) ~= nil then
+                local exp, tmpdrops = self:drops2Items(param.time_drops)
+                ret.exp = ret.exp + exp
+                ret.time_drops = lua_deep_copy(tmpdrops)
+                ret.hasdrops = ret.hasdrops or #tmpdrops > 0
+            end
 
             -- 计算章节的星数
             self:CalcChapterStars(chapter.id)
@@ -460,7 +468,7 @@ function Chapter:ChapterLevelEndRep(param)
         else
             self:AddAutoFailNumber()
         end
-        self:AddAutoItems(ret.drops, ret.cg_drops, ret.first_drops)
+        self:AddAutoItems(ret.drops, ret.cg_drops, ret.first_drops, ret.time_drops)
         if Equip:GetEquipNumWhetherMax() then
             self:StopAutoFight(Chapter.AUTO_STOP_EQUIP_MAX)
         end
@@ -574,7 +582,7 @@ function Chapter:drops2Items(drops)
     return exp, ret
 end
 
-function Chapter:LevelSweepReq(levelid, count, callback, show, islevelup)
+function Chapter:LevelSweepReq(levelid, count, teamHeroIds, callback, show, islevelup)
     if levelid == nil or count == nil then
         return false
     end
@@ -589,7 +597,7 @@ function Chapter:LevelSweepReq(levelid, count, callback, show, islevelup)
     count = tonumber(count)
     self._sweepback = callback
 
-    Network:CallServerScript({c2s.DUNGEON_MOP_UP_REQ , levelid, count})
+    Network:CallServerScript({c2s.DUNGEON_MOP_UP_REQ , levelid, count, teamHeroIds})
     return true
 end
 

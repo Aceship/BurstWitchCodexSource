@@ -1,0 +1,327 @@
+---
+--- Author:Administrator
+--- Create Time:2021-10-10 14:33:18
+---
+
+SublimationWakeUpNode = class("SublimationWakeUpNode", UIBaseNode)
+--按钮
+local BTNS = {
+    BtnCheckDes = "btn_checkDes",
+    BackWakeUp = "btn_backWakeUp",
+    BtnAward = "trans_buttom/obj_award",
+    BtnSublimation = "trans_buttom/info_wakeup/btn_sublimation",
+    BtnShowDes = "btn_showDes"
+}
+--构造函数
+function SublimationWakeUpNode:ctor(super, nodeGo, parentLayer)
+    UIBaseNode.ctor(self, nodeGo, parentLayer)
+    self:onEnter()
+end
+function SublimationWakeUpNode:InitNode(heroId)
+    self._heroId = heroId
+    self._hero = Hero:GetHero(heroId)
+    self._maxRiseNum = Hero:GetMaxRaiseNumByHeroId(self._heroId)
+    --获取角色的最大升华层级
+    self._SublimationCfg = Hero:GetSublimationCfgsByGroupId(self._hero.Intimacy[4])
+end
+--进入Ui调用一次
+function SublimationWakeUpNode:onEnter()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+
+--按钮事件
+function SublimationWakeUpNode:onButtonClick(itype)
+    if (itype == BTNS.BtnSublimation) then
+        self:OnBtnSublimationClick()
+    elseif (itype == BTNS.BtnShowDes) then
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(31038), uistr.com_chapterstr[self._maxRiseNum + 1]))
+    elseif (itype == BTNS.BtnAward) then
+        local awards = Hero:GetCurSublimationCfgByHeroId(self._heroId).lvUpAward
+        SingletonMgr:ShowItemTipsLayer(self._objAward, awards[1][1], awards[1][2], awards[1][3])
+    elseif (itype == BTNS.BtnCheckDes) then
+        local curRaise = Hero:GetHero(tonumber(self._heroId)).intimacy_data.raise
+        --获取当前升华层级
+        if curRaise ~= self._maxRiseNum then --需修改,（通过升华层级）
+            --UID需要添加
+            Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(31038), uistr.com_chapterstr[self._maxRiseNum + 1]))
+        else
+            self:ShowIcon()
+        end
+    elseif (itype ==BTNS.BackWakeUp) then
+        self:ShowIcon()
+    end
+end
+
+--初始化
+function SublimationWakeUpNode:Init()
+    self:InitUI()
+end
+
+--初始化UI
+function SublimationWakeUpNode:InitUI()
+    self.trans_btnShow = self.layer:Get("btn_showDes")
+    self._transBackWakeUp = self.layer:Get("btn_backWakeUp")
+    self._transCheckBtn = self.layer:Get("btn_checkDes")
+    self._transTitle1 = self.layer:Get("trans_title1")
+    self._txtTitle1 = self.layer:GetTextComponent("trans_title1/txt_title1")
+    self._transTitle2 = self.layer:Get("trans_title2")
+    self._txtTitle2 = self.layer:GetTextComponent("trans_title2/txt_title2")
+    self._txtDes = self.layer:GetTextComponent("trans_title2/txt_des")
+    self.trans_middle = self.layer:Get("trans_middle")
+    self._objAward = self.layer:Get("trans_buttom/obj_award")
+    self._awardImgIcon = self.layer:GetImageComponent("trans_buttom/obj_award/img_icon")
+    self._txtAwardNum = self.layer:GetTextComponent("trans_buttom/obj_award/txt_num")
+    self._txtWakeUpMaxLev = self.layer:GetTextComponent("trans_buttom/txt_wakeUpMaxLev")
+    self._imgSublimation = self.layer:GetImageComponent(BTNS.BtnSublimation)
+    self._infoWakeUp = self.layer:Get("trans_buttom/info_wakeup")
+    self._transBtnBack = self.layer:Get("button_back")
+end
+
+--释放
+function SublimationWakeUpNode:onExit()
+    self.trans_btnShow = nil
+    self._transBackWakeUp = nil
+    self._transCheckBtn = nil
+    self._transTitle1 = nil
+    self._txtTitle1 = nil
+    self._transTitle2 = nil
+    self._txtTitle2 = nil
+    self._txtDes = nil
+    self.trans_middle = nil
+    self._objAward = nil
+    self._awardImgIcon = nil
+    self._txtAwardNum = nil
+    self._txtWakeUpMaxLev = nil
+    self._imgSublimation = nil
+    self._infoWakeUp = nil
+    self._transBtnBack = nil
+    if self._uicostctrl ~= nil then
+        self._uicostctrl:UICostCtrlDtor()
+        self._uicostctrl = nil
+    end
+    self._showItems = nil
+
+    UIBaseNode.onExit(self)
+end
+function SublimationWakeUpNode:OnBtnSublimationClick()
+    if (self._isLvUp) then
+        core.require("xlua/lua_UI/LibraryScene/WakeUpMessageLayer.txt"):new():show(self._heroId)
+    else
+        Groble_UIMgr:ShowTipsLayer(string.format(LanguageMgr:GetTextByID(31035), self._maxRiseNum))
+    end
+end
+
+function SublimationWakeUpNode:InitSublimationUI(flag)
+    --显示升华相关
+    self._sublimation = {}
+    --attr
+    self._sublimation.attrCObjArr = CAttr:NewAttrObjArr(self.layer:Get("trans_buttom/info_attr"), 5)
+    --消耗
+    --奖励
+    self._txtTitle1:SetText(string.format(LanguageMgr:GetTextByID(31042), uistr.com_chapterstr[self._maxRiseNum + 1]))
+    self:SetSublimationUI(flag)
+    self:SetAwardItems()
+end
+function SublimationWakeUpNode:SetSublimationUI(flag)
+    if flag then
+        local prefab
+        local _transContent = self.layer:Get("trans_buttom/Viewport/Content")
+        local _cellItem = self.layer:Get("ItemHide/item").gameObject
+        self._showItems = {}
+        local tmpCell = nil
+        if self._maxRiseNum == 1 then
+            for i = 1, 2 do
+                tmpCell = {}
+                prefab = _transContent:AddChild(_cellItem)
+                tmpCell._imgIcon = prefab:GetImageComponent("img_icon")
+                tmpCell._txtStr = prefab:GetTextComponent("txt_str")
+                tmpCell._txtStrShow = prefab:GetTextComponent("txt_strShow")
+                tmpCell._imgIcon:SetVisible(false)
+                tmpCell._txtStr:SetVisible(false)
+                if i == self._maxRiseNum then
+                    tmpCell._txtStrShow:SetText(Language.LanguageTxt[self._SublimationCfg[1].Characteristic_des])
+                else
+                    tmpCell._txtStrShow:SetText(
+                        string.format(LanguageMgr:GetTextByID(31039), uistr.com_chapterstr[self._maxRiseNum + i])
+                    )
+                    tmpCell._txtStrShow:SetVisible(false)
+                end
+                self._showItems[i] = tmpCell
+            end
+        else
+            --TODO好感二期的觉醒特性---------需修改-------------
+            for i = 1, self._maxRiseNum do
+                tmpCell = {}
+                prefab = _transContent:AddChild(_cellItem)
+                tmpCell._imgIcon = prefab:GetImageComponent("img_icon")
+                tmpCell._txtStr = prefab:GetTextComponent("txt_str")
+                tmpCell._txtStrShow = prefab:GetTextComponent("txt_strShow")
+                tmpCell._txtStrShow:SetVisible(false)
+                if tonumber(self._SublimationCfg[1].Characteristic[i]) == -1 then
+                    tmpCell._imgIcon:SetVisible(false)
+                    tmpCell._txtStr:SetVisible(false)
+                    tmpCell._txtStrShow:SetVisible(true)
+                end
+            end
+        end
+    end
+    self:RefreshAttrItems()
+end
+function SublimationWakeUpNode:SetAwardItems()
+    local awards = Hero:GetCurSublimationCfgByHeroId(self._heroId).lvUpAward
+    local cfg = Item:GetCfg(awards[1][2])
+    self._awardImgIcon:LoadSprite("source_icon/item/" .. cfg.itemPath)
+    -- Item:SetItemIcon(self._awardImgIcon, awards[1][2])
+    self._txtAwardNum.text = awards[1][3]
+    -- Bag:SetComSimpleGoodsUi(self._objAward, awards[1][1], awards[1][2], awards[1][3])
+end
+function SublimationWakeUpNode:UnLock() --解锁
+    self._infoWakeUp:SetVisible(false)
+    self.trans_btnShow:SetVisible(false)
+    self.trans_middle:SetVisible(false)
+    self._transBackWakeUp:SetVisible(true)
+    self:RefreshAttrItems()
+    self._showItems[self._maxRiseNum + 1]._txtStrShow:SetVisible(true)
+    self._txtWakeUpMaxLev:SetText(
+        string.format(LanguageMgr:GetTextByID(31040), uistr.com_chapterstr[self._maxRiseNum + 1])
+    )
+    self._txtWakeUpMaxLev:SetVisible(true)
+end
+
+function SublimationWakeUpNode:RefreshAttrItems() --刷新升华属性的items
+    local curRaise = Hero:GetHero(tonumber(self._heroId)).intimacy_data.raise
+    --获取当前升华层级
+    local cfg = Hero:GetCfg(self._heroId)
+    Hero:SetHeroAttr(self._sublimation.attrCObjArr, self._hero, true)
+    local lvUpCfg = Hero:GetCurSublimationCfgByHeroId(self._heroId).lvUpAttrAdd
+    if curRaise <= 0 then
+        local addAttr = {}
+        for i, v in ipairs(lvUpCfg) do
+            if (addAttr[v[1]] == nil) then
+                addAttr[v[1]] = 0
+            end
+            addAttr[v[1]] = addAttr[v[1]] + v[2]
+        end
+
+        for i, cls in ipairs(self._sublimation.attrCObjArr) do
+            CAttr:SetAddAttrCObj(cls, math.floor(addAttr[Hero.Attr6[i]] or 0))
+        end
+    else
+        -- if curRaise ~= self._maxRiseNum  then--此处逻辑应是当前觉醒等级不等于左右翻页的页数，待修改
+        -- end
+        local curAddAttr = {}
+        for _, v in ipairs(lvUpCfg) do
+            curAddAttr[v[1]] = v[2] --此处在二期好感时需改变（详见WitchNewLvUpLayer-711）
+        end
+        local attrAddNum
+        --觉醒二期需将下面的fori循环填入if判断中
+        for i, cls in ipairs(self._sublimation.attrCObjArr) do
+            attrAddNum = curAddAttr[Hero.Attr6[i]] or 0
+            if (Hero.Attr6[i] ~= nil) then
+                CAttr:SetAttrCObj(
+                    cls,
+                    Hero.Attr6[i],
+                    string.format("<color=#7696CFFF>+%d</color>", math.floor(attrAddNum)),
+                    true,
+                    true
+                )
+                CAttr:SetAddAttrCObj(cls, 0)
+            end
+        end
+    end
+
+    -- local cfg = Hero:GetCfg(self._heroId)
+    -- local lvUpCfg = Hero:GetCurSublimationCfgByHeroId(self._heroId)
+    -- local addAttr = {}
+    -- for i, v in ipairs(lvUpCfg.lvUpAttrAdd) do
+    --     if (addAttr[v[1]] == nil) then
+    --         addAttr[v[1]] = 0
+    --     end
+    --     addAttr[v[1]] = addAttr[v[1]] + v[2]
+    -- end
+    -- --预览
+    -- for i, cls in ipairs(self._sublimation.attrCObjArr) do
+    --     addAttr[cls[1]] = cls[2] or 0;
+    --     if (cls[2] ~= nil) then
+    --         CAttr:SetAttrCObj(cls, Hero.Attr6[i], string.format("<color=#7696CFFF>+%d</color>",math.floor(v[2])) , true,true);
+    --         CAttr:SetAddAttrCObj(cls, 0);
+    --     end
+    -- end
+
+    -- local heroAttrs = Hero:GetStepUpAttrByHeroId(self._hero.id);
+    -- local curAddAttr = {};
+    -- for _, v in ipairs(heroAttrs) do
+    --     curAddAttr[v[1]] = v[self._curStep + 1];
+    -- end
+    -- local attrAddNum;
+    -- if(self._curStep ~= self._hero.step + 1 or self._hero.level < self._hero.maxLv)then
+    --     --预览
+    --     self._btnStepUp.transform:SetVisible(false);
+    --     self._txtStepUpPreview.text = string.format(LanguageMgr:GetTextByID(6900012),uistr.com_chapterstr[self._curStep + 1]);
+    --     for i, cls in ipairs(self._attrCObjArr) do
+    --         attrAddNum = curAddAttr[Hero.Attr6[i]] or 0;
+    --         if(Hero.Attr6[i] ~= nil)then
+    --             CAttr:SetAttrCObj(cls, Hero.Attr6[i], string.format("<color=#7696CFFF>+%d</color>",math.floor(attrAddNum)) , true,true);
+    --             CAttr:SetAddAttrCObj(cls, 0);
+    --         end
+    --     end
+    -- end
+end
+
+function SublimationWakeUpNode:ShowIcon()
+    self.isShow = not self.isShow
+    if self.isShow then
+        self._txtTitle2:SetText(Language.LanguageTxt[self._SublimationCfg[1].pic_title])
+        self._txtDes:SetText(Language.LanguageTxt[self._SublimationCfg[1].pic_des])
+        self._transTitle1:SetVisible(false)
+        self._transBtnBack:SetVisible(false)
+        self._transCheckBtn:SetVisible(false)
+        self._transTitle2:SetVisible(true)
+        self.layer:AnimationPlay("SublimationAwardAnimOut")
+    else
+        self._transTitle1:SetVisible(true)
+        self._transBtnBack:SetVisible(true)
+        self._transCheckBtn:SetVisible(true)
+        self._transTitle2:SetVisible(false)
+        self.layer:AnimationPlay("SublimationAwardAnimIn")
+    end
+end
+
+function SublimationWakeUpNode:SetLvCostItems()
+    self.isShow = false
+    local lvUpCosts = Hero:GetCurSublimationCfgByHeroId(self._heroId).RaiseUpCosts
+    self._isLvUp = true
+    local curRaise = Hero:GetHero(tonumber(self._heroId)).intimacy_data.raise
+    --获取当前升华层级
+    self._txtWakeUpMaxLev:SetVisible(false)
+    if curRaise ~= self._maxRiseNum then --需修改,（通过升华层级）
+        self.trans_btnShow:SetVisible(true)
+        self._infoWakeUp:SetVisible(true)
+        self._txtWakeUpMaxLev:SetVisible(false)
+        if (self._uiCosts == nil) then
+            self._uiCosts = Hero:NewSublimationWakeUpCostUi(self._infoWakeUp, 2)
+        end
+        Hero:SetSublimationWakeUpCostUi(self._uiCosts, 2, lvUpCosts)
+        for i = 1, #lvUpCosts do
+            lua_table_print(lvUpCosts[i])
+            local hasNumber = Item:GetCount(lvUpCosts[i][1])
+            if hasNumber < lvUpCosts[i][2] then
+                self._isLvUp = false
+            end
+            print(self._isLvUp)
+        end
+        if self._isLvUp then
+            self._imgSublimation:SetImageColor(1, 1, 1, 1)
+        else
+            self._imgSublimation:SetImageColor(110 / 255, 110 / 255, 110 / 255, 1)
+        end
+    else
+        self._infoWakeUp:SetVisible(false)
+        self.trans_btnShow:SetVisible(false)
+        self._txtWakeUpMaxLev:SetText(
+            string.format(LanguageMgr:GetTextByID(31040), uistr.com_chapterstr[self._maxRiseNum + 1])
+        )
+        self._txtWakeUpMaxLev:SetVisible(true)
+    end
+end

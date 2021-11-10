@@ -61,8 +61,8 @@ end
 --初始化数据
 function ActivityLevelAwardLayer:InitData()
     self._uid = Activity:GetOpenActivityLevelId()
-    self._mathTypeCfg = Activity:GetActivityLevelTypeCfgByUid(self._uid)
-    self._subType = tonumber(self._mathTypeCfg.taskType_2[1])
+    self._mathTypeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid)
+    self._subType = self._mathTypeCfg.Quest_child_class_2[1]
     self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
 end
 
@@ -105,6 +105,8 @@ function ActivityLevelAwardLayer:onExit()
     self._taskCells = nil
     self._TableViewController = nil
     self._tvController = nil
+
+    self._mathTypeCfg = nil
     CBaseLayer.onExit(self)
 end
 
@@ -140,7 +142,7 @@ end
 
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
 function ActivityLevelAwardLayer:SetUI()
-    self._imgIcon:LoadSprite(self._mathTypeCfg.taskType_2[2])
+    self._imgIcon:LoadSprite(self._mathTypeCfg.Quest_child_class_2[2])
     self:RefreshScore()
 end
 function ActivityLevelAwardLayer:RefreshScore()

@@ -80,15 +80,6 @@ function NewerTaskLayer:showLayer()
     CBaseLayer.showLayer(self);
 end
 
-function NewerTaskLayer:onBackClick()
-    --[[
-    uimgr:ShowInterimLayer(CTime.delayTime,function ()
-        self:onPopLayer()
-    end)
-    ]]--
-    self:onPopLayer()
-end
-
 function NewerTaskLayer:refreshRemainTime()
     local remain = Task:NewerTaskRemainTime()
     local str = ""

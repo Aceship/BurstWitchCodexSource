@@ -249,7 +249,18 @@ function UIController:FightResultCall()
         settleTime   = os.time(),
         settleState  = false,
     }
-    
+    if battleData.score - battleData.scoreCopy > battleData.scoreSeed then
+        local _datas = {
+            playerId = Player:GetId(),
+            platformId = GameSdkMgr:GetPlatformId(),
+            scoreCopy = battleData.scoreCopy,
+            score = battleData.score
+        }
+        AppMgr:LogInfo("=============分数作弊=============")
+        HttpUpload:UploadCheatAttr(luajson.encode(_datas), false)
+
+        data.all_score = battleData.scoreCopy
+    end
     -----敌人信息数据
     data.level_score = data.all_score - data.wipeScore - data.timeScore
     GTemp:SetFightTmpData(data)

@@ -235,8 +235,8 @@ function ConcertBookSelectLayer:UpdateBookItem(cls)
         cls._uicostctrl:UpdateUICostCtrl(cls.data.compose)
     end
 
-    local showDrops = Item:GetDrops(cls.data.baseDropId)
-    Item:AddEndDrops(showDrops,cls.data.endDropId);
+    local showDrops = Drop:GetDropsById(cls.data.baseDropId)
+    Drop:AddEndDrops(showDrops,cls.data.endDropId);
     local dataNum = lua_table_len(showDrops)
     local itemNum = lua_table_len(cls.baseRewardItems)
     cls.objReward:SetVisible(dataNum > 0);

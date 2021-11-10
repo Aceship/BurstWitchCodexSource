@@ -1,0 +1,94 @@
+SweepingCtro = SweepingCtro or {}
+
+SweepingCtro.None = 0 --无
+SweepingCtro.Sweep = 1 --扫荡
+SweepingCtro.Host = 2 --托管
+SweepingCtro.SAndH = 3 --扫荡和托管
+
+SweepingCtro.CanSweep = 1 --允许扫荡
+SweepingCtro.NoSweep = -1 --不允许扫荡
+SweepingCtro.NoThreeStar = -2 --不是三星
+SweepingCtro.NoWipeItem = -3 --没有额外的道具
+SweepingCtro.NoFightCount = -4 --没有挑战次数
+
+function SweepingCtro:SweepDataByLevel(levelid)
+    local level = Chapter:GetLevel(levelid)
+    -- AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. levelid)
+    -- lua_table_print(level)
+    if level.Is_Auto == SweepingCtro.None or level.Is_Auto == SweepingCtro.Host then
+        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoSweep)
+        return SweepingCtro.NoSweep, level.cost_power, level.wipeItem
+    end
+
+    if level.has_star < 3 then
+        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoThreeStar)
+        return SweepingCtro.NoThreeStar, level.cost_power, level.wipeItem
+    end
+
+    if level.wipeItem[1] ~= -1 and Item:GetCount(level.wipeItem[1]) < level.wipeItem[2] then
+        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoWipeItem)
+        return SweepingCtro.NoWipeItem, level.cost_power, level.wipeItem
+    end
+
+    if level.fight_count > 0 and level.remain <= 0 then
+        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoFightCount)
+        return SweepingCtro.NoFightCount, level.cost_power, level.wipeItem
+    end
+
+    local dropId = level.rewards[2]
+    local drops = Item:GetDrops(dropId)
+    local dropsData = {}
+    for k, v in pairs(drops) do
+        local dropsItemData = Drop:GetDropNumberMinById(dropId, v[2])
+        dropsData[v[2]] = dropsItemData
+    end
+
+    --是否可以扫荡 扫荡单次消耗：体力、消耗额外道具({-1}没有)、掉落物品即概率
+    return SweepingCtro.CanSweep, level.cost_power, level.wipeItem, dropsData
+end
+
+--关卡id，物品id， 需要数量
+function SweepingCtro:GetSweepNum(levelid, itemId, needNum)
+    local canSweep, power, wipeItem, dropsData = self:SweepDataByLevel(levelid)
+    if canSweep < 0 then
+        return SweepingCtro.NoSweep
+    end
+    local maxNum, defaultNum
+    local level = Chapter:GetLevel(levelid)
+
+    local playerPower = Player:GetValue(Player.VALUE_POWER)
+    local powerNum = math.floor(playerPower / power)
+
+    local remainNum = math.min(level.remain, level.fight_count, 30)
+
+    if itemId then
+        local dropIdData = dropsData[itemId]
+        if (dropIdData == nil) then
+            AppMgr:LogError("can't find dropIdData" .. itemId)
+            return -1
+        end
+        local perNum = math.ceil(10000 / dropIdData[2])
+        local nNum = math.ceil(needNum / dropIdData[1])
+        local dropNum = perNum * nNum
+
+        if wipeItem[1] == -1 then
+            maxNum = math.max(1, dropNum, powerNum, remainNum)
+            defaultNum = math.min(1, dropNum, maxNum)
+        else
+            local wipeItemNum = math.floor(Item:GetCount(wipeItem[1]) / wipeItem[2])
+            maxNum = math.max(1, dropNum, powerNum, remainNum, wipeItemNum)
+            defaultNum = math.min(1, dropNum, maxNum)
+        end
+    else
+        if wipeItem[1] == -1 then
+            maxNum = math.max(1, powerNum, remainNum)
+            defaultNum = math.min(1, maxNum)
+        else
+            local wipeItemNum = math.floor(Item:GetCount(wipeItem[1]) / wipeItem[2])
+            maxNum = math.max(1, powerNum, remainNum, wipeItemNum)
+            defaultNum = math.min(1, maxNum)
+        end
+    end
+
+    return maxNum, defaultNum
+end

@@ -77,8 +77,6 @@ function Friend:CtorComFriendUi(obj,callback)
     cls.addCom      = cls:GetButtonComponent("button_add" )
 
     cls.cplayer     = Player:CtorPlayerIconBorder(cls:Find("prefab_player"))
-    -- cls.playerCom   = cls:GetComponent("prefab_player", "Button")
-    -- cls.playerSFXCom  = cls:GetComponent("prefab_player", "UIButtonSFX")
     cls.nameObj     = cls:Find("text_name")
     cls.nameBgObj   = cls:Find("name_bg")
     cls.nameCom     = cls:GetTextComponent("text_name")
@@ -108,8 +106,8 @@ function Friend:SetFriendInfoUi(cls, data, showtype)
     cls.nameCom.text = data.name
     cls.levelCom.text = "Lv."..data.level
 
-    set_obj_active( cls.onlineObj , data.onlinestate == Friend.STATE_ONLINE)
-    set_obj_active( cls.offlineObj, data.onlinestate == Friend.STATE_OFFLINE)
+    cls.onlineObj:SetVisible(data.onlinestate == Friend.STATE_ONLINE)
+    cls.offlineObj:SetVisible(data.onlinestate == Friend.STATE_OFFLINE)
     if data.onlinestate == Friend.STATE_ONLINE then
         cls.headCom.material = nil
     else
@@ -127,25 +125,12 @@ function Friend:SetFriendInfoUi(cls, data, showtype)
         end
         cls.offlineCom.text = offlinestr
     end
-    -- Groble_SceneMgr:RemoveAllListeners(cls.playerCom)
-    -- if  cls.playerSFXCom ~= nil then
-    --     cls.playerCom.onClick:AddListener(function()
-    --                 Player:LookInfoReq(data.id)
-    --             end)
-    -- else
-    --     cls.playerCom.onClick:AddListener(function()
-    --                 Player:LookInfoReq(data.id)
-    --             end)
-    -- end
     Player:SetPlayerIconBorderObj(cls.cplayer, data.iconid, data.frameid, data.id, false)
 
     if showtype == Friend.SHOW_FRIENDS then
         local recv = data.recv_state == Friend.COIN_STATE_RECV
         local send = (not recv) and data.send_state == Friend.COIN_STATE_NULL
         local oper = (not recv) and (not send)
-     --   cls.coinCom.gameObject:SetVisible(send)
-      --  cls.coinRecv.gameObject:SetVisible(recv)
-     --   cls.coinRecved:SetVisible(oper)
         cls.coinCom.gameObject:SetVisible(false)
         cls.coinRecv.gameObject:SetVisible(false)
         cls.coinRecved:SetVisible(false)
@@ -155,24 +140,20 @@ function Friend:SetFriendInfoUi(cls, data, showtype)
         cls.coinRecved:SetVisible(false)
     end
 
-   -- set_obj_active(cls.listbgObj, showtype == Friend.SHOW_FRIENDS)
-  --  set_obj_active(cls.lineObj , showtype ~= Friend.SHOW_FRIENDS)
-   -- set_obj_active(cls.imgbgObj, showtype ~= Friend.SHOW_FRIENDS)
-
-    set_obj_active( cls.talkObj, showtype == Friend.SHOW_FRIENDS or showtype == Friend.SHOW_RECOMMEND)
+    cls.talkObj:SetVisible(showtype == Friend.SHOW_FRIENDS or showtype == Friend.SHOW_RECOMMEND)
 
     local show = showtype == Friend.SHOW_RECOMMEND and self._applyed[data.id] == nil
-    set_obj_active( cls.addObj  , show)
+    cls.addObj:SetVisible(show)
     show = showtype == Friend.SHOW_RECOMMEND and self._applyed[data.id] ~= nil
-    set_obj_active(cls.applyObj , show)
+    cls.applyObj:SetVisible(show)
+
     --不记录申请好友 刷新即可再次申请
     self._applyed[data.id] = nil
     if show then
-        cls.applyCom :SetTextById(1600048)
+        cls.applyCom:SetTextById(1600048)
     end
 
-    set_obj_active(cls.refuseObj , showtype == Friend.SHOW_APLLY)
-    set_obj_active(cls.agreeObj  , showtype == Friend.SHOW_APLLY)
-
-    set_obj_active( cls.removeObj , showtype == Friend.SHOW_BLACKLIST)
+    cls.refuseObj:SetVisible(showtype == Friend.SHOW_APLLY)
+    cls.agreeObj:SetVisible(showtype == Friend.SHOW_APLLY)
+    cls.removeObj:SetVisible(showtype == Friend.SHOW_BLACKLIST)
 end

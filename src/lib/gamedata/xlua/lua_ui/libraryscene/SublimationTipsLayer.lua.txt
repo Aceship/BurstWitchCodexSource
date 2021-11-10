@@ -7,9 +7,10 @@ local SublimationTipsLayer = class("SublimationTipsLayer", CBaseLayer)
 --按钮
 local BTNS = {
     BtnCloseLayer = "trans_container/trans_scrub/trans_dialog/btn_close_layer",
-    BtnSublimation = "trans_container/trans_sublimation/info_up/btn_sublimation",
     BtnReturn = "btn_return",
-    BtnNextTips = "trans_container/trans_lock_back/trans_dialog/txt_next_tips",
+    BtnNextTips = "trans_container/trans_lock_back/btn_next_tips",
+    BtnBack = "trans_container/node_sublimationWakeUp/button_back",
+    BtnBackWakeUp = "trans_container/trans_scrub/trans_dialog/btn_backWakeUp",
     --@ButtonEnd
 }
 
@@ -53,9 +54,9 @@ end
 --按钮事件
 function SublimationTipsLayer:onButtonClick(itype)
     if(itype == BTNS.BtnCloseLayer)then
-       self:OnBtnCloseLayerClick();
-    elseif(itype == BTNS.BtnSublimation)then 
-       self:OnBtnSublimationClick();
+       self:OnLastClick();
+    elseif(itype == BTNS.BtnBack)then 
+        self:onBackClick()
     elseif(itype == BTNS.BtnReturn)then
         if(self._nextData == nil)then
             self:onBackClick();
@@ -65,7 +66,9 @@ function SublimationTipsLayer:onButtonClick(itype)
         GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.UPDATE_FAVOUR_DATA);
     elseif(itype == BTNS.BtnNextTips)then
        self:OnBtnNextTipsClick();
-    else--@ButtonCallBackEnd
+    elseif(itype == BTNS.BtnBackWakeUp)then
+        self:OnGoToWakeUp()
+        self._transBackWakeUp:SetVisible(false)
     end--RemoveEnd
 end
 
@@ -78,17 +81,28 @@ end
 
 --初始化UI
 function SublimationTipsLayer:InitUI()
+
+	local NODE_CLASS = {
+	    SublimationWakeUp      = SublimationWakeUpNode,
+	};
+
     self._imgBody = self.layer:GetImageComponent("trans_container/img_body");
     self._imgBg = self.layer:GetImageComponent("trans_container/img_bg");
-    self._imgSublimation = self.layer:GetImageComponent(BTNS.BtnSublimation);
     --@ImageEnd
 
     --@TextEnd
 
-    self._transSublimation = self.layer:Get("trans_container/trans_sublimation");
+    -- self._transSublimation = self.layer:Get("trans_container/trans_sublimation");
     self._transScrub = self.layer:Get("trans_container/trans_scrub");
     self._transTipsBg = self.layer:Get("trans_container/trans_scrub/trans_tips_bg");
+    self._transScrubDiaglog = self.layer:Get("trans_container/trans_scrub/trans_dialog");
+    self._transBackWakeUp = self._transScrubDiaglog:Get("btn_backWakeUp");
     self._transLockBack = self.layer:Get("trans_container/trans_lock_back");
+    self._scrubEraserMask = self.layer:Get("trans_container/EraserMask")
+
+
+	self._nodeSublimationWakeUp = self.layer:GetRectTransformComponent("trans_container/node_sublimationWakeUp").gameObject;
+	self._sublimationWakeUpNode = self:CreateNode(self._nodeSublimationWakeUp, NODE_CLASS.SublimationWakeUp);
     --@TransformEnd
 
     --@RectTransformEnd
@@ -104,14 +118,13 @@ end
 function SublimationTipsLayer:show(heroId)
     self._heroId = heroId;
     self._hero = Hero:GetHero(heroId);
+    self._sublimationWakeUpNode:InitNode(self._heroId)
     self:SetUI();
     self:showLayer();
 end
 
 function SublimationTipsLayer:showLayer()
-    if self._sublimation ~= nil then
-        self:SetLvCostItems()
-    end
+    self._sublimationWakeUpNode:SetLvCostItems()
     CBaseLayer.showLayer(self)
 end
 
@@ -125,13 +138,11 @@ function SublimationTipsLayer:onPerSecondUpdate()
         --非擦除中
         return;
     elseif(self._curScrubState == ScrubState.ScrubOver)then
-        --擦除结束,设置对话框
+        --擦除结束,设置对话框,并开启点击
         self._scrubInfo.txtTimeTips:SetText(self._tipsShowTime);
         if(self._tipsShowTime < 0)then
             self._scrubInfo.txtTimeTips:SetText(LanguageMgr:GetTextByID(31027));
-            self._scrubInfo.btnCloseLayer:SetVisible(true);
-            self._curScrubState = ScrubState.NotScrub;
-            Guide:ContinueGuideEvent(self.__cname)
+            self:OnGoToWakeUp()
         end
         self._tipsShowTime = self._tipsShowTime - 1;
     else
@@ -152,12 +163,13 @@ end
 --释放
 function SublimationTipsLayer:onExit()
     self._hero = nil;
-    self._transSublimation = nil;
+    -- self._transSublimation = nil;
     self._transScrub = nil;
     self._transTipsBg = nil;
     self._sublimation = nil;
     self._scrubInfo = nil;
-    self._imgSublimation = nil;
+    self._scrubEraserMask = nil
+    -- self._imgSublimation = nil;
     self._imgBody = nil;
     self._transLockBack = nil;
     self._drops = nil;
@@ -176,42 +188,38 @@ function SublimationTipsLayer:onExit()
         self._uicostctrl:UICostCtrlDtor()
         self._uicostctrl = nil
     end
+
+	self._sublimationWakeUpNode:onExit();
+	self._sublimationWakeUpNode = nil;
+	self._nodeSublimationWakeUp = nil;
     --@CloseEnd
     CBaseLayer.onExit(self);
 end
 
 ---------------------------------------------------------BtnClick------------------------------------------------------------------------------
 
-function SublimationTipsLayer:OnBtnCloseLayerClick()
+function SublimationTipsLayer:OnLastClick()
     GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION, EVENT_NAME.UPDATE_FAVOUR_DATA);
-    Groble_UIMgr:ClickOnReturnBtn();
-end
-function SublimationTipsLayer:OnBtnSublimationClick()
-    if(self._isLvUp)then
-        Groble_UIMgr:ShowMessageBox(true, true,LanguageMgr:GetTextByID(31036),
-            function()
-                Hero:SublimationReq(self._heroId);
-            end)
-    else
-        Groble_UIMgr:ShowGameWordTipsLayer(31035);
-    end
+    self._transLockBack:SetVisible(false);
+    self._sublimationWakeUpNode:InitSublimationUI(false);
+    self._sublimationWakeUpNode:UnLock();
+    self._sublimationWakeUpNode:SetVisible(true);
 end
 function SublimationTipsLayer:OnBtnNextTipsClick()
-    -- print("调用了OnBtnNextTipsClick")
     self:DoNext();
     if(self._nextData == nil)then
         if(self._drops ~= nil)then
             if(next(self._drops))then
                 Bag:ShowDrops(self._drops,function ()
                     SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.2,self._heroId)
-                    self:OnBtnCloseLayerClick();
+                    self:OnLastClick();
                     Guide:RecoverGuide()
                 end);
             else
-                self:OnBtnCloseLayerClick();
+                self:OnLastClick();
             end
         else
-            self:OnBtnCloseLayerClick();
+            self:OnLastClick();
         end
     end
 end
@@ -227,6 +235,9 @@ function SublimationTipsLayer:RegisterHandler()
     --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
 
     --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname,function()
+        self:UpdateCost()
+    end)
     self:addEventListener(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.SUBLIMATION_REP,
             function (data)
                 if(data.state > 0)then
@@ -239,13 +250,14 @@ function SublimationTipsLayer:RegisterHandler()
                             if(next(self._drops))then
                                 Bag:ShowDrops(self._drops,function ()
                                     SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.2,self._heroId);
-                                    self:OnBtnCloseLayerClick();
+                                    self:OnLastClick();
                                 end);
                             else
                                 SingletonMgr:ShowFightingUpTipsLayer(Hero.ShowFightingUpType.One,0.2,self._heroId)
-                                self:OnBtnCloseLayerClick();
+                                self:OnLastClick();
                             end
                         else
+                            self:InitLockBackUI();
                             self:SetLockBackUI();
                             Guide:RecoverGuide()
                         end
@@ -256,9 +268,37 @@ function SublimationTipsLayer:RegisterHandler()
 end
 
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
-
+function SublimationTipsLayer:UpdateCost()
+    self._sublimationWakeUpNode:SetLvCostItems()
+end
+function SublimationTipsLayer:OpenMask()
+    --self._imgBg:LoadSprite(imgData[1][1]);
+    self._imgBg:SetEnabled(true);
+    self._scrubEraserMask:SetVisible(true);
+    self._imgBody:SetEnabled(true);
+    self:SetImage()
+end
+function SublimationTipsLayer:OnGoToWakeUp()
+    self._scrubInfo.transDialog:SetVisible(false);
+    self._scrubInfo.textureEraser:Init(self._imgBody.sprite,self._hero.config.id)
+    self._scrubInfo.textureEraser.canClear = false
+    self._sublimationWakeUpNode:InitNode(self._heroId)
+    self._sublimationWakeUpNode:InitSublimationUI(true);
+    self._sublimationWakeUpNode:SetLvCostItems()
+    self._sublimationWakeUpNode:SetVisible(true);
+    self._curScrubState = ScrubState.NotScrub;
+end
+function SublimationTipsLayer:SetImage()
+    local imgData = lua_parse_cfg(self._hero.config.SublimationPic);
+    local data = {};
+    data[1] = imgData[2];
+    data[2] = imgData[3];
+    data[3] = imgData[4];
+    self:SetBodyImage(self._imgBody,data);
+end
 function SublimationTipsLayer:SetUI()
     local showScrub = false;
+    local showMask = false;
     if(self._hero.intimacy_data.raise == 0)then
         Hero:SublimationReq(self._heroId);
         --未激活升华,判断是否显示雾特效
@@ -267,13 +307,13 @@ function SublimationTipsLayer:SetUI()
         end
     elseif(self._hero.intimacy_data.raise < 0)then
         --激活升华但没有升华
+        showMask = true
     else
         --升华完毕
     end
 
-    self._scrubEraserMask = self.layer:Get("trans_container/EraserMask")
     self._transScrub:SetVisible(showScrub);
-    self._transSublimation:SetVisible(not showScrub);
+    self._sublimationWakeUpNode:SetVisible(not showScrub);
     self._transTipsBg:SetVisible(showScrub);
     self._scrubEraserMask:SetVisible(showScrub);
     if(showScrub)then--显示雾气
@@ -281,7 +321,6 @@ function SublimationTipsLayer:SetUI()
         self._scrubEraserMask:SetVisible(true);
         self._imgBody:SetEnabled(true);
         local imgData = lua_parse_cfg(self._hero.config.SublimationPic);
-        --self._imgBg:LoadSprite(imgData[1][1]);
         local data = {};
         data[1] = imgData[2];
         data[2] = imgData[3];
@@ -314,11 +353,16 @@ function SublimationTipsLayer:SetUI()
     else
         local bType = Hero:GetHeroIsSublimation(self._heroId);
         self._transLockBack:SetVisible(bType == Hero.SublimationBtnType.LockBack);
-        self._transSublimation:SetVisible(bType == Hero.SublimationBtnType.Sublimation);
-        self._imgBody:SetEnabled(bType ~= Hero.SublimationBtnType.Sublimation);
+        self._sublimationWakeUpNode:SetVisible(bType == Hero.SublimationBtnType.Sublimation);
+        self._imgBody:SetEnabled(bType == Hero.SublimationBtnType.Sublimation);
         if(bType == Hero.SublimationBtnType.Sublimation)then--升华
             self._imgBg:SetEnabled(false);
-            self:InitSublimationUI();
+            self:OpenMask()
+            self._transScrub:SetVisible(true);
+            self._transScrubDiaglog:SetVisible(false);
+            self.layer:Get("trans_container/trans_scrub/EraserMesh"):GetComponent("UIEraser"):Init(self._imgBody.sprite,self._hero.config.id)
+            self.layer:Get("trans_container/trans_scrub/EraserMesh"):GetComponent("UIEraser").canClear = false
+            self._sublimationWakeUpNode:InitSublimationUI(true);
             self:InitLockBackUI();
         else--回顾
             self._imgBg:SetEnabled(true);
@@ -326,69 +370,6 @@ function SublimationTipsLayer:SetUI()
             self:SetLockBackUI(true);
         end
         Guide:ContinueGuideEvent(self.__cname)
-    end
-end
-
-function SublimationTipsLayer:InitSublimationUI()
-    --显示升华相关
-    self._sublimation = {};
-    self._sublimation.txtHeroName = self._transSublimation:GetTextComponent("info_level/text_name");
-    self._sublimation.prefabHero = Bag:CtorComSimpleGoodsUi(self._transSublimation:Get("info_level/prefab_hero"),function () end);
-    self._sublimation.prefabHero.isMain = true;
-    --attr
-    self._sublimation.attrCObjArr = CAttr:NewAttrObjArr(self._transSublimation:Get("info_attr"), 6);
-    --消耗
-    --奖励
-    if(self._sublimation.awards == nil)then
-        self._sublimation.awards = {};
-        for i = 1, 5 do
-            self._sublimation.awards[i] = Bag:CtorComSimpleGoodsUi(self._transSublimation:Get("trans_award_get/trans_award_bg/item_"..i));
-        end
-    end
-    self:SetSublimationUI();
-    -- self:SetLvCostItems();
-    self:SetAwardItems();
-end
-
-function SublimationTipsLayer:SetSublimationUI()
-    local cfg = Hero:GetCfg(self._heroId);
-    self._sublimation.txtHeroName:SetText(cfg.Name);
-    Bag:SetComSimpleGoodsUi(self._sublimation.prefabHero,Bag.TYPE_HERO,self._heroId);
-    Hero:SetHeroAttr(self._sublimation.attrCObjArr, self._hero, true)
-    local lvUpCfg = Hero:GetCurSublimationCfgByHeroId(self._heroId);
-    local addAttr = {};
-    for i, v in ipairs(lvUpCfg.lvUpAttrAdd) do
-        if(addAttr[v[1]] == nil)then
-            addAttr[v[1]] = 0;
-        end
-        addAttr[v[1]] = addAttr[v[1]] + v[2];
-    end
-    for i, cls in ipairs(self._sublimation.attrCObjArr) do
-        CAttr:SetAddAttrCObj(cls, math.floor(addAttr[Hero.Attr6[i]] or 0));
-    end
-end
-
-function SublimationTipsLayer:SetLvCostItems()
-    local lvUpCosts = Hero:GetCurSublimationCfgByHeroId(self._heroId).RaiseUpCosts;
-    if self._uicostctrl == nil then
-        self._uicostctrl = UICostCtrl:new(self._transSublimation:Get("info_up/cost_bg"), 5)
-    end
-    local cfgId = self._uicostctrl:UpdateUICostCtrl(lvUpCosts)
-    self._isLvUp = cfgId == 0
-    if self._isLvUp then
-        self._imgSublimation:SetImageColor(1,1,1,1);
-    else
-        self._imgSublimation:SetImageColor(110/255,110/255,110/255,1);
-    end
-end
-
-function SublimationTipsLayer:SetAwardItems()
-    local awards = Hero:GetCurSublimationCfgByHeroId(self._heroId).lvUpAward;
-    for i, v in ipairs(self._sublimation.awards) do
-        v.obj:SetVisible(awards[i] ~= nil);
-        if(awards[i] ~= nil)then
-            Bag:SetComSimpleGoodsUi(v,awards[i][1],awards[i][2],awards[i][3]);
-        end
     end
 end
 
@@ -403,13 +384,21 @@ function SublimationTipsLayer:InitLockBackUI()
 end
 
 function SublimationTipsLayer:SetLockBackUI(isLockBack)
+    self._transScrub:SetVisible(false);
     self._transLockBack:SetVisible(true);
     self._lockBack.effect:Stop();
-    self._transSublimation:SetVisible(false);
+    self._sublimationWakeUpNode:SetVisible(false);
     local temp = lua_parse_cfg(self._hero.config.Dialogue,true);
     self._nextData = {};
     if(isLockBack)then
-        table.insert(self._nextData,temp[#temp]);
+        self._transLockBack:SetVisible(false);
+        self._lockBack.effect:Stop();
+        self._imgBg:SetEnabled(true);
+        self:SetImage()
+        self._sublimationWakeUpNode:InitSublimationUI(true);
+        self._sublimationWakeUpNode:UnLock()
+        self._sublimationWakeUpNode:SetVisible(true);
+        self._nextData = nil
     else
         for i=#temp,1,-1 do
             table.insert(self._nextData,temp[i]);
@@ -422,7 +411,6 @@ function SublimationTipsLayer:DoNext()
     if(self._nextData == nil)then
         return;
     end
-    print(self._nextData)
     local curData = self._nextData[#self._nextData];
     if(#self._nextData == 1)then
         if(self._doNextIndex >=  #curData)then
@@ -498,14 +486,14 @@ function SublimationTipsLayer:DragAction()
         --擦除结束,不响应拖拽事件
         return;
     end
-    -- print(self._scrubInfo.textureEraser.clearedPercent , self._wipeArea)
     if(self._scrubInfo.textureEraser.clearedPercent >= self._wipeArea)then
         self._curScrubState = ScrubState.ScrubOver;
         self._scrubInfo.transDialog:SetVisible(true);
         self._scrubInfo.btnCloseLayer:SetVisible(false);
         self._scrubInfo.textureEraser.canClear = false;
+        self._transBackWakeUp:SetVisible(true)
         self._scrubInfo.txtTimeTips:SetText(self._tipsShowTime);
-        self._scrubEraserMask:SetVisible(false)
+        self._scrubEraserMask:SetVisible(true)
         if self._hero.config.GlassDialogue ~= "-1" then
             local dialogue = Hero:GetDiaCfgByID(self._hero.config.GlassDialogue);
             self._scrubInfo.txtName:SetText(self._hero.config.Name);

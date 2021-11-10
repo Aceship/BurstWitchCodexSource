@@ -81,7 +81,7 @@ function ConcertBookLayer:show()
 end
 
 function ConcertBookLayer:onUpdateRedTips()
-    print("红点刷新")
+    -- print("红点刷新")
     self._hallMainNode:FlushConcertAllRedTips()
 end
 

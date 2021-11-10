@@ -66,6 +66,7 @@ function FightController:initFightData()
     end
 
     for k, v in pairs(self._levelcfg.levelAddEnv or {}) do
+
         if(v ~= -1) then
             table.insert(data.battleEffectIds, v)
         end
@@ -286,7 +287,7 @@ function FightController:SimpleInitFightController(levelid, midnightLevelId, isT
     -- 剧情普通本
     self._isnormallevel     = self._chapter.sub_type == Chapter.MODE_PLOT_N
     -- 剧情困难本
-    self._isdifflevel       = self._chapter.sub_type == Chapter.MODE_PLOT_D or self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD
+    self._isdifflevel       = self._chapter.sub_type == Chapter.MODE_PLOT_D or lua_value_in_tbl(self._chapter.sub_type, Chapter.MODE_ACTIVITY_HARD_IDS)    
     -- 符石副本
     self._isequiplevel      = Chapter.MODE_EQUIP == self._chapter.sub_type 
     -- 剧情本
@@ -294,8 +295,7 @@ function FightController:SimpleInitFightController(levelid, midnightLevelId, isT
     -- 爽关副本
     self._isTriggerLevel    = Chapter.FIGHT_TYPE_TRIGGER == self._chapter.main_type
     -- 第六封印本
-    self._isActivityLevel   = self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_COMMON 
-                                    or self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_HARD or  self._chapter.sub_type == Chapter.MODE_ACTIVITY_LEVEL_SPECIAL
+    self._isActivityLevel   = lua_value_in_tbl(self._chapter.sub_type, Chapter.MODE_ACTIVITY_IDS)
     
     self._isFirstBoss   = self._isbosslevel or self._israndomlevel or self._isetherlevel or self._ishamsterlevel    
     self._noauto_move   = self._isranklevel or self._israndomlevel or self._ishamsterlevel or self._isavoidlevel or self._isTriggerLevel
@@ -322,6 +322,8 @@ function FightController:SimpleInitFightController(levelid, midnightLevelId, isT
     self._battleData.settled        = false     -- 是否结算
     self._battleData.state          = -1
     self._battleData.score          = 0
+    self._battleData.scoreCopy      = math.random(1, 1024)
+    self._battleData.scoreSeed      = math.random(33, 137)
     self._battleData.cadanScore     = 0
     self._battleData.fightTime      = 0
     self._battleData.playMustNumber = 0
@@ -438,6 +440,7 @@ function FightController:onPackageBattleData()
         local data = CS.LuaLogicStaticCall.battleData
         self._battleData.state           = data.state
         self._battleData.score           = data.score
+        self._battleData.scoreCopy       = data.score * self._battleData.scoreSeed
         self._battleData.cadanScore      = data.cadanScore
         self._battleData.fightTime       = data.fightTime 
         self._battleData.playMustNumber  = data.playMustNumber
@@ -451,6 +454,15 @@ function FightController:onPackageBattleData()
             self._battleData.star[i] = data.achieve[i-1]
         end
         self._battleData.settled = true
+
+        if(data.state == 1
+            and data.score < 0) then
+            local ConfirmLayer = core.require("xlua/lua_UI/Comframework/ConfirmLayer.txt")
+            ConfirmLayer:new():showMsg([[导师大人，检测到您的游戏数据异常，如有疑问请联系客服进行处理，客服联系方式详见游戏公告......]], 
+                function()
+                    CS.UnityEngine.Application.Quit()
+                end, false, true)
+        end
     end
 end
 

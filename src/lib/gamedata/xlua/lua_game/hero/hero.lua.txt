@@ -1413,6 +1413,29 @@ function Hero:GetHeroIsSublimation(heroId)
     return Hero.SublimationBtnType.Sublimation;
 end
 
+--获取当前升华层级
+function Hero:GetCurRaiseByHeroId(heroId)
+    local hero = Hero:GetHero(tonumber(heroId))
+    local curLv = 0;
+    local cfgs = Hero:GetSublimationCfgsByGroupId(hero.Intimacy[4]);
+    if(hero.intimacy_data.raise == 0)then
+        curLv = 1;
+    elseif(hero.intimacy_data.raise < 0)then
+        curLv = math.abs(hero.intimacy_data.raise);
+    elseif(#cfgs < hero.intimacy_data.raise)then
+        curLv = hero.intimacy_data.raise + 1;
+    else
+        curLv = hero.intimacy_data.raise;
+    end
+    return curLv
+end
+
+--获取角色的最大升华层级
+function Hero:GetMaxRaiseNumByHeroId(heroId)
+    local hero = Hero:GetHero(tonumber(heroId))
+    return hero.intimacy_data.maxraise
+end
+
 --根据星级获取角色星级增长属性
 function Hero:GetHeroStarAddAttrByStar(heroId,star)
     local attrs = self._starUpAttrUp[heroId];

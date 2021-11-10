@@ -58,6 +58,11 @@ end
 function ComNewShopLayer:refreshData()
     self._chargeIds = Operation:GetCurChargeIds()
     self._nRows = math.ceil(#self._chargeIds / _max_number)
+    local id = Operation:GetActiveCfgByUID(Operation:GetCurSelectUID()).id;
+    if(not Recharge:GetNewChargeIsLookById(id))then
+        Recharge:NewChargeIsLook(id);
+        Operation:SetTogRedPoint();
+    end
 end
 
 function ComNewShopLayer:refreshTableViewController(aniPlay)
@@ -89,6 +94,7 @@ function ComNewShopLayer:onUnitCellCtor(transform)
             Bag:CtorComSimpleGoodsUi(obj:Get("item3")),
         }
         cls.txt_name        = obj:GetTextComponent("txt_name")
+        cls.txt_count_down  = obj:GetTextComponent("txt_count_down")
         cls.obj_price       = obj:Get("obj_price")
         cls.obj_free        = obj:Get("obj_free")
         cls.obj_tips        = obj:Get("img_tips")
@@ -102,11 +108,12 @@ function ComNewShopLayer:onUnitCellCtor(transform)
         cls.img_mask        = obj:GetImageComponent("img_mask")
         cls.obj_is_get      = obj:Get("img_is_get")
         cls.obj_open        = obj:Get("obj_open")
+        cls.imgTagNew       = obj:GetImageComponent("img_tag_new")
         cls.txt_open        = obj:GetTextComponent("obj_open/txt_open_value")
         cls.btn_click       = obj:GetComponent("Button")
         cls.cfgId           = 0
+        cls.countDown       = nil
         cls.bgPath          = ""
-        
         cls.btn_click:AddButtonListener(function()
             self:onBuyItemClick(cls.cfgId)
         end)
@@ -117,7 +124,7 @@ function ComNewShopLayer:onUnitCellCtor(transform)
 end
 
 function ComNewShopLayer:onUnitCellSet(cell, row)
-    local index, cfgId = 0
+    local index = 0
     for i = 1, _max_number do
         index = row * _max_number + i
         local obj = cell[i]
@@ -160,6 +167,17 @@ function ComNewShopLayer:refreshOneBuyObj(obj)
         obj.bgPath = _config.bgPath[2]
     end
     obj.txt_name:SetText(_config.name)
+
+    if(_config.timeId > 0)then
+        obj.countDown = CTime:GetRemainTime(_config.timeId)
+        if(obj.countDown <= 0)then
+            obj.countDown = -1;
+        end
+    else
+        obj.countDown = nil
+    end
+
+    self:UpdateCountDown(obj)
 
     local _tmpprice
     local _tmpdiscount
@@ -253,6 +271,40 @@ function ComNewShopLayer:refreshOneBuyObj(obj)
 
     -- 设置角标
     Operation:SetCursorTag(obj.img_tag, obj.txt_tag, _config.tag, strTag)
+
+    obj.imgTagNew:SetEnabled(_config.isNew > 0);
+end
+
+--倒计时更新
+function ComNewShopLayer:UpdateCountDown(cls)
+    local countDownStr = ""
+    if(cls.countDown ~= nil)then
+        if(cls.countDown > -1)then--倒计时有剩余时间
+            countDownStr = string.format(LanguageMgr:GetTextByID(90397),CTime:Time2Str_3(cls.countDown))
+        elseif(cls.countDown <= -1)then--无剩余时间
+            countDownStr = LanguageMgr:GetTextByID(90182)
+        end
+    end
+    cls.txt_count_down:SetText(countDownStr)
+end
+
+--秒更新
+function ComNewShopLayer:onPerSecondUpdate()
+    if(self._cells == nil or #self._cells <= 0)then
+        return;
+    end
+    for _, cell in pairs(self._cells) do
+        for i = 1, _max_number do
+            if(cell[i].cfgId ~= nil)then
+                if(cell[i].countDown ~= nil)then
+                    if(cell[i].countDown >= 0)then
+                        cell[i].countDown = cell[i].countDown - 1;
+                        self:UpdateCountDown(cell[i]);
+                    end
+                end
+            end
+        end
+    end
 end
 
 return ComNewShopLayer

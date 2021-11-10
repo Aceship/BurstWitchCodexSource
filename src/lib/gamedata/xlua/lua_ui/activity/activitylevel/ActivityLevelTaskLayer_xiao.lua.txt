@@ -1,0 +1,177 @@
+---
+--- Author:admin
+--- Create Time:2021-09-27 20:57:07
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local ActivityLevelTaskLayer_xiao = class("ActivityLevelTaskLayer_xiao", CBaseLayer)
+--按钮
+local BTNS = {
+    recv_all = "button_all"
+}
+--构造函数
+function ActivityLevelTaskLayer_xiao:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_uiActivity/ActivityLevel/UI_ActivityLevelTaskLayer_xiao"
+    }
+    self._topData = {
+        showBtnBack = true
+    }
+    self._hideOtherLayer = true
+    self._addStack = true
+    self._fading = false
+    self:onEnter()
+end
+
+--进入Ui调用一次
+function ActivityLevelTaskLayer_xiao:onEnter()
+    self:RegisterHandler()
+    self:createPnl()
+    self:registerButtonEvent(BTNS)
+    self:Init()
+end
+function ActivityLevelTaskLayer_xiao:CheckCanRecv()
+    local tbl = {}
+    for _, v in pairs(self._taskIds) do
+        local data = Task:GetTask(v)
+        if data.state == Task.STATE_HAS_DONE then
+            table.insert(tbl, v)
+        end
+    end
+    return tbl
+end
+--按钮事件
+function ActivityLevelTaskLayer_xiao:onButtonClick(itype)
+    if (itype == BTNS.recv_all) then
+        local recvs = self:CheckCanRecv()
+        if #recvs > 0 then
+            Task:GetRewardReq(recvs)
+        else
+            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(60011))
+        end
+    end
+    --RemoveEnd
+end
+
+--初始化
+function ActivityLevelTaskLayer_xiao:Init()
+    self:InitData()
+    self:UpdateTaskData()
+    self:InitUI()
+end
+--初始化数据
+function ActivityLevelTaskLayer_xiao:InitData()
+    self._uid = Activity:GetOpenActivityLevelId()
+    local _mathTypeCfg = Activity:GetActive_sixthmaintypeConfigByUid(self._uid)
+    self._subType = _mathTypeCfg.Quest_child_class_1[1]
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+    -- lua_table_len(self._taskIds)
+    -- lua_table_print(self._taskIds)
+end
+
+--更新数据
+function ActivityLevelTaskLayer_xiao:UpdateTaskData()
+    self._taskIds = Task:SortTaskIds(Task:GetSubTasks(self._subType))
+end
+--初始化UI
+function ActivityLevelTaskLayer_xiao:InitUI()
+    self._taskCells = {}
+   self._tvController =UIController:CtorTableView(self.layer:Get("TableViewController"):CreateChild("prefab_uiHome/sys/prefab_tasklist_new"))
+    self:SetTaskTableView()
+end
+
+--显示UI
+function ActivityLevelTaskLayer_xiao:show()
+    self:showLayer()
+    self:SetUI()
+end
+function ActivityLevelTaskLayer_xiao:showLayer()
+    Activity:SetActivityLevelTitleLayer(Activity.ActivityLevelType_Task)
+    CBaseLayer.showLayer(self)
+end
+
+--释放
+function ActivityLevelTaskLayer_xiao:onExit()
+    for _, cell in pairs(self._taskCells) do
+        cell:clear()
+    end
+    self._taskIds   = nil
+    self._taskCells = nil
+    self._TableViewController = nil
+    self._tvController = nil
+    --@CloseEnd
+    CBaseLayer.onExit(self)
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+
+function ActivityLevelTaskLayer_xiao:RegisterHandler()
+    self:addEventListener(
+        EVENT_NAME.TASK_RECV_REWARD,
+        self.__cname,
+        function()
+            self:UpdateTaskData()
+            --self:RefreshScoreAndSlider()
+            self:SetTaskTableView()
+        end
+    )
+end
+
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+local speed = 0.001
+function ActivityLevelTaskLayer_xiao:onUpdate()
+    if self.flag then
+        if self._imgRealSlider.value < self._imgAllScore.value then
+            self._imgRealSlider.value = self._imgRealSlider.value + speed
+        else
+            self._txtAddSorce:SetVisible(true)
+            self.flag = false
+        end
+    end
+end
+
+-- function ActivityLevelTaskLayer_xiao:GetAward()
+--     local recvs = self:CheckCanRecv()
+--     if #recvs > 0 then
+--         Task:GetRewardReq(recvs)
+--     else
+--         self:RefreshScoreAndSlider()
+--     end
+-- end
+function ActivityLevelTaskLayer_xiao:SetUI()
+end
+
+function ActivityLevelTaskLayer_xiao:SetTaskTableView()
+    if self._init then
+        self._tvController:Reload(#self._taskIds, false)
+    else
+        self._tvController:Init(
+            #self._taskIds,
+            false,
+            function(cell, row, play)
+                self:SetTaskCell(cell, row + 1)
+            end,
+            0.3,
+            0.1
+        )
+        self._init = true
+    end
+end
+function ActivityLevelTaskLayer_xiao:SetTaskCell(cell, row)
+    local cls = self._taskCells[cell]
+    if (cls == nil) then
+        cls = Task:InitActivityLevelTaskCell(cell.transform, 2)
+        self._taskCells[cell] = cls
+    end
+    local taskid = self._taskIds[row]
+    Task:SetActivityLevelTaskCell(cls, taskid)
+end
+
+return ActivityLevelTaskLayer_xiao

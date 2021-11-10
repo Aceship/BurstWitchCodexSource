@@ -200,6 +200,7 @@ function GameAreaLayer:doClickArea(idx)
     local testId = datas[ridx]
     --CS.LogError.LogInfo(testId)
     Login:SetLastLoginId(testId)
+    Groble_SceneMgr:PrefsSetString("last_login_id", tostring(testId))
     self:onBackClick()
 end
 

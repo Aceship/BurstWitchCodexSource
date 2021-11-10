@@ -45,3 +45,7 @@ int,string,int,number,string,string,int,string,sarray_|,int_array_&_|
 1042,M2_desert05,0,573.5,prefab_light/M2_desert05_Light,-1,1,170|115|80|255|75|225,M2_Cloud_B_redsun|M2_Cloud_C_redsun,1|2
 1043,M2_nightsea01_xueyue,1,0,prefab_light/M2_nightsea01_xueyue_Light,-1,1,30|25|50|255|-50|200,M2_Cloud_B_xueyue|M2_Cloud_C_xueyue,1|2
 1044,M2_daily03_prison,1,0,prefab_light/M2_nightsea01_xueyue_Light,-1,1,15|15|30|255|60|300,-1,-1
+1045,M2_cloister02_fire,0,550,prefab_light/M2_cloister02_fire_Light,-1,1,180|90|70|255|60|300,-1,-1
+1046,M2_nightingale_evernighttown,0,500,prefab_light/M2_nightingale_evernighttown_Light,-1,1,100|0|0|255|-50|160,M2_Cloud_B_dark|M2_Cloud_C_dark,1|2
+1047,M2_cloister01_carpet,0,550,prefab_light/M2_cloister01_carpet_Light,-1,1,175|25|25|255|150|300,-1,-1
+1048,M2_nightingale_evernightcastle,1,0,prefab_light/M2_nightingale_evernightcastle_Light,-1,1,75|15|45|255|-20|110,M2_Cloud_B_dark,1

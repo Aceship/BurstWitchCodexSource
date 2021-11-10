@@ -61,6 +61,7 @@ Player.ITEM_DICE                            = 8999998                       --�
 Player.ITEM_TURNTABLE                       = 8999997                       --转盘道具
 
 Player.ITEM_RON                             = 3000000                       --万能碎片
+Player.ITEM_XUESONGBING                     = 8999994                       --雪松果饼干
 -- 道具类型-数值类型
 Player.kPlayerItem2Value = {
     [Player.ITEM_VALUE_COIN]                = Player.VALUE_COIN,            -- 魂晶
@@ -143,6 +144,7 @@ Player.CURRENCY_LOTTERY         = {nil, Player.ITEM_VALUE_MONEY, Player.ITEM_LOT
 Player.CURRENCY_RANK_SHOP       = {Player.ITEM_VALUE_SY_COIN}
 Player.CURRENCY_LACKEY_UP       = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY, Player.ITEM_VALUE_COIN}
 Player.CURRENCY_Concert         = {Player.ITEM_VALUE_POWER,Player.ITEM_VALUE_MONEY}
+Player.CURRENCY_LEVELLAYER      = {Player.ITEM_VALUE_POWER, Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_WITCH_COIN, Player.ITEM_XUESONGBING}
 
 --好友
 Player.CURRENCY_FRIEND          = {nil,Player.ITEM_VALUE_MONEY,Player.ITEM_VALUE_COIN}

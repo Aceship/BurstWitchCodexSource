@@ -244,6 +244,7 @@ number,string,string
 1033,event:/GameEffect/WitchSound/1044-skill_play,event:/GameEffect/WitchSound/JP/1044-skill_play_JP
 1034,event:/GameEffect/WitchSound/1045-skill_play,event:/GameEffect/WitchSound/JP/1045-skill_play_JP
 105001,event:/GameEffect/WitchSound/1050-skill_play,event:/GameEffect/WitchSound/JP/1050-skill_play_JP
+102601,event:/GameEffect/WitchSound/1026-skill_play,event:/GameEffect/WitchSound/JP/1026-skill_play_JP
 1035,event:/GameEffect/WitchSound/1001-fade_play,event:/GameEffect/WitchSound/JP/1001-fade_play_JP
 1036,event:/GameEffect/WitchSound/1002-fade_play,event:/GameEffect/WitchSound/JP/1002-fade_play_JP
 1037,event:/GameEffect/WitchSound/1003-fade_play,event:/GameEffect/WitchSound/JP/1003-fade_play_JP
@@ -280,6 +281,7 @@ number,string,string
 1068,event:/GameEffect/WitchSound/1044-fade_play,event:/GameEffect/WitchSound/JP/1044-fade_play_JP
 1069,event:/GameEffect/WitchSound/1045-fade_play,event:/GameEffect/WitchSound/JP/1045-fade_play_JP
 105002,event:/GameEffect/WitchSound/1050-fade_play,event:/GameEffect/WitchSound/JP/1050-fade_play_JP
+102602,event:/GameEffect/WitchSound/1026-fade_play,event:/GameEffect/WitchSound/JP/1026-fade_play_JP
 1070,event:/GameEffect/WitchSound/1001-hit_play,event:/GameEffect/WitchSound/JP/1001-hit_play_JP
 1071,event:/GameEffect/WitchSound/1002-hit_play,event:/GameEffect/WitchSound/JP/1002-hit_play_JP
 1072,event:/GameEffect/WitchSound/1003-hit_play,event:/GameEffect/WitchSound/JP/1003-hit_play_JP
@@ -316,6 +318,7 @@ number,string,string
 1103,event:/GameEffect/WitchSound/1044-hit_play,event:/GameEffect/WitchSound/JP/1044-hit_play_JP
 1104,event:/GameEffect/WitchSound/1045-hit_play,event:/GameEffect/WitchSound/JP/1045-hit_play_JP
 105003,event:/GameEffect/WitchSound/1050-hit_play,event:/GameEffect/WitchSound/JP/1050-hit_play_JP
+102603,event:/GameEffect/WitchSound/1026-hit_play,event:/GameEffect/WitchSound/JP/1026-hit_play_JP
 1105,event:/GameEffect/WitchSound/1001-dead_play,event:/GameEffect/WitchSound/JP/1001-dead_play_JP
 1106,event:/GameEffect/WitchSound/1002-dead_play,event:/GameEffect/WitchSound/JP/1002-dead_play_JP
 1107,event:/GameEffect/WitchSound/1003-dead_play,event:/GameEffect/WitchSound/JP/1003-dead_play_JP
@@ -352,6 +355,7 @@ number,string,string
 1138,event:/GameEffect/WitchSound/1044-dead_play,event:/GameEffect/WitchSound/JP/1044-dead_play_JP
 1139,event:/GameEffect/WitchSound/1045-dead_play,event:/GameEffect/WitchSound/JP/1045-dead_play_JP
 105004,event:/GameEffect/WitchSound/1050-dead_play,event:/GameEffect/WitchSound/JP/1050-dead_play_JP
+102604,event:/GameEffect/WitchSound/1026-dead_play,event:/GameEffect/WitchSound/JP/1026-dead_play_JP
 1140,event:/GameEffect/WitchSound/1001-GetNewHero,event:/GameEffect/WitchSound/JP/1001-GetNewHero_JP
 1141,event:/GameEffect/WitchSound/1002-GetNewHero,event:/GameEffect/WitchSound/JP/1002-GetNewHero_JP
 1142,event:/GameEffect/WitchSound/1003-GetNewHero,event:/GameEffect/WitchSound/JP/1003-GetNewHero_JP
@@ -388,6 +392,7 @@ number,string,string
 1173,event:/GameEffect/WitchSound/1044-GetNewHero,event:/GameEffect/WitchSound/JP/1044-GetNewHero_JP
 1174,event:/GameEffect/WitchSound/1045-GetNewHero,event:/GameEffect/WitchSound/JP/1045-GetNewHero_JP
 105005,event:/GameEffect/WitchSound/1050-GetNewHero,event:/GameEffect/WitchSound/JP/1050-GetNewHero_JP
+102605,event:/GameEffect/WitchSound/1026-GetNewHero,event:/GameEffect/WitchSound/JP/1026-GetNewHero_JP
 1175,event:/FightEffect/witch_skill_barrage-100101-PlaySound,event:/FightEffect/witch_skill_barrage-100101-PlaySound
 1176,event:/FightEffect/witch_skill_barrage-100101-PlaySound,event:/FightEffect/witch_skill_barrage-100101-PlaySound
 1177,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound
@@ -787,6 +792,14 @@ number,string,string
 105011,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound
 105012,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound
 105013,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound,event:/FightEffect/witch_skill_mustXlsx-105003-PlaySound
+102606,event:/FightEffect/witch_skill_barrage-102601-PlaySound,event:/FightEffect/witch_skill_barrage-102601-PlaySound
+102607,event:/FightEffect/witch_skill_barrage-102601-PlaySound,event:/FightEffect/witch_skill_barrage-102601-PlaySound
+102608,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
+102609,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
+102610,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
+102611,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
+102612,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
+102613,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound,event:/FightEffect/witch_skill_mustXlsx-102603-PlaySound
 1566,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound
 1567,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound
 1568,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound,event:/FightEffect/witch_skill_mustXlsx-100103-PlaySound

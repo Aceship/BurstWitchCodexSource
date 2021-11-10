@@ -34,7 +34,7 @@ function ConcertBookNode:InitNode(concertBookLayer)
 end
 
 function ConcertBookNode:DoEnterBook(hallId)
-    self._allBookIds = Concert:GetAllConcetBooks()
+    self._allBookIds = Concert:GetAllConcetBooks(hallId)
     self._hall  = Concert:GetConcertById(hallId);
 
     self.curBookId = 0
@@ -264,6 +264,8 @@ function ConcertBookNode:onFight()
         end
     end
     Concert:ConcertShowStart_Req(self._hall.id,self._curBook.id,heroIds,self.itemId)
+    --将播放的id信息记录本地
+    Groble_SceneMgr:PrefsSetString("concertbood_" .. tostring(self._hall.id),tostring(self._curBook.id));
 end
 
 function ConcertBookNode:onStudy()

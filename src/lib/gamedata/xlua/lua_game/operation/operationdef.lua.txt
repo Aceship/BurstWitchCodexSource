@@ -46,6 +46,8 @@ Operation.ActivityID = {
     --ShopSummon               = 40004,       --召唤商店
 
     SkinGiftBag_1       = 16011,            -- 皮肤礼包1
+    SkinGiftBag_2       = 16012,            -- 皮肤礼包2
+    SkinGiftBag_3       = 16013,            -- 皮肤礼包3
 
     --ShopActive               = 212,       --活动商店
     --ShopDial                 = 222,         --转盘商店

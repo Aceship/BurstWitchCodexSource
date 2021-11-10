@@ -462,6 +462,7 @@ EFFECT_TYPE = {
     FIRST_REWARD    = 880009,
     CG_REWARD       = 880010,
     GIFT_REWARD     = 880011,
+    TIME_REWARD     = 880086,
     SUMMON          = 880012,
     AWAKE           = 7010018,
     MARK_UP         = 880050,
@@ -544,6 +545,7 @@ BackBgPath = {
     BG_CHESS = "source_common/img_huodong_zzl_bg",
     BG_MID_NIGHT_1 = "source_common/Img_shengye_bg_01",
     BG_MID_NIGHT_2 = "source_common/Img_shengye_bg_02",
+    BG_MID_NIGHT_3 = "source_common/ActivityLevel/img_myj_beijing_1",
 }
 
 HomeLayerMsgType = {

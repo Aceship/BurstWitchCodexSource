@@ -111,17 +111,17 @@ function ConcertItemSelectLayer:onCancel()
 end
 
 function ConcertItemSelectLayer:btnUseClick(cls)
-    print("点击使用按钮")
+    -- print("点击使用按钮")
     local count = Item:GetCount(cls.itemId)
     if count <= 0 then
         Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(809021))
         return
     end
     if self._callBack ~= nil then
-    self._callBack(cls.itemId)
+        self._callBack(cls.itemId)
     end
     self:onPopLayer()
-    end
+end
 --@ButtonFunctionEnd
 
 ---------------------------------------------------------TogClick------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ function ConcertItemSelectLayer:OnAddItemTogClick(isOn,cls)
             return;
         end
         self.curSortId = cls.sortId
-        print("当前道具类型  ： "..cls.sortId)
+        -- print("当前道具类型  ： "..cls.sortId)
         self:SetTableView()
         --[[
         cls.txtName.color = COLOR_TYPE.Black;

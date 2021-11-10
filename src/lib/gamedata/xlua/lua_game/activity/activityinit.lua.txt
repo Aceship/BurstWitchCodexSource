@@ -16,6 +16,7 @@ AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activityui.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activityupgrade.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitywitchbook.txt")
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitysixthseal.txt")
+AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitytriggerad.txt")
 
 --活动关卡
 AssetLoader:LoadLuaAsset("xlua/lua_Game/Activity/activitylevel.txt")

@@ -7,6 +7,7 @@ local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
 local FetterLayer = class("FetterLayer", CBaseLayer)
 
 local BUTTON_TYPE = {
+    Story            = "main_buttons/button_story",           -- 传记界面
     Gift            = "main_buttons/button_gift",           -- 赠送礼物
     BtnHideGift     = "btn_hide_gift",                      --隐藏赠送礼物界面
     BtnSublimation  = "main_buttons/btn_sublimation",       --升华
@@ -55,6 +56,7 @@ function FetterLayer:onExit()
 
     self._buttonsPnl    = nil
     self._btnGift       = nil
+    self._btnStory      = nil
     self._transBtnSublimation = nil
     self._imgSublimationOpen = nil
     self._imgSublimationLock = nil
@@ -70,6 +72,7 @@ end
 function FetterLayer:initObj()
     self._buttonsPnl    = self.layer:Get("main_buttons")
     self._btnGift       = self.layer:Get("main_buttons/button_gift")
+    self._btnStory       = self.layer:Get("main_buttons/button_story")
     self._transBtnSublimation = self.layer:Get(BUTTON_TYPE.BtnSublimation);
     self._imgSublimationOpen = self.layer:GetImageComponent("main_buttons/btn_sublimation/img_unlock");
     self._imgSublimationLock = self.layer:GetImageComponent("main_buttons/btn_sublimation/img_lock");
@@ -130,6 +133,7 @@ function FetterLayer:refreshHeroInfo(heroid)
     self._maxlevel = tonumber(Fetter:GetFavourLevelMax(self._hero.Intimacy[1]))
     self:setIntroInfo(self._intro, self._hero)
     self._btnGift:SetVisible(self._hero.owner)
+    self._btnStory:SetVisible(self._hero.owner)
     self:showMaxEffect()
     if self._hero.owner then
         Fetter:SetSelectHeroGiftLayer(self._hero.id)
@@ -148,6 +152,8 @@ function FetterLayer:onButtonClick(itype)
         self:playAni("FetterLayerFadeOut")
         self._heroTableViewCtrl:hideLayer();
         Groble_UIMgr:HideBackBtn();
+    elseif(itype == BUTTON_TYPE.Story)then
+        core.require("xlua/lua_UI/Witch/WitchStoryLayer.txt"):new():show(self._hero.id)
     elseif(itype == BUTTON_TYPE.BtnHideGift)then
         if(self._showGift)then
             self._showGift = false;
@@ -218,8 +224,8 @@ function FetterLayer:SetSublimationUIState()
     elseif(btnType == Hero.SublimationBtnType.LockBack)then
         self._imgSublimationLock:SetEnabled(false);
         self._imgSublimationOpen:SetEnabled(true);
-        self._imgSublimationOpen:LoadAtlasSprite("source_atlas/atlas_witch", "Btn_n__MoNv_huigu");
-        self._txtSublimationTitle:SetTextById(31029);
+        self._imgSublimationOpen:LoadAtlasSprite("source_atlas/atlas_witch", "Btn_n__MoNv_shenghua");
+        self._txtSublimationTitle:SetTextById(31020);
     end
 
     self._objSublimationTips:SetVisible(Hero:IsBatterSublimationOper(self._hero.id))

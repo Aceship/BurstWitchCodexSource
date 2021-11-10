@@ -138,7 +138,7 @@ function Chapter:_checkAutoItems(itemtype, cfgid, count, sortid)
     end
 end
 
-function Chapter:AddAutoItems(drops, cg_drops, first_drops)
+function Chapter:AddAutoItems(drops, cg_drops, first_drops, time_drops)
     for _, v in ipairs(drops or {}) do
         self:_checkAutoItems(v[1], v[2], v[3], v[4])
     end
@@ -146,6 +146,9 @@ function Chapter:AddAutoItems(drops, cg_drops, first_drops)
         self:_checkAutoItems(v[1], v[2], v[3], v[4])
     end
     for _, v in ipairs(first_drops or {}) do
+        self:_checkAutoItems(v[1], v[2], v[3], v[4])
+    end
+    for _, v in ipairs(time_drops or {}) do
         self:_checkAutoItems(v[1], v[2], v[3], v[4])
     end
 end

@@ -301,7 +301,7 @@ function HeroController:HeroAttrCheck()
     -- print("====================检测到作弊")
     _datas.playerId = Player:GetId()
     _datas.platformId = GameSdkMgr:GetPlatformId()
-    HttpUpload:UploadCheatAttr(luajson.encode(_datas))
+    HttpUpload:UploadCheatAttr(luajson.encode(_datas), true)
     
     return true
 end

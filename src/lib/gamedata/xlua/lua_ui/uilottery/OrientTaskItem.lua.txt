@@ -14,16 +14,21 @@ function OrientTaskItem:ctor(super, trans)
         local item = clsbase:new(self._trans:Get("trans_award_"..i));
         item.imgAward = item:GetImageComponent("img_award");
         item.txtPlan = item:GetTextComponent("txt_plan");
+        item.imgRed = item:GetImageComponent("img_enter_red");
         self._taskItems[i] = item;
     end
     self._trans:GetButtonComponent("btn_award").onClick:AddListener(function()
-        core.require("xlua/lua_UI/UILottery/OrientTipsLayer.txt"):new():show();
+        if self.lotteryCfg.timeid <= 0 or CTime:IsOpen(self.lotteryCfg.timeid) then
+            core.require("xlua/lua_UI/UILottery/OrientTipsLayer.txt"):new():show();
+        else
+            Groble_UIMgr:ShowGameWordTipsLayer(90396);
+        end
     end);
 end
 
 function OrientTaskItem:UpdateOrientTaskUI(lotteryTypeId)
-    local lotteryCfg = Lottery:GetLotteryTypeCfg(lotteryTypeId);
-    local taskIds = Task:GetSubTasks(lotteryCfg.taskType);
+    self.lotteryCfg = Lottery:GetLotteryTypeCfg(lotteryTypeId);
+    local taskIds = Task:GetSubTasks(self.lotteryCfg.taskType);
     table.sort(taskIds,function (a,b)
         return a < b;
     end);
@@ -58,6 +63,9 @@ function OrientTaskItem:UpdateOrientTaskUI(lotteryTypeId)
     self._txtCurPlan:SetText(string.format(LanguageMgr:GetTextByID(30043),selTasks[2].hasValue));
     for i, item in ipairs(self._taskItems) do
         item.txtPlan:SetText(selTasks[i].showValue);
+        if item.imgRed~=nil then
+           item.imgRed:SetEnabled(selTasks[i].state == Task.STATE_HAS_DONE);
+        end
         if(selTasks[i].state == Task.STATE_NOT_DONE)then--未完成
             item.imgAward:LoadAtlasSprite(AtlasMgr.LOTTERY_02, "Btn_zhaohuan_jiangli_xiao_01");
         elseif(selTasks[i].state == Task.STATE_HAS_RECV)then--已领取
@@ -80,6 +88,7 @@ function OrientTaskItem:Close()
         v:clear();
     end
     self._taskItems = nil;
+    self.lotteryCfg = nil; 
 end
 
 return OrientTaskItem;

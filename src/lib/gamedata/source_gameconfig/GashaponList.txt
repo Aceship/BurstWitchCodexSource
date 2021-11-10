@@ -6,11 +6,11 @@ number,number,number,number,number,number,number,number,array_|,string,number,nu
 3,7,1,0,-1,-1,0,-1,1001004|1001014,prefab_uiHome/sys/prefab_lottery_2,101,10160003,1003,-1,-1,0,0,3,0,-1,-1,-1,-1
 4,8,1,1,-1,-1,100101501,-1,1001005|1001015,prefab_uiHome/sys/prefab_lottery_4,101,10160004,1004,-1,-1,1,0,2,0,-1,-1,-1,-1
 5,0,2,0,-1,-1,0,-1,2001001|2001011,0.0,0,10160005,0,-1,-1,0,0,-1,0,-1,-1,-1,-1
-6,1,1,0,-1,10,0,99003,1001016,prefab_uiHome/sys/prefab_lottery_6,0,10160006,1001,-1,-1,1,10,9,0,img_zhaohuan_banner_01&img_zhaohuan_banner_06,-1,text_zhaohuan_banner_06&24&-313&0,-1
+6,1,1,0,-1,10,0,99003,1001016,prefab_uiHome/sys/prefab_lottery_6,0,10160006,1001,-1,-1,1,10,9,0,img_zhaohuan_banner_1009&img_zhaohuan_banner_06,-1,text_zhaohuan_banner_06&24&-313&0,-1
 7,2,1,1,1013,-1,100101601,-1,2001006|2001016,prefab_uiHome/sys/prefab_lottery_7,101,10160007,1004,-1,-1,1,0,2,0,img_zhaohuan_banner_02&text_zhaohuan_banner_03,img_zhaohuan_xingshou_02&0&-323&1&0.5&0,text_zhaohuan_banner_06&24&-313&0,2&1013
 8,3,1,1,1023,-1,100101701,-1,2001007|2001017,prefab_uiHome/sys/prefab_lottery_9,101,10160008,1005,-1,-1,1,0,2,0,img_zhaohuan_banner_04&text_zhaohuan_banner_05,shouci_4&0&-323&1&0.5&0,text_zhaohuan_banner_06&24&-313&0,2&1023
 9,4,1,1,1025,-1,100101801,-1,2001008|2001018,prefab_uiHome/sys/prefab_lottery_8,101,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_03&text_zhaohuan_banner_04,shouci_4&0&-323&1&0.5&0,text_zhaohuan_banner_07&24&-313&0,2&1025
-10,2,1,1,1044,-1,100101901,-1,2001009|2001019,prefab_uiHome/sys/prefab_lottery_10,37002,10160007,4001,-1,-1,1,0,5,901,img_zhaohuan_banner_06&text_zhaohuan_banner_10,Img_ZhaoHuan_Guang_3&0&-183&0.9&0.5&1,text_zhaohuan_hunchi_biaoti10&24&-313&0,2&1044
+10,2,1,1,1044,-1,100101901,-1,2001009|2001019,prefab_uiHome/sys/prefab_lottery_10,101,10160007,4001,-1,-1,1,0,5,901,img_zhaohuan_banner_06&text_zhaohuan_banner_10,Img_ZhaoHuan_Guang_3&0&-183&0.9&0.5&1,text_zhaohuan_hunchi_biaoti10&24&-313&0,2&1044
 11,0,2,0,-1,-1,0,-1,2002001|2002011,0.0,0,10160005,0,-1,-1,0,0,-1,0,-1,-1,-1,-1
 12,0,2,0,-1,-1,0,-1,2003001|2003011,0.0,0,10160005,0,-1,-1,0,0,-1,0,-1,-1,-1,-1
 13,0,2,0,-1,-1,0,-1,2004001|2004011,0.0,0,10160005,0,-1,-1,0,0,-1,0,-1,-1,-1,-1
@@ -26,4 +26,6 @@ number,number,number,number,number,number,number,number,array_|,string,number,nu
 23,0,2,0,-1,-1,0,-1,2014001|2014011,0.0,0,10160005,0,-1,-1,0,0,-1,0,-1,-1,-1,-1
 24,3,1,1,1035,-1,100302001,-1,3001001|3002001,prefab_uiHome/sys/prefab_lottery_9,10001,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_08&img_zhaohuan_banner_11,body_1035&26&39&1&0.5&1,img_zhaohuan_rongguangshengdun_biaoti_6&24&-313&0,2&1035
 25,3,1,1,1021,-1,100302002,-1,3001002|3002002,prefab_uiHome/sys/prefab_lottery_9,10002,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_09&img_zhaohuan_banner_12,body_1021&39&-238&0.8&0.5&1,img_zhaohuan_yonghengqiangwei_biaoti_7&24&-313&0,2&1021
-26,3,1,1,1024,-1,100302003,-1,3001003|3002003,prefab_uiHome/sys/prefab_lottery_9,10003,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_10&img_zhaohuan_banner_13,body_1024&0&-364&0.8&0.5&1,img_zhaohuan_jiliemoying_biaoti_5&24&-313&0,2&1024
+26,3,1,1,1009,-1,100302003,-1,3001003|3002003,prefab_uiHome/sys/prefab_lottery_9,10003,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_1009&img_zhaohuan_bannertext_1009,body_1009&0&-65&1&0.5&1,img_zhaohuan_hunchi_biaoti_1009&24&-313&0,2&1009
+27,3,1,1,1010,-1,100302004,-1,3001004|3002004,prefab_uiHome/sys/prefab_lottery_9,10004,10160009,1006,-1,-1,1,0,2,0,img_zhaohuan_banner_1010&img_zhaohuan_bannertext_1010,body_1010&0&-364&0.8&0.5&1,img_zhaohuan_hunchi_biaoti_1010&24&-313&0,2&1010
+1001,2,1,1,1026,-1,100402001,-1,4001001|4002001,prefab_uiHome/sys/prefab_lottery_10,37002,10160007,4001,-1,-1,1,0,5,902,img_zhaohuan_banner_1026&img_zhaohuan_bannertext_1026,body_1026&0&-116&1.1&0.5&1,img_zhaohuan_hunchi_biaoti_1026&24&-313&0,2&1026

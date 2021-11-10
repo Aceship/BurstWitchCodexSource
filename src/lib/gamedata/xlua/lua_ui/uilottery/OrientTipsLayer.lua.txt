@@ -59,6 +59,8 @@ function OrientTipsLayer:InitUI()
 	--@RectTransformEnd
 
 	self._objItem = self.layer:Get("trans_container/trans_table_view_controller/item_hide/obj_item").gameObject; 
+    self._img_enter_red=self.layer:GetImageComponent("trans_container/btn_get_all/img_enter_red")
+    self._img_enter_red:SetEnabled(false);
 	--@GameObjectEnd
 
 	--@MToggleEnd
@@ -129,6 +131,7 @@ function OrientTipsLayer:OnBtnGetAllClick()
         return;
     end
     Task:GetRewardReq(taskIds);
+    --self._img_enter_red:SetEnabled(#taskIds <= 0 );
  end
 --@ButtonFunctionEnd
 
@@ -142,6 +145,7 @@ function OrientTipsLayer:RegisterHandler()
     self:addEventListener(EVENT_NAME.TASK_RECV_REWARD, self.__cname,
         function()
             self:SetTableView();
+
         end)
 end
 
@@ -164,13 +168,16 @@ function OrientTipsLayer:SetTableView()
     local rows = #self._taskIds;
     local task;
     local initIndex = 0;
+    local isRed = false;
     for i, id in ipairs(self._taskIds) do
         task = Task:GetTask(id);
         if(task.state == Task.STATE_HAS_DONE)then
             initIndex = i - 1;
+            isRed = true;
             break;
         end
     end
+    self._img_enter_red:SetEnabled(isRed);
     if(self._tvController == nil)then
         self._tvController = UIController:CtorTableView(self._transTableViewController);
         self._tvController:Init(rows, false,

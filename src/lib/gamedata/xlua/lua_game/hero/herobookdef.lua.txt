@@ -299,6 +299,11 @@ Hero.BOOK_INFO[1025] = {
     },
 }
 
+Hero.BOOK_INFO[1026] = {
+    [1] = {
+        x = -96, y = 348, scale = 1},
+}
+
 Hero.BOOK_INFO[1028] = {
     [1] = { x = -319, y = -94, scale = 1},
 }

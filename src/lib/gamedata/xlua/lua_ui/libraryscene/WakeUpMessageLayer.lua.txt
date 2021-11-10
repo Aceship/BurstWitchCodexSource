@@ -1,0 +1,134 @@
+---
+--- Author:admin
+--- Create Time:2021-10-27 16:53:20
+---
+local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
+local WakeUpMessageLayer = class("WakeUpMessageLayer", CBaseLayer)
+--按钮
+local BTNS = {
+	--@ButtonEnd
+    BtnBack = "BK",
+    CancelBtn = "MainBox/CancelButton",
+    SureBtn = "MainBox/SureButton",
+}
+--构造函数
+function WakeUpMessageLayer:ctor(super)
+    CBaseLayer.ctor(self)
+    self._prefab = {
+        path = "prefab_fetter/UI_WakeUpMessageLayer",
+    }
+    self._topData = {
+        showBtnBack     = false,--返回按钮
+        showPlayerInfo  = false,--玩家信息
+        showTopInfo     = true,--顶部货币菜单栏
+        topInfo         = {},
+    };
+    self._hideOtherLayer = false;
+    self._addStack = true;
+    self._fading = false;
+    self._binstack = true;
+    self:onEnter();
+end
+
+
+--进入Ui调用一次
+function WakeUpMessageLayer:onEnter()
+     self:RegisterHandler();
+    self:createPnl();
+    self:registerButtonEvent(BTNS);
+    self:Init();
+end
+
+--按钮事件
+function WakeUpMessageLayer:onButtonClick(itype)
+    if itype == BTNS.BtnBack then
+        self:onPopLayer()
+    elseif itype == BTNS.CancelBtn then
+        self:onPopLayer()
+    elseif itype == BTNS.SureBtn then
+        self:onPopLayer()
+        Hero:SublimationReq(self._heroId)
+    end
+end
+
+--初始化
+function WakeUpMessageLayer:Init()
+
+    self:InitUI();
+end
+function WakeUpMessageLayer:InitData()
+end
+
+--初始化UI
+function WakeUpMessageLayer:InitUI()
+
+	--@ImageEnd
+    self.msgTxt = self.layer:GetTextComponent("MainBox/Message")
+	--@TextEnd
+
+	--@TransformEnd
+
+	--@RectTransformEnd
+
+    self.MainBox = self.layer:Get("MainBox")
+    self.animator =self.MainBox:GetComponent("Animator")
+	--@GameObjectEnd
+
+	--@MToggleEnd
+
+	--@MToggleCallBackEnd
+end
+
+--显示UI
+function WakeUpMessageLayer:show(heroId)
+    self._heroId = heroId
+
+    self:showLayer();
+    self.msgTxt:SetText(LanguageMgr:GetTextByID(31041))
+    self:SetWakeUpItems()
+end
+
+--退出按钮事件
+function WakeUpMessageLayer:onBackClick()
+    self:Close();
+    self:onPopLayer();
+end
+
+--释放
+function WakeUpMessageLayer:onExit()
+    self.msgTxt = nil
+    if self._uicostctrl ~= nil then
+        self._uicostctrl:UICostCtrlDtor()
+        self._uicostctrl = nil
+    end
+    --@CloseEnd
+    CBaseLayer .onExit(self);
+end
+
+---------------------------------------------------------BtnClick------------------------------------------------------------------------------
+
+--@ButtonFunctionEnd
+
+---------------------------------------------------------TogClick------------------------------------------------------------------------------
+
+--@MToggleFunctionEnd
+
+------------------------------------------------------事件-----------------------------------------------------------------------
+function WakeUpMessageLayer:RegisterHandler()
+    self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
+        self:SetWakeUpItemsData()
+    end)
+end
+function WakeUpMessageLayer:SetWakeUpItemsData()
+    local lvUpCosts = Hero:GetCurSublimationCfgByHeroId(self._heroId).RaiseUpCosts;
+    self._uicostctrl:UpdateUICostCtrl(lvUpCosts)
+end
+------------------------------------------------------OtherFunction-----------------------------------------------------------------------
+function WakeUpMessageLayer:SetWakeUpItems()
+    local lvUpCosts = Hero:GetCurSublimationCfgByHeroId(self._heroId).RaiseUpCosts;
+    if self._uicostctrl == nil then
+        self._uicostctrl = UICostCtrl:new(self.layer:Get("MainBox/cost_bg"), 5)
+    end
+    self._uicostctrl:UpdateUICostCtrl(lvUpCosts)
+end
+return WakeUpMessageLayer;
