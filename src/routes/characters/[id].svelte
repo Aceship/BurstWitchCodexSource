@@ -61,6 +61,14 @@
         </div>
         <div class="characterName characterNameBG"></div>
         <div class="charaBg"></div>
+        <div class="sidebar">
+            <!-- <div>
+                <button>skill</button>
+            </div>
+            <div class="setting">
+                <button><i class="fas fa-cog"></i></button>
+            </div> -->
+        </div>
 
         <div class="characterName">
             <div class="characterNameEN">{chara.Name_EN}</div>
@@ -297,7 +305,7 @@
         });
     }
     
-    // console.log(charaskill)
+    console.log(charaskill)
     //Talent
     function updateTalent() {
         charatalent = []
@@ -368,11 +376,11 @@
         var tl = lang.cn[text]
         var jobsplit = tl.split("，")
         
-        console.log(jobsplit)
+        // console.log(jobsplit)
         var jobs = []
         jobsplit.forEach(job => {
             let jobtl = $translateglobal.jobTranslate.title[job]
-            console.log(job)
+            // console.log(job)
             if(!jobtl){
                 jobtl = job
             }
@@ -387,7 +395,7 @@
         var jobs = []
         jobsplit.forEach(job => {
             let jobtl = $translateglobal.jobTranslate.description[job]
-            console.log(job)
+            // console.log(job)
             if(!jobtl){
                 jobtl = job
             }
@@ -493,10 +501,29 @@
     .Quickmenu .starContainer{
         position: absolute;
         left:0px;
-        top:110px;
+        top:100px;
         background: #333;
         padding:5px;
-        border-radius: 5px;
+    }
+
+    .sidebar{
+        display:inline-flex;
+        width:32px;
+        height:calc(100vh - 350px);
+        background:#333;
+        padding:8px;
+        padding-top:330px;
+        flex-direction: column;
+    }
+
+    .setting{
+        justify-self: flex-end;
+    }
+    .setting button{
+        
+        font-size: 20px;
+        width:34px;
+        height:34px;
     }
 
     .MenuFull{
@@ -512,7 +539,7 @@
     .MenuCharaStats{
         grid-area: "CharacterStats";
         background-color: #222;
-        height: calc(100vh - 180px);
+        height: calc(100vh - 150px);
         padding: 140px 0px 0px 10px;
         overflow-y: scroll;
     }
