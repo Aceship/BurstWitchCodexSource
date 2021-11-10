@@ -123,7 +123,7 @@
                     I II III IV V VI VII VIII
                 </div> -->
                 <div class="jobinfo job-{chara.job}">
-                    <div class="jobtitle ">{TranslateJobTitle(chara.Name_job)}</div>
+                    <div class="jobtitle">{TranslateJobTitle(chara.Name_job)}</div>
                     <div class="jobdesc">{TranslateJobDesc(chara.Name_job_des)}</div>
                 </div>
                 <div>
@@ -156,7 +156,7 @@
                                             </div>
                                             <div class="infoCD">
                                                 <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
-                                                <span> {eachskill.skill[0].skillCD==0?"--":eachskill.skill[0].skillCD}</span>
+                                                <span> {eachskill.skill[0].skillCD==0?"--":`${eachskill.skill[0].skillCD}s`}</span>
                                             </div>
                                             <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                         </div>
@@ -427,7 +427,7 @@
             }
             jobs.push(jobtl)
         });
-        return jobs.join(", ")
+        return jobs.join(" | ")
     }
     function TranslateJobDesc(text) {
         var tl = lang.cn[text]
@@ -829,7 +829,8 @@
         background:#333;
         padding:0px 2px;
         margin:5px;
-        width:50%
+        width:50%;
+        border-radius: 12px;
     }
 
     .containertitle{
@@ -839,13 +840,16 @@
     }
     .skillcontainer{
         background:#444;
-        margin:0px 0px 10px 0px;
-        padding:10px 0px;
+        margin:0px 2px 10px 2px;
+        padding:1px 1px;
+        border-radius: 12px;
+        filter: drop-shadow(1px 1px 2px #000);
     }
     .infotitle{
         background:#222;
         margin:0px 0px;
         padding:0px 5px;
+        border-radius: 12px 12px 0px 0px;
         /* display:inline-flex; */
         align-items:center;
     }
@@ -916,6 +920,7 @@
     .skilldesc{
         background:#343434;
         padding:4px 4px;
+        border-radius: 0px 0px 12px 12px;
     }
     input[type=number]{
         -webkit-appearance: none;
@@ -933,36 +938,39 @@
         display:inline-flex;
         margin: 6px 1px;
         padding:2px 2px;
-        /* background:#444; */
-        align-items: center;
+        background:#222;
+        border-radius: 6px;
         justify-content: center;
-        box-shadow: 2px 2px 2px black;
+        align-items: stretch;
+        text-align: center;
         flex-direction: column;
+        filter: drop-shadow(1px 1px 2px #000);
     }
     .jobtitle{
-        display:inline-flex;
-        padding:2px 8px;
+        /* display:inline-flex; */
+        padding:2px 8px 4px 8px;
         /* background:#444; */
-        color:black;
-        font-weight: 100;
+        color:#ccc;
         break-after: always;
         page-break-after: always;
-        /* border: solid 2px transparent */
-        
     }
     .job-1{  /*Attack*/
-        background:rgb(249, 100, 42);
+        border: solid 2px;
+        border-color:rgb(249, 100, 42);
     }
     .job-2{  /*Defense*/
-        background:rgb(103, 189, 244);
+        border: solid 2px;
+        border-color:rgb(103, 189, 244);
     }
     .job-3{  /*Support*/
-        background:rgb(197, 244, 150);
+        border: solid 2px;
+        border-color:rgb(197, 244, 150);
     }
     .jobdesc{
         padding:2px 8px;
         background:#999;
         color:black;
+        border-radius: 0px 0px 4px 4px;
     }
 
     /* .infotext img{
