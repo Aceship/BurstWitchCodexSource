@@ -136,63 +136,68 @@
             
             <div class="fullinfo">
                 <div class="halfinfo">
-                    <h1>Skills</h1>
+                    <!-- <h1>Skills</h1> -->
+                    <div class="containertitle">Skills</div>
                     {#each charaskill as eachskill,i}
                         <div>
-                            <div style="background:#444;margin:10px;padding:10px" >
+                            <div class="skillcontainer">
                                 {#if eachskill.skillshow.length==1}
                                     <div class="infotitle">
-                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
-                                        <div>{lang.cn[eachskill.skillshow[0].skill_name]}</div>
+                                        <div class="infocontent">
+                                            <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
+                                            <div>{SkillNameTL(eachskill,i,starnum)}</div>
+                                        </div>
                                     </div>
-                                    <br>
-                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
-                                    <br>
                                     <div class="infotext">
-                                        <div class="infoMP">
-                                            <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
-                                            <span>{eachskill.skill[0].skill_cost?eachskill.skill[0].skill_cost/10000:"--"}</span>
+                                        <div class="infocontent">
+                                            <div class="infoMP">
+                                                <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
+                                                <span>{eachskill.skill[0].skill_cost?eachskill.skill[0].skill_cost/10000:"--"}</span>
+                                            </div>
+                                            <div class="infoCD">
+                                                <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
+                                                <span> {eachskill.skill[0].skillCD==0?"--":eachskill.skill[0].skillCD}</span>
+                                            </div>
+                                            <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                         </div>
-                                        <div class="infoCD">
-                                            <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
-                                            <span> {eachskill.skill[0].skillCD==0?"--":eachskill.skill[0].skillCD}</span>
-                                        </div>
-                                    </div>  
-                                    <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                                    </div> 
+                                    <div class="skilldesc">{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                                 {:else}
                                     <div class="infotitle">
-                                        <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
-                                        <div>{lang.cn[eachskill.skillshow[starnum-1].skill_name]}</div>
+                                        <div class="infocontent">
+                                            <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
+                                            <div>{SkillNameTL(eachskill,i,starnum)}</div>
+                                        </div>
                                     </div>
-                                    <br>
-                                    <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
-                                    <br>
                                     <div class="infotext">
-                                        <div class="infoMP">
-                                            <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
-                                            <span>{eachskill.skill[starnum-1].skill_cost/10000}</span>
+                                        <div class="infocontent">
+                                            <div class="infoMP">
+                                                <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
+                                                <span>{eachskill.skill[starnum-1].skill_cost/10000}</span>
+                                            </div>
+                                            <div class="infoCD">
+                                                <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
+                                                <span> {eachskill.skill[starnum-1].skillCD}s</span>
+                                            </div>
+                                            <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                         </div>
-                                        <div class="infoCD">
-                                            <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
-                                            <span> {eachskill.skill[starnum-1].skillCD}s</span>
-                                        </div>
-                                    </div>                  
-                                    <br>
-                                    <div>{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
+                                    </div> 
+                                    <div class="skilldesc">{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
                                 {/if}
                             </div>
                         </div>
                     {/each}
                 </div>
                 <div class="halfinfo">
-                    <h1>Talents</h1>
+                    <div class="containertitle">Talents</div>
                     {#each charatalent as eachtalent,i}
-                        <div style="background:#444;margin:10px;padding:10px" >
+                        <div class="skillcontainer" >
                             <div class="infotitle">
-                                <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="">
-                                <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                                <div class="infocontent">
+                                    <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="">
+                                    <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                                </div>
                             </div>
-                            <br>
                             <div class="starContainer starHorizontal infostar">
                                 {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
                                     <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
@@ -201,7 +206,7 @@
                                     <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
                                 {/each}
                             </div>
-                            <div>{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
+                            <div class="skilldesc">{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
                         </div>
                     {/each}
                 </div>
@@ -223,6 +228,8 @@
 
     let data = $dataglobal
     let lang = $langglobal
+
+    let devmode = false;
 
     // console.log(id)
     let chara = $dataglobal.cardCharacter.find(character=>{
@@ -291,7 +298,7 @@
         charaskill = []
         chara.OrgSkills.forEach(element => {
             let skillObject = {
-                icon:element
+                skilltranslate:{}
             }
 
             skillObject.skillshow = data.witchskillshow.filter(obj =>{
@@ -301,6 +308,11 @@
                 return obj.id == element
             })
 
+            if($translateglobal.charTranslate[chara.id]){
+                skillObject.skilltranslate = $translateglobal.charTranslate[chara.id].skills
+            }
+
+            skillObject.icon = skillObject.skillshow[0].skill_icon
             charaskill.push(skillObject)
         });
     }
@@ -320,16 +332,45 @@
             charatalent.push(talentObject)
         });
     }
+    // console.log(charatalent)
+    function SkillNameTL(skill,skillnumber,starnum){
+        let skillname 
+        if(skill.skillshow.length>1){
+            skillname = lang.cn[skill.skillshow[starnum-1].skill_name]
+
+            if(skill.skilltranslate[skillnumber]&&skill.skilltranslate[skillnumber][starnum-1].name!=""){
+                skillname = skill.skilltranslate[skillnumber][starnum-1].name
+            }
+        }else{
+            skillname = lang.cn[skill.skillshow[0].skill_name]
+            
+            if(skill.skilltranslate[skillnumber]&&skill.skilltranslate[skillnumber].name!=""){
+                skillname = skill.skilltranslate[skillnumber].name
+            }
+        }
+        return skillname
+    }
     function SkillDescParser(skill,skillnumber,starnum,attack){
         let skillLevel = charastat.level.skill[skillnumber]
         let skilldesc 
         let skillstar = skill.skillshow.length>1?starnum-1:0
+        // console.log(skillnumber)
         if(skill.skillshow.length>1){
             skilldesc = ChangeDescriptionformat(lang.cn[skill.skillshow[starnum-1].SkillInfo])
+
+            if(skill.skilltranslate[skillnumber]&&skill.skilltranslate[skillnumber][starnum-1].desc!=""){
+                skilldesc = ChangeDescriptionformat(skill.skilltranslate[skillnumber][starnum-1].desc)
+            }
         }else{
             skilldesc = ChangeDescriptionformat(lang.cn[skill.skillshow[0].SkillInfo])
+            
+            if(skill.skilltranslate[skillnumber]&&skill.skilltranslate[skillnumber].desc!=""){
+                skilldesc = ChangeDescriptionformat(skill.skilltranslate[skillnumber].desc)
+            }
         }
+        
         // console.log(skilldesc)
+        skilldesc = skilldesc.replace(/%%/g,"%")
         skilldesc = skilldesc.replace(/<#(.+?)#>/g, function(m, text) {
             if(text =="%d") text = Math.floor(attack * parseFloat(skill.skill[skillstar].showRate) * (1 + (skillLevel -1) * parseFloat(skill.skill[skillstar].UpRaate)/100)) 
             return `<span class="" style="color:#FF5522">${text}</span>`
@@ -345,7 +386,7 @@
         return desc
     }
     function ChangeDescriptionformat(desc) {
-        console.log(desc)
+        // console.log(desc)
         desc = desc.replace(/<color=\#(.+?)>(.+?)<\/color>/g, function(m, rtf, text) {
             // console.log(rtf)
             return `<span class="" style="color:#${rtf}">${text}</span>`
@@ -520,7 +561,6 @@
         justify-self: flex-end;
     }
     .setting button{
-        
         font-size: 20px;
         width:34px;
         height:34px;
@@ -787,17 +827,27 @@
     }
     .halfinfo{
         background:#333;
-        padding:1px 5px;
+        padding:0px 2px;
         margin:5px;
         width:50%
     }
+
+    .containertitle{
+        text-align:center;
+        font-size: 40px;
+        font-weight: 600;
+    }
+    .skillcontainer{
+        background:#444;
+        margin:0px 0px 10px 0px;
+        padding:10px 0px;
+    }
     .infotitle{
         background:#222;
-        margin:2px 0px;
-        /* padding:5px; */
-        display:inline-flex;
+        margin:0px 0px;
+        padding:0px 5px;
+        /* display:inline-flex; */
         align-items:center;
-        min-width:200px;
     }
     .infotitle .titleimage{
         width: 60px;
@@ -805,9 +855,13 @@
     }
 
     .infotext{
+        /* min-height:30px; */
+        padding:6px 0px;
+        /* background:#222; */
+    }
+    .infocontent{
         display:inline-flex;
         align-items:center;
-        min-height:30px;
     }
     .infoimg{
         width: 30px;
@@ -815,9 +869,11 @@
         object-fit: contain;
     }
     .infoMP{
+        display:inline-flex;
         position: relative;
         background:#2E2E2E;
         padding:2px 10px 2px 30px;
+        min-width:20px;
     }
     .infoMP img{
         position:absolute;
@@ -828,6 +884,7 @@
         position: relative;
         background:#222;
         padding:2px 10px 2px 30px;
+        min-width:20px;
     }
     .infoCD img{
         position:absolute;
@@ -836,9 +893,10 @@
     }
     .infoLevel{
         display:inline-flex;
-        background:#222;
-        padding:4px 4px 4px 4px;
+        padding:0px 4px 0px 4px;
+        margin-left:6px;
         align-items:center;
+        background:#222;
     }
     .levelinput[type=number]{
         padding:2px;
@@ -850,8 +908,14 @@
     .infostar{
         display: inline-flex;
         min-width:190px;
+        margin-top:4px;
         padding:4px 5px;
-        background:#222;
+        align-items:flex-end;
+        /* background:#222; */
+    }
+    .skilldesc{
+        background:#343434;
+        padding:4px 4px;
     }
     input[type=number]{
         -webkit-appearance: none;
@@ -906,6 +970,7 @@
     } */
     @media (max-width: 1400px){
         .Quickmenu{
+            z-index: 20;
             left:calc(50vw - 40px);
         }
         .MenuFull{
@@ -925,7 +990,7 @@
             margin:0px
         }
     }
-    @media (max-width: 1000px ){
+    @media (max-width: 1080px ){
         .Quickmenu{
             position: fixed;
             left:0px;

@@ -1,0 +1,99 @@
+{
+    "1044":{
+        "name":"Ianusia",
+        "skills":[
+            {
+                "name":"Flying Feather",
+                "desc":"Regular attack deals <#%d#> points, increase damage by <#40%%#> per seconds on sustained hits, up to a maximum of <#200%%#>, with increased size of projectile, and additional single true damage attack of <#160%%#> every 32 consecutive attacks"
+            },
+            [
+                {
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, dealing up to <#%d#> points of damage to enemies."
+                },{
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, dealing up to <#%d#> points of damage to enemies."
+                },{
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, dealing up to <#%d#> points of damage to enemies."
+                },{
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, dealing up to <#%d#> points of damage to enemies."
+                },{
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, Clearing bullets it touches and dealing up to <#%d#> points of damage to enemies."
+                },{
+                    "name":"Curse of the Falling Moon",
+                    "desc":"Ianusia frees the power in her bloodline to create a dark phantom of the Falling Moon, Clearing bullets it touches and dealing up to <#%d#> points of damage to enemies."
+                }
+            ],
+            {
+                "name":"Song of the Horizon",
+                "desc":"Ianusia will summons a flying bird that flies forward, dealing up to <#%d#> points of damage to the enemies in its path"
+            }
+        ],
+        "talents":[
+            {
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            }
+        ]
+    },
+    "":{
+        "skills":{
+            "1":{
+                "name":"",
+                "desc":""
+            },
+            "2":[
+                {
+                    "name":"",
+                    "desc":""
+                },{
+                    "name":"",
+                    "desc":""
+                },{
+                    "name":"",
+                    "desc":""
+                },{
+                    "name":"",
+                    "desc":""
+                },{
+                    "name":"",
+                    "desc":""
+                },{
+                    "name":"",
+                    "desc":""
+                }
+            ],
+            "3":{
+                "name":"",
+                "desc":""
+            }
+        },
+        "talents":[
+            {
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            },{
+                "name":"",
+                "desc":""
+            }
+        ]
+    }
+}

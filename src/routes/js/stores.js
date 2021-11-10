@@ -7,6 +7,7 @@ import _localization_CHS from '$lib/gamedata/xlua/lua_game/language/localization
 import _talent from '$lib/gamedata/source_gameconfig/Talent.txt?raw'
 import _buildDot from '$lib/gamedata/source_gameconfig/BuildDot.txt?raw'
 import _jobTranslate from '$lib/custom/translate/Job.json'
+import _charTranslate from '$lib/custom/translate/chara.json'
 let data2 = {
     cardCharacter   : ParseCSVtoObject(_cardCharacter),
     witchskillshow  : ParseCSVtoObject(_witchskillshow),
@@ -18,7 +19,8 @@ let lang = {
     cn : ParseLuaLang(_localization_CHS)
 }
 let translate = {
-    jobTranslate : _jobTranslate
+    jobTranslate : _jobTranslate,
+    charTranslate: _charTranslate
 };
 let chara = data2.cardCharacter[0]
 
