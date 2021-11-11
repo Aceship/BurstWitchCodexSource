@@ -828,19 +828,26 @@
     .halfinfo{
         background:#333;
         padding:0px 2px;
-        margin:5px;
+        margin:4px;
         width:50%;
         border-radius: 12px;
+        border: 1px solid #666;
+        filter: drop-shadow(1px 1px 2px #000);
     }
 
     .containertitle{
         text-align:center;
         font-size: 40px;
         font-weight: 600;
+        background:#222;
+        border-radius: 12px;
+        margin: 4px 2px;
+        filter: drop-shadow(1px 1px 2px #000);
+        border: 1px solid #444;
     }
     .skillcontainer{
         background:#444;
-        margin:0px 2px 10px 2px;
+        margin:0px 2px 6px 2px;
         padding:1px 1px;
         border-radius: 12px;
         filter: drop-shadow(1px 1px 2px #000);
@@ -938,39 +945,40 @@
         display:inline-flex;
         margin: 6px 1px;
         padding:2px 2px;
-        background:#222;
         border-radius: 6px;
         justify-content: center;
         align-items: stretch;
         text-align: center;
         flex-direction: column;
         filter: drop-shadow(1px 1px 2px #000);
+        /* border: 1px solid #444; */
     }
     .jobtitle{
         /* display:inline-flex; */
-        padding:2px 8px 4px 8px;
-        /* background:#444; */
+        padding:4px 8px 4px 8px;
+        background:#222;
         color:#ccc;
         break-after: always;
         page-break-after: always;
+        border-radius: 3px 3px 0px 0px;
+        margin-bottom:0px;
+        
     }
     .job-1{  /*Attack*/
-        border: solid 2px;
-        border-color:rgb(249, 100, 42);
+        background:rgb(249, 100, 42);
     }
     .job-2{  /*Defense*/
-        border: solid 2px;
-        border-color:rgb(103, 189, 244);
+        background:rgb(103, 189, 244);
     }
     .job-3{  /*Support*/
-        border: solid 2px;
-        border-color:rgb(197, 244, 150);
+        background:rgb(197, 244, 150);
     }
     .jobdesc{
         padding:2px 8px;
         background:#999;
         color:black;
         border-radius: 0px 0px 4px 4px;
+        border: 1px solid #444;
     }
 
     /* .infotext img{
@@ -1016,17 +1024,19 @@
         .MenuCharaPic{
             width:calc(100vw - 30px);
             height: min(70vh,800px);
-            padding-top: 80px;
+            padding-top: 120px;
         }
         .characterfull{
             width:calc(100vw - 30px);
             height: min(70vh,800px)
         }
         .MenuCharaStats{
-            padding:2px 2px 2px 50px;
-            width: calc(100vw - 80px);
+            padding:2px 2px 2px 46px;
+            width: calc(100vw - 76px);
             height:unset;
             overflow-y:visible;
+            border-top: 1px solid #444;
+            border-radius: 12px 12px 0px 0px;
         }
         .fullinfo{
             display:unset;
@@ -1035,8 +1045,9 @@
         .halfinfo{
             display:flexbox;
             max-width: unset;
-            width: calc(100% - 10px);
-            margin:0px
+            width: calc(100% - 6px);
+            margin:4px 0px 18px 0px;
+            padding:4px 2px;
         }
     }
 </style>
