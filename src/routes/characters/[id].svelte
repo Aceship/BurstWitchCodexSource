@@ -210,6 +210,9 @@
                         </div>
                     {/each}
                 </div>
+                <div class="halfinfo">
+
+                </div>
             </div>
         </div>
     </div>
@@ -574,34 +577,6 @@
         width:34px;
         height:34px;
     }
-
-    .MenuFull{
-        display:grid;
-        grid-template-columns: 680px ;
-        grid-template-areas: "CharacterPic CharacterStats";
-        height: calc(100vh - 20px);
-    }
-    .MenuCharaPic{
-        grid-area: "CharacterPic";
-        text-align: center ;
-    }
-    .MenuCharaStats{
-        grid-area: "CharacterStats";
-        background-color: #222;
-        height: calc(100vh - 150px);
-        padding: 140px 0px 0px 10px;
-        overflow-y: scroll;
-    }
-    .characterfull{
-        /* position: fixed;
-        right:50px;
-        top:10%;
-        z-index: -10; */
-        height: calc(100vh - 20px);
-        width: 680px;
-        object-fit: scale-down;
-        transition: opacity 0.5s, width 0.5s, height 0.5s;
-    }
     .charadetailback{
         width:42px !important;
         height:42px !important;
@@ -720,51 +695,34 @@
         /* transform: rotate(-45deg); */
     }
 
-    /* .charactercard{
-        position: relative;
-        display: inline-flex;
-        justify-content: center;
-
-        width: 120px;
-        height: 220px;
-        margin : 0px 0px 0px 0px;
-        padding: 0px 0px 8px 0px;
+    .MenuFull{
+        display:grid;
+        grid-template-columns: 680px ;
+        grid-template-areas: "CharacterPic CharacterStats";
+        height: calc(100vh - 20px);
     }
-    .charactercard .cardpic{
-        width: 100px;
+    .MenuCharaPic{
+        grid-area: "CharacterPic";
+        text-align: center ;
+    }
+    .MenuCharaStats{
+        grid-area: "CharacterStats";
+        background-color: #222;
+        height: calc(100vh - 150px);
+        padding: 140px 0px 0px 14px;
+        overflow-y: scroll;
+    }
+    .characterfull{
+        /* position: fixed;
+        right:50px;
+        top:10%;
+        z-index: -10; */
+        height: calc(100vh - 20px);
+        width: 680px;
         object-fit: scale-down;
-        margin: -5px 0px 0px 0px;
+        transition: opacity 0.5s, width 0.5s, height 0.5s;
     }
-    .charactercard .cardframe{
-        position: absolute;
-        width: 120px;
-        margin: 0px 0px 0px 0px;
-        pointer-events: none;
-    }
-    .charactercard .elementframe{
-        position: absolute;
-        width: 50px;
-        left: 5px;
-        bottom: 10px;
-    }
-    .charactercard .element{
-        position: absolute;
-        width: 44px;
-        left: 7px;
-        bottom: 13px;
-    }
-    .charactercard .typeframe{
-        position: absolute;
-        width: 50px;
-        right: 5px;
-        bottom: 10px;
-    }
-    .charactercard .type{
-        position: absolute;
-        width: 44px;
-        right: 7px;
-        bottom: 13px;
-    } */
+    
 
     .starContainer{
         display:inline-flex;
@@ -832,17 +790,21 @@
     }
     .fullinfo{
         display:inline-flex;
-        width:100%
+        width:100%;
+        flex-wrap: wrap;
+        gap: 5px 2px;
     }
     .halfinfo{
         background:#333;
         padding:0px 2px;
-        margin:4px;
-        width:50%;
+        margin:0px;
+        /* width:50%; */
+        min-width:380px;
         border-radius: 12px;
         border: 1px solid #666;
         /* filter: drop-shadow(1px 1px 2px #000); */
         outline: 1px solid #00000099;
+        flex-basis:49%;
     }
 
     .containertitle{
@@ -997,26 +959,31 @@
     /* .infotext img{
         
     } */
-    @media (max-width: 1400px){
+    
+    @media (max-width: 1500px){
         .Quickmenu{
             z-index: 20;
-            left:calc(50vw - 40px);
+            left:calc(40vw - 30px);
+        }
+        .Quickmenu .characterName{
+            width: 50vw;
         }
         .MenuFull{
-            grid-template-columns: 50vw ;
+            grid-template-columns: 40vw ;
         }
         .characterfull{
             width:500px;
         }
-        .fullinfo{
-            display:unset;
-            
+    }
+    @media (max-width: 1370px){
+        .MenuFull{
+            grid-template-columns: 40vw ;
         }
         .halfinfo{
-            display:flexbox;
-            max-width: unset;
-            width: calc(100% - 10px);
-            margin:0px
+            flex-basis: 100%;
+        }
+        .Quickmenu .characterName{
+            width: 46vw;
         }
     }
     @media (max-width: 1080px ){
@@ -1045,22 +1012,66 @@
         }
         .MenuCharaStats{
             padding:2px 2px 2px 46px;
-            width: calc(100vw - 76px);
+            width: calc(100vw - 58px);
             height:unset;
             overflow-y:visible;
             border-top: 1px solid #444;
             border-radius: 12px 12px 0px 0px;
         }
-        .fullinfo{
-            display:unset;
-            
-        }
         .halfinfo{
             display:flexbox;
+            min-width: unset;
             max-width: unset;
             width: calc(100% - 6px);
             margin:4px 0px 18px 0px;
             padding:4px 2px;
         }
     }
+
+    
+    /* .charactercard{
+        position: relative;
+        display: inline-flex;
+        justify-content: center;
+
+        width: 120px;
+        height: 220px;
+        margin : 0px 0px 0px 0px;
+        padding: 0px 0px 8px 0px;
+    }
+    .charactercard .cardpic{
+        width: 100px;
+        object-fit: scale-down;
+        margin: -5px 0px 0px 0px;
+    }
+    .charactercard .cardframe{
+        position: absolute;
+        width: 120px;
+        margin: 0px 0px 0px 0px;
+        pointer-events: none;
+    }
+    .charactercard .elementframe{
+        position: absolute;
+        width: 50px;
+        left: 5px;
+        bottom: 10px;
+    }
+    .charactercard .element{
+        position: absolute;
+        width: 44px;
+        left: 7px;
+        bottom: 13px;
+    }
+    .charactercard .typeframe{
+        position: absolute;
+        width: 50px;
+        right: 5px;
+        bottom: 10px;
+    }
+    .charactercard .type{
+        position: absolute;
+        width: 44px;
+        right: 7px;
+        bottom: 13px;
+    } */
 </style>
