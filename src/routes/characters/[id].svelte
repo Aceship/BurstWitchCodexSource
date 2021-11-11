@@ -506,7 +506,7 @@
         position: absolute;
         display: inline-flex;
         top:80px;
-        left:40px;
+        left:52px;
         padding:6px 10px 10px 75px;
         height:35px;
         background:#444;
