@@ -842,6 +842,7 @@
         border-radius: 12px;
         border: 1px solid #666;
         /* filter: drop-shadow(1px 1px 2px #000); */
+        outline: 1px solid #00000099;
     }
 
     .containertitle{
