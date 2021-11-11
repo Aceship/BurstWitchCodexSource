@@ -210,9 +210,9 @@
                         </div>
                     {/each}
                 </div>
-                <div class="halfinfo">
+                <!-- <div class="halfinfo">
 
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
