@@ -549,12 +549,15 @@
 
     .sidebar{
         display:inline-flex;
-        width:32px;
-        height:calc(100vh - 350px);
+        width:33px;
+        height:calc(100vh - 332px);
         background:#333;
         padding:8px;
         padding-top:330px;
+        margin-left: -2px;
+        margin-top:-20px;
         flex-direction: column;
+        border: 1px solid #555;
     }
 
     .setting{
