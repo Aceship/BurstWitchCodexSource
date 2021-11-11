@@ -456,7 +456,8 @@
         position: absolute;
         left:650px;
         top:8px;
-        filter: drop-shadow(1px 1px 2px #111);
+        /* filter: drop-shadow(1px 1px 2px #111); */
+        
     }
     
     .Quickmenu .charaBg {
@@ -467,7 +468,8 @@
         border-color:#333;
         top: -70px;
         pointer-events: none;
-        filter: drop-shadow(1px 1px 2px #111);
+        /* filter: drop-shadow(1px 1px 2px #111); */
+        
     }
     .Quickmenu .charaBg:before {
         content: '';
@@ -490,6 +492,7 @@
         border: 70px solid transparent;
         border-top-color: #333;
         pointer-events: none;
+        
     }
     
     .Quickmenu .characterIcon{
@@ -507,7 +510,8 @@
         padding:6px 10px 10px 75px;
         height:35px;
         background:#444;
-        filter: drop-shadow(1px 1px 2px #111);
+        /* filter: drop-shadow(1px 1px 2px #111); */
+        
     }
     .Quickmenu .charaDetails:after{
         content: '';
@@ -534,7 +538,8 @@
         width:calc(100vw - 820px);
     }
     .Quickmenu .characterNameBG{
-        filter: drop-shadow(1px 1px 2px #111);
+        /* filter: drop-shadow(1px 1px 2px #111); */
+        outline: 1px solid #00000099;
     }
     .characterName .characterNameEN{
         font-size: 2.5em;
@@ -558,6 +563,7 @@
         margin-top:-20px;
         flex-direction: column;
         border: 1px solid #555;
+        outline: 1px solid #00000099;
     }
 
     .setting{
@@ -835,7 +841,7 @@
         width:50%;
         border-radius: 12px;
         border: 1px solid #666;
-        filter: drop-shadow(1px 1px 2px #000);
+        /* filter: drop-shadow(1px 1px 2px #000); */
     }
 
     .containertitle{
@@ -845,15 +851,17 @@
         background:#222;
         border-radius: 12px;
         margin: 4px 2px;
-        filter: drop-shadow(1px 1px 2px #000);
+        /* filter: drop-shadow(1px 1px 2px #000); */
         border: 1px solid #444;
+        outline: 1px solid #00000099;
     }
     .skillcontainer{
         background:#444;
         margin:0px 2px 6px 2px;
         padding:1px 1px;
         border-radius: 12px;
-        filter: drop-shadow(1px 1px 2px #000);
+        outline: 1px solid #00000099;
+        /* filter: drop-shadow(1px 1px 2px #000); */
     }
     .infotitle{
         background:#222;
