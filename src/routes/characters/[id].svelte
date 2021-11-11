@@ -962,7 +962,8 @@
         align-items: stretch;
         text-align: center;
         flex-direction: column;
-        filter: drop-shadow(1px 1px 2px #000);
+        /* filter: drop-shadow(1px 1px 2px #000); */
+        outline: 1px solid #00000099;
         /* border: 1px solid #444; */
     }
     .jobtitle{
