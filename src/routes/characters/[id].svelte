@@ -107,7 +107,23 @@
     <div class="MenuFull">
         <!-- Left Side -->
         <div class="MenuCharaPic">
-            <img class="characterfull" src="../data/img/source_avatar/hero_book/body_{chara.id}.png" alt="body">
+            <img class="characterfull" src={charabigpic} alt="body">
+                <div class="skincontainer">
+                    <button class="skinbutton" on:click={Changebigpic(0)}>
+                        <img src="../data/img/source_avatar/hero/head_{chara.Skin[0]}.png" alt="">
+                    </button>
+                    <button class="skinbutton" on:click={Changebigpic(1)}>
+                        <img src="../data/img/ui/etc/hg.png" alt="">
+                    </button>
+                    {#each chara.Skin as skin,i}
+                        {#if i!=0}
+                        <button class="skinbutton" on:click={Changebigpic(skin)}>
+                            <img src="../data/img/source_avatar/hero/head_{skin}.png" alt="">
+                        </button>
+                        {/if}
+                    {/each}
+                    
+                </div>
         </div>
         <!-- Right Side -->
         <div class="MenuCharaStats">
@@ -210,9 +226,33 @@
                         </div>
                     {/each}
                 </div>
-                <!-- <div class="halfinfo">
-
-                </div> -->
+                <div class="halfinfo">
+                    <div class="containertitle">
+                        Limit Break Cost
+                    </div>
+                    {#each $dataglobal.witchStep as a ,i}
+                        {#if i!=0}
+                            <div class="skillcontainer">
+                                <div class="infotitle">
+                                    <div class="infocontent">
+                                        level : {a.Level} 
+                                    </div>
+                                    
+                                </div>
+                                <div class="skilldesc">
+                                    item req :
+                                    {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
+                                        <div class="itemcontainer">
+                                            <img class="itemframe" src="../data/img/ui/item_frame/frame{GetItem(item[0]).Quality}.png" alt="">  
+                                            <img class="itempic" style="" src="../data/img/source_icon/item/{item[0]}.png" title='{lang.cn[GetItem(item[0]).Name]} {GetItem(item[0]).EnglishName}' alt="">
+                                            <span class="itemqty">{item[1]}</span>
+                                        </div>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/if}
+                    {/each}
+                </div>
             </div>
         </div>
     </div>
@@ -235,6 +275,7 @@
     let devmode = false;
 
     // console.log(id)
+    console.log($dataglobal)
     let chara = $dataglobal.cardCharacter.find(character=>{
             return character.Name_EN == id.replace("_"," ")
         })
@@ -258,6 +299,7 @@
     let attacktype = chara.AtkType
     let starnum = parseInt(chara.Star)
     let quality = parseInt(chara.Quality) 
+    let charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
     let level = 1
     let charaskill = []
     let charatalent = []
@@ -288,6 +330,7 @@
     function changeChara(character) {
         chara = character
         charaId = chara.id+"0001"
+        charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
         attacktype = chara.AtkType
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
@@ -447,6 +490,25 @@
         });
         return jobs.join(", ")
     }
+
+    function GetItem(id){
+        return $dataglobal.item.find(items=>{
+            return items.id == id
+        })
+    }
+
+    const Changebigpic = id=>() => {
+        if(id==0){
+            charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
+        }
+        else if(id==1){
+            charabigpic = `../data/img/source_avatar/haogan/haogan_${chara.id}.png`
+        }
+        else{
+            charabigpic = `../data/img/source_avatar/hero/body_${id}.png`
+        }
+        
+    }
 </script>
 
 <style>
@@ -459,6 +521,7 @@
         position: absolute;
         left:650px;
         top:8px;
+        z-index: 20;
         /* filter: drop-shadow(1px 1px 2px #111); */
         
     }
@@ -720,7 +783,7 @@
         height: calc(100vh - 20px);
         width: 680px;
         object-fit: scale-down;
-        transition: opacity 0.5s, width 0.5s, height 0.5s;
+        transition: opacity 0.5s, width 0.5s, height 0.5s, src 0.5s;
     }
     
 
@@ -959,10 +1022,67 @@
     /* .infotext img{
         
     } */
-    
+
+    .itemcontainer{
+        position: relative;
+        display:inline-flex;
+        width:60px;
+        height:60px;
+        align-items: center;
+        justify-content: center;
+        background: #00000066;
+        border-radius:8px;
+    }
+    .itemcontainer .itemframe{
+        position:absolute;
+        width:60px;
+        height:60px;
+        object-fit:contain ;
+    }
+    .itemcontainer .itempic{
+        position:absolute;
+        width:50px;
+        height:50px;
+        object-fit:contain ;
+    }
+
+    .itemcontainer .itemqty{
+        position:absolute;
+        bottom:1px;
+        right:2px;
+        padding:1px 2px;
+        border-radius:4px 0px 6px 0px;
+        background: #00000066;
+    }
+
+    .skincontainer{
+        position:absolute;
+        display:inline-flex;
+        flex-direction: column;
+        top:50px;
+        left:0px;
+    }
+    .skinbutton{
+        display:inline-flex;
+        width:80px;
+        height:80px;
+        border:1px solid #888;
+        outline: 2px solid #00000099;
+        background: #222;
+        padding:0px;
+        margin:1px;
+        border-radius: 6px;
+        align-items: center;
+        justify-content: center;
+    }
+    .skinbutton img{
+        width:76px;
+        height:76px;
+        border-radius: 4px;
+    }
+
     @media (max-width: 1500px){
         .Quickmenu{
-            z-index: 20;
             left:calc(40vw - 30px);
         }
         .Quickmenu .characterName{
@@ -986,7 +1106,7 @@
             width: 46vw;
         }
     }
-    @media (max-width: 1080px ){
+    @media (max-width: 1080px){
         .Quickmenu{
             position: fixed;
             left:0px;
@@ -1012,7 +1132,7 @@
         }
         .MenuCharaStats{
             padding:2px 2px 2px 46px;
-            width: calc(100vw - 58px);
+            width: calc(100vw - 78px);
             height:unset;
             overflow-y:visible;
             border-top: 1px solid #444;
@@ -1025,6 +1145,17 @@
             width: calc(100% - 6px);
             margin:4px 0px 18px 0px;
             padding:4px 2px;
+        }
+        .skincontainer{
+            top:160px;
+            left:unset;
+            right:-10px;
+            transform:scale(75%)
+        }
+    }
+    @media (max-width: 900px ){
+        .MenuCharaStats{
+            width: calc(100vw - 58px);
         }
     }
 
