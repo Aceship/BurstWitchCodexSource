@@ -330,6 +330,7 @@
     function changeChara(character) {
         chara = character
         charaId = chara.id+"0001"
+        charabigpic = `../data/img/source_avatar/hero_book/body_loading.png`
         charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
         attacktype = chara.AtkType
         starnum = parseInt(chara.Star)
@@ -498,6 +499,7 @@
     }
 
     const Changebigpic = id=>() => {
+        charabigpic = `../data/img/source_avatar/hero_book/body_loading.png`
         if(id==0){
             charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
         }
