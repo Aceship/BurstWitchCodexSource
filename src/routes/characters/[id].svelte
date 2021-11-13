@@ -4,7 +4,7 @@
     </title>
     <meta property="og:title" content="Burst Witch Codex - {chara.Name_EN}" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://aceship-burstwitchcodex.vercel.app/data/img/source_avatar/hero/body_{chara.id}0001.png" />
+    <meta property="og:image" content="https://aceship-burstwitchcodex.vercel.app/data/img/source_avatar/hero/head_{chara.Skin[0]}.png" />
     <meta property="og:image:type" content="image/png"> 
     <meta property="og:image:width" content="220">
     <meta property="og:image:height" content="220">
