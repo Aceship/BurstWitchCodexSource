@@ -107,17 +107,22 @@
     <div class="MenuFull">
         <!-- Left Side -->
         <div class="MenuCharaPic">
-            <img class="characterfull" src={charabigpic} alt="body">
+                <div class='charapiccontainer'>
+                    {#each [charabigpicarr[bigpicindex]] as src (bigpicindex)}
+                        <img transition:fade class="characterfull" src={src} alt="">
+                    {/each}
+                </div>
+            
                 <div class="skincontainer">
-                    <button class="skinbutton" on:click={Changebigpic(0)}>
+                    <button class="skinbutton" on:click={()=> bigpicindex = 0}>
                         <img src="../data/img/source_avatar/hero/head_{chara.Skin[0]}.png" alt="">
                     </button>
-                    <button class="skinbutton" on:click={Changebigpic(1)}>
+                    <button class="skinbutton" on:click={()=> bigpicindex = 1}>
                         <img src="../data/img/ui/etc/hg.png" alt="">
                     </button>
                     {#each chara.Skin as skin,i}
                         {#if i!=0}
-                        <button class="skinbutton" on:click={Changebigpic(skin)}>
+                        <button class="skinbutton" on:click={()=> bigpicindex = 2+i}>
                             <img src="../data/img/source_avatar/hero/head_{skin}.png" alt="">
                         </button>
                         {/if}
@@ -260,6 +265,7 @@
 
 
 <script>
+    import {fade} from 'svelte/transition'
     import { dataglobal , langglobal , charaGlobal, translateglobal } from '../js/stores.js';
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
@@ -300,6 +306,8 @@
     let starnum = parseInt(chara.Star)
     let quality = parseInt(chara.Quality) 
     let charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
+    let charabigpicarr = []
+    let bigpicindex = 0
     let level = 1
     let charaskill = []
     let charatalent = []
@@ -330,13 +338,14 @@
     function changeChara(character) {
         chara = character
         charaId = chara.id+"0001"
-        charabigpic = `../data/img/source_avatar/hero_book/body_loading.png`
         charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
         attacktype = chara.AtkType
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
+        bigpicindex = 0
         updateSkill() 
         updateTalent()
+        CreatePicList()
     }
     ////Character stuff 
 
@@ -498,18 +507,13 @@
         })
     }
 
-    const Changebigpic = id=>() => {
-        charabigpic = `../data/img/source_avatar/hero_book/body_loading.png`
-        if(id==0){
-            charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
-        }
-        else if(id==1){
-            charabigpic = `../data/img/source_avatar/haogan/haogan_${chara.id}.png`
-        }
-        else{
-            charabigpic = `../data/img/source_avatar/hero/body_${id}.png`
-        }
-        
+    function CreatePicList() {
+        charabigpicarr = []
+        charabigpicarr.push(`../data/img/source_avatar/hero_book/body_${chara.id}.png`)
+        charabigpicarr.push(`../data/img/source_avatar/haogan/haogan_${chara.id}.png`)
+        chara.Skin.forEach(skin => {
+            charabigpicarr.push(`../data/img/source_avatar/hero/body_${skin}.png`)
+        });
     }
 </script>
 
@@ -777,15 +781,25 @@
         padding: 140px 0px 0px 14px;
         overflow-y: scroll;
     }
+    .charapiccontainer{
+        display:inline-flex;
+        align-items: center;
+        justify-content: center;
+        position:relative;
+        height: calc(100vh - 20px);
+        width: 680px;
+        z-index:-1;
+    }
     .characterfull{
         /* position: fixed;
         right:50px;
         top:10%;
         z-index: -10; */
+        position:absolute;
         height: calc(100vh - 20px);
         width: 680px;
         object-fit: scale-down;
-        transition: opacity 0.5s, width 0.5s, height 0.5s, src 0.5s;
+        /* transition: opacity 0.5s, width 0.5s, height 0.5s, src 0.5s; */
     }
     
 
@@ -1093,6 +1107,9 @@
         .MenuFull{
             grid-template-columns: 40vw ;
         }
+        .charapiccontainer{
+            width:500px;
+        }
         .characterfull{
             width:500px;
         }
@@ -1127,6 +1144,10 @@
             width:calc(100vw - 30px);
             height: min(70vh,800px);
             padding-top: 120px;
+        }
+        .charapiccontainer{
+            width:calc(100vw - 30px);
+            height: min(70vh,800px)
         }
         .characterfull{
             width:calc(100vw - 30px);
