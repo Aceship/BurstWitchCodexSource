@@ -127,7 +127,6 @@
                         </button>
                         {/if}
                     {/each}
-                    
                 </div>
         </div>
         <!-- Right Side -->
@@ -223,9 +222,11 @@
                         {#each $dataglobal.witchStep as a ,i}
                         {#if i!=0}
                             <SubContainer>
-                                <span slot="infoname">level : {a.Level} </span>
+                                <span slot="infoname">Limit Break Level : {$dataglobal.witchStep[i-1].LevelMax} to {a.LevelMax}</span>
+                                <div slot='midcontent'>
+                                    Item Requirement 
+                                </div>
                                 <div slot="containercontent">
-                                    item req :
                                     {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
                                         <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
                                     {/each}
@@ -235,6 +236,16 @@
                     {/each}
                     </span>
                 </BoxContainer>
+                <!-- {#each charaFetter as fetter, i}
+                    {#if fetter}
+                        {#each fetter.RaiseUpCosts as item, i }
+                            <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
+                        {/each}
+                        {#each fetter.RaiseUpGifts as item, i }
+                            <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
+                        {/each}
+                    {/if}
+                {/each} -->
             </div>
         </div>
     </div>
@@ -293,6 +304,7 @@
     let level = 1
     let charaskill = []
     let charatalent = []
+    let charaFetter = []
 
     changeChara(chara)
 
@@ -325,6 +337,7 @@
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
         bigpicindex = 0
+        CheckFetter() 
         updateSkill() 
         updateTalent()
         CreatePicList()
@@ -483,10 +496,17 @@
         return jobs.join(", ")
     }
 
-    function GetItem(id){
-        return $dataglobal.item.find(items=>{
-            return items.id == id
-        })
+    function CheckFetter() {
+        charaFetter = []
+        chara.Fetter.forEach(element => {
+            console.log(element)
+            let fettersearch =  data.cardCharacterSublimation.find(id=>{
+                return id.id == element
+            })
+            if (fettersearch)
+            charaFetter.push(fettersearch)
+        });
+        console.log(charaFetter)
     }
 
     function CreatePicList() {

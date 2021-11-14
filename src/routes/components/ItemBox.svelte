@@ -8,7 +8,7 @@
     
     let item = GetItem(itemid)
 
-    console.log(item)
+    // console.log(item)
     function GetItem(id){
         return $dataglobal.item.find(items=>{
             return items.id == id
@@ -22,7 +22,7 @@
     {:else if quality !=-1}
         <img class="itemframe" src="../data/img/ui/item_frame/frame{item.Quality}.png" alt="">  
     {/if}
-    <img class="itempic" style="" src="../data/img/source_icon/item/{itemid}.png" title='{lang.cn[item.Name]} {item.EnglishName}' alt="">
+    <img class="itempic" style="" src="../data/img/source_icon/item/{item.itemPath}.png" title='{lang.cn[item.Name]} {item.EnglishName}' alt="">
     {#if qty>0}
         <span class="itemqty">{qty}</span>
     {/if}

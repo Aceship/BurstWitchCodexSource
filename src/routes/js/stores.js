@@ -10,6 +10,8 @@ import _jobTranslate from '$lib/custom/translate/Job.json'
 import _charTranslate from '$lib/custom/translate/chara.json'
 import _witchStep from '$lib/gamedata/source_gameconfig/witch_step.txt?raw'
 import _item from '$lib/gamedata/source_gameconfig/item.txt?raw'
+import _skillLevel from '$lib/gamedata/source_gameconfig/SkillLevel.txt?raw'
+import _cardCharacterSublimation from '$lib/gamedata/source_gameconfig/CardCharacterSublimation.txt?raw'
 let data2 = {
     cardCharacter   : ParseCSVtoObject(_cardCharacter),
     witchskillshow  : ParseCSVtoObject(_witchskillshow),
@@ -17,7 +19,9 @@ let data2 = {
     charaTalent     : ParseCSVtoObject(_talent),
     buildDot        : ParseCSVtoObject(_buildDot),
     witchStep       : ParseCSVtoObject(_witchStep),
-    item            : ParseCSVtoObject(_item)
+    item            : ParseCSVtoObject(_item),
+    skillLevel      : ParseCSVtoObject(_skillLevel),
+    cardCharacterSublimation    : ParseCSVtoObject(_cardCharacterSublimation)
 };
 let lang = {
     cn : ParseLuaLang(_localization_CHS)
