@@ -33,4 +33,19 @@
         border: 1px solid #444;
         outline: 1px solid #00000099;
     }
+    @media (max-width: 1370px){
+        .halfinfo{
+            flex-basis: 100%;
+        }
+    }
+    @media (max-width: 1080px){
+        .halfinfo{
+            display:flexbox;
+            min-width: unset;
+            max-width: unset;
+            width: calc(100% - 6px);
+            margin:4px 0px 18px 0px;
+            padding:4px 2px;
+        }
+    }
 </style>

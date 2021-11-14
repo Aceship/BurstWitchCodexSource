@@ -236,16 +236,39 @@
                     {/each}
                     </span>
                 </BoxContainer>
-                <!-- {#each charaFetter as fetter, i}
-                    {#if fetter}
-                        {#each fetter.RaiseUpCosts as item, i }
-                            <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
-                        {/each}
-                        {#each fetter.RaiseUpGifts as item, i }
-                            <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
-                        {/each}
-                    {/if}
-                {/each} -->
+                <BoxContainer>
+                    <span slot='title'>Affection</span>
+                    <span slot='container'>
+                        
+                            
+                            {#each charaFetter as fetter, i}
+                                {#if fetter}
+                                    <SubContainer>
+                                        <span slot ="infoname">Awakening {i+1} -  {lang.cn[fetter.pic_title]} - Unlock level {fetter.WitchLevel} </span>
+                                        <span slot="midcontent">
+                                            {lang.cn[fetter.pic_des]}
+                                        </span>
+                                        <span slot="containercontent">
+                                            <div>
+                                                <div>Item Requirements :</div>
+                                                {#each fetter.RaiseUpCosts as item, i }
+                                                    <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
+                                                {/each}
+                                            </div>
+                                            <div>
+                                                <div>Rewards:</div>
+                                                {#each fetter.RaiseUpGifts as item, i }
+                                                    <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
+                                                {/each}
+                                            </div>
+                                            
+                                        </span>
+                                        
+                                    </SubContainer>
+                                {/if}
+                            {/each}
+                    </span>
+                </BoxContainer>
             </div>
         </div>
     </div>
@@ -1022,9 +1045,6 @@
         .MenuFull{
             grid-template-columns: 40vw ;
         }
-        .halfinfo{
-            flex-basis: 100%;
-        }
         .Quickmenu .characterName{
             width: 46vw;
         }
@@ -1064,14 +1084,6 @@
             overflow-y:visible;
             border-top: 1px solid #444;
             border-radius: 12px 12px 0px 0px;
-        }
-        .halfinfo{
-            display:flexbox;
-            min-width: unset;
-            max-width: unset;
-            width: calc(100% - 6px);
-            margin:4px 0px 18px 0px;
-            padding:4px 2px;
         }
         .skincontainer{
             top:160px;
