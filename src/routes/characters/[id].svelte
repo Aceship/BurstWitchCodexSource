@@ -141,7 +141,9 @@
                     </label>
                 </div>
                 <div class="breachFont">
+                    <div class="breach">VIII</div>
                     I II III IV V VI VII VIII
+                    i ii iii iv v vi vii viii
                 </div> -->
                 <div class="jobinfo job-{chara.job}">
                     <div class="jobtitle">{TranslateJobTitle(chara.Name_job)}</div>
@@ -156,108 +158,83 @@
             </div>
             
             <div class="fullinfo">
-                <div class="halfinfo">
-                    <!-- <h1>Skills</h1> -->
-                    <div class="containertitle">Skills</div>
-                    {#each charaskill as eachskill,i}
-                        <div>
-                            <div class="skillcontainer">
-                                {#if eachskill.skillshow.length==1}
-                                    <div class="infotitle">
+                <BoxContainer>
+                    <span slot='title'>Skills</span>
+                    <span slot="container">
+                        {#each charaskill as eachskill,i}
+                            {#if eachskill.skillshow.length==1}
+                                <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                    <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
+                                    <span slot="midcontent">
                                         <div class="infocontent">
-                                            <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
-                                            <div>{SkillNameTL(eachskill,i,starnum)}</div>
-                                        </div>
-                                    </div>
-                                    <div class="infotext">
-                                        <div class="infocontent">
-                                            <div class="infoMP">
-                                                <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
-                                                <span>{eachskill.skill[0].skill_cost?eachskill.skill[0].skill_cost/10000:"--"}</span>
-                                            </div>
-                                            <div class="infoCD">
-                                                <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
-                                                <span> {eachskill.skill[0].skillCD==0?"--":`${eachskill.skill[0].skillCD}s`}</span>
-                                            </div>
+                                            <ManaInfo mp={eachskill.skill[0].skill_cost}></ManaInfo>
+                                            <CooldownInfo cooldown={eachskill.skill[0].skillCD}></CooldownInfo>
                                             <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
                                         </div>
-                                    </div> 
-                                    <div class="skilldesc">{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
-                                {:else}
-                                    <div class="infotitle">
+                                    </span>
+                                    <span slot="containercontent">
+                                        {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
+                                    </span>
+                                </SubContainer>
+                            {:else}
+                                <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                    <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
+                                    <span slot="midcontent">
                                         <div class="infocontent">
-                                            <img class="titleimage" src ='../data/img/source_icon/skill/{eachskill.icon}.png' alt="">
-                                            <div>{SkillNameTL(eachskill,i,starnum)}</div>
-                                        </div>
-                                    </div>
-                                    <div class="infotext">
-                                        <div class="infocontent">
-                                            <div class="infoMP">
-                                                <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
-                                                <span>{eachskill.skill[starnum-1].skill_cost/10000}</span>
-                                            </div>
-                                            <div class="infoCD">
-                                                <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
-                                                <span> {eachskill.skill[starnum-1].skillCD}s</span>
-                                            </div>
+                                            <ManaInfo mp={eachskill.skill[starnum-1].skill_cost}></ManaInfo>
+                                            <CooldownInfo cooldown={eachskill.skill[starnum-1].skillCD}></CooldownInfo>
                                             <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
-                                        </div>
-                                    </div> 
-                                    <div class="skilldesc">{@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}</div>
-                                {/if}
-                            </div>
-                        </div>
-                    {/each}
-                </div>
-                <div class="halfinfo">
-                    <div class="containertitle">Talents</div>
-                    {#each charatalent as eachtalent,i}
-                        <div class="skillcontainer" >
-                            <div class="infotitle">
-                                <div class="infocontent">
-                                    <img class="titleimage" style="width: 50px;" src ='../data/img/source_icon/talent/{eachtalent.icon}.png' alt="">
-                                    <div>{lang.cn[eachtalent.talentdata.Talent_Name]}</div>
+                                        </div> 
+                                    </span>
+                                    <span slot="containercontent">
+                                        {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
+                                    </span>
+                                </SubContainer>
+                            {/if}
+                        {/each}
+                    </span>
+                </BoxContainer>
+                <BoxContainer>
+                    <span slot='title'>Talents</span>
+                    <span slot='container'>
+                        {#each charatalent as eachtalent,i}
+                            <SubContainer img='../data/img/source_icon/talent/{eachtalent.icon}.png'>
+                                <span slot="infoname">{lang.cn[eachtalent.talentdata.Talent_Name]}</span>
+                                <div slot="midcontent">
+                                    <div class="starContainer starHorizontal infostar">
+                                        {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                            <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
+                                        {/each}
+                                        {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                            <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
+                                        {/each}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="starContainer starHorizontal infostar">
-                                {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                    <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
-                                {/each}
-                                {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                    <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
-                                {/each}
-                            </div>
-                            <div class="skilldesc">{@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}</div>
-                        </div>
-                    {/each}
-                </div>
-                <div class="halfinfo">
-                    <div class="containertitle">
-                        Limit Break Cost
-                    </div>
-                    {#each $dataglobal.witchStep as a ,i}
+                                <div slot="containercontent">
+                                    {@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}
+                                </div>
+                            </SubContainer>
+                        {/each}
+                    </span>
+                </BoxContainer>
+                <BoxContainer>
+                    <span slot='title'>Limit Break Cost</span>
+                    <span slot='container'>
+                        {#each $dataglobal.witchStep as a ,i}
                         {#if i!=0}
-                            <div class="skillcontainer">
-                                <div class="infotitle">
-                                    <div class="infocontent">
-                                        level : {a.Level} 
-                                    </div>
-                                    
-                                </div>
-                                <div class="skilldesc">
+                            <SubContainer>
+                                <span slot="infoname">level : {a.Level} </span>
+                                <div slot="containercontent">
                                     item req :
                                     {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
-                                        <div class="itemcontainer">
-                                            <img class="itemframe" src="../data/img/ui/item_frame/frame{GetItem(item[0]).Quality}.png" alt="">  
-                                            <img class="itempic" style="" src="../data/img/source_icon/item/{item[0]}.png" title='{lang.cn[GetItem(item[0]).Name]} {GetItem(item[0]).EnglishName}' alt="">
-                                            <span class="itemqty">{item[1]}</span>
-                                        </div>
+                                        <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
                                     {/each}
                                 </div>
-                            </div>
+                            </SubContainer>
                         {/if}
                     {/each}
-                </div>
+                    </span>
+                </BoxContainer>
             </div>
         </div>
     </div>
@@ -270,6 +247,11 @@
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
     import witchselection from '../witchselection.svelte';
+    import BoxContainer from '../components/BoxContainer.svelte';
+    import SubContainer from '../components/SubContainer.svelte';
+    import ItemBox from '../components/ItemBox.svelte';
+    import ManaInfo from '../components/ManaInfo.svelte';
+    import CooldownInfo from '../components/CooldownInfo.svelte';
 
     import Characteravatar from "../components/characteravatar.svelte";
     import { page } from '$app/stores';
@@ -518,11 +500,16 @@
 </script>
 
 <style>
+    @font-face{
+        font-family : aAGothic;
+        src : url(../data/font/aAGothic.ttf)
+    }
     :global(body) {
         background-color: #111;
         color: #dddddd;
         transition: background-color 0.3s
     }
+    
     .Quickmenu {
         position: absolute;
         left:650px;
@@ -615,6 +602,11 @@
     }
     .characterName .characterNameEN{
         font-size: 2.5em;
+        /* font-family: aAGothic; */
+    }
+    .characterName .characterNameCN{
+        font-size: 1.1em;
+        /* font-family: simhei; */
     }
     .Quickmenu .starContainer{
         position: absolute;
@@ -641,11 +633,11 @@
     .setting{
         justify-self: flex-end;
     }
-    .setting button{
+    /* .setting button{
         font-size: 20px;
         width:34px;
         height:34px;
-    }
+    } */
     .charadetailback{
         width:42px !important;
         height:42px !important;
@@ -866,6 +858,11 @@
     .breachFont{
         font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
         font-size: 40px;
+        font-variant: lighter;
+    }
+    .breach{
+        display:inline-flex;
+        transform:scaleX(70%)
     }
     .fullinfo{
         display:inline-flex;
@@ -873,88 +870,12 @@
         flex-wrap: wrap;
         gap: 5px 2px;
     }
-    .halfinfo{
-        background:#333;
-        padding:0px 2px;
-        margin:0px;
-        /* width:50%; */
-        min-width:380px;
-        border-radius: 12px;
-        border: 1px solid #666;
-        /* filter: drop-shadow(1px 1px 2px #000); */
-        outline: 1px solid #00000099;
-        flex-basis:49%;
-    }
-
-    .containertitle{
-        text-align:center;
-        font-size: 40px;
-        font-weight: 600;
-        background:#222;
-        border-radius: 12px;
-        margin: 4px 2px;
-        /* filter: drop-shadow(1px 1px 2px #000); */
-        border: 1px solid #444;
-        outline: 1px solid #00000099;
-    }
-    .skillcontainer{
-        background:#444;
-        margin:0px 2px 6px 2px;
-        padding:1px 1px;
-        border-radius: 12px;
-        outline: 1px solid #00000099;
-        /* filter: drop-shadow(1px 1px 2px #000); */
-    }
-    .infotitle{
-        background:#222;
-        margin:0px 0px;
-        padding:0px 5px;
-        border-radius: 12px 12px 0px 0px;
-        /* display:inline-flex; */
-        align-items:center;
-    }
-    .infotitle .titleimage{
-        width: 60px;
-        margin:5px;
-    }
-
-    .infotext{
-        /* min-height:30px; */
-        padding:6px 0px;
-        /* background:#222; */
-    }
     .infocontent{
         display:inline-flex;
         align-items:center;
+        padding:6px 0px;
     }
-    .infoimg{
-        width: 30px;
-        height:30px;
-        object-fit: contain;
-    }
-    .infoMP{
-        display:inline-flex;
-        position: relative;
-        background:#2E2E2E;
-        padding:2px 10px 2px 30px;
-        min-width:20px;
-    }
-    .infoMP img{
-        position:absolute;
-        left:-2px;
-        top:-5px;
-    }
-    .infoCD{
-        position: relative;
-        background:#222;
-        padding:2px 10px 2px 30px;
-        min-width:20px;
-    }
-    .infoCD img{
-        position:absolute;
-        left:-2px;
-        top:-3px;
-    }
+    
     .infoLevel{
         display:inline-flex;
         padding:0px 4px 0px 4px;
@@ -1034,43 +955,6 @@
         border-radius: 0px 0px 4px 4px;
         border: 1px solid #444;
     }
-
-    /* .infotext img{
-        
-    } */
-
-    .itemcontainer{
-        position: relative;
-        display:inline-flex;
-        width:60px;
-        height:60px;
-        align-items: center;
-        justify-content: center;
-        background: #00000066;
-        border-radius:8px;
-    }
-    .itemcontainer .itemframe{
-        position:absolute;
-        width:60px;
-        height:60px;
-        object-fit:contain ;
-    }
-    .itemcontainer .itempic{
-        position:absolute;
-        width:50px;
-        height:50px;
-        object-fit:contain ;
-    }
-
-    .itemcontainer .itemqty{
-        position:absolute;
-        bottom:1px;
-        right:2px;
-        padding:1px 2px;
-        border-radius:4px 0px 6px 0px;
-        background: #00000066;
-    }
-
     .skincontainer{
         position:absolute;
         display:inline-flex;
