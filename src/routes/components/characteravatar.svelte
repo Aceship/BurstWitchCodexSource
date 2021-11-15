@@ -8,24 +8,16 @@
     export let withelement = false;
     export let withtype = false;
 
-    let charaEx = {}
-
-    CheckTL(chara)
-
-    function CheckTL(chara){
-        charaEx= {
-            name:chara.Name_EN,
-            namebg:""
-        }
-
+    function GetName(chara){
+        let name = chara.Name_EN
         let charatldata = $translateglobal.charTL[chara.id]
         if(charatldata){
             
             if(charatldata.name){
-                charaEx.name = charatldata.name
-                charaEx.namebg = chara.Name_EN
+                name = charatldata.name
             }
         }
+        return name
     }
 </script>
 
@@ -34,7 +26,7 @@
     <img class="displaypic" src="/data/img/source_avatar/hero_main/head_{chara.id+"0001"}.png" alt={chara.id+"0001"} >
     <img class="avatarframe" src="/data/img/ui/chara_frame/avatarframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
     {#if withname}
-        <div class="name">{charaEx.name}</div>
+        <div class="name">{GetName(chara)}</div>
     {/if}
     {#if withelement}
         <div class="elementMain">

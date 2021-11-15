@@ -138,7 +138,7 @@
     {/each}
     </div>
 </div>
-{#each filteredchara as chara,i}
+{#each filteredchara as chara}
     <a class='invisibleButton' on:click="{witchid(chara.id)}" href="/characters/{chara.Name_EN.replace(" ","_")}">
         <Characteravatar chara={chara} quality={chara.Quality} starnum={chara.Quality} withelement={true} withname={true} withtype={true}>
         </Characteravatar>
