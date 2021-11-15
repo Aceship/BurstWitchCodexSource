@@ -15,21 +15,19 @@
         })
     }
 </script>
-
-<div class="itemcontainer">
-    {#if quality > 0}
-        <img class="itemframe" src="../data/img/ui/item_frame/frame{quality}.png" alt="">  
-    {:else if quality !=-1}
-        {#if item}
+{#if item}
+    <div class="itemcontainer">
+        {#if quality > 0}
+            <img class="itemframe" src="../data/img/ui/item_frame/frame{quality}.png" alt="">  
+        {:else if quality !=-1}
             <img class="itemframe" src="../data/img/ui/item_frame/frame{item.Quality}.png" alt="">  
         {/if}
-    {/if}
-    <img class="itempic" style="" src="../data/img/source_icon/item/{item.itemPath}.png" title='{lang.cn[item.Name]} {item.EnglishName}' alt="">
-    {#if qty>0}
-        <span class="itemqty">{qty}</span>
-    {/if}
-</div>
-
+        <img class="itempic" style="" src="../data/img/source_icon/item/{item.itemPath}.png" title='{lang.cn[item.Name]} {item.EnglishName}' alt="">
+        {#if qty>0}
+            <span class="itemqty">{qty}</span>
+        {/if}
+    </div>
+{/if}
 <style>
     .itemcontainer{
         position: relative;
