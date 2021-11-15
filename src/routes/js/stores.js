@@ -6,12 +6,15 @@ import _witch_skill from '$lib/gamedata/source_gameconfig/witch_skill.txt?raw'
 import _localization_CHS from '$lib/gamedata/xlua/lua_game/language/localization_CHS.lua.txt?raw'
 import _talent from '$lib/gamedata/source_gameconfig/Talent.txt?raw'
 import _buildDot from '$lib/gamedata/source_gameconfig/BuildDot.txt?raw'
-import _jobTranslate from '$lib/custom/translate/Job.json'
-import _charTranslate from '$lib/custom/translate/chara.json'
 import _witchStep from '$lib/gamedata/source_gameconfig/witch_step.txt?raw'
 import _item from '$lib/gamedata/source_gameconfig/item.txt?raw'
 import _skillLevel from '$lib/gamedata/source_gameconfig/SkillLevel.txt?raw'
 import _cardCharacterSublimation from '$lib/gamedata/source_gameconfig/CardCharacterSublimation.txt?raw'
+import _story from '$lib/gamedata/source_gameconfig/Story.txt?raw'
+
+import _jobTranslate from '$lib/custom/translate/Job.json'
+import _charTranslate from '$lib/custom/translate/chara.json'
+import _commonTranslate from '$lib/custom/translate/common.json'
 let data2 = {
     cardCharacter   : ParseCSVtoObject(_cardCharacter),
     witchskillshow  : ParseCSVtoObject(_witchskillshow),
@@ -21,14 +24,16 @@ let data2 = {
     witchStep       : ParseCSVtoObject(_witchStep),
     item            : ParseCSVtoObject(_item),
     skillLevel      : ParseCSVtoObject(_skillLevel),
+    charastory      : ParseCSVtoObject(_story),
     cardCharacterSublimation    : ParseCSVtoObject(_cardCharacterSublimation)
 };
 let lang = {
     cn : ParseLuaLang(_localization_CHS)
 }
 let translate = {
-    jobTranslate : _jobTranslate,
-    charTranslate: _charTranslate
+    jobTL : _jobTranslate,
+    charTL: _charTranslate,
+    commonTL: _commonTranslate
 };
 let chara = data2.cardCharacter[0]
 
@@ -68,9 +73,20 @@ function ParseCSVtoObject(csvtxt) {
         let csvrowsplit = row.split(/,/g)
         for (let i = 0; i < csvcolname.length; i++) {
             const col = csvcolname[i];
+            let type = csvcoltype[i]
+            switch (col) {
+                case "Story_id":
+                    type = "array_&_|"
+                    break;
+                case "CardInfor":
+                    type = "array_/_|"
+                    break;
+                default:
+                    break;
+            }
             // console.log(csvcoltype[i])
-            if(csvcoltype[i].includes("array")){
-                let arraysplithead = csvcoltype[i].split(/_/g)
+            if(type.includes("array")){
+                let arraysplithead = type.split(/_/g)
                 arraysplithead = arraysplithead.slice(1,arraysplithead.length)
                 csvobject[col]=csvrowsplit[i].split(arraysplithead[arraysplithead.length-1])
                 if(arraysplithead.length==2){

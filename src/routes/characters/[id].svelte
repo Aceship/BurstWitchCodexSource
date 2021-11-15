@@ -69,8 +69,18 @@
                 <button><i class="fas fa-cog"></i></button>
             </div> -->
             <div>
-                <button class:active={infopage===0} on:click={ChangePage(0)}>Skills & Talents</button>
-                <button class:active={infopage===1}  on:click={ChangePage(1)}>Costs</button>
+                <button class:active={infopage===0} on:click={ChangePage(0)}>
+                    <img src="../data/img/source_icon/unlock/208.png" alt="">
+                    <div>Skills Talents</div>
+                </button>
+                <button class:active={infopage===1}  on:click={ChangePage(1)}>
+                    <img src="../data/img/source_icon/unlock/10203.png" alt="">
+                    <div>Build Costs</div>
+                </button>
+                <button class:active={infopage===2}  on:click={ChangePage(2)}>
+                    <img src="../data/img/source_icon/unlock/10204.png" alt="">
+                    <div>Story</div>
+                </button>
                 <!-- <button class:active={infopage===2}  on:click={ChangePage(2)}>Story</button>
                 <button class:active={infopage===3}  on:click={ChangePage(3)}>Voice</button> -->
             </div>
@@ -120,15 +130,15 @@
                 </div>
             
                 <div class="skincontainer">
-                    <button class="skinbutton" on:click={()=> bigpicindex = 0}>
+                    <button class="skinbutton" class:active={bigpicindex==0} on:click={()=> bigpicindex = 0}>
                         <img src="../data/img/source_avatar/hero/head_{chara.Skin[0]}.png" alt="">
                     </button>
-                    <button class="skinbutton" on:click={()=> bigpicindex = 1}>
+                    <button class="skinbutton" class:active={bigpicindex==1} on:click={()=> bigpicindex = 1}>
                         <img src="../data/img/ui/etc/hg.png" alt="">
                     </button>
                     {#each chara.Skin as skin,i}
                         {#if i!=0}
-                        <button class="skinbutton" on:click={()=> bigpicindex = 2+i}>
+                        <button class="skinbutton" class:active={bigpicindex==2+i} on:click={()=> bigpicindex = 2+i}>
                             <img src="../data/img/source_avatar/hero/head_{skin}.png" alt="">
                         </button>
                         {/if}
@@ -235,6 +245,27 @@
                 {:else if infopage===1}
                 <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}} class="fullinfo">
                     <BoxContainer>
+                        <span slot='title'>Limit Break Cost</span>
+                        <span slot='container'>
+                            {#each $dataglobal.witchStep as a ,i}
+                            {#if i!=0}
+                                <SubContainer>
+                                    <span slot="infoname">Limit Break Level {$dataglobal.witchStep[i-1].LevelMax} </span>
+                                    <span slot="bgname">Up to level {a.LevelMax}</span>
+                                    <div slot='midcontent'>
+                                        Item Requirement
+                                    </div>
+                                    <div slot="containercontent">
+                                        {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
+                                            <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
+                                        {/each}
+                                    </div>
+                                </SubContainer>
+                            {/if}
+                        {/each}
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer>
                         <span slot='title'>Affection</span>
                         <span slot='container'>
                                 {#each charaFetter as fetter, i}
@@ -266,25 +297,103 @@
                                 {/each}
                         </span>
                     </BoxContainer>
+                </div>
+                {:else if infopage===2}
+                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}} class="fullinfo">
                     <BoxContainer>
-                        <span slot='title'>Limit Break Cost</span>
+                        <span slot='title'>Basic Info</span>
                         <span slot='container'>
-                            {#each $dataglobal.witchStep as a ,i}
-                            {#if i!=0}
-                                <SubContainer>
-                                    <span slot="infoname">Limit Break Level {$dataglobal.witchStep[i-1].LevelMax} </span>
-                                    <span slot="bgname">Up to level {a.LevelMax}</span>
-                                    <div slot='midcontent'>
-                                        Item Requirement
-                                    </div>
-                                    <div slot="containercontent">
-                                        {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
-                                            <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
-                                        {/each}
-                                    </div>
-                                </SubContainer>
-                            {/if}
-                        {/each}
+                            <SubContainer type="simple">
+                                <span slot="content">
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">CN Name</span>
+                                        <span slot="containercontent">{lang.cn[chara.Name]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">EN Name</span>
+                                        <span slot="containercontent">{chara.Name_EN}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Type</span>
+                                        <span slot="containercontent">
+                                            <div><img class="smallinfoimg" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt=""></div>
+                                            <div>{$translateglobal.commonTL.class[attacktype].name}</div>
+                                        </span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Attribute</span>
+                                        <span slot="containercontent">
+                                            <div><img class="smallinfoimg" src="../data/img/ui/element/element{chara.attri_type}.png" alt=""></div>
+                                            <div>{$translateglobal.commonTL.attr[chara.attri_type].name}</div>
+                                        </span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Rarity</span>
+                                        <span slot="containercontent">
+                                            <div><img class="smallinfoimg" src="../data/img/ui/rarity/{$translateglobal.commonTL.rarity[chara.Quality].icon}.png" alt=""></div>
+                                        </span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Race</span>
+                                        <span slot="containercontent">
+                                            <div><img class="smallinfoimg" src="../data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
+                                            <div>{$translateglobal.commonTL.race[chara.Appearance[0]].name}</div>
+                                        </span>
+                                    </SubContainer>
+                                </span>
+                            </SubContainer>
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer>
+                        <span slot='title'>Other Info</span>
+                        <span slot='container'>
+                            <SubContainer type="simple">
+                                <span slot="content">
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Height</span>
+                                        <span slot="containercontent">{chara.CardInfor[0]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Weight</span>
+                                        <span slot="containercontent">{chara.CardInfor[2]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Age</span>
+                                        <span slot="containercontent">{chara.CardInfor[1]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Blood Type</span>
+                                        <span slot="containercontent">{chara.CardInfor[3]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">3-Size</span>
+                                        <span slot="containercontent">{chara.CardInfor[4].join(" ")}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Birthday</span>
+                                        <span slot="containercontent">{chara.CardInfor[5]}</span>
+                                    </SubContainer>
+                                </span>
+                            </SubContainer>
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer grow={true}>
+                        <span slot='title'>Story</span>
+                        <span slot='container'>
+                                {#each charaStory as story, i}
+                                    {#if story}
+                                        <SubContainer>
+                                            <span slot ="infoname">Story {i+1} -  {story.title}</span>
+                                            <span slot="bgname">Require bonds over {story.req} </span>
+                                            
+                                            <span slot="containercontent">
+                                                {@html story.desc}
+                                                
+                                            </span>
+                                            
+                                        </SubContainer>
+                                    {/if}
+                                {/each}
                         </span>
                     </BoxContainer>
                 </div>
@@ -310,6 +419,7 @@
 
     import Characteravatar from "../components/characteravatar.svelte";
     import { page } from '$app/stores';
+import { attr } from 'svelte/internal';
     let id = $page.params.id;
 
     let data = $dataglobal
@@ -349,6 +459,7 @@
     let charaskill = []
     let charatalent = []
     let charaFetter = []
+    let charaStory = []
     let infopage=0
 
     changeChara(chara)
@@ -385,10 +496,12 @@
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
         bigpicindex = 0
+        infopage = 0
         CheckFetter() 
         updateSkill() 
         updateTalent()
         CreatePicList()
+        CheckStory()
     }
     ////Character stuff 
 
@@ -407,8 +520,8 @@
                 return obj.id == element
             })
 
-            if($translateglobal.charTranslate[chara.id]){
-                skillObject.skilltranslate = $translateglobal.charTranslate[chara.id].skills
+            if($translateglobal.charTL[chara.id]){
+                skillObject.skilltranslate = $translateglobal.charTL[chara.id].skills
             }
 
             skillObject.icon = skillObject.skillshow[0].skill_icon
@@ -519,7 +632,7 @@
         // console.log(jobsplit)
         var jobs = []
         jobsplit.forEach(job => {
-            let jobtl = $translateglobal.jobTranslate.title[job]
+            let jobtl = $translateglobal.jobTL.title[job]
             // console.log(job)
             if(!jobtl){
                 jobtl = job
@@ -534,7 +647,7 @@
         
         var jobs = []
         jobsplit.forEach(job => {
-            let jobtl = $translateglobal.jobTranslate.description[job]
+            let jobtl = $translateglobal.jobTL.description[job]
             // console.log(job)
             if(!jobtl){
                 jobtl = job
@@ -546,17 +659,25 @@
 
     function CheckFetter() {
         charaFetter = []
-        chara.Fetter.forEach(element => {
-            console.log(element)
-            let fettersearch =  data.cardCharacterSublimation.find(id=>{
-                return id.id == element
-            })
-            if (fettersearch)
-            charaFetter.push(fettersearch)
-        });
-        console.log(charaFetter)
+        let fettersearch =  data.cardCharacterSublimation.find(id=>{
+            return id.id == chara.StepUp_id
+        })
+        if (fettersearch)charaFetter.push(fettersearch)
+        
     }
+    
+    function CheckStory() {
+        charaStory = []
+        chara.Story_id.forEach(element => {
+            let storysearch = data.charastory.find(story =>{
+                return story.id == element[2]
+            })
 
+            let title = lang.cn[storysearch.title].replace(/(?:\r\n|\r|\n)/g, '<br>');
+            let desc = lang.cn[storysearch.des].replace(/(?:\r\n|\r|\n)/g, '<br>');
+            charaStory.push({req:element[1], title:title, desc:desc})
+        });
+    }
     function CreatePicList() {
         charabigpicarr = []
         charabigpicarr.push(`../data/img/source_avatar/hero_book/body_${chara.id}.png`)
@@ -568,6 +689,10 @@
 </script>
 
 <style>
+    @font-face{
+        font-family : Magiera;
+        src : url(../data/font/Magiera-Script-2.ttf)
+    }
     @font-face{
         font-family : aAGothic;
         src : url(../data/font/aAGothic.ttf)
@@ -699,22 +824,41 @@
     }
 
     .sidebar button{
+        position:relative;
         border:none;
-        background:#222;
+        background:#444;
         margin-bottom:2px;
         width:49px;
         height:90px;
         border: solid #222;
         border-width: 1px 0px 1px 0px;
         color:#ddd;
+        padding:0px;
+        padding-top:35px;
+        justify-items: center;
+        font-family:Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
         /* border-radius: 5px 0px 0px 5px; */
     }
+    .sidebar button img{
+        position:absolute;
+        top:5px;
+        left:5px;
+        width:40px;
+        height:40px;
+        object-fit: contain;
+    }
+    .sidebar button div{
+        background:#00000044;
+        padding:1px;
+    }
     .sidebar button:hover{
-        background:#333
+        background:#444
     }
     .sidebar button.active{
         /* border-width: 4px 0px 1px 5px; */
-        background:#444;
+        border: solid #333;
+        border-width: 1px 0px 1px 0px;
+        background:#222;
     }
     .setting{
         justify-self: flex-end;
@@ -747,6 +891,12 @@
     .elementMain .element{
         position: absolute;
         width: 34px;
+    }
+
+    .smallinfoimg{
+        width:40px;
+        height:40px;
+        object-fit: contain;
     }
     .typeMain{
         position: relative;
@@ -1052,14 +1202,18 @@
         display:inline-flex;
         width:80px;
         height:80px;
-        border:1px solid #888;
+        border:1px solid #444;
         outline: 2px solid #00000099;
-        background: #222;
+        background: #111;
         padding:0px;
         margin:1px;
         border-radius: 6px;
         align-items: center;
         justify-content: center;
+    }
+    .skinbutton.active{
+        background:#222;
+        border:1px solid #888;
     }
     .skinbutton img{
         width:76px;

@@ -1,28 +1,47 @@
 <script>
     export let img =''
+    export let type = ""
 </script>
 
-<div class="skillcontainer">
-    <div class="infotitle">
-        <div class="infocontent">
-            {#if img}
-                <img class='' src ={img} alt="">
-            {/if}
+{#if type=="small"}
+    <div class="smallcontainer">
+        <div class="left">
             <slot name="infoname"></slot>
         </div>
-        <div class="bgname">
-            <slot name="bgname"></slot>
+        <div class="right">
+            <slot name="containercontent">
+                
+            </slot>
         </div>
     </div>
-    <div class="midcontent">
-        <slot name="midcontent"></slot>
-    </div>
-    <div class="skilldesc">
-        <slot name="containercontent">
-            
+{:else if type=="simple"}
+    <div class="simple">
+        <slot name="content">
         </slot>
     </div>
-</div>
+{:else}
+    <div class="skillcontainer">
+        <div class="infotitle">
+            <div class="infocontent">
+                {#if img}
+                    <img class='' src ={img} alt="">
+                {/if}
+                <slot name="infoname"></slot>
+            </div>
+            <div class="bgname">
+                <slot name="bgname"></slot>
+            </div>
+        </div>
+        <div class="midcontent">
+            <slot name="midcontent"></slot>
+        </div>
+        <div class="skilldesc">
+            <slot name="containercontent">
+                
+            </slot>
+        </div>
+    </div>
+{/if}
 
 <style>
     @font-face{
@@ -83,5 +102,44 @@
         top:5px;
         opacity: 45%;
         font-family: aAGothic;
+    }
+
+    .simple{
+        /* display: flex; */
+        background:#444;
+        margin:1px 1px 1px 1px;
+        padding:5px 5px;
+        border-radius: 3px;
+        outline: 1px solid #00000099;
+        /* justify-items: center; */
+        text-align: center;
+    }
+
+    .smallcontainer{
+        display: inline-flex;
+        background:#444;
+        margin:1px 1px 1px 1px;
+        padding:1px 1px;
+        border-radius: 1px;
+        outline: 1px solid #00000099;
+        align-content: center;
+    }
+    .left{
+        display: inline-flex;
+        padding:2px;
+        background: #222;
+        min-width: 120px;
+        min-height: 24px;
+        align-items: center;
+    }
+
+    .right{
+        display: inline-flex;
+        padding:2px;
+        background: #333;
+        min-width: 150px;
+        min-height: 24px;
+        align-items: center;
+        justify-content: center;
     }
 </style>

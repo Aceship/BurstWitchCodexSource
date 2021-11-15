@@ -1,4 +1,8 @@
-<div class="halfinfo">
+<script>
+    export let grow = false
+</script>
+
+<div class="halfinfo" class:grow={grow}>
     <div class="containertitle">
         <slot name="title">
             Title
@@ -21,6 +25,10 @@
         /* filter: drop-shadow(1px 1px 2px #000); */
         outline: 1px solid #00000099;
         flex-basis:49%;
+        flex-grow: 2;
+    }
+    .grow{
+        flex-basis:100%;
     }
     .containertitle{
         text-align:center;
