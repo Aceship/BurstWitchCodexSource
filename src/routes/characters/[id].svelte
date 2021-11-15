@@ -415,19 +415,20 @@
     import { fly } from 'svelte/transition';
     import { fade } from 'svelte/transition'
     import { slide } from 'svelte/transition';
-    import { dataglobal , langglobal , charaGlobal, translateglobal } from '../js/stores.js';
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
+
+
+    import { dataglobal , langglobal , translateglobal } from '../js/stores.js';
     import witchselection from '../witchselection.svelte';
     import BoxContainer from '../components/BoxContainer.svelte';
     import SubContainer from '../components/SubContainer.svelte';
     import ItemBox from '../components/ItemBox.svelte';
     import ManaInfo from '../components/ManaInfo.svelte';
     import CooldownInfo from '../components/CooldownInfo.svelte';
-
     import Characteravatar from "../components/characteravatar.svelte";
+
     import { page } from '$app/stores';
-import { attr } from 'svelte/internal';
     let id = $page.params.id;
 
     let data = $dataglobal
