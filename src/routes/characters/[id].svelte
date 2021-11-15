@@ -414,7 +414,17 @@
     </div>
 </div>
 
-
+<!-- <script context="module">
+    import { get } from 'svelte/store'
+     export function preload(page) {
+         const { id } = page.params;
+         console.log(get(dataglobal))
+         const chara = get(dataglobal).cardCharacter.find(character=>{
+            return character.Name_EN == id.replace("_"," ")
+        })
+        return {id, chara}
+     }
+</script> -->
 <script>
     import { fly } from 'svelte/transition';
     import { fade } from 'svelte/transition'
@@ -422,6 +432,7 @@
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
 
+    import { onMount } from 'svelte';
 
     import { dataglobal , langglobal , translateglobal } from '../js/stores.js';
     import witchselection from '../witchselection.svelte';
@@ -433,18 +444,25 @@
     import Characteravatar from "../components/characteravatar.svelte";
 
     import { page } from '$app/stores';
-    let id = $page.params.id;
+    // export let id 
+    // console.log(id)
+    // export let chara
+    // console.log(chara)
 
     let data = $dataglobal
     let lang = $langglobal
 
     let devmode = false;
 
-    // console.log(id)
-    console.log($dataglobal)
+    let id = $page.params.id;
     let chara = $dataglobal.cardCharacter.find(character=>{
-            return character.Name_EN == id.replace("_"," ")
-        })
+        return character.Name_EN == id.replace("_"," ")
+    })
+    
+
+    // console.log(id)
+    // console.log($dataglobal)
+
     let charastat = {
         stat:{
             hp:chara.OrgAttribute[0][1],
