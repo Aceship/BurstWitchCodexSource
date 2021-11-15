@@ -11,13 +11,13 @@
 
 <style>
     .halfinfo{
-        background:#333;
+        background:#2a2a2a;
         padding:0px 2px;
         margin:0px;
         /* width:50%; */
         min-width:380px;
         border-radius: 12px;
-        border: 1px solid #666;
+        border: 1px solid #444;
         /* filter: drop-shadow(1px 1px 2px #000); */
         outline: 1px solid #00000099;
         flex-basis:49%;

@@ -68,6 +68,12 @@
             <div class="setting">
                 <button><i class="fas fa-cog"></i></button>
             </div> -->
+            <div>
+                <button class:active={infopage===0} on:click={ChangePage(0)}>Skills & Talents</button>
+                <button class:active={infopage===1}  on:click={ChangePage(1)}>Costs</button>
+                <!-- <button class:active={infopage===2}  on:click={ChangePage(2)}>Story</button>
+                <button class:active={infopage===3}  on:click={ChangePage(3)}>Voice</button> -->
+            </div>
         </div>
 
         <div class="characterName">
@@ -156,127 +162,142 @@
                 parseFloat(chara.StepUpAttrRates[0][starnum])} -->
             </div>
             
-            <div class="fullinfo">
-                <BoxContainer>
-                    <span slot='title'>Skills</span>
-                    <span slot="container">
-                        {#each charaskill as eachskill,i}
-                            {#if eachskill.skillshow.length==1}
-                                <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
-                                    <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
-                                    <span slot="midcontent">
-                                        <div class="infocontent">
-                                            <ManaInfo mp={eachskill.skill[0].skill_cost}></ManaInfo>
-                                            <CooldownInfo cooldown={eachskill.skill[0].skillCD}></CooldownInfo>
-                                            <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
-                                        </div>
-                                    </span>
-                                    <span slot="containercontent">
-                                        {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
-                                    </span>
-                                </SubContainer>
-                            {:else}
-                                <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
-                                    <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
-                                    <span slot="midcontent">
-                                        <div class="infocontent">
-                                            <ManaInfo mp={eachskill.skill[starnum-1].skill_cost}></ManaInfo>
-                                            <CooldownInfo cooldown={eachskill.skill[starnum-1].skillCD}></CooldownInfo>
-                                            <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
-                                        </div> 
-                                    </span>
-                                    <span slot="containercontent">
-                                        {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
-                                    </span>
-                                </SubContainer>
-                            {/if}
-                        {/each}
-                    </span>
-                </BoxContainer>
-                <BoxContainer>
-                    <span slot='title'>Talents</span>
-                    <span slot='container'>
-                        {#each charatalent as eachtalent,i}
-                            <SubContainer img='../data/img/source_icon/talent/{eachtalent.icon}.png'>
-                                <span slot="infoname">{lang.cn[eachtalent.talentdata.Talent_Name]}</span>
-                                <div slot="midcontent">
-                                    <div class="starContainer starHorizontal infostar">
-                                        {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                            <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
-                                        {/each}
-                                        {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                            <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
-                                        {/each}
-                                    </div>
-                                </div>
-                                <div slot="containercontent">
-                                    {@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}
-                                </div>
-                            </SubContainer>
-                        {/each}
-                    </span>
-                </BoxContainer>
-                <BoxContainer>
-                    <span slot='title'>Limit Break Cost</span>
-                    <span slot='container'>
-                        {#each $dataglobal.witchStep as a ,i}
-                        {#if i!=0}
-                            <SubContainer>
-                                <span slot="infoname">Limit Break Level : {$dataglobal.witchStep[i-1].LevelMax} to {a.LevelMax}</span>
-                                <div slot='midcontent'>
-                                    Item Requirement 
-                                </div>
-                                <div slot="containercontent">
-                                    {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
-                                        <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
-                                    {/each}
-                                </div>
-                            </SubContainer>
-                        {/if}
-                    {/each}
-                    </span>
-                </BoxContainer>
-                <BoxContainer>
-                    <span slot='title'>Affection</span>
-                    <span slot='container'>
-                        
-                            
-                            {#each charaFetter as fetter, i}
-                                {#if fetter}
-                                    <SubContainer>
-                                        <span slot ="infoname">Awakening {i+1} -  {lang.cn[fetter.pic_title]} - Unlock level {fetter.WitchLevel} </span>
+            {#if infopage===0}
+                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}}  class="fullinfo">
+                    <BoxContainer>
+                        <span slot='title'>Skills</span>
+                        <span slot="container">
+                            {#each charaskill as eachskill,i}
+                                {#if eachskill.skillshow.length==1}
+                                    <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                        <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
+                                        <span slot='bgname'>
+                                            {#if i==0}
+                                                Normal Attack
+                                                {:else if i==2}
+                                                Auto Skill
+                                            {/if}
+                                        </span>
                                         <span slot="midcontent">
-                                            {lang.cn[fetter.pic_des]}
+                                            <div class="infocontent">
+                                                <ManaInfo mp={eachskill.skill[0].skill_cost}></ManaInfo>
+                                                <CooldownInfo cooldown={eachskill.skill[0].skillCD}></CooldownInfo>
+                                                <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                            </div>
                                         </span>
                                         <span slot="containercontent">
-                                            <div>
-                                                <div>Item Requirements :</div>
-                                                {#each fetter.RaiseUpCosts as item, i }
-                                                    <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
-                                                {/each}
-                                            </div>
-                                            <div>
-                                                <div>Rewards:</div>
-                                                {#each fetter.RaiseUpGifts as item, i }
-                                                    <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
-                                                {/each}
-                                            </div>
-                                            
+                                            {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
                                         </span>
-                                        
+                                    </SubContainer>
+                                {:else}
+                                    <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                        <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
+                                        <span slot='bgname'>Active Skill</span>
+                                        <span slot="midcontent">
+                                            <div class="infocontent">
+                                                <ManaInfo mp={eachskill.skill[starnum-1].skill_cost}></ManaInfo>
+                                                <CooldownInfo cooldown={eachskill.skill[starnum-1].skillCD}></CooldownInfo>
+                                                <div class="infoLevel">LV <input class="levelinput" type=number bind:value={charastat.level.skill[i]} min=1 max=20><input class="levelinput" type=range bind:value={charastat.level.skill[i]} min=1 max=20></div>
+                                            </div> 
+                                        </span>
+                                        <span slot="containercontent">
+                                            {@html SkillDescParser(eachskill,i,starnum,charastat.stat.attack)}
+                                        </span>
                                     </SubContainer>
                                 {/if}
                             {/each}
-                    </span>
-                </BoxContainer>
-            </div>
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer>
+                        <span slot='title'>Talents</span>
+                        <span slot='container'>
+                            {#each charatalent as eachtalent,i}
+                                <SubContainer img='../data/img/source_icon/talent/{eachtalent.icon}.png'>
+                                    <span slot="infoname">{lang.cn[eachtalent.talentdata.Talent_Name]}</span>
+                                    <div slot="midcontent">
+                                        <div class="starContainer starHorizontal infostar">
+                                            {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                                <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
+                                            {/each}
+                                            {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
+                                                <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
+                                            {/each}
+                                        </div>
+                                    </div>
+                                    <div slot="containercontent">
+                                        {@html TalentDescParser(lang.cn[eachtalent.talentdata.desc])}
+                                    </div>
+                                </SubContainer>
+                            {/each}
+                        </span>
+                    </BoxContainer>
+                </div>
+                {:else if infopage===1}
+                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}} class="fullinfo">
+                    <BoxContainer>
+                        <span slot='title'>Affection</span>
+                        <span slot='container'>
+                                {#each charaFetter as fetter, i}
+                                    {#if fetter}
+                                        <SubContainer>
+                                            <span slot ="infoname">Awakening {i+1} -  {lang.cn[fetter.pic_title]}</span>
+                                            <span slot="bgname">Unlock level above {fetter.WitchLevel} </span>
+                                            <span slot="midcontent">
+                                                {lang.cn[fetter.pic_des]}
+                                            </span>
+                                            <span slot="containercontent">
+                                                <div>
+                                                    <div>Item Requirements :</div>
+                                                    {#each fetter.RaiseUpCosts as item, i }
+                                                        <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
+                                                    {/each}
+                                                </div>
+                                                <div>
+                                                    <div>Rewards:</div>
+                                                    {#each fetter.RaiseUpGifts as item, i }
+                                                        <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
+                                                    {/each}
+                                                </div>
+                                                
+                                            </span>
+                                            
+                                        </SubContainer>
+                                    {/if}
+                                {/each}
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer>
+                        <span slot='title'>Limit Break Cost</span>
+                        <span slot='container'>
+                            {#each $dataglobal.witchStep as a ,i}
+                            {#if i!=0}
+                                <SubContainer>
+                                    <span slot="infoname">Limit Break Level {$dataglobal.witchStep[i-1].LevelMax} </span>
+                                    <span slot="bgname">Up to level {a.LevelMax}</span>
+                                    <div slot='midcontent'>
+                                        Item Requirement
+                                    </div>
+                                    <div slot="containercontent">
+                                        {#each a[`StepUpCosts_${chara.attri_type}`] as item, u}
+                                            <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
+                                        {/each}
+                                    </div>
+                                </SubContainer>
+                            {/if}
+                        {/each}
+                        </span>
+                    </BoxContainer>
+                </div>
+            {/if}
         </div>
     </div>
 </div>
 
 
 <script>
-    import {fade} from 'svelte/transition'
+    import { fly } from 'svelte/transition';
+    import { fade } from 'svelte/transition'
+    import { slide } from 'svelte/transition';
     import { dataglobal , langglobal , charaGlobal, translateglobal } from '../js/stores.js';
     import { getContext } from "svelte";
     const {open} = getContext('simple-modal');
@@ -328,11 +349,15 @@
     let charaskill = []
     let charatalent = []
     let charaFetter = []
+    let infopage=0
 
     changeChara(chara)
 
     const starclick = num=>() => {
         starnum = num
+    }
+    const ChangePage= num=>() =>{
+        infopage=num
     }
 
     const selectWitch = () => {
@@ -661,11 +686,11 @@
 
     .sidebar{
         display:inline-flex;
-        width:33px;
-        height:calc(100vh - 332px);
+        width:49px;
+        height:calc(100vh - 352px);
         background:#333;
-        padding:8px;
-        padding-top:330px;
+        padding:0px;
+        padding-top:350px;
         margin-left: -2px;
         margin-top:-20px;
         flex-direction: column;
@@ -673,6 +698,24 @@
         outline: 1px solid #00000099;
     }
 
+    .sidebar button{
+        border:none;
+        background:#222;
+        margin-bottom:2px;
+        width:49px;
+        height:90px;
+        border: solid #222;
+        border-width: 1px 0px 1px 0px;
+        color:#ddd;
+        /* border-radius: 5px 0px 0px 5px; */
+    }
+    .sidebar button:hover{
+        background:#333
+    }
+    .sidebar button.active{
+        /* border-width: 4px 0px 1px 5px; */
+        background:#444;
+    }
     .setting{
         justify-self: flex-end;
     }
