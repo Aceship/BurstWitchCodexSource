@@ -793,6 +793,9 @@ import { attr } from 'svelte/internal';
         height:35px;
         background:#444;
         /* filter: drop-shadow(1px 1px 2px #111); */
+        /* outline: 1px solid #00000099; */
+        border: solid #222;
+        border-width: 0px 0px 1px 0px;
         
     }
     .Quickmenu .charaDetails:after{
