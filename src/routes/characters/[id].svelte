@@ -87,8 +87,9 @@
         </div>
 
         <div class="characterName">
-            <div class="characterNameEN">{chara.Name_EN}</div>
+            <div class="characterNameEN">{charaEx.name}</div>
             <div class="characterNameCN">{lang.cn[chara.Name]}</div>
+            <div class="characterBGName">{charaEx.namebg}</div>
         </div>
         
         <div class="starContainer">
@@ -331,13 +332,20 @@
                                         <span slot ="infoname">Rarity</span>
                                         <span slot="containercontent">
                                             <div><img class="smallinfoimg" src="../data/img/ui/rarity/{$translateglobal.commonTL.rarity[chara.Quality].icon}.png" alt=""></div>
+                                            <div>{$translateglobal.commonTL.rarity[chara.Quality].fullname}</div>
+                                        </span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Characteristic</span>
+                                        <span slot="containercontent">
+                                            <div><img class="smallinfoimg" src="../data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
+                                            <div>{$translateglobal.commonTL.characteristic[chara.Appearance[0]].name}</div>
                                         </span>
                                     </SubContainer>
                                     <SubContainer type="small">
                                         <span slot ="infoname">Race</span>
                                         <span slot="containercontent">
-                                            <div><img class="smallinfoimg" src="../data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
-                                            <div>{$translateglobal.commonTL.race[chara.Appearance[0]].name}</div>
+                                            <div>{$translateglobal.commonTL.race[chara.RaceID].name}</div>
                                         </span>
                                     </SubContainer>
                                 </span>
@@ -460,6 +468,10 @@ import { attr } from 'svelte/internal';
     let charatalent = []
     let charaFetter = []
     let charaStory = []
+    let charaEx={
+        name:chara.Name_EN,
+        namebg : chara.Name_EN
+    }
     let infopage=0
 
     changeChara(chara)
@@ -497,6 +509,8 @@ import { attr } from 'svelte/internal';
         quality = parseInt(chara.Quality) 
         bigpicindex = 0
         infopage = 0
+        
+        CheckTL()
         CheckFetter() 
         updateSkill() 
         updateTalent()
@@ -505,6 +519,22 @@ import { attr } from 'svelte/internal';
     }
     ////Character stuff 
 
+
+    function CheckTL(){
+        charaEx= {
+            name:chara.Name_EN,
+            namebg:""
+        }
+
+        let charatldata = $translateglobal.charTL[chara.id]
+        if(charatldata){
+            
+            if(charatldata.name){
+                charaEx.name = charatldata.name
+                charaEx.namebg = chara.Name_EN
+            }
+        }
+    }
     //Skill
     function updateSkill() {
         charaskill = []
@@ -520,7 +550,7 @@ import { attr } from 'svelte/internal';
                 return obj.id == element
             })
 
-            if($translateglobal.charTL[chara.id]){
+            if($translateglobal.charTL[chara.id]&&$translateglobal.charTL[chara.id].skills){
                 skillObject.skilltranslate = $translateglobal.charTL[chara.id].skills
             }
 
@@ -800,6 +830,14 @@ import { attr } from 'svelte/internal';
     .characterName .characterNameCN{
         font-size: 1.1em;
         /* font-family: simhei; */
+    }
+    .characterName .characterBGName{
+        position:absolute;
+        font-size:3em;
+        top:26px;
+        left:170px;
+        opacity:20%;
+        font-family: Magiera;
     }
     .Quickmenu .starContainer{
         position: absolute;
@@ -1292,6 +1330,13 @@ import { attr } from 'svelte/internal';
     @media (max-width: 900px ){
         .MenuCharaStats{
             width: calc(100vw - 58px);
+        }
+        .characterName .characterBGName{
+            font-size:2em;
+            top:unset;
+            left:unset;
+            bottom:-8px;
+            right:30px;
         }
     }
 

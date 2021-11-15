@@ -1,5 +1,5 @@
 <script>
-    import { charaGlobal } from "../js/stores";
+    import { charaGlobal , translateglobal} from "../js/stores";
 
     export let chara = $charaGlobal
     export let quality = 2
@@ -7,6 +7,26 @@
     export let withname = false;
     export let withelement = false;
     export let withtype = false;
+
+    let charaEx = {}
+
+    CheckTL(chara)
+
+    function CheckTL(chara){
+        charaEx= {
+            name:chara.Name_EN,
+            namebg:""
+        }
+
+        let charatldata = $translateglobal.charTL[chara.id]
+        if(charatldata){
+            
+            if(charatldata.name){
+                charaEx.name = charatldata.name
+                charaEx.namebg = chara.Name_EN
+            }
+        }
+    }
 </script>
 
 <div class="characteravatar {withname?"withname":""}">
@@ -14,7 +34,7 @@
     <img class="displaypic" src="/data/img/source_avatar/hero_main/head_{chara.id+"0001"}.png" alt={chara.id+"0001"} >
     <img class="avatarframe" src="/data/img/ui/chara_frame/avatarframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
     {#if withname}
-        <div class="name">{chara.Name_EN}</div>
+        <div class="name">{charaEx.name}</div>
     {/if}
     {#if withelement}
         <div class="elementMain">

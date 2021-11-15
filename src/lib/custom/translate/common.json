@@ -98,6 +98,38 @@
         },
         {
             "id":1,
+            "name":"Witch",
+            "name_cn":"魔女"
+        },
+        {
+            "id":2,
+            "name":"Divine",
+            "name_cn":"神使"
+        },
+        {
+            "id":3,
+            "name":"Human",
+            "name_cn":"人类"
+        },
+        {
+            "id":4,
+            "name":"Vampire",
+            "name_cn":"血族"
+        },
+        {
+            "id":5,
+            "name":"Undead",
+            "name_cn":"亡灵"
+        }
+    ],
+    "characteristic":[
+        {
+            "id":0,
+            "name":"None",
+            "name_cn":"-"
+        },
+        {
+            "id":1,
             "name":"Human",
             "name_cn":"人类"
         },

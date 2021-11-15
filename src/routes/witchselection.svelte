@@ -1,6 +1,6 @@
 <script>
     import { getContext } from 'svelte';
-    import { dataglobal , langglobal , charaGlobal } from './js/stores.js';
+    import { dataglobal , langglobal , charaGlobal , translateglobal} from './js/stores.js';
     import './css/maincodex.css'
 
     import Characteravatar from './components/characteravatar.svelte'
@@ -17,7 +17,6 @@
         changeChara($charaGlobal)
         close();
     }
-
 
     let typefilter = 0
     let elementfilter = 0
