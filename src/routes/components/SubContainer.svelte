@@ -44,14 +44,6 @@
 {/if}
 
 <style>
-    @font-face{
-        font-family : Magiera;
-        src : url(../data/font/Magiera-Script-2.ttf)
-    }
-    @font-face{
-        font-family : aAGothic;
-        src : url(../data/font/aAGothic.ttf)
-    }
     .skillcontainer{
         background:#444;
         margin:0px 2px 6px 2px;
@@ -101,7 +93,7 @@
         right:10px;
         top:5px;
         opacity: 45%;
-        font-family: aAGothic;
+        font-family: AaGothic;
     }
 
     .simple{
