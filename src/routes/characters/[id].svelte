@@ -15,7 +15,7 @@
 
 
 
-<div>
+<div class="allpage">
     <!-- Header -->
     <div class="Quickmenu">
         <!-- <div class="charactercard">
@@ -733,11 +733,17 @@
         color: #dddddd;
         transition: background-color 0.3s
     }
+
+    .allpage{
+        position:relative;
+        /* width:100vw;
+        height:50vh; */
+    }
     
     .Quickmenu {
         position: absolute;
-        left:650px;
-        top:8px;
+        left:640px;
+        top:0px;
         z-index: 20;
         /* filter: drop-shadow(1px 1px 2px #111); */
         
@@ -854,7 +860,7 @@
     .sidebar{
         display:inline-flex;
         width:49px;
-        height:calc(100vh - 352px);
+        height:calc(100vh - 350px);
         background:#333;
         padding:0px;
         padding-top:350px;
@@ -1238,7 +1244,7 @@
         display:inline-flex;
         flex-direction: column;
         top:50px;
-        left:0px;
+        left:-8px;
     }
     .skinbutton{
         display:inline-flex;
