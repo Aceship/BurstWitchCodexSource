@@ -126,7 +126,7 @@
         <div class="MenuCharaPic">
                 <div class='charapiccontainer'>
                     {#each [charabigpicarr[bigpicindex]] as src (bigpicindex)}
-                        <img transition:fade class="characterfull" src={src} alt="">
+                        <img transition:fade|local class="characterfull" src={src} alt="">
                     {/each}
                 </div>
             
@@ -174,7 +174,7 @@
             </div>
             
             {#if infopage===0}
-                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}}  class="fullinfo">
+                <div in:fly|local={{ x: -200 ,delay:100}} out:fly|local={{ x: 200 ,duration:100}}  class="fullinfo">
                     <BoxContainer>
                         <span slot='title'>Skills</span>
                         <span slot="container">
@@ -244,7 +244,7 @@
                     </BoxContainer>
                 </div>
                 {:else if infopage===1}
-                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}} class="fullinfo">
+                <div in:fly|local={{ x: -200 ,delay:100}} out:fly|local={{ x: 200 ,duration:100}} class="fullinfo">
                     <BoxContainer>
                         <span slot='title'>Limit Break Cost</span>
                         <span slot='container'>
@@ -280,13 +280,13 @@
                                             <span slot="containercontent">
                                                 <div>
                                                     <div>Item Requirements :</div>
-                                                    {#each fetter.RaiseUpCosts as item, i }
+                                                    {#each fetter.RaiseUpCosts as item}
                                                         <ItemBox itemid={item[0]} qty={item[1]} ></ItemBox>
                                                     {/each}
                                                 </div>
                                                 <div>
                                                     <div>Rewards:</div>
-                                                    {#each fetter.RaiseUpGifts as item, i }
+                                                    {#each fetter.RaiseUpGifts as item}
                                                         <ItemBox itemid={item[1]} qty={item[2]} ></ItemBox>
                                                     {/each}
                                                 </div>
@@ -300,7 +300,7 @@
                     </BoxContainer>
                 </div>
                 {:else if infopage===2}
-                <div in:fly={{ x: -200 ,delay:100}} out:fly={{ x: 200 ,duration:100}} class="fullinfo">
+                <div in:fly|local={{ x: -200 ,delay:100}} out:fly|local={{ x: 200 ,duration:100}} class="fullinfo">
                     <BoxContainer>
                         <span slot='title'>Basic Info</span>
                         <span slot='container'>

@@ -4,9 +4,10 @@
     export let qty = 0
     export let quality = 0;
 
+    let item
     let lang = $langglobal
     
-    let item = GetItem(itemid)
+    $: item = GetItem(itemid)
 
     // console.log(item)
     function GetItem(id){
