@@ -1,16 +1,16 @@
 <svelte:head>
     <title>
-        {chara.Name_EN} - Burst Witch Codex
+        {charaEx.name} - Burst Witch Codex
     </title>
-    <meta property="og:title" content="Burst Witch Codex - {chara.Name_EN}" />
+    <meta property="og:title" content="Burst Witch Codex - {charaEx.name}" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://aceship-burstwitchcodex.vercel.app/data/img/source_avatar/hero/head_{chara.Skin[0]}.png" />
     <meta property="og:image:type" content="image/png"> 
     <meta property="og:image:width" content="220">
     <meta property="og:image:height" content="220">
 
-    <meta name="description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
-    <meta name="og:description" content="Burst Witch Codex - {chara.Name_EN} skill and talents information" />
+    <meta name="description" content="Burst Witch Codex - {charaEx.name} skill and talents information" />
+    <meta name="og:description" content="Burst Witch Codex - {charaEx.name} skill and talents information" />
 </svelte:head>
 
 
