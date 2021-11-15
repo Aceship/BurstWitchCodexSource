@@ -69,15 +69,15 @@
                 <button><i class="fas fa-cog"></i></button>
             </div> -->
             <div>
-                <button class:active={infopage===0} on:click={ChangePage(0)}>
+                <button class:active={infopage===0} on:click={changePage(0)}>
                     <img src="/data/img/source_icon/unlock/208.png" alt="">
                     <div>Skills Talents</div>
                 </button>
-                <button class:active={infopage===1}  on:click={ChangePage(1)}>
+                <button class:active={infopage===1}  on:click={changePage(1)}>
                     <img src="/data/img/source_icon/unlock/10203.png" alt="">
                     <div>Build Costs</div>
                 </button>
-                <button class:active={infopage===2}  on:click={ChangePage(2)}>
+                <button class:active={infopage===2}  on:click={changePage(2)}>
                     <img src="/data/img/source_icon/unlock/10204.png" alt="">
                     <div>Story</div>
                 </button>
@@ -222,7 +222,7 @@
                     <BoxContainer>
                         <span slot='title'>Talents</span>
                         <span slot='container'>
-                            {#each charatalent as eachtalent,i}
+                            {#each charatalent as eachtalent}
                                 <SubContainer img='/data/img/source_icon/talent/{eachtalent.icon}.png'>
                                     <span slot="infoname">{lang.cn[eachtalent.talentdata.Talent_Name]}</span>
                                     <div slot="midcontent">
@@ -315,6 +315,49 @@
                                         <span slot="containercontent">{chara.Name_EN}</span>
                                     </SubContainer>
                                     <SubContainer type="small">
+                                        <span slot ="infoname">TL Name</span>
+                                        <span slot="containercontent">{charaEx.nametl}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Race</span>
+                                        <span slot="containercontent">
+                                            <div>{$translateglobal.commonTL.race[chara.RaceID].name}</div>
+                                        </span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Height</span>
+                                        <span slot="containercontent">{chara.CardInfor[0]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Weight</span>
+                                        <span slot="containercontent">{chara.CardInfor[2]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Age</span>
+                                        <span slot="containercontent">{chara.CardInfor[1]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Blood Type</span>
+                                        <span slot="containercontent">{chara.CardInfor[3]}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">3-Size</span>
+                                        <span slot="containercontent">{chara.CardInfor[4].join(" ")}</span>
+                                    </SubContainer>
+                                    <SubContainer type="small">
+                                        <span slot ="infoname">Birthday</span>
+                                        <span slot="containercontent">{chara.CardInfor[5]}</span>
+                                    </SubContainer>
+                                </span>
+                            </SubContainer>
+                        </span>
+                    </BoxContainer>
+                    <BoxContainer>
+                        <span slot='title'>Other Info</span>
+                        <span slot='container'>
+                            <SubContainer type="simple">
+                                <span slot="content">
+                                    <SubContainer type="small">
                                         <span slot ="infoname">Type</span>
                                         <span slot="containercontent">
                                             <div><img class="smallinfoimg" src="/data/img/ui/class/comm_atk_{attacktype}.png" alt=""></div>
@@ -341,45 +384,6 @@
                                             <div><img class="smallinfoimg" src="/data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
                                             <div>{$translateglobal.commonTL.characteristic[chara.Appearance[0]].name}</div>
                                         </span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Race</span>
-                                        <span slot="containercontent">
-                                            <div>{$translateglobal.commonTL.race[chara.RaceID].name}</div>
-                                        </span>
-                                    </SubContainer>
-                                </span>
-                            </SubContainer>
-                        </span>
-                    </BoxContainer>
-                    <BoxContainer>
-                        <span slot='title'>Other Info</span>
-                        <span slot='container'>
-                            <SubContainer type="simple">
-                                <span slot="content">
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Height</span>
-                                        <span slot="containercontent">{chara.CardInfor[0]}</span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Weight</span>
-                                        <span slot="containercontent">{chara.CardInfor[2]}</span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Age</span>
-                                        <span slot="containercontent">{chara.CardInfor[1]}</span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Blood Type</span>
-                                        <span slot="containercontent">{chara.CardInfor[3]}</span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">3-Size</span>
-                                        <span slot="containercontent">{chara.CardInfor[4].join(" ")}</span>
-                                    </SubContainer>
-                                    <SubContainer type="small">
-                                        <span slot ="infoname">Birthday</span>
-                                        <span slot="containercontent">{chara.CardInfor[5]}</span>
                                     </SubContainer>
                                 </span>
                             </SubContainer>
@@ -471,7 +475,8 @@
     let charaStory = []
     let charaEx={
         name:chara.Name_EN,
-        namebg : chara.Name_EN
+        namebg : chara.Name_EN,
+        nametl:"--"
     }
     let infopage=0
 
@@ -480,7 +485,7 @@
     const starclick = num=>() => {
         starnum = num
     }
-    const ChangePage= num=>() =>{
+    const changePage= num=>() =>{
         infopage=num
     }
 
@@ -509,14 +514,17 @@
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
         bigpicindex = 0
-        infopage = 0
+
+        // if (infopage == 1) infopage=0
         
         CheckTL()
-        CheckFetter() 
+        checkFetter() 
         updateSkill() 
         updateTalent()
         CreatePicList()
         CheckStory()
+        // infopage = savepage
+        // ChangePage(infopage)
     }
     ////Character stuff 
 
@@ -524,7 +532,8 @@
     function CheckTL(){
         charaEx= {
             name:chara.Name_EN,
-            namebg:""
+            namebg:"",
+            nametl:"--"
         }
 
         let charatldata = $translateglobal.charTL[chara.id]
@@ -533,6 +542,7 @@
             if(charatldata.name){
                 charaEx.name = charatldata.name
                 charaEx.namebg = chara.Name_EN
+                charaEx.nametl = charatldata.name
             }
         }
     }
@@ -688,13 +698,15 @@
         return jobs.join(", ")
     }
 
-    function CheckFetter() {
-        charaFetter = []
-        let fettersearch =  data.cardCharacterSublimation.find(id=>{
-            return id.id == chara.StepUp_id
+    function checkFetter() {
+        let fettersearch =  data.cardCharacterSublimation.filter(id=>{
+            return id.GroupId == chara.id
         })
-        if (fettersearch)charaFetter.push(fettersearch)
-        
+        if (fettersearch){
+            charaFetter=fettersearch
+        }else{
+            charaFetter=[]
+        }
     }
     
     function CheckStory() {
