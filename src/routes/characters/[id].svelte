@@ -721,11 +721,11 @@ import { attr } from 'svelte/internal';
 <style>
     @font-face{
         font-family : Magiera;
-        src : url(https://aceship-burstwitchcodex.vercel.app/data/font/Magiera-Script-2.ttf) 
+        src : url(/data/font/Magiera-Script-2.ttf) 
     }
     @font-face{
         font-family : AaGothic;
-        src : url(https://aceship-burstwitchcodex.vercel.app/data/font/AaGothic.ttf)
+        src : url(/data/font/AaGothic.ttf)
     }
     :global(body) {
         background-color: #111;
