@@ -19,41 +19,41 @@
     <!-- Header -->
     <div class="Quickmenu">
         <!-- <div class="charactercard">
-            <img class="cardpic" src="../data/img/source_avatar/hero/card_{charaId}.png" alt="">
-            <img class="cardframe" src="../data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
-            <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-            <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
-            <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
-            <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+            <img class="cardpic" src="/data/img/source_avatar/hero/card_{charaId}.png" alt="">
+            <img class="cardframe" src="/data/img/ui/chara_frame/cardframe_{quality-1+ Math.floor((starnum-quality+1)/2)}.png" alt="">
+            <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+            <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+            <img class="typeframe" src="/data/img/ui/element/elementframe1.png" alt="{attacktype}">
+            <img class="type" src="/data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
         </div> -->
         <div class="charaDetails">
             <div class="elementMain charadetailback">
-                <img class="elementframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
-                <img class="element" src="../data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
+                <img class="elementframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.attri_type}">
+                <img class="element" src="/data/img/ui/element/element{chara.attri_type}.png" alt="{chara.attri_type}">
             </div>
             <div class="typeMain charadetailback">
-                <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{attacktype}">
-                <img class="type" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
+                <img class="typeframe" src="/data/img/ui/element/elementframe1.png" alt="{attacktype}">
+                <img class="type" src="/data/img/ui/class/comm_atk_{attacktype}.png" alt="{attacktype}">
             </div>
             <div class="instrumentList">
                 {#each chara.musical_use as instrument,i}
                     <div class="instrumentMain">
-                        <img class="instrumentframe" src="../data/img/ui/musicframe/frame2.png" alt="{instrument.toString()}">
-                        <img class="instrument" src="../data/img/source_icon/musictype/{instrument}.png" alt="{instrument.toString()}">
+                        <img class="instrumentframe" src="/data/img/ui/musicframe/frame2.png" alt="{instrument.toString()}">
+                        <img class="instrument" src="/data/img/source_icon/musictype/{instrument}.png" alt="{instrument.toString()}">
                     </div>
                 {/each}
             </div>
             <div class="buildtypeList">
                 {#each chara.Builddotadd as build,i}
                     <div class="buildtypeMain">
-                        <img class="buildtypeframe" src="../data/img/ui/musicframe/frame2.png" alt="{build[1]}">
-                        <img class="buildtype" src="../data/img/ui/modifier/icon_gouzhu_{build[1]}.png" alt="{build[1]}">
+                        <img class="buildtypeframe" src="/data/img/ui/musicframe/frame2.png" alt="{build[1]}">
+                        <img class="buildtype" src="/data/img/ui/modifier/icon_gouzhu_{build[1]}.png" alt="{build[1]}">
                         
                         <div class="buildstar"> 
                             <!-- {#each Array(parseInt(build[0])) as _,sn}
-                                <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="">
+                                <img class="star" src="/data/img/ui/rarity/smallStarActive.png" alt="">
                             {/each} -->
-                            {build[0]} <img class="star" src="../data/img/ui/rarity/smallStarActive.png" alt="">
+                            {build[0]} <img class="star" src="/data/img/ui/rarity/smallStarActive.png" alt="">
                         </div>
                     </div>
                 {/each}
@@ -70,15 +70,15 @@
             </div> -->
             <div>
                 <button class:active={infopage===0} on:click={ChangePage(0)}>
-                    <img src="../data/img/source_icon/unlock/208.png" alt="">
+                    <img src="/data/img/source_icon/unlock/208.png" alt="">
                     <div>Skills Talents</div>
                 </button>
                 <button class:active={infopage===1}  on:click={ChangePage(1)}>
-                    <img src="../data/img/source_icon/unlock/10203.png" alt="">
+                    <img src="/data/img/source_icon/unlock/10203.png" alt="">
                     <div>Build Costs</div>
                 </button>
                 <button class:active={infopage===2}  on:click={ChangePage(2)}>
-                    <img src="../data/img/source_icon/unlock/10204.png" alt="">
+                    <img src="/data/img/source_icon/unlock/10204.png" alt="">
                     <div>Story</div>
                 </button>
                 <!-- <button class:active={infopage===2}  on:click={ChangePage(2)}>Story</button>
@@ -96,16 +96,16 @@
             {#each Array(6) as _,i}
                 {#if starnum<=i}
                     <button class="starbutton" on:click={starclick(i+1)}>
-                        <img class="star" src="../data/img/ui/rarity/StarInactive.png" alt="">
+                        <img class="star" src="/data/img/ui/rarity/StarInactive.png" alt="">
                     </button>
                 {:else}
                     {#if i<parseInt(chara.Quality)-2}
                         <button class="starbutton starunbutton" on:click={starclick(chara.Quality-1)}>
-                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="">
+                            <img class="star" src="/data/img/ui/rarity/StarActive.png" alt="">
                         </button>
                     {:else}
                         <button class="starbutton" on:click={starclick(i+1)}>
-                            <img class="star" src="../data/img/ui/rarity/StarActive.png" alt="">
+                            <img class="star" src="/data/img/ui/rarity/StarActive.png" alt="">
                         </button>
                     {/if}
                 {/if}
@@ -132,15 +132,15 @@
             
                 <div class="skincontainer">
                     <button class="skinbutton" class:active={bigpicindex==0} on:click={()=> bigpicindex = 0}>
-                        <img src="../data/img/source_avatar/hero/head_{chara.Skin[0]}.png" alt="">
+                        <img src="/data/img/source_avatar/hero/head_{chara.Skin[0]}.png" alt="">
                     </button>
                     <button class="skinbutton" class:active={bigpicindex==1} on:click={()=> bigpicindex = 1}>
-                        <img src="../data/img/ui/etc/hg.png" alt="">
+                        <img src="/data/img/ui/etc/hg.png" alt="">
                     </button>
                     {#each chara.Skin as skin,i}
                         {#if i!=0}
                         <button class="skinbutton" class:active={bigpicindex==2+i} on:click={()=> bigpicindex = 2+i}>
-                            <img src="../data/img/source_avatar/hero/head_{skin}.png" alt="">
+                            <img src="/data/img/source_avatar/hero/head_{skin}.png" alt="">
                         </button>
                         {/if}
                     {/each}
@@ -180,7 +180,7 @@
                         <span slot="container">
                             {#each charaskill as eachskill,i}
                                 {#if eachskill.skillshow.length==1}
-                                    <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                    <SubContainer img='/data/img/source_icon/skill/{eachskill.icon}.png'>
                                         <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
                                         <span slot='bgname'>
                                             {#if i==0}
@@ -201,7 +201,7 @@
                                         </span>
                                     </SubContainer>
                                 {:else}
-                                    <SubContainer img='../data/img/source_icon/skill/{eachskill.icon}.png'>
+                                    <SubContainer img='/data/img/source_icon/skill/{eachskill.icon}.png'>
                                         <span slot='infoname'>{SkillNameTL(eachskill,i,starnum)} </span>
                                         <span slot='bgname'>Active Skill</span>
                                         <span slot="midcontent">
@@ -223,15 +223,15 @@
                         <span slot='title'>Talents</span>
                         <span slot='container'>
                             {#each charatalent as eachtalent,i}
-                                <SubContainer img='../data/img/source_icon/talent/{eachtalent.icon}.png'>
+                                <SubContainer img='/data/img/source_icon/talent/{eachtalent.icon}.png'>
                                     <span slot="infoname">{lang.cn[eachtalent.talentdata.Talent_Name]}</span>
                                     <div slot="midcontent">
                                         <div class="starContainer starHorizontal infostar">
                                             {#each Array(parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                                <img class="star starSmall" src="../data/img/ui/rarity/StarActive.png" alt="">
+                                                <img class="star starSmall" src="/data/img/ui/rarity/StarActive.png" alt="">
                                             {/each}
                                             {#each Array(6-parseInt(eachtalent.talentdata.Star)) as _,sn}
-                                                <img class="star starSmall" src="../data/img/ui/rarity/StarInactive.png" alt="">
+                                                <img class="star starSmall" src="/data/img/ui/rarity/StarInactive.png" alt="">
                                             {/each}
                                         </div>
                                     </div>
@@ -317,28 +317,28 @@
                                     <SubContainer type="small">
                                         <span slot ="infoname">Type</span>
                                         <span slot="containercontent">
-                                            <div><img class="smallinfoimg" src="../data/img/ui/class/comm_atk_{attacktype}.png" alt=""></div>
+                                            <div><img class="smallinfoimg" src="/data/img/ui/class/comm_atk_{attacktype}.png" alt=""></div>
                                             <div>{$translateglobal.commonTL.class[attacktype].name}</div>
                                         </span>
                                     </SubContainer>
                                     <SubContainer type="small">
                                         <span slot ="infoname">Attribute</span>
                                         <span slot="containercontent">
-                                            <div><img class="smallinfoimg" src="../data/img/ui/element/element{chara.attri_type}.png" alt=""></div>
+                                            <div><img class="smallinfoimg" src="/data/img/ui/element/element{chara.attri_type}.png" alt=""></div>
                                             <div>{$translateglobal.commonTL.attr[chara.attri_type].name}</div>
                                         </span>
                                     </SubContainer>
                                     <SubContainer type="small">
                                         <span slot ="infoname">Rarity</span>
                                         <span slot="containercontent">
-                                            <div><img class="smallinfoimg" src="../data/img/ui/rarity/{$translateglobal.commonTL.rarity[chara.Quality].icon}.png" alt=""></div>
+                                            <div><img class="smallinfoimg" src="/data/img/ui/rarity/{$translateglobal.commonTL.rarity[chara.Quality].icon}.png" alt=""></div>
                                             <div>{$translateglobal.commonTL.rarity[chara.Quality].fullname}</div>
                                         </span>
                                     </SubContainer>
                                     <SubContainer type="small">
                                         <span slot ="infoname">Characteristic</span>
                                         <span slot="containercontent">
-                                            <div><img class="smallinfoimg" src="../data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
+                                            <div><img class="smallinfoimg" src="/data/img/source_icon/music_hall/race_{chara.Appearance[0]}.png" alt=""></div>
                                             <div>{$translateglobal.commonTL.characteristic[chara.Appearance[0]].name}</div>
                                         </span>
                                     </SubContainer>
@@ -460,7 +460,7 @@ import { attr } from 'svelte/internal';
     let attacktype = chara.AtkType
     let starnum = parseInt(chara.Star)
     let quality = parseInt(chara.Quality) 
-    let charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
+    let charabigpic = `/data/img/source_avatar/hero_book/body_${chara.id}.png`
     let charabigpicarr = []
     let bigpicindex = 0
     let level = 1
@@ -503,7 +503,7 @@ import { attr } from 'svelte/internal';
     function changeChara(character) {
         chara = character
         charaId = chara.id+"0001"
-        charabigpic = `../data/img/source_avatar/hero_book/body_${chara.id}.png`
+        charabigpic = `/data/img/source_avatar/hero_book/body_${chara.id}.png`
         attacktype = chara.AtkType
         starnum = parseInt(chara.Star)
         quality = parseInt(chara.Quality) 
@@ -710,10 +710,10 @@ import { attr } from 'svelte/internal';
     }
     function CreatePicList() {
         charabigpicarr = []
-        charabigpicarr.push(`../data/img/source_avatar/hero_book/body_${chara.id}.png`)
-        charabigpicarr.push(`../data/img/source_avatar/haogan/haogan_${chara.id}.png`)
+        charabigpicarr.push(`/data/img/source_avatar/hero_book/body_${chara.id}.png`)
+        charabigpicarr.push(`/data/img/source_avatar/haogan/haogan_${chara.id}.png`)
         chara.Skin.forEach(skin => {
-            charabigpicarr.push(`../data/img/source_avatar/hero/body_${skin}.png`)
+            charabigpicarr.push(`/data/img/source_avatar/hero/body_${skin}.png`)
         });
     }
 </script>

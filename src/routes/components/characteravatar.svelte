@@ -36,8 +36,8 @@
     {/if}
     {#if withtype}
         <div class="typeMain">
-            <img class="typeframe" src="../data/img/ui/element/elementframe1.png" alt="{chara.AtkType}">
-            <img class="type" src="../data/img/ui/class/comm_atk_{chara.AtkType}.png" alt="{chara.AtkType}">
+            <img class="typeframe" src="/data/img/ui/element/elementframe1.png" alt="{chara.AtkType}">
+            <img class="type" src="/data/img/ui/class/comm_atk_{chara.AtkType}.png" alt="{chara.AtkType}">
         </div>
     {/if}
 </div>

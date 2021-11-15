@@ -3,7 +3,7 @@
 </script>
 
 <div class="infoCD">
-    <img class="infoimg" src ='../data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
+    <img class="infoimg" src ='/data/img/ui/etc/cooldown.png' alt="CD" title="Cooldown">
     <span> {cooldown==0?"--":`${cooldown}s`}</span>
 </div>
 

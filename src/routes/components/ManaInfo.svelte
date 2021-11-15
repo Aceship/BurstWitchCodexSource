@@ -3,7 +3,7 @@
 </script>
 
 <div class="infoMP">
-    <img class="infoimg" src ='../data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
+    <img class="infoimg" src ='/data/img/ui/etc/mp.png' alt="MP" title="Mana Cost">
     <span>{mp?mp/10000:"--"}</span>
 </div>
 
