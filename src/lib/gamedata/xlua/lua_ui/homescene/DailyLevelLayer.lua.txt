@@ -105,7 +105,6 @@ function DailyLevelLayer:show(chapterid,callback)
     else
         self:showLayer()
         self:playAni("DailyLevelLayerAni")
-        self:UI_MainBoxFadeInEnd()
     end
     Chapter:ClearJumpChapterLevel()
 end

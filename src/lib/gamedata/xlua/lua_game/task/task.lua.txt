@@ -21,6 +21,13 @@ function Task:GetTask(cfgid)
     return self._tasks[cfgid]
 end
 
+function Task:GetQuestUI(cfgid)
+    if self._questUI[cfgid] == nil then
+        AppMgr:LogError("!!!!!!!!!!!!!!!!!!!!!!!!![Quest_ui]配置表出错了，找不到id = " .. cfgid)
+    end
+    return self._questUI[cfgid]
+end
+
 function Task:GetPrevId(cfgid)
     local lastid = 0
     for _, v in pairs(self._lists) do
@@ -102,18 +109,57 @@ function Task:NewerTaskRemainTime()
     return diff
 end
 
+function Task:TaskRemainTime(cfgid)
+    local activity = Activity:GetActivityByUId(cfgid)
+    if not activity then
+        AppMgr:LogError("没有活动配置,默认不开启")
+        return 0
+    end
+    local cTimeCfg = CTime:GetCfg(tonumber(activity.info.Time))
+    if not cTimeCfg then
+        AppMgr:LogError("没有配置时间,默认不开启")
+        return 0
+    end
+    local startTime = cTimeCfg.startTime
+    local endTime = cTimeCfg.etime
+    local serverTime = CTime:GetServerTime()
+
+    if serverTime - startTime > 0 and serverTime - endTime < 0 then
+        return endTime - serverTime
+    else
+        return 0
+    end
+end
+
 function Task:NewerTaskDays()
     return CTime:GetOffsetDay() - self._newer_days + 1
+end
+
+function Task:TaskDays(cfgid)
+    local activity = Activity:GetActivityByUId(cfgid)
+    local cTimeCfg = CTime:GetCfg(tonumber(activity.info.Time))
+    local startTime = cTimeCfg.startTime
+    local serverTime = CTime:GetServerTime()
+    local days = math.ceil((serverTime - startTime) / (24 * 60 * 60))
+    return days
 end
 
 function Task:NewerIsOpen()
     return self:NewerTaskRemainTime() > 0
 end
 
-function Task:GetNewerScoreTask()
+function Task:TaskIsOpen(cfgid)
+    return self:TaskRemainTime(cfgid) > 0
+end
+
+function Task:GetNewerScoreTask(MainQuestid)
+    if not MainQuestid then
+        CS.Logger.LogError("需要传入newer_score")
+        return {}
+    end
     local ret = {}
     for _, v in pairs(self._tasks) do
-        if v.showtype == Task.TYPE_NEWER_SCORE then
+        if v.subtype == tonumber(MainQuestid) then
             table.insert(ret, v.cfgid)
         end
     end
@@ -123,10 +169,10 @@ function Task:GetNewerScoreTask()
     return ret
 end
 
-function Task:GetNewerTaskScore()
+function Task:GetNewerTaskScore(DaliyQuestclassid)
     local c = 0
     for _, v in pairs(self._tasks) do
-        if v.showtype == Task.TYPE_NEWER then
+        if v.showtype == tonumber(DaliyQuestclassid) then
             if v.state == Task.STATE_HAS_RECV then
                 c = c + 1
             end
@@ -157,13 +203,16 @@ function Task:SortTaskIds(taskids)
     return ret
 end
 
-function Task:GetNewerRecv()
+function Task:GetNewerRecv(cfgid, DaliyQuestid)
     local ret = {}
     local days = self:NewerTaskDays()
+    if cfgid ~= Task.NEWER_TASK_UI then
+        days = self:TaskDays(cfgid)
+    end
     local recv, ids = false, nil
     for i = 1, days do
         recv = false
-        ids = self:GetSubTasks(i + Task.DAY_TASK_INDEX)
+        ids = self:GetSubTasks(DaliyQuestid[i])
         for _, v in pairs(ids) do
             local data = self:GetTask(v)
             if Task.STATE_HAS_DONE == data.state then
@@ -176,21 +225,28 @@ function Task:GetNewerRecv()
     return ret
 end
 
-function Task:GetNewerTaskRedTips()
-    if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) then
-        return false
+function Task:GetNewerTaskRedTips(cfgid, MainQuestid, DaliyQuestid)
+    if cfgid == Task.NEWER_TASK_UI then 
+        if not Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) then
+            return false
+        end
+
+        if false == self:NewerIsOpen() then
+            return false
+        end
+    else
+        if false == self:TaskIsOpen(cfgid) then
+            return false
+        end
     end
-    if false == self:NewerIsOpen() then
-        return false
-    end
-    local ids = self:GetNewerScoreTask()
+    local ids = self:GetNewerScoreTask(MainQuestid)
     for i = 1, #ids do
         local data = Task:GetTask(ids[i])
         if(data.state == Task.STATE_HAS_DONE)then
             return true;
         end
     end
-    local ret = self:GetNewerRecv()
+    local ret = self:GetNewerRecv(cfgid, DaliyQuestid)
     for _, v in pairs(ret) do
         if true == v then
             return true

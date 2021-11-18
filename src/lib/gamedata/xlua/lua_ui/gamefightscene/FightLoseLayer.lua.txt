@@ -127,6 +127,10 @@ function FightLoseLayer:doReplay()
     Chapter:ChapterLevelBeginReq(self._levelid,nil,nil,nil,Chapter._feelWallId)
 end
 
+local function FloorToIntToString(value)
+    return tostring(math.tointeger(math.floor(value)))
+end
+
 function FightLoseLayer:setUsingTime()
     if not self._updatetime then
         return
@@ -147,7 +151,7 @@ function FightLoseLayer:setLevelScore()
             self._stop_level = true
         end
     end
-    self.txtLevelValue.text = self._level_score
+    self.txtLevelValue.text = FloorToIntToString(self._level_score)
 end
 
 function FightLoseLayer:setBulletScore()
@@ -159,7 +163,7 @@ function FightLoseLayer:setBulletScore()
             self._stop_bullet = true
         end
     end
-    self.txtBulletValue.text = self._bullet_score
+    self.txtBulletValue.text = FloorToIntToString(self._bullet_score)
 end
 
 function FightLoseLayer:setAllScore()
@@ -171,7 +175,7 @@ function FightLoseLayer:setAllScore()
             self._stop_all = true
         end
     end
-    self.txtAllValue.text = self._all_score
+    self.txtAllValue.text = FloorToIntToString(self._all_score)
 end
 
 function FightLoseLayer:autoFightEnd()

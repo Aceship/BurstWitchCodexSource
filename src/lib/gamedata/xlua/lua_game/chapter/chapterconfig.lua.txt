@@ -21,6 +21,7 @@ function Chapter:_LoadChapterMode()
         [Chapter.SHOW_TYPE_DAILY]    = {},    -- 日常挑战模式
         [Chapter.SHOW_TYPE_ACTIVITY] = {},    -- 活动模式
     }
+    self._showChapterIds = {}
     local configs = CfgLoader:LoadCfg("DungeonMode")
     local mode
     for _, v in pairs(configs) do
@@ -44,6 +45,7 @@ function Chapter:_LoadChapterMode()
                     end
                 end
                 table.insert(self._modes[mode], tmp)
+                table.insert(self._showChapterIds, v[1])
             end
         end
     end

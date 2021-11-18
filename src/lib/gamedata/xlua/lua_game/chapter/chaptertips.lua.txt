@@ -43,6 +43,10 @@ function Chapter:IsLevelNeverFought(levelid)
 end
 
 function Chapter:IsExistOperLevel(cid, isPlot)
+    if isPlot and self._showChapterIds[cid] == nil then
+        return false
+    end
+
     local chapter = self:GetChapter(cid)
 
     if not self:chapterOrLevelIsOpen(chapter) then return false end

@@ -229,7 +229,7 @@ number,string,string
 1018,event:/GameEffect/WitchSound/1019-skill_play,event:/GameEffect/WitchSound/JP/1019-skill_play_JP
 1019,event:/GameEffect/WitchSound/1020-skill_play,event:/GameEffect/WitchSound/JP/1020-skill_play_JP
 1020,event:/GameEffect/WitchSound/1021-skill_play,event:/GameEffect/WitchSound/JP/1021-skill_play_JP
-1021,event:/GameEffect/WitchSound/1022-skill_play,event:/GameEffect/WitchSound/JP/1022-skill_play_JP
+1021,event:/GameEffect/WitchSound/1022-skill_playnew,event:/GameEffect/WitchSound/JP/1022-skill_play_JP
 1022,event:/GameEffect/WitchSound/1023-skill_play,event:/GameEffect/WitchSound/JP/1023-skill_play_JP
 1023,event:/GameEffect/WitchSound/1024-skill_play,event:/GameEffect/WitchSound/JP/1024-skill_play_JP
 1024,event:/GameEffect/WitchSound/1025-skill_play,event:/GameEffect/WitchSound/JP/1025-skill_play_JP
@@ -266,7 +266,7 @@ number,string,string
 1053,event:/GameEffect/WitchSound/1019-fade_play,event:/GameEffect/WitchSound/JP/1019-fade_play_JP
 1054,event:/GameEffect/WitchSound/1020-fade_play,event:/GameEffect/WitchSound/JP/1020-fade_play_JP
 1055,event:/GameEffect/WitchSound/1021-fade_play,event:/GameEffect/WitchSound/JP/1021-fade_play_JP
-1056,event:/GameEffect/WitchSound/1022-fade_play,event:/GameEffect/WitchSound/JP/1022-fade_play_JP
+1056,event:/GameEffect/WitchSound/1022-fade_playnew,event:/GameEffect/WitchSound/JP/1022-fade_play_JP
 1057,event:/GameEffect/WitchSound/1023-fade_play,event:/GameEffect/WitchSound/JP/1023-fade_play_JP
 1058,event:/GameEffect/WitchSound/1024-fade_play,event:/GameEffect/WitchSound/JP/1024-fade_play_JP
 1059,event:/GameEffect/WitchSound/1025-fade_play,event:/GameEffect/WitchSound/JP/1025-fade_play_JP
@@ -303,7 +303,7 @@ number,string,string
 1088,event:/GameEffect/WitchSound/1019-hit_play,event:/GameEffect/WitchSound/JP/1019-hit_play_JP
 1089,event:/GameEffect/WitchSound/1020-hit_play,event:/GameEffect/WitchSound/JP/1020-hit_play_JP
 1090,event:/GameEffect/WitchSound/1021-hit_play,event:/GameEffect/WitchSound/JP/1021-hit_play_JP
-1091,event:/GameEffect/WitchSound/1022-hit_play,event:/GameEffect/WitchSound/JP/1022-hit_play_JP
+1091,event:/GameEffect/WitchSound/1022-hit_playnew,event:/GameEffect/WitchSound/JP/1022-hit_play_JP
 1092,event:/GameEffect/WitchSound/1023-hit_play,event:/GameEffect/WitchSound/JP/1023-hit_play_JP
 1093,event:/GameEffect/WitchSound/1024-hit_play,event:/GameEffect/WitchSound/JP/1024-hit_play_JP
 1094,event:/GameEffect/WitchSound/1025-hit_play,event:/GameEffect/WitchSound/JP/1025-hit_play_JP
@@ -340,7 +340,7 @@ number,string,string
 1123,event:/GameEffect/WitchSound/1019-dead_play,event:/GameEffect/WitchSound/JP/1019-dead_play_JP
 1124,event:/GameEffect/WitchSound/1020-dead_play,event:/GameEffect/WitchSound/JP/1020-dead_play_JP
 1125,event:/GameEffect/WitchSound/1021-dead_play,event:/GameEffect/WitchSound/JP/1021-dead_play_JP
-1126,event:/GameEffect/WitchSound/1022-dead_play,event:/GameEffect/WitchSound/JP/1022-dead_play_JP
+1126,event:/GameEffect/WitchSound/1022-dead_playnew,event:/GameEffect/WitchSound/JP/1022-dead_play_JP
 1127,event:/GameEffect/WitchSound/1023-dead_play,event:/GameEffect/WitchSound/JP/1023-dead_play_JP
 1128,event:/GameEffect/WitchSound/1024-dead_play,event:/GameEffect/WitchSound/JP/1024-dead_play_JP
 1129,event:/GameEffect/WitchSound/1025-dead_play,event:/GameEffect/WitchSound/JP/1025-dead_play_JP
@@ -377,7 +377,7 @@ number,string,string
 1158,event:/GameEffect/WitchSound/1019-GetNewHero,event:/GameEffect/WitchSound/JP/1019-GetNewHero_JP
 1159,event:/GameEffect/WitchSound/1020-GetNewHero,event:/GameEffect/WitchSound/JP/1020-GetNewHero_JP
 1160,event:/GameEffect/WitchSound/1021-GetNewHero,event:/GameEffect/WitchSound/JP/1021-GetNewHero_JP
-1161,event:/GameEffect/WitchSound/1022-GetNewHero,event:/GameEffect/WitchSound/JP/1022-GetNewHero_JP
+1161,event:/GameEffect/WitchSound/1022-GetNewHeronew,event:/GameEffect/WitchSound/JP/1022-GetNewHero_JP
 1162,event:/GameEffect/WitchSound/1023-GetNewHero,event:/GameEffect/WitchSound/JP/1023-GetNewHero_JP
 1163,event:/GameEffect/WitchSound/1024-GetNewHero,event:/GameEffect/WitchSound/JP/1024-GetNewHero_JP
 1164,event:/GameEffect/WitchSound/1025-GetNewHero,event:/GameEffect/WitchSound/JP/1025-GetNewHero_JP

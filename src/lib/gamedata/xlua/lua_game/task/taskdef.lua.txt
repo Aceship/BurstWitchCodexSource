@@ -46,6 +46,10 @@ Task.RANK_TASK_GROW     = 602      -- 深夜成长任务
 Task.SUB_TYPE_BLOOD_1    = 1001     -- 血之轮回每日任务
 Task.SUB_TYPE_BLOOD_2    = 1002     -- 血之轮回成长任务
 
+Task.NEWER_TASK_UI       = 20009    --暮光礼赞ui
+Task.WEN_QUAN_UI         = 20010    --温泉冬榳ui
+
+
 Task.SUB_TYPE_MUSIC = {
     SUB_TYPE_MUSIC_1    = 701,      -- 乐谱初级任务
     SUB_TYPE_MUSIC_2    = 702,      -- 乐谱中级任务

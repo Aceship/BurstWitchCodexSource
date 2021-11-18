@@ -5,7 +5,7 @@
 --
 Task = Task or {}
 
-function Task:OpenTaskUi(tasktype, taskid)
+function Task:OpenTaskUi(tasktype, taskid, questUiId)
     if tasktype == Task.UI_TYPE_TASK then
         self._tasktype = tasktype
         if taskid ~= nil then
@@ -13,7 +13,7 @@ function Task:OpenTaskUi(tasktype, taskid)
         end
         core.require("xlua/lua_UI/HomeScene/TaskLayer.txt"):new():show()
     else
-        core.require("xlua/lua_UI/HomeScene/NewerTaskLayer.txt"):new():show()
+        core.require("xlua/lua_UI/HomeScene/NewerTaskLayer.txt"):new():show(questUiId)
     end
 end
 

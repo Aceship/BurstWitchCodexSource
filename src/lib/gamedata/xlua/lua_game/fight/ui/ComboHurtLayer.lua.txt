@@ -66,14 +66,14 @@ function UI_ComboHurtLayer:UpdateComboHurtLayer(dt)
 end
 
 function UI_ComboHurtLayer:doShowComboHurtLayer(dps)
-    self._txt_hurt:SetText(dps)
+    self._txt_hurt:SetText(tostring(math.tointeger(math.floor(dps))))
     self.prefab:SetVisible(true)
     self.prefab:AnimationPlay("RecountFadeIn")
     self._showing = true
 end
 
 function UI_ComboHurtLayer:refreshComboHurt()
-    self._txt_hurt:SetText(self._dps)
+    self._txt_hurt:SetText(tostring(math.tointeger(math.floor(self._dps))))
     self._txt_anim:Play("HurtEffect3")
 end
 

@@ -118,6 +118,7 @@ function Operation:LoadActiveListCfg()
     self._activeList = {};
     self.leftTogReds = {};
     self.bottomTogReds = {};
+    self._homeActivityCfg = {};
     self.isRed = false;
     self._configTemp    = {}
     local cfgLists = CfgLoader:LoadCfg("ActiveList");

@@ -400,6 +400,10 @@ function FightWinLayer:onButtonClick(itype)
     end
 end
 
+local function FloorToIntToString(value)
+    return tostring(math.tointeger(math.floor(value)))
+end
+
 function FightWinLayer:setUsingTime()
     if not self._updatetime then
         return
@@ -420,7 +424,7 @@ function FightWinLayer:setLevelScore()
             self._stop_level = true
         end
     end
-    self._lvScroeCom.text = self._level_score
+    self._lvScroeCom.text = FloorToIntToString(self._level_score)
 end
 
 function FightWinLayer:setTimeScore()
@@ -432,7 +436,7 @@ function FightWinLayer:setTimeScore()
             self._stop_time = true
         end
     end
-    self.txtTimeScore.text = self._tmpdata.timeScore
+    self.txtTimeScore.text = FloorToIntToString(self._tmpdata.timeScore)
 end
 
 
@@ -445,7 +449,7 @@ function FightWinLayer:setBulletScore()
             self._stop_bullet = true
         end
     end
-    self.txtBulletValue.text = self._bullet_score
+    self.txtBulletValue.text = FloorToIntToString(self._bullet_score)
 end
 
 function FightWinLayer:SetNoTimeScorePos(has)
@@ -492,7 +496,7 @@ function FightWinLayer:setAllScore()
             self._stop_all = true
         end
     end
-    self.txtAllValue.text = self._all_score
+    self.txtAllValue.text = FloorToIntToString(self._all_score)
 
     --林時處理，动画效果
     --self:setLevelIcon()

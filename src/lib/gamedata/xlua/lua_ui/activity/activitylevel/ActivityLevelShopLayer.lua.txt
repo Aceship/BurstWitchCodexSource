@@ -60,7 +60,7 @@ end
 
 --更新数据
 function ActivityLevelShopLayer:UpdateData()
-    self._chargeIds = Operation:GetChargeIdsByUID(self._typeCfg.ActivechargeUid);
+    self._chargeIds = Operation:GetChargeIdsByUID(self._typeCfg.ActivechargeUid,true);
 end
 
 --初始化UI

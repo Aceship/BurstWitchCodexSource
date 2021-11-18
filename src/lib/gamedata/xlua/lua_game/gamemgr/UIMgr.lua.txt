@@ -103,6 +103,20 @@ function UIMgr:ShowBuyPowerLayer()
     local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
     COriginTipsLayer:new(OriginTipsType.Stamina,Bag.TYPE_ITEM,Player.ITEM_VALUE_POWER):show();
 end
+--扫荡的打开
+function UIMgr:SweepShowOriginTipsLayer(tipsType, cfgid, itype, count,order)
+    if count ~= nil then
+        local _lack_cnt = (count or 0) - Item:GetCount(cfgid)
+        GTemp:SetSweepTmpData({cfgid = cfgid, costCnt = count or 0, lackCnt = _lack_cnt})
+    end
+    local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
+    COriginTipsLayer:new(tipsType,itype,cfgid,order):show();
+end
+--扫荡打开体力
+function UIMgr:SweepShowBuyPowerLayer(order)
+    local COriginTipsLayer = core.require("xlua/lua_UI/Comframework/OriginTipsLayer.txt")
+    COriginTipsLayer:new(OriginTipsType.Stamina,Bag.TYPE_ITEM,Player.ITEM_VALUE_POWER,order):show();
+end
 
 --钻石充值界面
 function UIMgr:ShowBuyJewelLayer()

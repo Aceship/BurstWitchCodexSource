@@ -16,7 +16,7 @@ local GetStaminaType = {
     Buy = 2
 }
 --构造函数
-function OriginTipsLayer:ctor(super, tipsType, itype, cfgId)
+function OriginTipsLayer:ctor(super, tipsType, itype, cfgId, order)
     CBaseLayer.ctor(self)
     self._prefab = {
         path = "prefab_comframeWork/UI_OriginTipsLayer"
@@ -29,6 +29,10 @@ function OriginTipsLayer:ctor(super, tipsType, itype, cfgId)
     self._cfgType = itype
     self._cfgId = cfgId
     self._fading = false
+    self._order = order
+    if self._order ~= nil and self._order > 0 then
+        self._isOrder = true
+    end
     self:onEnter()
 end
 
@@ -43,13 +47,15 @@ end
 --按钮事件
 function OriginTipsLayer:onButtonClick(itype)
     if (itype == BTNS.BtnReturn) then
-        GTemp:SetSweepTmpData(nil)
-        self:OnBtnReturnClick()
+        self:OnTipsReturn()
     else --@ButtonCallBackEnd
     end
  --RemoveEnd
 end
-
+function OriginTipsLayer:OnTipsReturn()
+    GTemp:SetSweepTmpData(nil)
+    self:OnBtnReturnClick()
+end
 --初始化
 function OriginTipsLayer:Init()
     if (self._cfgType == Bag.TYPE_EQUIP) then
@@ -78,7 +84,11 @@ function OriginTipsLayer:InitUI()
     --@TransformEnd
 
     --@RectTransformEnd
-
+    
+    self._canvas = self.layer:GetComponent("Canvas")
+    if self._isOrder then
+        self._canvas.sortingOrder = self._order
+    end
     --@GameObjectEnd
 
     --@MToggleEnd
@@ -219,8 +229,8 @@ end
 function OriginTipsLayer:OnBtnWayItemClick(info, canSweep)
     if canSweep > 0 then
         --zekang todo
-        core.require("xlua/lua_UI/HomeScene/SweepMainLayer.txt"):new():show(info[2],function () 
-            self:onPopLayer()
+        core.require("xlua/lua_UI/HomeScene/SweepMainLayer.txt"):new(function()self:OnTipsReturn()end):show(info[2],function () 
+        self:onPopLayer()
         end)
     else
         if JumpMgr:JumpCheck({tonumber(info[1]), tonumber(info[2])}) then
@@ -279,9 +289,13 @@ end
 ------------------------------------------------------事件-----------------------------------------------------------------------
 
 function OriginTipsLayer:RegisterHandler()
+    local cname = self.__cname
+    if self._isOrder then
+        cname = string.format("%s%s", cname, self._order)
+    end
     self:addEventListener(
         EVENT_TYPE.UPDATE_STAMINA,
-        self.__cname,
+        cname,
         function()
             self:SetComUI()
             if (self._tipsType == OriginTipsType.Stamina) then --体力兑换
@@ -295,7 +309,7 @@ function OriginTipsLayer:RegisterHandler()
     )
     self:addEventListener(
         EVENT_TYPE.UPDATE_GIFT_BAG,
-        self.__cname,
+        cname,
         function()
             self:SetComUI()
             if (self._tipsType == OriginTipsType.Stamina) then --体力兑换
@@ -308,7 +322,7 @@ function OriginTipsLayer:RegisterHandler()
 
     self:addEventListener(
         EVENT_TYPE.UPDATE_CURRENCY,
-        self.__cname,
+        cname,
         function()
             self:OnUpdateCurrency()
         end

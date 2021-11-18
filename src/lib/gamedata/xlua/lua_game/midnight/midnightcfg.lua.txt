@@ -35,6 +35,7 @@ function MidNight:_loadDanGradingCfg()
             midnight_coin_list = cfg.midnight_coin_list,
             midnight_list_chance = cfg.midnight_list_chance,
             gashaponId = tonumber(cfg.gashaponId),
+            effectPath = cfg.effectPath,--升段特效路径
             inited = false
         }
         if(self._danGradingGroups[groupId] == nil)then

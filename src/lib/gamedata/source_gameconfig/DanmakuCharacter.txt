@@ -32,6 +32,7 @@ int,string,int
 100702,player_xuli/Tongyong/baopo_zi,1
 100703,player_xuli/barrage_1007,6
 100803,player_xuli/barrage_1008,1
+100804,playerBarrage_1008_1/barrage_100802_xl,1
 100903,player_xuli/barrage_1009,1
 100904,player_xuli/barrage_1009_04,28
 100905,player_xuli/barrage_1009_03,16
@@ -130,6 +131,11 @@ int,string,int
 200803,playerBarrage_1008/barrage_100803_6x,1
 200804,playerBarrage_1008/LISHADA_hit_4x,1
 200805,playerBarrage_1008/LISHADA_hit_6x,1
+200806,playerBarrage_1008_1/barrage_10080203,1
+200807,playerBarrage_1008_1/barrage_10080203_4x,1
+200808,playerBarrage_1008_1/barrage_10080203_6x,1
+200809,playerBarrage_1008_1/LISHADA02_hit_4x,1
+200810,playerBarrage_1008_1/LISHADA02_hit_6x,1
 200901,playerBarrage_1009/barrage_100902,12
 200902,playerBarrage_1009/barrage_100902_no_col,6
 200903,playerBarrage_1009_1/barrage_10090201,12
@@ -200,6 +206,9 @@ int,string,int
 300801,playerBarrage_1008/barrage_100801_s_1s,1
 300802,playerBarrage_1008/barrage_100801_gz,2
 300803,playerBarrage_1008/barrage_100801,1
+300804,playerBarrage_1008_1/barrage_10080201_s_1s,1
+300805,playerBarrage_1008_1/barrage_100080102_gz,2
+300806,playerBarrage_1008_1/barrage_10080201,1
 301001,playerBarrage_1010/barrage_101001_s_1s,1
 301002,playerBarrage_1010/barrage_101001_gz,2
 301003,playerBarrage_1010/barrage_101001,1

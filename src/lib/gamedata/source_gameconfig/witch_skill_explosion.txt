@@ -2,8 +2,8 @@
 id,ResID,ResScale,ResTime,Range,Count,Interval,MainDpsRate,SubRadiusMin,SubRadiusMax,MainHitEffectId,MainHitEffectStar,SubHitEffectId,SubHitEffectStar
 int,int,number,number,number,int,number,number,number,number,int,int,int,int
 104206,304200,0.7,0.5,5,6,0.2,0.7,2,4,104254,6,104255,6
-100802,300800,0.7,0.5,7,1,0,1,0,0,100853,1,100853,1
-100803,300800,0.7,0.5,10,1,0,1,0,0,100853,3,100853,3
+100802,300800,0.7,1.25,7,1,0,1,0,0,100853,1,100853,1
+100803,300800,0.7,1.25,10,1,0,1,0,0,100853,3,100853,3
 101501,301500,0.7,0.5,10,1,0,1,0,0,101503,1,101503,1
 101502,301500,0.7,0.5,10,1,0,1,0,0,101503,5,101503,1
 10190100,301900,0.7,0.5,3,1,0,1,0,0,101901,1,101901,1

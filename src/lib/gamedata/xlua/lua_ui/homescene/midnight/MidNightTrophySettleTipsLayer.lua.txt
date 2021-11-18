@@ -176,7 +176,9 @@ function MidNightTrophySettleTipsLayer:SetDanUI(data)
 	self._transDanUpBg:SetVisible(data.lastDanId < data.curDanId);
 	if(data.lastDanId < data.curDanId)then
 		--self._transEffect:CreateChild("prefab_uiEffect/uiEffect/ui97_jinji");
-		self._transEffect:CreateChild("prefab_uiEffect/uiEffect/ui97_jinji_low");
+		if(cfg.effectPath ~= nil and cfg.effectPath ~= "-1")then
+			self._transEffect:CreateChild(cfg.effectPath);
+		end
 		--else
 	end
 	if(data.curDanId > data.lastDanId)then

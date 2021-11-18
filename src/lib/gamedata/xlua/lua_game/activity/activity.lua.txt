@@ -237,16 +237,19 @@ end
 
 function Activity:GetRedStateByGatherId(id)
 	local cfg = self:GetActiveGatherCfgById(id)
-	if cfg.itype == Activity.JobType.JobActivity then
+	if cfg.UID[1] == Activity.JobType.JobActivity then
         -- 跳转活动
-		return self:GetRedStateByActivityId(cfg.uid)
-	elseif cfg.itype == Activity.JobType.JobOperation then
+		return self:GetRedStateByActivityId(cfg.UID[2])
+	elseif cfg.UID[1] == Activity.JobType.JobOperation then
         -- 跳转商城
-		return self:GetRedStateByActivityId(cfg.uid)
-	elseif cfg.itype == Activity.JobType.JobNewerTask then
+		return self:GetRedStateByActivityId(cfg.UID[2])
+	elseif cfg.UID[1] == Activity.JobType.JobNewerTask then
         -- 跳转暮光礼赞
-		return Task:GetNewerTaskRedTips()
-	elseif cfg.itype == Activity.JobType.JobChapter then
+		local questUiData = Task:GetQuestUI(cfg.UID[2])
+		if questUiData then
+			return Task:GetNewerTaskRedTips(questUiData.id, questUiData.MainQuestid, questUiData.DaliyQuestid)
+		end
+	elseif cfg.UID[1] == Activity.JobType.JobChapter then
         -- 跳转关卡
         return false
     else
@@ -323,6 +326,9 @@ function Activity:GetRedStateByActivityId(itype)
 	elseif itype == Operation.ActivityID.UpgradePackage then
 		-- 等级礼包
 		return self:IsUpgradePackageTips()
+	elseif itype == Operation.ActivityID.LevelAward then
+		-- 等级奖励
+		return self:IsExistCanBuyUpgradePackage(itype);
 	elseif itype == Operation.ActivityID.ValueSummon then
 		-- 超值召唤
 		return false

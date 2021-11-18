@@ -11,11 +11,11 @@ local BTNS = {
     no = "container/img_bg/trans_buttom/button_no",
     add = "container/img_bg/trans_title/trans_sweepCount/button_add",
     sub = "container/img_bg/trans_title/trans_sweepCount/button_sub",
-    power = "container/img_bg/trans_title/trans_sweepConsume/item1/img_icon",
-    cost = "container/img_bg/trans_title/trans_sweepConsume/item2/img_icon",
+    power = "container/img_bg/trans_title/trans_sweepConsume/item1/btn_power",
+    cost = "container/img_bg/trans_title/trans_sweepConsume/item2/btn_cost",
 }
 --构造函数
-function SweepMainLayer:ctor(super)
+function SweepMainLayer:ctor(super,callback)
     CBaseLayer.ctor(self)
     self._prefab = {
         path = "prefab_uiHome/ui_fight/UI_SweepMainLayer"
@@ -26,6 +26,7 @@ function SweepMainLayer:ctor(super)
     self._update = false
     self._dt = 0.5
     self._index = 1
+    self._callback = callback
     self:onEnter()
 end
 
@@ -55,9 +56,10 @@ function SweepMainLayer:onButtonClick(itype)
             self:setDrops()
         end
     elseif itype == BTNS.power then
-        -- Groble_UIMgr:ShowBuyPowerLayer()
+        Groble_UIMgr:SweepShowBuyPowerLayer(self._canvas.sortingOrder+1)
     elseif itype == BTNS.cost then
-        -- Groble_UIMgr:ShowOriginTipsLayer(OriginTipsType.Item,self.wipeItem[1],Item:GetCfg(self.wipeItem[1]).itemType,Item:GetCount(self.wipeItem[1]))
+        
+        Groble_UIMgr:SweepShowOriginTipsLayer(OriginTipsType.Item,self.wipeItem[1],nil,nil,self._canvas.sortingOrder+1)
     elseif itype == BTNS.back then
         self:onPopLayer()
     end
@@ -84,7 +86,8 @@ function SweepMainLayer:InitUI()
     self._txtCost1 = self.layer:GetTextComponent("container/img_bg/trans_title/trans_sweepConsume/item1/txt_num")
     self._txtCost2 = self.layer:GetTextComponent("container/img_bg/trans_title/trans_sweepConsume/item2/txt_num")
     self._txtDrop = self.layer:GetTextComponent("container/img_bg/trans_title/trans_alreadyDrop/txt_num")
-
+    self._canvas = self.layer:GetComponent("Canvas")
+    
 
     self._imgIconCost1 = self.layer:GetImageComponent("container/img_bg/trans_title/trans_sweepConsume/item1/img_icon")
     self._imgIconCost2 = self.layer:GetImageComponent("container/img_bg/trans_title/trans_sweepConsume/item2/img_icon")
@@ -145,6 +148,9 @@ function SweepMainLayer:show(levelid, callback, heroIds)
     self:setDrops()
 
     self:showLayer()
+    if self._callback ~= nil then
+        self._callback()
+    end
 end
 
 --退出按钮事件
@@ -191,8 +197,12 @@ end
 ------------------------------------------------------事件-----------------------------------------------------------------------
 
 function SweepMainLayer:RegisterHandler()
-    --self:addEventListener(EVENT_TYPE.DAY_UPDATE,self.__cname,function()
-    --end);
+    self:addEventListener(EVENT_TYPE.UPDATE_STAMINA,self.__cname,function()
+    	self:SetMaxSweepCountAndDrops()
+        self:CheckMaxCount()
+        self._count = math.min(self._count, self._maxSweepCount)
+        self:setDrops()
+    end);
 end
 
 ------------------------------------------------------OtherFunction-----------------------------------------------------------------------
@@ -272,7 +282,11 @@ function SweepMainLayer:SetMaxSweepCountAndDrops()
 	if self.wipeItem[1] == -1 then
 		self._maxSweepCount = math.min(self._powerCount,self._level.remain)
 	else
-		self._propCount = math.floor(Item:GetCount(self.wipeItem[1]) / self.wipeItem[2])
+        if Item:GetCount(self.wipeItem[1]) < self.wipeItem[2] then
+            self._propCount = 1
+        else
+            self._propCount = math.floor(Item:GetCount(self.wipeItem[1]) / self.wipeItem[2])
+        end
         local tmpCount = math.min(self._powerCount,self._level.remain)
 		self._maxSweepCount = math.min(tmpCount,self._propCount)
 	end
@@ -300,7 +314,8 @@ function SweepMainLayer:OnSweep()
         return
     end
     if Item:GetCount(Player.ITEM_VALUE_POWER) < self._cost * self._count then
-        Groble_UIMgr:ShowGameWordTipsLayer(3009026)
+        Groble_UIMgr:SweepShowBuyPowerLayer(self._canvas.sortingOrder+1)
+        -- Groble_UIMgr:ShowGameWordTipsLayer(3009026)
         return
     end
     if self._level.remain < 1 then
@@ -323,15 +338,16 @@ function SweepMainLayer:OnSweep()
             break
         end
     end
+-- 发送扫荡数据
     if not _hasTeam then
-		Groble_UIMgr:ShowGameWordTipsLayer(21003)
-        return
-    end
-
-    -- 发送扫荡数据
-    Chapter:LevelSweepReq(self._level.id,self._count,heroIds,function()
+        Chapter:LevelSweepReq(self._level.id,self._count,nil,function()
             self:onBackClick()
         end,true,true)
+    else
+        Chapter:LevelSweepReq(self._level.id,self._count,heroIds,function()
+            self:onBackClick()
+        end,true,true)
+    end
 end
 
 --检查是否需要消耗品，如果需要设置消耗显示

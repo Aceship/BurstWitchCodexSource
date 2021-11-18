@@ -87,6 +87,12 @@ function UI_ChangePlayerLayer:ChangePlayerLayerCreator()
     self._addTime = 0
     self._addTimeSingle = 0
 
+
+    self._changeCount = 0
+    self._changeLastTime = -1
+    self._changeCDStart = -1
+    self._changeCDMax = -1
+
 end
 
 function UI_ChangePlayerLayer:ChangePlayerLayerDestructor()
@@ -151,6 +157,11 @@ function UI_ChangePlayerLayer:ChangePlayerLayerDestructor()
     self._energyEffect = nil
     self._energyWarningAvatar = nil
     self._heroids = nil
+
+    self._changeCount = nil
+    self._changeLastTime = nil
+    self._changeCDStart = nil
+    self._changeCDMax = nil
 
     self:doAlphaInfoClear()
 end
@@ -613,6 +624,11 @@ function UI_ChangePlayerLayer:onInitPlayerInfo(index, heroid, hidIndex)
         clsHeader.guntype_skill_icon  = uiplayer:GetImageComponent("obj_gun_type_skill/skill_icon")
 
         clsHeader.uibuff      = core.require("xlua/lua_UI/GameFightScene/uibuff.txt"):new()
+
+        clsHeader.change_cd_obj   = uiplayer:Get("ChangeCd")
+        clsHeader.change_cd       = clsHeader.change_cd_obj:GetImageComponent("img_mask")   
+        clsHeader.change_time     = clsHeader.change_cd_obj:GetTextComponent("cdTime")
+        clsHeader.change_cd_obj:SetVisible(false)
         
         self._playerHeader[index] = clsHeader        
         clsHeader.uibuff:Init(uiplayer:Get("BossBuffInfo"), true)
@@ -628,6 +644,7 @@ function UI_ChangePlayerLayer:onInitPlayerInfo(index, heroid, hidIndex)
         clsHeader.button:AddButtonListener(
             function()
                 self:onClickChangeFightPlayer(clsHeader.hidIndex)
+                self:onChange()
             end)
         self._alpha_Info[index].inited = true
         self._alpha_Info[index].alphaComp = uiplayer:GetComponent("CanvasGroup")
@@ -862,6 +879,7 @@ function UI_ChangePlayerLayer:UpdateChangePlayerLayerData(battleData)
     self:refreshGunTypeSkill(uiAttr)
     self:onRefershEnergyWarning(self._curIndex)
 
+    self:refreshChangeCD()
     if self._heroCnt == 1 then return end
 
     -- 刷新属性
@@ -950,3 +968,91 @@ function UI_ChangePlayerLayer:DoAddTime(time)
 
 end
 
+
+function UI_ChangePlayerLayer:refreshChangeCD()
+    if(self._changeCDStart == nil
+        or self._changeCDStart <= 0) then
+        return
+    end
+
+    local time = CS.UnityEngine.Time.time
+    local elapsed = time - self._changeCDStart
+    if(elapsed > self._changeCDMax) then
+        self._changeCDStart = -1
+        self._changeCDMax = -1
+
+        for i = 1, 2 do
+            local head = self._playerHeader[i]
+            if(head ~= nil
+                and head.change_cd_obj ~= nil) then
+                head.change_cd_obj:SetVisible(false)
+            end
+        end
+
+        return
+    end
+
+    local remainTime = self._changeCDMax - elapsed
+    local fillAmount = remainTime / self._changeCDMax
+
+    for i = 1, 2 do
+        local head = self._playerHeader[i]
+        if(head ~= nil
+            and head.change_cd ~= nil
+            and head.change_time ~= nil) then
+            head.change_cd.fillAmount = fillAmount
+            head.change_time.text = string.format("%0.1fs", remainTime)
+        end
+    end
+end
+
+
+function UI_ChangePlayerLayer:onChange()
+    local curTime = CS.UnityEngine.Time.time
+
+    if(self._changeCount > 0) then
+        local time = 0
+        if(self._changeLastTime > 0) then
+            time = curTime - self._changeLastTime
+        end
+
+        local backTime = FightModule:GetFightChangeCD(self._changeCount).backTime
+        if(time >= backTime) then
+            self._changeCount = 0
+        end
+
+        -- local backCount = self._changeCount
+        -- for i = self._changeCount, 0, -1 do
+        --     local backTime = FightModule:GetFightChangeCD(self._changeCount).backTime
+        --     time = time - backTime
+        --     if(time < 0) then
+        --         break
+        --     end
+        --     backCount = backCount - 1
+        -- end
+        -- self._changeCount = backCount
+    end
+
+    self._changeLastTime = curTime
+    self._changeCount = self._changeCount + 1
+
+    local cdTime = FightModule:GetFightChangeCD(self._changeCount).cdTime
+    print(self._changeCount, cdTime)
+
+    if(cdTime > 0) then
+        self._changeCDMax = cdTime
+        self._changeCDStart = curTime
+
+        for i = 1, 2 do
+            local head = self._playerHeader[i]
+            if(head ~= nil
+                and head.change_cd ~= nil
+                and head.change_cd_obj ~= nil
+                and head.change_time ~= nil) then
+                head.change_cd_obj:SetVisible(true)
+                head.change_cd.fillAmount = 0
+                head.change_time.text = string.format("%0.1fs", cdTime)
+            end
+        end
+    end    
+end

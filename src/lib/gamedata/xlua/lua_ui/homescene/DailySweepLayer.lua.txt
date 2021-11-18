@@ -69,10 +69,10 @@ function DailySweepLayer:onButtonClick(itype)
             end
         end
         if not _hasTeam then
-            Groble_UIMgr:ShowGameWordTipsLayer(21003)
-            return
+            Chapter:LevelSweepReq( self._level.id, self._count,nil, self._callback, false, false)
+        else
+            Chapter:LevelSweepReq( self._level.id, self._count, self._teamHeroIds, self._callback, false, false)
         end
-        Chapter:LevelSweepReq( self._level.id, self._count, self._teamHeroIds, self._callback, false, false)
         self:onPopLayer()
     elseif itype == BTNS.no then
         self:onBackClick()

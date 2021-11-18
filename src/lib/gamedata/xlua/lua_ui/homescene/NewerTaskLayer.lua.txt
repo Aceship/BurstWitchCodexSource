@@ -5,6 +5,7 @@
 --
 local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
 local NewerTaskLayer = class("NewerTaskLayer", CBaseLayer)
+local Vector3 = CS.UnityEngine.Vector3
 
 function NewerTaskLayer:ctor(super)
     CBaseLayer.ctor(self)
@@ -41,9 +42,9 @@ function NewerTaskLayer:onEnter()
         self._taskids = Task:SortTaskIds(self._taskids)
         self:refreshTaskScrollview(false)
         self:refreshProgress()
+        self:onRecvRep()
     end)
     CS.UnityHelper.NotchfitY(self.layer:Get("pnl_spine"))
-    Hero:LoadSpineAsync(self.__cname, self.layer:Get("pnl_spine"), 10030002 , Hero.SPINE_UI_TYPE_NEWER_TASK,nil,true)
     self._txtMaxScore = self.layer:GetTextComponent("container/cur_int_bg/txt_max_score");
     self._content   = self.layer:Get("container/scrollview_tasks/viewport/content")
     self._template  = self.layer:Get("container/item_task").gameObject
@@ -60,19 +61,28 @@ function NewerTaskLayer:onUpdate(dt)
     end
 end
 
-function NewerTaskLayer:show()
-    self._has_days = Task:NewerTaskDays()
+function NewerTaskLayer:show(questId)
+    self._questId = questId
+    self._questData = Task:GetQuestUI(questId)
+    
     self._dayindex = -1
     self._tasknum = 0
     self._maxnum = 0
-    self:initDaysScrollview()
-    self:refreshScoreRewards()
     self:showLayer()
     self:playAni("NewerTaskLayerAni")
 end
 
 function NewerTaskLayer:showLayer()
-    self._isUpdate = Task:NewerTaskRemainTime() < CTime.HOUR_SEC
+    self:UpdateUI();
+    if self._questData.id == Task.NEWER_TASK_UI then
+        self._isUpdate = Task:NewerTaskRemainTime() < CTime.HOUR_SEC
+        self._has_days = Task:NewerTaskDays()
+    else
+        self._isUpdate = Task:TaskRemainTime(self._questData.id) < CTime.HOUR_SEC
+        self._has_days = Task:TaskDays(self._questData.id)
+    end
+    self:initDaysScrollview()
+    self:refreshScoreRewards()
     self:dataGen(true);
     self:refreshRemainTime()
     self:refreshRedTips()
@@ -81,7 +91,12 @@ function NewerTaskLayer:showLayer()
 end
 
 function NewerTaskLayer:refreshRemainTime()
-    local remain = Task:NewerTaskRemainTime()
+    local remain
+    if self._questData.id == Task.NEWER_TASK_UI then
+        remain = Task:NewerTaskRemainTime()
+    else
+        remain = Task:TaskRemainTime(self._questData.id)
+    end
     local str = ""
     remain = math.max(remain, 0)
     if remain < CTime.MIN_SEC  then
@@ -111,8 +126,9 @@ function NewerTaskLayer:initDaysScrollview()
     local item_day = self.layer:Get("container/item_tog_day").gameObject
     item_day:SetVisible(false)
     local defaultIdx = 1
-    local recvs = Task:GetNewerRecv()
-    for i = 1, Task.NEWER_DAYS do
+    local recvs = Task:GetNewerRecv(self._questData.id, self._questData.DaliyQuestid)
+
+    for i = 1, #self._questData.DaliyQuestid do
         if self.dayItems[i] == nil then
             local transform = content:AddChild(item_day)
             self.dayItems[i] = {
@@ -169,8 +185,8 @@ function NewerTaskLayer:initDaysScrollview()
         self.dayItems[i].imgRed:SetVisible(recvs[i])
     end
     -- self:onDayClick(defaultIdx, true)
-    self._dayindex = defaultIdx
     self.dayItems[defaultIdx].togDay.isOn = true;
+    self._dayindex = defaultIdx
     if self._dayindex > 6 then
         local scroll = self.layer:GetScrollRectComponent("container/scrollview_days")
         scroll.horizontalNormalizedPosition = 1
@@ -188,7 +204,7 @@ function NewerTaskLayer:onDayClick(dayindex,isOn)
 end
 
 function NewerTaskLayer:dataGen(enter)
-    local subtype = self._dayindex + Task.DAY_TASK_INDEX
+    local subtype = self._questData.DaliyQuestid[self._dayindex]
     self._taskids = Task:SortTaskIds(Task:GetSubTasks(subtype))
 
     if #self._taskids > self._maxnum then
@@ -224,15 +240,22 @@ function NewerTaskLayer:refreshTaskScrollview(enter)
 end
 
 function NewerTaskLayer:refreshScoreRewards()
-    local ids = Task:GetNewerScoreTask()
+    local ids = Task:GetNewerScoreTask(self._questData.MainQuestid)
     local container = self.layer:Get("container")
+    container:GetImageComponent("item_score_1/img_icon").sprite = AssetLoader:LoadSprite(self._questData.pre_icon_path);
     if self.scoreItems == nil then
         self.scoreItems = {}
         self.txtScore = self.layer:GetTextComponent("container/cur_int_bg/text_score")
         self.scoreItemPrefab = container:Get("item_score_1").gameObject
         self._awardBg = container:Get("trans_award_bg")
     end
-    for i = 1, #ids do
+    local num = 5
+    if(#ids > num) then
+        AppMgr:LogError("此处说好了最多有5个--沈&田")
+    else
+        num = #ids
+    end
+    for i = 1, num do
         if self.scoreItems[i] == nil then
             local transform = self._awardBg:AddChild(self.scoreItemPrefab)
             self.scoreItems[i] = {
@@ -263,7 +286,7 @@ function NewerTaskLayer:refreshScoreRewards()
 end
 
 function NewerTaskLayer:refershScore()
-    local score = Task:GetNewerTaskScore()
+    local score = Task:GetNewerTaskScore(self._questData.DaliyQuestclassid)
     self.txtScore.text = score;
 end
 
@@ -292,7 +315,7 @@ function NewerTaskLayer:onRecvRep()
 end
 
 function NewerTaskLayer:refreshRedTips()
-    local recvs = Task:GetNewerRecv()
+    local recvs = Task:GetNewerRecv(self._questData.id, self._questData.DaliyQuestid)
     for i, v in ipairs(self.dayItems) do
         v.imgRed:SetVisible(recvs[i])
     end
@@ -324,8 +347,8 @@ function NewerTaskLayer:preLevelIsOpen(level)
 end
 
 function NewerTaskLayer:refreshProgress()
-    for i = 1, Task.NEWER_DAYS do
-        local subtype = i + Task.DAY_TASK_INDEX
+    for i = 1, #self._questData.DaliyQuestid do
+        local subtype = self._questData.DaliyQuestid[i]
         local taskids = Task:SortTaskIds(Task:GetSubTasks(subtype))
         local finishNum = 0
         for k, id in pairs(taskids) do
@@ -357,11 +380,48 @@ function NewerTaskLayer:onExit()
 end
 
 function NewerTaskLayer:onUpdateDay()
-    self._has_days = Task:NewerTaskDays()
+    if self._questData.id == Task.NEWER_TASK_UI then
+        self._has_days = Task:NewerTaskDays()
+    else
+        self._has_days = Task:TaskDays(self._questData.id)
+    end
     self:refreshRemainTime()
     self:initDaysScrollview()
     self:refreshScoreRewards()
     self:dataGen(false)
+end
+
+function NewerTaskLayer:UpdateUI()
+    local imgbg = self.layer:GetImageComponent("img_title_bg2")
+    imgbg.sprite = AssetLoader:LoadSprite(self._questData.imgbg_path);
+    local imgad = self.layer:GetImageComponent("img_title_bg")
+    imgad.sprite = AssetLoader:LoadSprite(self._questData.imgad_path);
+
+    local img_flower = self.layer:GetImageComponent("container/cur_int_bg/img_flower")
+    img_flower.sprite = AssetLoader:LoadSprite(self._questData.pre_icon_path);
+
+    for i = 1, #self._questData.titleArr do
+        local textCom = self.layer:GetTextComponent("container/trans_title_bg/txt_title_" .. i);
+        if(textCom) then
+            textCom.text = Language.LanguageTxt[self._questData.titleArr[i]]
+        end
+    end
+
+    Hero:LoadSpineAsync(self.__cname, self.layer:Get("pnl_spine"), self._questData.Spine[1], nil,
+    function(spineNode) 
+        if spineNode then
+            spineNode:GetComponent("SkeletonAnimation"):GetComponent("MeshRenderer").sortingOrder = Activity.SPINE_ORDER;
+            local spineTrans = spineNode:GetComponent("Transform");
+            local old = spineTrans.localScale
+            spineTrans.localPosition = Vector3(self._questData.Spine[2], self._questData.Spine[3], 0)
+            local localScale = Vector3(self._questData.Spine[4], self._questData.Spine[4], self._questData.Spine[4]);
+            spineTrans.localScale = localScale
+            local ps = spineNode:GetComponent("UIParticleScale")
+            if ps ~= nil then
+                ps:ResetScale(localScale.x/old.x)
+            end
+        end
+    end, true)
 end
 
 return NewerTaskLayer

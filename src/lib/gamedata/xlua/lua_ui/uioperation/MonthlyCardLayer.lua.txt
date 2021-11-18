@@ -183,7 +183,7 @@ function MonthlyCardLayer:SetMonthItem(cls,id)
         else
             local day = serverData.expiry - CTime:GetOffsetDay();
             local maxNum = math.ceil(month.maxDay / Operation.MonthDay);
-            cls.surNum = maxNum - math.ceil((day) / Operation.MonthDay);
+            cls.surNum = maxNum - math.ceil((day + 1) / Operation.MonthDay);
             cls.txtRemainingDay:SetText(string.format(LanguageMgr:GetTextByID(90246),day));
         end
     else

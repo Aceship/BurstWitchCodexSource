@@ -13,14 +13,14 @@ Operation.GIFT_BAG_PATH = "source_icon/item/";
 Operation.ActivityID = {
     None                    = -1,
 
-
     NewWelfare              = 20001,        --萌新福利
     DailyCheckIn            = 20002,        --每日签到
     GradeAward              = 20003,        --等级奖励
     ChessBoard              = 20004,        --夜莺巡查
     Dial                    = 20005,        --转盘活动
     ThousandHolyNight       = 20008,        --万圣节
-
+    Twilight                = 20009,        -- 暮光礼赞
+    HotSpring               = 20010,        -- 温泉冬榳
 
     TimeLimitGift           = 30001,        --限时礼包
     ValueSummon             = 30002,        --超值召唤
@@ -32,6 +32,7 @@ Operation.ActivityID = {
     SkinBuy                 = 30011,        --皮肤购买
     JewelBuy                = 30012,        --魂晶兑换
     WeekGift                = 30013,        --周礼包
+    LevelAward              = 30014,        --等级奖励
 
     BloodCycle               = 8001,        --血之轮回
     BloodCycle2              = 8004,        --血之轮回2

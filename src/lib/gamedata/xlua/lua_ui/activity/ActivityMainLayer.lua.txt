@@ -171,8 +171,8 @@ function ActivityMainLayer:OnLeftTogClick(isOn,cls)
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/DaySignInLayer.txt"):new();
             elseif(self._curSelectUid == Operation.ActivityID.NewWelfare)then--萌新福利
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/RookieAwardLayer.txt"):new();
-            elseif(self._curSelectUid == Operation.ActivityID.GradeAward)then--等级奖励
-                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/LevelAwardLayer.txt"):new(self._transUIParent);
+            elseif(self._curSelectUid == Operation.ActivityID.LevelAward)then--等级奖励
+                self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/UIOperation/LevelAwardLayer.txt"):new(self._transUIParent);
             elseif(self._curSelectUid == Operation.ActivityID.Dial)then  --转盘
                 self._allLayers[self._curSelectUid] = core.require("xlua/lua_UI/Activity/DialLayer.txt"):new(self._transUIParent);
             elseif(self._curSelectUid == Operation.ActivityID.WitchBook)then--魔女手册

@@ -125,4 +125,9 @@ function Task:_LoadCfg()
             end
         end
     end
+    self:_LoadQuestUI()
+end
+
+function Task:_LoadQuestUI()
+    self._questUI = Config.GetConfigActiveQuest_ui()
 end

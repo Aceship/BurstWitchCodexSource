@@ -100,33 +100,49 @@ end
 ---------------------------------------------------------BtnClick------------------------------------------------------------------------------
 
 function ActiveGatherLayer:OnBtnItemClick(cfg)
-    if(cfg.itype == Activity.JobType.JobActivity)then
-        Activity:SetCurSelectUid(cfg.uid);
-        if(cfg.uid == Operation.ActivityID.DailyCheckIn)then-- 每日签到
+    local ntype = cfg.UID[1]
+    local uid = cfg.UID[2]
+
+    if ntype == Activity.JobType.JobActivity then
+        Activity:SetCurSelectUid(cfg.UID[2]);
+        if uid == Operation.ActivityID.DailyCheckIn then
+            -- 每日签到
             core.require("xlua/lua_UI/Activity/DaySignInLayer.txt"):new():show();
-        elseif(cfg.uid == Operation.ActivityID.NewWelfare)then--萌新福利
+        elseif uid == Operation.ActivityID.NewWelfare then
+            -- 萌新福利
             core.require("xlua/lua_UI/Activity/RookieAwardLayer.txt"):new():show();
-        elseif(cfg.uid == Operation.ActivityID.GradeAward)then--等级奖励
+        elseif uid == Operation.ActivityID.GradeAward then
+            -- 等级奖励
             core.require("xlua/lua_UI/Activity/LevelAwardLayer.txt"):new():show();
-        elseif(cfg.uid == Operation.ActivityID.ChessBoard)then--夜莺巡查
+        elseif uid == Operation.ActivityID.ChessBoard then
+            -- 夜莺巡查
             Activity:OpenChessBoardMainLayer();
-        elseif(cfg.uid == Operation.ActivityID.Dial)then  --转盘
+        elseif uid == Operation.ActivityID.Dial then
+            -- 转盘
             core.require("xlua/lua_UI/Activity/DialLayer.txt"):new():show();
-        elseif(cfg.uid == Operation.ActivityID.ThousandHolyNight)then  --萬聖節簽到
+        elseif uid == Operation.ActivityID.ThousandHolyNight then
+            -- 萬聖節簽到
             core.require("xlua/lua_UI/Activity/ActivitySignLayer.txt"):new():show(false);
         end
-    elseif(cfg.itype == Activity.JobType.JobOperation)then
-        if(cfg.uid == Operation.ActivityID.BloodCycle)then
+    elseif ntype == Activity.JobType.JobOperation then
+        if uid == Operation.ActivityID.BloodCycle then
+            -- 血之轮回
             Operation:OpenBloodCycleLayer()
         end
-    elseif(cfg.itype == Activity.JobType.JobNewerTask)then
-        if(Task:NewerTaskRemainTime() <= 0)then
-            Groble_UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID());
-            return;
+    elseif ntype == Activity.JobType.JobNewerTask then
+        if uid == Operation.ActivityID.Twilight then
+            -- 暮光礼赞
+            if Task:NewerTaskRemainTime() <= 0 then
+                Groble_UIMgr:ShowGameWordTipsLayer(880032)
+            else
+                Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW, nil, Task.NEWER_TASK_UI)
+            end
+        elseif uid == Operation.ActivityID.HotSpring then
+            -- 温泉冬榳
+            Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW, nil, Task.WEN_QUAN_UI)
         end
-        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW)
-    elseif(cfg.itype == Activity.JobType.JobChapter)then
-        
+    elseif ntype == Activity.JobType.JobChapter then
+        -- 打开关卡
     end
 end
 --@ButtonFunctionEnd
@@ -211,21 +227,21 @@ function ActiveGatherLayer:SetItemUI(cls,cfg)
         return;
     end
     cls.cfg = cfg;
-    cls.imgBg:LoadSprite(cfg.imgPath);
+    cls.imgBg:LoadSprite(cfg.Photopath);
     cls.imgBg:ResetSize();
     cls.height = cls.imgBg:GetSizeDeltaY()
     cls.go:SetSize(cls.imgBg:GetSizeDeltaX(), cls.height);
     for i = 1, MaxItemNum do
-        Bag:SetComSimpleGoodsUi(cls.items[i],cfg.goods[i][1],cfg.goods[i][2],0);
+        Bag:SetComSimpleGoodsUi(cls.items[i],cfg.Showitem[i][1],cfg.Showitem[i][2],0);
     end
     if cls.effect ~= nil then
         cls.effect:Release()
         cls.effect = nil
     end
-    if next(cfg.Effectcoordinate) ~= nil then
+    if cfg.Effectcoordinate ~= nil then
         cls.effect = cls.imgBg.transform:CreateChild(cfg.Effectcoordinate[1])
         if cls.effect ~= nil then
-            cls.effect:SetPosition(tonumber(cfg.Effectcoordinate[2]), tonumber(cfg.Effectcoordinate[3]), 0, true)
+            cls.effect:SetPosition(cfg.Effectcoordinate[2], cfg.Effectcoordinate[3], 0, true)
             CS.UnityHelper.SetParticleMask(cls.effect.transform)
         end
     end

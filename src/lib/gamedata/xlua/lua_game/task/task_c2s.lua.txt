@@ -57,7 +57,7 @@ function Task:CheckTaskRedTips(taskid)
         end
     end
     if canGet == true then
-        if task.showtype == Task.TYPE_NEWER or task.showtype == Task.TYPE_NEWER_SCORE then
+        if task.showtype == Task.TYPE_NEWER or task.subtype == Task.SUB_TYPE_SCORE then
             canGet = task.subtype <= (self:NewerTaskDays() + Task.DAY_TASK_INDEX)
             self._newer_task_recv = self._newer_task_recv or canGet
         else

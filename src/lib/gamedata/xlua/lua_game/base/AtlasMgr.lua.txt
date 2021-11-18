@@ -34,6 +34,7 @@ AtlasMgr.LOTTERY_02     = "source_atlas/atlas_lottery_2"
 
 AtlasMgr.MID_NIGHT      = "source_atlas/atlas_mid_night_res"
 AtlasMgr.Operation      = "source_atlas/atlas_operation"
+AtlasMgr.Activity      = "source_atlas/atlas_activity_layer_2"
 
 function AtlasMgr:LoadAtlasSprite(atlas, name)
     return AssetLoader:LoadAtlasSprite(atlas, name)

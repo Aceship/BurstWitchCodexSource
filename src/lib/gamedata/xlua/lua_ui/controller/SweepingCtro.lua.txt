@@ -16,22 +16,22 @@ function SweepingCtro:SweepDataByLevel(levelid)
     -- AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. levelid)
     -- lua_table_print(level)
     if level.Is_Auto == SweepingCtro.None or level.Is_Auto == SweepingCtro.Host then
-        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoSweep)
+        AppMgr:LogWarning("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoSweep)
         return SweepingCtro.NoSweep, level.cost_power, level.wipeItem
     end
 
     if level.has_star < 3 then
-        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoThreeStar)
+        AppMgr:LogWarning("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoThreeStar)
         return SweepingCtro.NoThreeStar, level.cost_power, level.wipeItem
     end
 
     if level.wipeItem[1] ~= -1 and Item:GetCount(level.wipeItem[1]) < level.wipeItem[2] then
-        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoWipeItem)
+        AppMgr:LogWarning("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoWipeItem)
         return SweepingCtro.NoWipeItem, level.cost_power, level.wipeItem
     end
 
     if level.fight_count > 0 and level.remain <= 0 then
-        AppMgr:LogError("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoFightCount)
+        AppMgr:LogWarning("SweepingCtro:SweepDataByLevel : " .. SweepingCtro.NoFightCount)
         return SweepingCtro.NoFightCount, level.cost_power, level.wipeItem
     end
 

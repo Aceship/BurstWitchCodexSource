@@ -74,7 +74,7 @@ function GameSdkMgr:IsJurenSdk()
 end
 
 function GameSdkMgr:IsBiliSdk()
-    return _platform == SdkIdMgr.SDK_Bili or _platform == SdkIdMgr.SDK_Bili_iOS or _platform == SdkIdMgr.SDK_Bili_UO
+    return _platform == SdkIdMgr.SDK_Bili or _platform == SdkIdMgr.SDK_Bili_iOS or _platform == SdkIdMgr.SDK_Bili_UO or _platform == SdkIdMgr.SDK_Bili_Tap
 end
 
 function GameSdkMgr:IsHasShare()

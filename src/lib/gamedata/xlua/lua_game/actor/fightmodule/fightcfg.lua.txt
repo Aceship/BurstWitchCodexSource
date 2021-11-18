@@ -183,6 +183,7 @@ function FightModule:_LoadFightModuleCfg()
     self:_LoadMidNightBuff()
     self:_LoadBuffIconCfg()
     self:_LoadFightBalance()
+    self:_LoadFightChangeCD()
 
     self._cfg_screenEffect = CfgLoader:LoadCfg("screenEffect")
 end
@@ -288,3 +289,20 @@ function FightModule:GetFightBalance(subType, gunType)
     return typeTbl
 end
 
+function FightModule:_LoadFightChangeCD()
+    local cfg = CfgLoader:LoadCfgTable("FightChangeCD")
+    self._fightChangeCD = {}
+
+    for k, v in pairs(cfg) do
+        self._fightChangeCD[tonumber(v.id)] = { cdTime = tonumber(v.cdTime), backTime = tonumber(v.backTime)}
+    end
+end
+
+function FightModule:GetFightChangeCD(idx)
+    local tbl = self._fightChangeCD
+    local size = #tbl
+    if(idx > size) then
+        idx = size
+    end
+    return tbl[idx]
+end

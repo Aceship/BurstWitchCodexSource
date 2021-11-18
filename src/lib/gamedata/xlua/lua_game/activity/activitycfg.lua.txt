@@ -115,22 +115,7 @@ end
 
 --加载活动集合配置
 function Activity:LoadActiveGatherCfg()
-    self._activeGatherCfg = {};
-    local id, temp = 0
-    for i, v in ipairs(CfgLoader:LoadCfg("ActiveGather")) do
-        temp = lua_str_split(v.UID, "&", true)
-        id = tonumber(v.id)
-        self._activeGatherCfg[id] = {
-            id = id,
-            imgPath = v.Photopath,
-            pos = lua_str_split(v.Pos,"&",true),
-            showSeat = tonumber(v.Showseat),
-            itype = temp[1],
-            uid = temp[2],
-            goods = lua_parse_cfg(v.Showitem,true),
-            Effectcoordinate = v.Effectcoordinate == "-1" and {} or lua_str_split(v.Effectcoordinate, "&")
-        }
-    end
+    self._configActiveGather = Config.GetConfigActiveGather()
 end
 
 --圈数奖励
@@ -169,14 +154,14 @@ end
 --获取有效的活动集合
 function Activity:GetAllActiveGatherCfg()
     local retArr = {};
-    for _, cfg in pairs(self._activeGatherCfg) do
-        if(retArr[cfg.showSeat] == nil)then
-            retArr[cfg.showSeat] = {};
+    for _, cfg in pairs(self._configActiveGather) do
+        if(retArr[cfg.Showseat] == nil)then
+            retArr[cfg.Showseat] = {};
         end
         local isAdd = false;
-        if(cfg.itype == Activity.JobType.JobActivity)then--活动
-            if(Operation:GetActiveIsOpenByUid(cfg.uid))then
-                if(cfg.uid  == Operation.ActivityID.NewWelfare)then--7日签到需要判断是否全部领取过
+        if(cfg.UID[1] == Activity.JobType.JobActivity)then--活动
+            if(Operation:GetActiveIsOpenByUid(cfg.UID[2]))then
+                if(cfg.UID[2] == Operation.ActivityID.NewWelfare)then--7日签到需要判断是否全部领取过
                     if(not Activity:GetNewWelfareIsOver())then--未结束, 添加
                         isAdd = true;
                     end
@@ -184,8 +169,8 @@ function Activity:GetAllActiveGatherCfg()
                     isAdd = true;
                 end
             end
-        elseif(cfg.itype == Activity.JobType.JobActivity)then--万圣节
-            if(cfg.uid  == Operation.ActivityID.ThousandHolyNight )then
+        elseif(cfg.UID[1] == Activity.JobType.JobActivity)then--万圣节
+            if(cfg.UID[2] == Operation.ActivityID.ThousandHolyNight )then
                 local TimeId = self:GetActivityByUId(Operation.ActivityID.ThousandHolyNight).info.Time
                 local _days = Activity:GetActivitySignDay()
                 if  Activity:GetNewWelfareIsOver_AcvitySign()==false and  CTime:IsOpen(tonumber(TimeId)) and  _days<=Activity.NewWelfareMaxDay then
@@ -193,19 +178,23 @@ function Activity:GetAllActiveGatherCfg()
                     isAdd = true;
                 end
             end
-        elseif(cfg.itype == Activity.JobType.JobOperation)then--商城
-            if(Operation:GetActiveIsOpenByUid(cfg.uid))then
+        elseif(cfg.UID[1] == Activity.JobType.JobOperation)then--商城
+            if(Operation:GetActiveIsOpenByUid(cfg.UID[2]))then
                 isAdd = true;
             end
-        elseif(cfg.itype == Activity.JobType.JobNewerTask)then--暮光礼赞
-            if(Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) and Task:NewerTaskRemainTime() > 0)then
+        elseif(cfg.UID[1] == Activity.JobType.JobNewerTask)then--暮光礼赞
+            if(Player:IsSysFuncOpen(Player.SYS_FUNC.sys_newer_task) and Task:NewerTaskRemainTime() > 0 and cfg.UID[2] == Operation.ActivityID.Twilight)then
                 isAdd = true;
+            else
+                if Task:TaskIsOpen(cfg.UID[2]) then
+                    isAdd = true
+                end
             end
-        elseif(cfg.itype == Activity.JobType.JobChapter)then--活动关卡
+        elseif(cfg.UID[1] == Activity.JobType.JobChapter)then--活动关卡
             --TODO 活动关卡相关
         end
         if(isAdd)then
-            table.insert(retArr[cfg.showSeat],cfg);
+            table.insert(retArr[cfg.Showseat],cfg);
         end
     end
     for _, v in pairs(retArr) do
@@ -217,12 +206,10 @@ function Activity:GetAllActiveGatherCfg()
 end
 
 function Activity:GetActiveGatherCfgById(id)
-    id = tonumber(id);
-    if(self._activeGatherCfg[id] == nil)then
-        CS.Logger.LogError("cfg is nil **path = GetActiveGatherCfgById** id = "..id);
-        return nil;
+    if self._configActiveGather[id] == nil then
+        CS.Logger.LogError("配置表[ActiveGather]错误。未找到id = "..id)
     end
-    return self._activeGatherCfg[id];
+    return self._configActiveGather[id]
 end
 
 --加载每日签到配置

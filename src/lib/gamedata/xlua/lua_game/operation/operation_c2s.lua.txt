@@ -394,7 +394,7 @@ function Operation:ChargedBagByIdRep(id,num,dorps)
         else
             self._boughtBags[id]  = self._boughtBags[id] + num;
         end
-        GEvent:fireEventByEvt(EVENT_TYPE.SCRIPT_ACTION,EVENT_NAME.BUY_UPGRADE_PACKAGE_REP,dorps);
+        GEvent:fireEvent(EVENT_NAME.BUY_UPGRADE_PACKAGE_REP,dorps);
     elseif(cfg.itype == Recharge.ChargeType.Limit)then
         if(self._boughtBags[id] == nil)then
             self._boughtBags[id] = num;

@@ -6,12 +6,12 @@
 --- 升级礼包
 
 local CBaseLayer = core.require("xlua/lua_UI/UIBaseLayer.txt")
-local UpgradePackageLayer = class("UpgradePackageLayer", CBaseLayer)
+local LevelAwardLayer = class("LevelAwardLayer", CBaseLayer)
 --构造函数
-function UpgradePackageLayer:ctor(super,parent)
+function LevelAwardLayer:ctor(super, parent)
     CBaseLayer.ctor(self)
     self._prefab = {
-        path = "prefab_uiOperation/UI_UpgradePackageLayer",
+        path = "prefab_uiOperation/UI_LevelAwardLayer",
         trans = parent,
         obj = true
     }
@@ -21,16 +21,14 @@ end
 
 
 --进入Ui调用一次
-function UpgradePackageLayer:onEnter()
+function LevelAwardLayer:onEnter()
     self:createPnl();
     self:RegisterHandler();
     self:Init();
-    Activity:SetEnterUpgradePackageLayer()
-    GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE)
 end
 
 --初始化
-function UpgradePackageLayer:Init()
+function LevelAwardLayer:Init()
     self.allData = Operation:GetChargeIdsByUID(Activity:GetCurSelectUid(),true);
     self.curIndex = 1;
     self.items = {};
@@ -39,25 +37,14 @@ function UpgradePackageLayer:Init()
     self.MGroup = self.layer:Get("package_info/MGroup"):GetComponent("MGroup");
     self.buyItemPrefab = self.layer:Get("item_hide/buy_item").gameObject;
 
-    self.buyBtn = self.layer:GetButtonComponent("package_info/buy_btn");
     self.leftBtn = self.layer:GetButtonComponent("package_info/left_btn");
     self.rightBtn = self.layer:GetButtonComponent("package_info/right_btn");
 
-    self._transDiscountBg = self.buyBtn.transform:Get("img_discount_bg");
 
-    self.rmgTxt = self.buyBtn.transform:GetTextComponent("rmb_txt");
     self.lvScantyTxt = self.layer:GetTextComponent("package_info/lv_scanty_txt");
-    self.yetBuyTxt = self.layer:GetTextComponent("package_info/yet_buy_txt");
-    self._txtDiscount = self.buyBtn.transform:GetTextComponent("img_discount_bg/txt_discount");
-    self._txtBuyTitle = self.buyBtn.transform:GetTextComponent("txt_buy_title");
 
-    self.imgRmbIcon = self.rmgTxt.transform:GetImageComponent("img_icon");
     self.leftBtnImg = self.layer:GetImageComponent("package_info/left_btn/icon");
     self.rightBtnImg = self.layer:GetImageComponent("package_info/right_btn/icon");
-
-    self.buyBtn.onClick:AddListener(function ()
-        self:OnBuyBtnClick();
-    end);
 
     self.MGroup.SelectAction = function ()
         self:CutPackage()
@@ -69,11 +56,17 @@ function UpgradePackageLayer:Init()
     for i, v in ipairs(self.allData) do
         if(self.packageItems[i] == nil)then
             self.packageItems[i] = {};
+            self.packageItems[i].imgBg = self.MGroup.transform:GetImageComponent(i);
+            self.packageItems[i].imgRBBg = self.MGroup.transform:GetImageComponent(i.."/img_r_bg");
             self.packageItems[i].pagTitleTxt = self.MGroup.transform:GetTextComponent(i.."/title_txt");
             self.packageItems[i].pagTitleTxt_E = self.packageItems[i].pagTitleTxt.transform:GetTextComponent("title_txt_E");
             self.packageItems[i].yetBuyImg = self.MGroup.transform:Get(i.."/yet_buy_img");
             self.packageItems[i].txtLv = self.MGroup.transform:GetTextComponent(i.."/txt_lv");
             self.packageItems[i].imgLock = self.MGroup.transform:GetImageComponent(i.."/img_lock");
+            self.packageItems[i].btnGet = self.MGroup.transform:GetButtonComponent(i.."/btn_get");
+            self.packageItems[i].btnGet.onClick:AddListener(function ()
+                self:OnBuyBtnClick(self.packageItems[i].chargeId);
+            end);
             self.packageItems[i].items = {};
             if(self.boughtBags[v] == nil)then
                 self.packageItems[i].yetBuyImg:SetVisible(false);
@@ -86,30 +79,27 @@ function UpgradePackageLayer:Init()
 end
 
 --显示UI
-function UpgradePackageLayer:show()
+function LevelAwardLayer:show()
     self:showLayer();
     self:InitUI();
 end
 
-function UpgradePackageLayer:showLayer()
+function LevelAwardLayer:showLayer()
     CBaseLayer.showLayer(self);
     self.layer:SetPositionY(0,true);
 end
 
-function UpgradePackageLayer:hideLayer()
+function LevelAwardLayer:hideLayer()
     CBaseLayer.hideLayer(self);
     self.layer:SetPositionY(5000,true);
 end
 
 --初始化UI
-function UpgradePackageLayer:InitUI()
-    if(Operation.isSetUpLvRed)then
-        Operation:SetIsSetUpLvRed(false);
-        GEvent:fireEvent(EVENT_NAME.UPDATE_OPER_TOG_STATE);
-    end
+function LevelAwardLayer:InitUI()
     local charge;
     for i, v in ipairs(self.allData) do
         charge = Recharge:GetData(v);
+        self.packageItems[i].chargeId = v;
         for l, j in ipairs(charge.goods) do
             if(self.packageItems[i].items[l] == nil)then
                 local trans = CS.UnityEngine.GameObject.Instantiate(self.buyItemPrefab ,self.layer:Get("package_info/MGroup/"..i.."/content"));
@@ -127,6 +117,20 @@ function UpgradePackageLayer:InitUI()
             end
         end
         local showLock = Player:GetLevel() < charge.openData[1][2];
+        self.packageItems[i].btnGet:SetVisible(self.boughtBags[v] == nil and not showLock);
+        if(self.boughtBags[v] == nil and not showLock)then--可领取
+            self.packageItems[i].imgBg:LoadAtlasSprite(AtlasMgr.Activity,"Img_sjfl_diban");
+            self.packageItems[i].txtLv:SetTextColor(0,0,0,1);
+            self.packageItems[i].pagTitleTxt:SetTextColor(0,0,0,1);
+            self.packageItems[i].pagTitleTxt_E:SetTextColor(30/255,30/255,30/255,1);
+            self.packageItems[i].imgRBBg:SetImageColor(1,1,1,1);
+        else
+            self.packageItems[i].imgBg:LoadAtlasSprite(AtlasMgr.Activity,"Img_sjfl_dihei");
+            self.packageItems[i].txtLv:SetTextColor(1,1,1,1);
+            self.packageItems[i].pagTitleTxt:SetTextColor(1,1,1,1);
+            self.packageItems[i].pagTitleTxt_E:SetTextColor(144/255,144/255,144/255,1);
+            self.packageItems[i].imgRBBg:SetImageColor(0,0,0,150/255);
+        end
         self.packageItems[i].imgLock:SetEnabled(showLock);
         self.packageItems[i].pagTitleTxt.text = charge.name;
         self.packageItems[i].pagTitleTxt_E.text = charge.name_E;
@@ -135,7 +139,7 @@ function UpgradePackageLayer:InitUI()
 end
 
 --切换礼包事件
-function UpgradePackageLayer:CutPackage()
+function LevelAwardLayer:CutPackage()
     self.curIndex = self.MGroup.m_CurrentSelectIndex + 1;
     if(self.curIndex == 1)then
         if(self.leftBtnImg.enabled)then
@@ -167,52 +171,36 @@ function UpgradePackageLayer:CutPackage()
     end
 
     local useData = Recharge:GetData(self.allData[self.curIndex]);
-    self.buyBtn.transform:SetVisible(self.boughtBags[useData.cfgid] == nil);
-    self.yetBuyTxt:SetEnabled(self.boughtBags[useData.cfgid] ~= nil);
     if(self.boughtBags[useData.cfgid] == nil)then
         local onBuy = Player:GetLevel() >= useData.openData[1][2];
         self.lvScantyTxt:SetEnabled(not onBuy);
-        self._transDiscountBg:SetVisible(useData.discount < 1 and onBuy);
-        self.buyBtn.interactable = onBuy;
-        self.rmgTxt:SetText(tostring(math.ceil(useData.price * useData.discount)));
-        self.imgRmbIcon.sprite = Item:LoadSprite(useData.priceId);
         if(onBuy)then
             if(useData.discount < 1)then
                 self._txtDiscount:SetText(string.format(LanguageMgr:GetTextByID(90366), tostring((useData.discount * 10))));
             end
-            self._txtBuyTitle:SetTextById(90013);
         else
             self.lvScantyTxt.text = string.format(LanguageMgr:GetTextByID(90071), useData.openData[1][2]);
-            self._txtBuyTitle:SetTextById(31112);
-        end
-        if(self.packageItems[self.curIndex] ~= nil)then
-            self.packageItems[self.curIndex].yetBuyImg:SetVisible(false);
         end
     else
-        self._transDiscountBg:SetVisible(false);
-        self.lvScantyTxt:SetEnabled(false);
-        if(self.packageItems[self.curIndex] ~= nil)then
-            self.packageItems[self.curIndex].yetBuyImg:SetVisible(true);
-        end
+        self.lvScantyTxt:SetEnabled(true);
+        self.lvScantyTxt:SetText(LanguageMgr:GetTextByID(90069));
     end
 end
 
-function UpgradePackageLayer:OnBuyBtnClick()
-    Recharge:SetCurSelectGiftPagId(self.allData[self.curIndex]);
-    Recharge:OpenBuyTipsLayer();
-end
-
-function UpgradePackageLayer:hide()
-    self:hideLayer();
-    --print("隐藏UI","UpgradePackageLayer");
+function LevelAwardLayer:OnBuyBtnClick(chargeId)
+    Recharge:SetCurSelectGiftPagId(chargeId);
+    Operation:SendMessage(Operation:GetCurSelectUID(),{id = chargeId, num = 1})
 end
 
 
 --注册
-function UpgradePackageLayer:RegisterHandler()
+function LevelAwardLayer:RegisterHandler()
     self:addEventListener(EVENT_NAME.BUY_UPGRADE_PACKAGE_REP,self.__cname,function(drops)
         Bag:ShowDrops(drops,function()
             self.boughtBags = Operation:GetBoughtBags();
+            if(self.packageItems[self.curIndex] ~= nil)then
+                self.packageItems[self.curIndex].yetBuyImg:SetVisible(self.boughtBags[self.allData[self.curIndex]] ~= nil);
+            end
             self.curIndex = Operation:GetValidUpgradePackageIndex(Activity:GetCurSelectUid());
             self:show();
             self.MGroup:ChangeToIndex(self.curIndex - 1);--C#数组下标从0开始,故要减一
@@ -222,8 +210,8 @@ function UpgradePackageLayer:RegisterHandler()
 end
 
 
-function UpgradePackageLayer:onBackClick()
+function LevelAwardLayer:onBackClick()
     self:onPopLayer();
 end
 
-return UpgradePackageLayer;
+return LevelAwardLayer;

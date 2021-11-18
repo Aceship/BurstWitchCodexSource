@@ -108,7 +108,7 @@ function ComNewShopLayer:onUnitCellCtor(transform)
         cls.img_mask        = obj:GetImageComponent("img_mask")
         cls.obj_is_get      = obj:Get("img_is_get")
         cls.obj_open        = obj:Get("obj_open")
-        cls.imgTagNew       = obj:GetImageComponent("img_tag_new")
+        cls.transTagNew     = obj:Get("spine_title_new")
         cls.txt_open        = obj:GetTextComponent("obj_open/txt_open_value")
         cls.btn_click       = obj:GetComponent("Button")
         cls.cfgId           = 0
@@ -153,18 +153,28 @@ function ComNewShopLayer:refreshOneBuyObj(obj)
         end
     end
      obj.img_icon:LoadSprite(_config.icon)
+    local bgPath = "";
     if _config.bgPath[2] ~= obj.bgPath and _config.bgPath ~= -1 then
         if tonumber(_config.bgPath[1]) == Recharge.GiftBgImage then
             obj.img_bg:SetEnabled(true);
-            obj.img_bg:LoadAtlasSprite("source_atlas/atlas_operation", _config.bgPath)
+            bgPath = _config.bgPath;
+            obj.img_bg:LoadAtlasSprite("source_atlas/atlas_operation",bgPath)
         elseif tonumber(_config.bgPath[1]) == Recharge.GiftBgSpine then
             obj.img_bg:SetEnabled(false);
             if(obj.spineBorder ~= nil)then
                 obj.spineBorder:Release();
             end
-            obj.spineBorder = obj.img_bg.transform:CreateChild(string.format("prefab_item_spine/%s",_config.bgPath[2]));
+            bgPath = string.format("prefab_item_spine/%s",_config.bgPath[2]);
+            obj.spineBorder = obj.img_bg.transform:CreateChild(bgPath);
+            if(obj.newSpine ~= nil)then
+                obj.newSpine:SetVisible(_config.isNew > 0);
+            else
+                if(_config.isNew > 0)then
+                    obj.newSpine = obj.transform:CreateChild(string.format("prefab_item_spine/%s_%s",_config.bgPath[2],"new"));
+                end
+            end
         end
-        obj.bgPath = _config.bgPath[2]
+        obj.bgPath = bgPath;
     end
     obj.txt_name:SetText(_config.name)
 
@@ -272,7 +282,7 @@ function ComNewShopLayer:refreshOneBuyObj(obj)
     -- 设置角标
     Operation:SetCursorTag(obj.img_tag, obj.txt_tag, _config.tag, strTag)
 
-    obj.imgTagNew:SetEnabled(_config.isNew > 0);
+    obj.transTagNew:SetVisible(_config.isNew > 0);
 end
 
 --倒计时更新

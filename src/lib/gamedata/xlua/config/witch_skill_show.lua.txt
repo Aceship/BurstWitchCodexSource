@@ -549,6 +549,18 @@ local _configs = {
     [544] = {544, 10230302, 10470722, 102303, 5, 80102301, "event:/FightEffect/witch_skill_mustXlsx-102303-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-102303-HitSound", -1, 20470724, 1431},
     [545] = {545, 10230302, 10470722, 102303, 6, 80102301, "event:/FightEffect/witch_skill_mustXlsx-102303-10-6-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-102303-10-6-HitSound", -1, 20470725, 1432},
     [546] = {546, 10235302, 10470722, 102353, 6, 80102301, "event:/FightEffect/witch_skill_mustXlsx-102353-11-6-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-102353-11-6-HitSound", -1, 20470725, 1433},
+    [547] = {547, 10080101, 10470274, 100801, 1, 4002, "event:/FightEffect/witch_skill_barrage-100801-PlaySound", "event:/FightEffect/witch_skill_barrage-100801-HitSound", -1, 20470274, 1275},
+    [548] = {548, 10080201, 10470275, 100802, 1, 667008, "event:/FightEffect/witch_skill_barrage-100801-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100303-HitSound", -1, 20470275, 1276},
+    [549] = {549, 10084101, 10470274, 100801, 1, 4002, "event:/FightEffect/witch_skill_barrage-100801-PlaySound", "event:/FightEffect/witch_skill_barrage-100801-HitSound", -1, 20470274, 1277},
+    [550] = {550, 10080301, 10470290, 100803, 1, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", -1, 20470290, 1278},
+    [551] = {551, 10080301, 10470290, 100803, 2, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", -1, 20470290, 1279},
+    [552] = {552, 10080301, 10470290, 100803, 3, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", -1, 20470291, 1280},
+    [553] = {553, 10080301, 10470290, 100803, 4, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-10-4-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-10-4-HitSound", -1, 20470291, 1281},
+    [554] = {554, 10080301, 10470290, 100803, 5, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-10-5-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-10-5-HitSound", -1, 20470293, 1282},
+    [555] = {555, 10080301, 10470290, 100803, 6, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-10-6-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-10-6-HitSound", -1, 20470293, 1283},
+    [556] = {556, 10085301, 10470290, 100853, 1, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", 1008001, 20470290, 1284},
+    [557] = {557, 10085301, 10470290, 100853, 3, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", 1008001, 20470291, 1285},
+    [558] = {558, 10085401, 10470290, 100854, 5, 80100801, "event:/FightEffect/witch_skill_mustXlsx-100803-PlaySound", "event:/FightEffect/witch_skill_mustXlsx-100803-HitSound", -1, 20470293, 1286},
 }
 
 local _configKeys = {ID=1, id=2, skill_name=3, skill_icon=4, Skill_star=5, HitEffect=6, PlaySound=7, HitSound=8, screenEffect_Play=9, SkillInfo=10, PlaySound_id=11, }

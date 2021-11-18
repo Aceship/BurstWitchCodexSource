@@ -4,7 +4,6 @@ function Operation:Ctor()
     self._operation = {}
     self.isSetUpLvRed = false;
     self._timeLimitRed = true;
-    self._homeActivityCfg = {};
     self._lastBloodCycleLv = 0;
     Operation:InitData();
 end
@@ -265,7 +264,7 @@ function Operation:GetCurChargeIds()
     return self:GetChargeIdsByUID(self:GetCurSelectUID());
 end
 
-function Operation:GetChargeIdsByUID(uid)
+function Operation:GetChargeIdsByUID(uid,all)
     if(uid == nil)then
         return;
     end
@@ -283,6 +282,10 @@ function Operation:GetChargeIdsByUID(uid)
             if(charge.stock > 0)then--礼包是否卖完
                 if(charge.stock - buyNum > 0)then
                     isOpen = true;
+                else
+                    if(all)then
+                        isOpen = true;
+                    end
                 end
             else
                 isOpen = true;
@@ -321,22 +324,24 @@ function Operation:GetChargeIdsByUID(uid)
     return retIds;
 end
 
-function Operation:GetValidUpgradePackageIndex()
+function Operation:GetValidUpgradePackageIndex(uid)
     local retIndex,playerLv = 1,Player:GetLevel();
-    local allData = Recharge:GetAllDataByType(Recharge.ChargeType.UpgradePackage);
+    local allIds = Operation:GetChargeIdsByUID(uid,true);
     local serverData = Operation:GetBoughtBags();
     local hasNil = false
-    for i, v in ipairs(allData) do
-        if(v.openData ~= -1)then
+    local charge;
+    for i, v in ipairs(allIds) do
+        charge = Recharge:GetData(v);
+        if(charge.openData ~= -1)then
             -- if(playerLv >= v.openData[1][2])then
-                if(serverData[v.cfgid] == nil)then
+                if(serverData[charge.cfgid] == nil)then
                     retIndex = i;
                     hasNil = true
                     break;
                 end
             -- end
         else
-            if(serverData[v.cfgid] == nil)then
+            if(serverData[charge.cfgid] == nil)then
                 retIndex = i;
                 hasNil = true
                 break;
@@ -344,7 +349,7 @@ function Operation:GetValidUpgradePackageIndex()
         end
     end
     if not hasNil then
-        retIndex = #allData
+        retIndex = #allIds
     end
     return retIndex;
 end

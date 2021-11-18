@@ -552,7 +552,7 @@ function Concert:GetRewardItemsByHallId(hallId,bookId)
     local book = self:GetConcertBookById(bookId)
     local heros = self:GetFightingHerosByHall(hall);
 
-    local endDropId = 0
+    local endDropId = book.endDropId;
     local baseDropId = book.baseDropId;
 
     local showUnit = self:GetRemainShowUnitFloor(hall.stime,book.duration)--self:GetRemainShowUnit(hall.stime,book.duration) --演奏了多少个单位时间
@@ -561,12 +561,12 @@ function Concert:GetRewardItemsByHallId(hallId,bookId)
 
     --print("奖励系数   ：  "..rightRate.."  :  演奏单位时间个数  ：  "..showUnit)
 
-    local remainTime = self:GetRemainSeconds(hall.stime,book.duration)
-    if remainTime >=0 and remainTime < Concert.RewardLastTime then --最后5分钟
-        --showUnit = showUnit + 1
-        endDropId = book.endDropId;
-        print("最后5分钟，掉落id  ： "..endDropId)
-    end
+    -- local remainTime = self:GetRemainSeconds(hall.stime,book.duration)
+    -- if remainTime >=0 and remainTime < Concert.RewardLastTime then --最后5分钟
+    --     --showUnit = showUnit + 1
+    --     endDropId = book.endDropId;
+    --     print("最后5分钟，掉落id  ： "..endDropId)
+    -- end
 
     --相同掉落重复 n 次
     local dropItems = Item:GetDrops(baseDropId)
@@ -575,10 +575,10 @@ function Concert:GetRewardItemsByHallId(hallId,bookId)
     if endDropId > 0 then
         dropItems =  Item:GetDrops(endDropId)
         --额外掉落
-        local endDrops = self:ComposeCountToItems(dropItems,1,rightRate)
-        self:ComposeItemsToItems(endDrops,result)
+        --local endDrops = self:ComposeCountToItems(dropItems,1,1)
+        self:ComposeItemsToItems(dropItems,result)
     end
-    return result
+    return result;
 end
 
 

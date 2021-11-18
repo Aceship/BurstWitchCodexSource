@@ -18,6 +18,7 @@ local HOME_BUTTON_TYPE = {
     TYPE_LOTTERY    = 5,    -- 召唤
     TYPE_WELFARE    = 11,   -- 商城
     TYPE_NEWERTASK  = 14,   -- 暮光礼赞
+    TYPE_WENQUAN    = 15,   -- 温泉冬榳
     TYPE_AUTH       = 18,   -- 实名认证
     TYPE_WITCH_BOOK = 19,   --魔女手册
     TYPE_GRID       = 21,   -- 棋盘活动
@@ -385,6 +386,9 @@ function HomeLayer:registerButtonEvent()
             name = "btn_right/Home_ButtonNewerTask",
             sysid = Player.SYS_FUNC.sys_newer_task,
         },
+        [HOME_BUTTON_TYPE.TYPE_WENQUAN] = {
+            name = "btn_right/Home_ButtonWenQuan",
+        },
         [HOME_BUTTON_TYPE.TYPE_AUTH] = {
             name = "Obj_Buttons_2/Viewport/Content/Home_ButtonAuth",
         },
@@ -479,8 +483,10 @@ function HomeLayer:onButtonClick(itype)
         -- self._fading = true
         -- uimgr:ShowInterimLayer(CTime.delayTime,function ()
         --     self._fading = false
-        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW)
+        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW, nil, Task.NEWER_TASK_UI)
         -- end)
+    elseif itype == HOME_BUTTON_TYPE.TYPE_WENQUAN then
+        Task:OpenTaskUi(Task.UI_TYPE_TASK_NEW, nil, Task.WEN_QUAN_UI)
     elseif itype == HOME_BUTTON_TYPE.TYPE_QUEST then
         Groble_SceneMgr:OpenUrl("https://wj.qq.com/s2/5212830/723f")
     elseif itype == HOME_BUTTON_TYPE.TYPE_AUTH then
@@ -584,6 +590,7 @@ function HomeLayer:onUpdateFunc()
     self:checkTriggerPackage()
     self:onUpdateRedTips()
     self:UpdateSixthSealButtonShow()
+    self:UpdateTaskButtonShow(HOME_BUTTON_TYPE.TYPE_WENQUAN, Task.WEN_QUAN_UI)
 end
 function HomeLayer:UpdateSixthSealButtonShow() --第六封印活动按钮是否开启
     if Activity:IsSixthSealStartState() then
@@ -592,11 +599,30 @@ function HomeLayer:UpdateSixthSealButtonShow() --第六封印活动按钮是否�
         self.buttons[HOME_BUTTON_TYPE.TYPE_Sixth_Seal].obj:SetVisible(false)
     end
 end
+function HomeLayer:UpdateTaskButtonShow(homelayer_id ,questid) --温泉活动按钮是否开启
+    local obj = self.buttons[homelayer_id].obj
+    local flg = Task:TaskIsOpen(questid)
+    obj:SetVisible(flg)
+    if(flg) then
+        local activity = Activity:GetActivityByUId(questid)
+        obj:GetTextComponent("label_title").text = activity.info.Name
+        obj:GetTextComponent("label_title_en").text = activity.info.EnglishName
+        local remain = Task:TaskRemainTime(questid)
+        local day = math.floor(remain / CTime.DAY_SEC);
+        obj:GetTextComponent("txt_time").text = string.format(LanguageMgr:GetTextByID(50027),day);
+    end
+end
 function HomeLayer:onUpdateRedTips()
+    local questUiData_MuGuang = Task:GetQuestUI(Task.NEWER_TASK_UI)
+    local questUiData_WenQuan = Task:GetQuestUI(Task.WEN_QUAN_UI)
     local checks = {
         {
             button = HOME_BUTTON_TYPE.TYPE_NEWERTASK,
-            bshow = Task:GetNewerTaskRedTips()
+            bshow = Task:GetNewerTaskRedTips(questUiData_MuGuang.id, questUiData_MuGuang.MainQuestid, questUiData_MuGuang.DaliyQuestid)
+        },
+        {
+            button = HOME_BUTTON_TYPE.TYPE_WENQUAN,
+            bshow = Task:GetNewerTaskRedTips(questUiData_WenQuan.id, questUiData_WenQuan.MainQuestid, questUiData_WenQuan.DaliyQuestid)
         },
         {
             button = HOME_BUTTON_TYPE.TYPE_TASK,
@@ -706,6 +732,11 @@ function HomeLayer:RegisterHandler()
             if timeData.id == Player:GetWarmUpActivityTimeID() or Activity:IsSixthSealStartState() then
                 self:UpdateSixthSealButtonShow()
                 self:SetActivityLevelTimeAndEffectAndSprite()
+            end
+
+            local activity = Activity:GetActivityByUId(Task.WEN_QUAN_UI)
+            if tonumber(timeData.id) == tonumber(activity.info.Time) then
+                self:UpdateTaskButtonShow(HOME_BUTTON_TYPE.TYPE_WENQUAN, Task.WEN_QUAN_UI)
             end
         end)
 end

@@ -3976,6 +3976,85 @@ Hero.SPINE_INFO[10060002] = {
         localScale  = Vector3(0.8, 0.8, 1),
     },
 }
+Hero.SPINE_INFO[10080002] = {
+    [1] = {
+        localPos    = Vector3(161, -880, 0),
+        localScale  = Vector3(130, 130, 130),
+    },
+    [2] = {
+        localPos    = Vector3(182, -701, 0),
+        localScale  = Vector3(103, 103, 100),
+    },
+    [4] = {
+        localPos    = Vector3(10, -622, 0),
+        localScale  = Vector3(103, 103, 103),
+    },
+    [5] = {
+        localPos    = Vector3(-385, -543, 0),
+        localScale  = Vector3(113, 113, 113),
+    },
+    [6] = {
+        localPos    = Vector3(7, -509, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+    [11] = {
+        localPos    = Vector3(128, -67, 0),
+        localScale  = Vector3(70, 70, 60),
+        sysScale    = 0.5,
+    },
+    [12] = {
+        localPos    = Vector3(-280, -847, 0),
+        localScale  = Vector3(90, 90, 90),
+    },
+    [13] = {
+        localPos    = Vector3(7, -509, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+    [14] = {
+        localPos    = Vector3(-280, -580, 0),
+        localScale  = Vector3(95, 95, 90),
+    },
+    [15] = {
+        localPos    = Vector3(-162, -315, 0),
+        localScale  = Vector3(85, 85, 100),
+    },
+    [16] = {
+        localPos    = Vector3(-260, -692, 0),
+        localScale  = Vector3(100, 100, 100),
+    },
+    [17] = {
+        localPos    = Vector3(7, -509, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+    [18] = {
+        localPos    = Vector3(-349, -658, 0),
+        localScale  = Vector3(103, 103, 103),
+    },
+    [19] = {
+        localPos    = Vector3(-285, -616, 0),
+        localScale  = Vector3(120, 120, 100),
+    },
+    [20] = {
+        localPos    = Vector3(7, -715, 0),
+        localScale  = Vector3(103, 103, 103),
+    },
+    [22] = {
+        localPos    = Vector3(7, -509, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+    [23] = {
+        localPos    = Vector3(7, -307, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+    [24] = {
+        localPos    = Vector3(-25, 2124, 0),
+        localScale  = Vector3(1, 1, 1),
+    },
+    [25] = {
+        localPos    = Vector3(7, -509, 0),
+        localScale  = Vector3(101, 101, 101),
+    },
+}
 Hero.SPINE_INFO[10090002] = {
     [1] = {
         localPos = Vector3(100, -890, 0),

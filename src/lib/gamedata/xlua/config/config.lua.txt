@@ -7,6 +7,8 @@ Config = Config or {}
 
 AssetLoader:LoadLuaAsset("xlua/config/active_sixthmaintype.txt")
 AssetLoader:LoadLuaAsset("xlua/config/active_triggerad.txt")
+AssetLoader:LoadLuaAsset("xlua/config/activegather.txt")
 AssetLoader:LoadLuaAsset("xlua/config/dropitem.txt")
 AssetLoader:LoadLuaAsset("xlua/config/questall.txt")
 AssetLoader:LoadLuaAsset("xlua/config/timedrop.txt")
+AssetLoader:LoadLuaAsset("xlua/config/activequest_ui.txt")

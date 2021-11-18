@@ -92,8 +92,16 @@ function ConcertHallNode:FlushHallState()
     local iconPath = "source_icon_new/concert/"..book.icon;
     self._texCdIcon.texture = AssetLoader:LoadTexture(iconPath);
 
+    local heros = {};
+    local tmpData = nil;
+    for key, value in ipairs(data.heroIds) do
+        tmpData = {};
+        tmpData.heroId = value;
+        tmpData.musical = book.musicalPos[key];
+        heros[key] = tmpData;
+    end
     --GetRewardItemsByBookId
-    local bonusArray = Concert:GetRewardItemsByHallId(self._curHallId,book.id);
+    local bonusArray = Concert:GetRewardItemsByHeros(heros,book,data.itemId);
     self:FlushBonusItems(bonusArray);
     self:FlushCurCDShow();
     self:FlushCdPlayState();

@@ -74,6 +74,7 @@ function LevelLayer:onEnter()
         end)
     self:addEventListener(EVENT_TYPE.UPDATE_CURRENCY, self.__cname, function()
         self:_onUpdateCurrency()
+        self:setRemain()
     end)
 
     Chapter:InitTeamPrefab(self.layer:Get("info_self"), {{-380, 0}, {-190, 0}, {-5, 0}})
@@ -662,10 +663,7 @@ function LevelLayer:onSweep()
         UIMgr:ShowTipsLayer(LanguageMgr:GetTextByID(3009042))
         return
     else
-        core.require("xlua/lua_UI/HomeScene/SweepMainLayer.txt"):new():show(self._level.id,
-            function () 
-                self:onPopLayer()
-            end, self._teamHeroIds)
+        core.require("xlua/lua_UI/HomeScene/SweepMainLayer.txt"):new():show(self._level.id,nil, self._teamHeroIds)
     end
 end
 

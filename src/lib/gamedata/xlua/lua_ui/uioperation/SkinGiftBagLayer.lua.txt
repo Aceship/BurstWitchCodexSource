@@ -313,9 +313,6 @@ end
 function SkinGiftBagLayer:SetAwardItem(cls,index)
     cls.index = index;
     local dropId = self._dropCfg.dropIds[index];
-    cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
-    cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_1");
-    cls.txtDayTitle:SetTextColor(90/255,95/255,103/255,1)
     local drops = Item:GetDrops(dropId);
     for i = 1, MaxItemNum do
         cls.items[i]:Visible(drops[i] ~= nil);
@@ -327,18 +324,30 @@ function SkinGiftBagLayer:SetAwardItem(cls,index)
 end
 
 function SkinGiftBagLayer:UpdateAwardItemState(cls)
-    if(cls.index <= self._getNum or self._giftState == Recharge.RepeatState.GetOver)then--可领取或已领取
+    if(self._giftState ~= Recharge.RepeatState.UnBuy)then--可领取或已领取
         if(cls.index <= self._getPos or self._giftState == Recharge.RepeatState.GetOver)then--已领取
             cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
             cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_3");
             cls.imgNum:SetImageColor(1,1,1,100/255);
             cls.txtDayTitle:SetTextColor(127/255,136/255,149/255,1);
         else
-            cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_get_0%s",cls.index));
-            cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_2");
-            cls.imgNum:SetImageColor(1,1,1,1);
-            cls.txtDayTitle:SetTextColor(1,1,1,1);
+            if(cls.index <= self._getNum)then
+                cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_get_0%s",cls.index));
+                cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_2");
+                cls.imgNum:SetImageColor(1,1,1,1);
+                cls.txtDayTitle:SetTextColor(1,1,1,1);
+            else
+                cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
+                cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_1");
+                cls.imgNum:SetImageColor(1,1,1,1);
+                cls.txtDayTitle:SetTextColor(90/255,95/255,103/255,1)
+            end
         end
+    else
+        cls.imgNum:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", string.format("img_liuyuan_libao_yitian_0%s",cls.index));
+        cls.imgBg:LoadAtlasSprite("source_atlas/atlas_skin_gift_bag_layer", "img_hzh_1");
+        cls.imgNum:SetImageColor(1,1,1,1);
+        cls.txtDayTitle:SetTextColor(90/255,95/255,103/255,1)
     end
     for i = 1, MaxItemNum do
         if(cls.items[i].id > 0)then

@@ -16,10 +16,10 @@ end
 -- 
 -- brief: 是否存在可以购买的等级礼包
 -- 
-function Activity:IsExistCanBuyUpgradePackage()
+function Activity:IsExistCanBuyUpgradePackage(uid)
     local _rst = false
     local _level = Player:GetLevel()
-    local _ids = Recharge:GetRechargeIdsByType(Recharge.ChargeType.UpgradePackage)
+    local _ids = Operation:GetChargeIdsByUID(uid,true)
     local _cfg, _cnt = nil, 0
     for i, id in ipairs(_ids) do
         _cfg = Recharge:GetData(id)
@@ -40,6 +40,6 @@ function Activity:IsExistCanBuyUpgradePackage()
 end
 
 function Activity:IsUpgradePackageTips()
-    return (not self._enterActivityUpgradeLayer) and self:IsExistCanBuyUpgradePackage()
+    return (not self._enterActivityUpgradeLayer) and self:IsExistCanBuyUpgradePackage(Operation.ActivityID.UpgradePackage)
 end
 
